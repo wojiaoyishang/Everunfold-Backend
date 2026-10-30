@@ -13,6 +13,7 @@ from app.modules.content.schemas import (
     ContentDetail,
     ContentKind,
     ContentSummary,
+    ErrorResponse,
     Page,
     PublicComment,
     PublicResponse,
@@ -22,7 +23,16 @@ from app.modules.content.schemas import (
 )
 from app.modules.content.service import PublicContentService
 
-router = APIRouter(prefix="/v1", tags=["public-content"])
+router = APIRouter(
+    prefix="/v1",
+    tags=["public-content"],
+    responses={
+        404: {"model": ErrorResponse, "description": "资源不存在或不允许公开访问"},
+        422: {"model": ErrorResponse, "description": "请求参数无效"},
+        503: {"model": ErrorResponse, "description": "配置、数据或依赖暂不可用"},
+        500: {"model": ErrorResponse, "description": "服务端处理失败"},
+    },
+)
 
 
 def runtime_from_request(request: Request) -> Runtime:

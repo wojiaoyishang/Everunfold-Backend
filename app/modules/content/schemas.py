@@ -1,7 +1,7 @@
 """Public DTOs. Fields are deliberately separate from private persistence models."""
 
 from datetime import datetime
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -18,6 +18,13 @@ class PublicResponse[T](PublicModel):
     code: int = 200
     msg: str = "请求成功"
     data: T
+
+
+class ErrorResponse(PublicModel):
+    success: Literal[False]
+    code: int
+    msg: str
+    data: Any = None
 
 
 class Page[T](PublicModel):
@@ -101,7 +108,7 @@ class PublicComment(PublicModel):
     id: str
     parent_id: str | None
     author: str
-    content: str
+    content: str = Field(description="纯文本，按文本展示，不再作为 HTML 解析")
     created_at: datetime
     reply_to: str | None = None
 
