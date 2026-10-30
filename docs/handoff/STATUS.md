@@ -4,6 +4,8 @@
 
 后续前台交互动效阶段：前端已接原 WebM 背景与持久壳软导航，目录/样式分责见 frontend-ui.md 和 ADR 0003；浏览器实际验收已完成。本轮后端代码/数据库/契约未变，未停止用户 8001 实例，原后端检查是公开阅读阶段证据而非本轮重跑。
 
+最新用户反馈要求先复刻原站体验：已完成原站浏览器对照，待实施清单见 [原站前台复刻审阅](original-site-ui-audit.md)。本次只更新审阅/交接文档；上阶段的功能验证不代表原站外观、滚动与加载中间态已通过复刻验收。
+
 ## 恢复上下文
 
 先读本页、[文档索引](../README.md)、[开发协议](../development/protocol.md)、[公开阅读运行指南](../development/public-reading.md) 和 [公开阅读验证](public-reading-verification.md)；前台最新交互见 [动效验证](frontend-motion-verification.md)。原始附件在 docs/baseline/，保留字节与哈希；ADR 0001 是历史初始化范围，当前采用 ADR 0002/0003。
