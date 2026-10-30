@@ -2,6 +2,11 @@
 
 后端是公开 API、WS 和内部事件契约的唯一权威发布者，前端从确定版本生成 TypeScript 类型与客户端并锁定版本。
 
-当前尚无业务契约发布。`/openapi.json` 只反映初始化应用的活性检查，不把它当作 `/v1/*` 已定稿契约，也不先手写虚构的客户端。后续在本目录按版本维护 OpenAPI、WS/ICP JSON Schema、错误码与兼容性说明；变更同时更新两仓库交接记录。
+当前公开阅读契约为 `0.1.0`：
+
+- `public-v0.1.schema.json`：完整公开快照的 JSON Schema（draft-07）。后端导出后由前端验证并读取；前端生成 TypeScript 类型，记录确定来源提交和 SHA256。
+- `public-openapi-v0.1.json`：由当前 FastAPI 公开业务路由导出的 OpenAPI，只包含 `/v1/*`；应用 `/openapi.json` 另包含诊断路由。重导出命令：`uv run --locked python -m tools.export_contracts`。
+
+这不是完整 WS/ICP/写业务契约。当前只有公开只读 API；正式协同、认证、可靠缓存回调和写操作须单独定义和验收。内部快照不通过未受保护的 HTTP 写接口接收；当前开发环境显式导出文件，见开发文档。
 
 路径边界：公开 `/v1/*`，后端内部 `/internal/v1/*`，前端接收 `/internal/cache/v1/*`，协同 `/ws/v1/collab/{draft_id}`。具体端点与消息 Schema 按基线继续设计。开发 `/api` 不进入后端 OpenAPI。

@@ -27,14 +27,14 @@ force-exclude = true
 select = ["E", "F", "I", "UP", "B", "SIM"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["tests", "tools/wordpress_import/tests"]
 pythonpath = ["."]
 addopts = "-ra"
 
 [tool.mypy]
 python_version = "3.12"
 strict = true
-files = ["app", "tests"]
+files = ["app", "tests", "tools"]
 
 [dependency-groups]
 dev = [
