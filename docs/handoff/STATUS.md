@@ -8,7 +8,9 @@
 
 ## 恢复上下文
 
-先读本页、[文档索引](../README.md)、[开发协议](../development/protocol.md)、[公开阅读运行指南](../development/public-reading.md) 和 [公开阅读验证](public-reading-verification.md)；前台最新交互见 [动效验证](frontend-motion-verification.md)。原始附件在 docs/baseline/，保留字节与哈希；ADR 0001 是历史初始化范围，当前采用 ADR 0002/0003/0004。
+最新前端修正：实际 Edge 的系统 reduce=true 曾关闭全部动画/视频/惯性。现按用户要求默认完整动效，保留跟随系统/减少动态选项；阅读设置改为不锁滚动的 popover，统一小数滚轮阻尼，并补齐侧栏/目录/折叠/图片/按钮的双向过渡。当前依据为 [ADR 0005](../decisions/0005-site-motion-policy.md) 与 [整站动效验证](frontend-global-motion-verification.md)，前述 ADR 0004 的部分细节已被替代。本后端仍仅同步文档，不把前端测试当作后端重新验收。
+
+先读本页、[文档索引](../README.md)、[开发协议](../development/protocol.md)、[公开阅读运行指南](../development/public-reading.md) 和 [公开阅读验证](public-reading-verification.md)；前台最新交互见整站动效验证。原始附件在 docs/baseline/，保留字节与哈希；ADR 0001 是历史初始化范围，当前采用 ADR 0002/0003/0004/0005。
 
 开始前检查 git status 与分支，保留协作者修改。**最新用户要求：按阶段本地提交，远程 push 由用户自行执行。** 后端本地端口为 **8001**，不要再占用其他项目的 8000。
 
