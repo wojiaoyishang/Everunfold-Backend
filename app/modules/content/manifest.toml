@@ -1,0 +1,4 @@
+id = "content"
+version = "0.1.0"
+router_entrypoint = "app.modules.content:router_init"
+dependencies = []

@@ -6,41 +6,47 @@ from datetime import UTC, datetime
 import pytest
 from fastapi.testclient import TestClient
 
+from app.core.config import Settings
 from app.core.responses import JSONResponseError, JSONResponseFail, JSONResponseSuccess
 from app.entrypoints.api import create_app
 
 
-def test_liveness_does_not_claim_readiness() -> None:
-    with TestClient(create_app()) as client:
+def test_liveness_does_not_claim_readiness(test_settings: Settings) -> None:
+    with TestClient(create_app(test_settings)) as client:
         response = client.get("/health/live")
         assert response.status_code == 200
         assert response.json() == {
             "success": True,
             "code": 200,
             "msg": "请求成功",
-            "data": {"status": "alive", "stage": "bootstrap"},
+            "data": {"status": "alive", "stage": "public-read"},
         }
-        assert client.get("/health/ready").status_code == 404
+        readiness = client.get("/health/ready")
+        assert readiness.status_code == 503
+        assert readiness.json()["data"]["checks"]["database"] == "unavailable"
+        assert client.get("/v1/site").status_code == 503
 
 
 @pytest.mark.parametrize("path", ["/missing", "/v1/articles", "/api/v1/articles"])
-def test_unimplemented_routes_are_not_fake_business_endpoints(path: str) -> None:
-    with TestClient(create_app()) as client:
+def test_unimplemented_routes_are_not_fake_business_endpoints(
+    path: str, test_settings: Settings
+) -> None:
+    with TestClient(create_app(test_settings)) as client:
         response = client.get(path)
         assert response.status_code == 404
         assert response.json() == {"success": False, "code": 404, "msg": "资源不存在"}
 
 
-def test_method_error_keeps_http_status_and_headers() -> None:
-    with TestClient(create_app()) as client:
+def test_method_error_keeps_http_status_and_headers(test_settings: Settings) -> None:
+    with TestClient(create_app(test_settings)) as client:
         response = client.post("/health/live")
         assert response.status_code == 405
         assert "GET" in response.headers["allow"]
         assert response.json()["code"] == 405
 
 
-def test_validation_and_server_error_responses_do_not_leak_input() -> None:
-    application = create_app()
+def test_validation_and_server_error_responses_do_not_leak_input(test_settings: Settings) -> None:
+    application = create_app(test_settings)
 
     @application.get("/test/validated")
     async def validated(value: int) -> dict[str, int]:

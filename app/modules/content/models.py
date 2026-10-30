@@ -58,7 +58,7 @@ class Taxonomy(Base):
     __tablename__ = "taxonomies"
     __table_args__ = (
         Unique("kind", "slug"),
-        Unique("kind", "source_id"),
+        Unique("kind", "source_id", name="uq_taxonomies_kind_source_id"),
         CheckConstraint("kind IN ('category', 'tag')", name="kind"),
     )
 

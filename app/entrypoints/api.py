@@ -1,27 +1,66 @@
-"""Bootstrap ASGI application. No database, worker or business API is initialized."""
+"""Read-only public API with explicit configuration and lifespan-owned connections."""
 
+import asyncio
 import logging
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy.exc import SQLAlchemyError
 from starlette.exceptions import HTTPException
 
+from app.core.config import ConfigurationError, Settings, load_settings
+from app.core.modules import register_content_module
 from app.core.responses import JSONResponseError, JSONResponseFail, JSONResponseSuccess
+from app.core.runtime import Runtime
 
 logger = logging.getLogger(__name__)
 
 
-def create_app() -> FastAPI:
+def create_app(settings: Settings | None = None) -> FastAPI:
+    resolved = settings
+    if resolved is None:
+        try:
+            resolved = load_settings()
+        except ConfigurationError:
+            # Keep liveness observable; invalid configuration cannot become ready or serve data.
+            logger.error("Application configuration is unavailable or invalid")
+
+    @asynccontextmanager
+    async def lifespan(application: FastAPI) -> AsyncIterator[None]:
+        runtime = Runtime.create(resolved) if resolved is not None else None
+        application.state.runtime = runtime
+        try:
+            yield
+        finally:
+            if runtime is not None:
+                await runtime.close()
+
     application = FastAPI(
         title="Everunfold Backend",
-        version="0.1.0",
-        description="初始化阶段：仅提供进程活性检查，业务契约尚未发布。",
+        version="0.2.0",
+        description="公开阅读 API；配置、显式迁移和公开导入与服务启动分离。",
+        lifespan=lifespan,
     )
+    application.add_middleware(
+        CORSMiddleware,
+        allow_origins=resolved.cors.allowed_origins if resolved else [],
+        allow_credentials=False,
+        allow_methods=["GET"],
+        allow_headers=["Accept", "Content-Type"],
+    )
+    register_content_module(application)
 
     @application.exception_handler(HTTPException)
     async def handle_http_error(request: Request, exc: HTTPException) -> JSONResponseFail:
-        # Do not expose arbitrary exception details or internal credentials.
-        messages = {404: "资源不存在", 405: "请求方法不允许"}
+        messages = {
+            404: "资源不存在",
+            405: "请求方法不允许",
+            422: "请求参数无效",
+            503: "服务暂不可用",
+        }
         return JSONResponseFail(
             msg=messages.get(exc.status_code, "请求被拒绝"),
             status_code=exc.status_code,
@@ -41,10 +80,57 @@ def create_app() -> FastAPI:
         logger.error("Unhandled request error: %s", type(exc).__name__)
         return JSONResponseError()
 
+    @application.exception_handler(OSError)
+    @application.exception_handler(SQLAlchemyError)
+    async def handle_storage_error(request: Request, exc: SQLAlchemyError) -> JSONResponseFail:
+        logger.error("Public storage unavailable: %s", type(exc).__name__)
+        return JSONResponseFail(msg="服务暂不可用", status_code=503)
+
     @application.get("/health/live", tags=["health"])
     async def live() -> JSONResponseSuccess:
-        """Report process liveness only, without claiming dependency readiness."""
-        return JSONResponseSuccess(data={"status": "alive", "stage": "bootstrap"})
+        return JSONResponseSuccess(data={"status": "alive", "stage": "public-read"})
+
+    @application.get("/health/ready", tags=["health"], response_model=None)
+    async def ready(request: Request) -> JSONResponseSuccess | JSONResponseFail:
+        runtime: Runtime | None = request.app.state.runtime
+        if runtime is None:
+            return JSONResponseFail(
+                status_code=503,
+                msg="服务暂不可用",
+                data={"status": "unavailable", "checks": {"configuration": "unavailable"}},
+            )
+        timeout = runtime.settings.runtime.health_check_timeout_seconds
+
+        async def database_check() -> str:
+            try:
+                await asyncio.wait_for(runtime.database.ping(), timeout)
+                return "ok"
+            except Exception:
+                return "unavailable"
+
+        async def redis_check() -> str:
+            try:
+                await asyncio.wait_for(runtime.redis.ping(), timeout)
+                return "ok"
+            except Exception:
+                return "unavailable"
+
+        async def schema_check() -> str:
+            try:
+                current = await asyncio.wait_for(runtime.database.schema_is_current(), timeout)
+                return "ok" if current else "unavailable"
+            except Exception:
+                return "unavailable"
+
+        database, redis, schema = await asyncio.gather(
+            database_check(), redis_check(), schema_check()
+        )
+        checks = {"database": database, "redis": redis, "schema": schema}
+        if all(value == "ok" for value in checks.values()):
+            return JSONResponseSuccess(data={"status": "ready", "checks": checks})
+        return JSONResponseFail(
+            status_code=503, msg="服务暂不可用", data={"status": "unavailable", "checks": checks}
+        )
 
     return application
 
