@@ -1,0 +1,74 @@
+# 规划模板：逐字提取自工程规范 v0.14 的完整示例代码块。
+# 当前初始化骨架尚未完整实现该 TOML 的显式加载、Schema 校验和各项功能。
+# 文件存在不表示参数生效；勿直接用于生产，不将其作为缺省回退配置。
+# 完整来源与原始 SHA256 见 docs/baseline/README.md。
+
+# everunfold-backend/config.example.toml
+# 配置结构示例：服务域名按部署替换，数据库与 Redis 地址为本地开发示例
+# 不设固定生产基地址；实际凭据通过部署配置或环境变量注入
+
+# 根级地址配置；不得放入某个无关的 TOML 分组中
+BACKEND_BASE_URL = "https://api.example.com"
+
+[project]
+key = "lovepikachu"            # 唯一项目标识，前缀根为 lovepikachu:
+
+[database]
+url = "postgresql+asyncpg://postgres:123456@localhost:5432/test"
+# 可由环境变量 DATABASE_URL 覆盖（上面仅为本地开发示例）
+
+[redis]
+url = "redis://127.0.0.1:6379/0"   # 项目临时 Key 与 Pub/Sub
+namespace_scope = ""          # 可选：dev / staging / prod；空值不加环境层
+
+[celery]
+broker_url = "redis://127.0.0.1:6379/1"
+result_backend_url = "redis://127.0.0.1:6379/2"  # 按需使用 Redis 结果后端
+
+# Next.js -> FastAPI：由 FastAPI 校验自己的入站内部请求
+[internal_auth]
+# 以下仅为本机联调；部署时填写校验入口实际观察到的来源 IP/CIDR
+allowed_peer_ips = ["127.0.0.1", "::1"]
+
+# 每个分组的键就是稳定节点 ID；地址与两个方向的 Token 引用集中配置
+# *_token_env 的值是环境变量名，不是 Token 本身；由服务端加载器读取密钥
+[frontends.web-main]
+base_url = "https://frontend-a.example.com"
+enabled = true                 # 是否参与后端定向投递
+# Next.js -> FastAPI：后端接收并校验
+nextjs_to_fastapi_token_env = "NEXTJS_TO_FASTAPI_WEB_MAIN_TOKEN"
+# FastAPI/Celery Worker -> Next.js：后端发送时使用
+fastapi_to_nextjs_token_env = "FASTAPI_TO_NEXTJS_WEB_MAIN_TOKEN"
+
+[frontends.web-mirror]
+base_url = "https://frontend-b.example.com"
+enabled = true
+nextjs_to_fastapi_token_env = "NEXTJS_TO_FASTAPI_WEB_MIRROR_TOKEN"
+fastapi_to_nextjs_token_env = "FASTAPI_TO_NEXTJS_WEB_MIRROR_TOKEN"
+
+# 以下为本轮补充的建议初值，待实现配置加载与压测
+[runtime]
+health_check_timeout_seconds = 2
+http_shutdown_grace_seconds = 30
+worker_shutdown_warn_after_seconds = 120  # 仅报警阈值，不代表可无损强杀
+
+[http]
+default_page_size = 20
+max_page_size = 100
+idempotency_retention_seconds = 86400
+
+[limits]
+json_body_max_bytes = 8388608
+upload_max_bytes = 33554432
+ws_update_max_bytes = 1048576
+ws_pending_max_bytes_per_connection = 4194304
+ws_auth_timeout_seconds = 5
+
+[outbox]
+poll_interval_seconds = 1
+batch_size = 50
+connect_timeout_seconds = 2
+request_timeout_seconds = 15
+max_attempts = 8
+retry_max_delay_seconds = 900
+lease_seconds = 60  # 投递租约，须大于单次受控投递时限

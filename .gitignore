@@ -1,0 +1,39 @@
+# Local environments, caches and IDE settings
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+.idea/
+.vscode/
+*.egg-info/
+build/
+dist/
+
+# Instance configuration and secrets (only examples belong in Git)
+config.toml
+config.*.local.toml
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Runtime data and original backup material
+var/
+logs/
+*.log
+*.sql
+*.sql.*
+*.dump
+*.bak
+wordpress-backup/
+wp-content/
+Thumbs.db
+.DS_Store
