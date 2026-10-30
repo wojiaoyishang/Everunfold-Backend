@@ -9,7 +9,7 @@
 # 不设固定生产基地址；实际凭据通过部署配置或环境变量注入
 
 # 根级地址配置；不得放入某个无关的 TOML 分组中
-BACKEND_BASE_URL = "http://127.0.0.1:8000"
+BACKEND_BASE_URL = "http://127.0.0.1:8001"
 
 [project]
 key = "lovepikachu"            # 唯一项目标识，前缀根为 lovepikachu:

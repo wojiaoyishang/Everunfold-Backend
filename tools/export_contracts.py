@@ -17,7 +17,9 @@ def export_openapi(output: Path) -> None:
     schema["x-everunfold-contract-version"] = "0.1.0"
     output.parent.mkdir(parents=True, exist_ok=True)
     staging = output.with_suffix(output.suffix + ".tmp")
-    staging.write_text(json.dumps(schema, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    staging.write_text(
+        json.dumps(schema, ensure_ascii=False, indent=2) + "\n", encoding="utf-8", newline="\n"
+    )
     staging.replace(output)
 
 
