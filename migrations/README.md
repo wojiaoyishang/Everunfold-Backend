@@ -5,8 +5,19 @@
 服务启动不调用 Alembic，不执行 `create_all()`。
 
 `0001_public_read` 建立公开阅读所需内容、分类标签、评论、搜索派生文档及站点设置。
-完整修订/审核、权限、协同、媒体管理、任务与 Outbox 模型仍待后续迁移，当前没有写入 API。
+`0002_comment_likes` 建立匿名历史评论点赞事实。
+`0003_auth_sessions` 建立用户、可撤销浏览器 Session、登录限流与认证审计事件。
+
+从空环境创建数据库、迁移到最新版本并首次创建管理员时，优先在项目根运行：
+
+```powershell
+uv run --locked python init.database.py --config config.toml
+```
+
+脚本仅在目标库不存在时尝试创建，迁移显式执行；管理员只在用户名缺失时创建，重复运行不会清库、改已有密码或提升已有账号。默认 `admin` / `123456` 只用于首次本地开发，部署前必须通过 `EVERUNFOLD_ADMIN_PASSWORD` 提供其他初始密码。当前尚无后台改密界面。
+
+完整修订/审核、细粒度权限、协同、媒体管理、任务与 Outbox 模型仍待后续迁移，当前没有后台业务 CRUD。
 迁移命令通过 PostgreSQL 会话级 advisory lock 串行化；`alembic check` 可检查 ORM 与实际结构漂移。
 
-初次迁移已在独立开发/测试空库验证。集成测试仅允许 `everunfold_test` 与 test scope，使用事务回滚保留数据库内容，不连接 WordPress 原库。
+初次迁移已在独立开发/测试空库验证。集成测试仅允许 `everunfold_test` 与 test scope，不连接 WordPress 原库；常规用例通过事务回滚或受控清理隔离，初始化测试另创建名称受控的临时数据库并在结束时删除。
 `downgrade` 是需要操作者明确执行的破坏性方向，正常应用启动、回退和测试均不自动执行。

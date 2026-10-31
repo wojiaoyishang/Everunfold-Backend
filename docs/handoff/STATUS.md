@@ -1,5 +1,17 @@
 # 后端交接状态
 
+## 最新交付：真实登录后端与数据库初始化
+
+更新：2026-10-31（Asia/Shanghai）。用户要求先完成基本登录页并把后台保持为空；本仓库只负责后端认证与初始化，不修改前端。
+
+- 认证契约提交 `23691fa`，实现提交 `c771c81`。`auth-v0.1` 提供 `/v1/auth/session`、`/v1/auth/login`、`/v1/auth/logout` 与 `/v1/admin/session`。
+- PostgreSQL `0003_auth_sessions` 已实现用户、可撤销 Session、跨进程登录限流与认证审计；密码为 Argon2id 哈希，数据库只存随机 Session token 摘要。登录/退出要求预会话 CSRF 与精确 Origin，管理员接口每次核对数据库当前角色。
+- 根目录 `init.database.py` 支持目标库缺失时创建、显式迁移和首次管理员创建；未提供环境密码时按用户要求使用 `admin` / `123456`。重复执行不清库、不重置已有密码/角色，也不提升同名普通账号。
+- 认证响应统一 HttpOnly Cookie、`private, no-store`、精确带凭据 CORS；非回环 `BACKEND_BASE_URL` 强制 HTTPS，回环 HTTP 仅供本地开发。
+- 最终检查：`uv lock --check`、Ruff、格式、mypy、`alembic check` 通过；默认测试 **45 passed, 12 skipped**，隔离 PostgreSQL 全量测试 **57 passed**。其中包含真实双 Uvicorn 进程的跨源 Cookie/CSRF、Session 共享/撤销，以及临时空库初始化/重复执行/数据保留测试。详情见 [认证后端验收](authentication-verification.md)。
+- 未执行生产 HTTPS/Cookie 实机、真实浏览器登录、前端仓库联调、反向代理来源/IP 策略或真实开发库初始化。现有 8001 进程未重启，不能假定正在运行的旧进程已经加载本轮代码。默认密码仅适用于首次本地开发；改密/找回/2FA/用户管理仍未实现。
+- 公共 ADR、入口索引与架构约束已在后端更新；前端仓库尚未同步这些公共文档，也未提交登录页/空后台联调。下一步由前端按 `auth-v0.1` 接入，再安排生产 HTTPS/浏览器验收与后台业务 CRUD。只做本地提交，不 push。
+
 ## 最新设计：媒体库、上传路径与 CDN 扩展
 
 用户本轮要求先制定规则，不修改代码。已新增 [media-storage-1](../architecture/media-storage.md) 与 [ADR 0017](../decisions/0017-media-storage-and-upload-lifecycle.md)，记录后端提供业务媒体、Base URL/Uploads Path、数据库列表、原图/派生/位置分层、独立暂存区、可替换上传与 CDN 切换的缓存边界。字段/目录/端点均是工程建议，尚未发布正式契约。
@@ -47,7 +59,7 @@
 
 本机实际 config.toml 已显式开启演示并启动 8001，配置仍忽略 Git；前端 3000 保持热更新。测试服务仅使用 8991/3991/3992 的工具自建实例及临时目录，退出时清理。本轮无业务迁移/导入、WordPress 修改或远程推送。
 
-接手入口为 [ADR 0014](../decisions/0014-page-registered-reader-requests.md)、[注册与联调指南](../development/reader-requests.md) 与 public-dynamic-2；开发协议 development-4 和公共说明跨仓库同步。真实 Session/CSRF、持久计数/历史基数、评论增量及写入、可靠缓存同步/撤回仍未交付，不能把演示检查当作完整生产 P0。下一步按用户选择推进正式契约与业务语义；**远程推送由用户执行**。下文保留历史阶段记录。
+接手入口为 [ADR 0014](../decisions/0014-page-registered-reader-requests.md)、[注册与联调指南](../development/reader-requests.md) 与 public-dynamic-2；开发协议 development-4 和公共说明跨仓库同步。该历史阶段交付时真实 Session/CSRF 尚未接入；基础认证后已由本轮最新交付补上，但演示请求本身仍未使用登录身份。持久计数/历史基数、评论增量及写入、可靠缓存同步/撤回仍未交付，不能把演示检查当作完整生产 P0。**远程推送由用户执行**。下文保留历史阶段记录。
 
 公共核对：本轮 8 份公共文档逐字节一致、两仓库共 168 个相对链接有效；原始两基线及演示生成契约 SHA256 通过。临时验证进程已退出，正常 3000/8001 保留。
 
@@ -126,6 +138,7 @@
 
 - 严格服务端 TOML 配置与显式环境覆盖，未知字段拒绝，敏感字段脱敏；真实配置均忽略提交。
 - SQLAlchemy asyncpg 模型、独立请求 Session、显式 Alembic 迁移/迁移互斥；服务启动不自动改库。
+- `0003_auth_sessions`、PostgreSQL 用户/可撤销 Session/登录限流/认证审计、Argon2id 密码哈希、CSRF/精确 Origin/管理员校验，以及根 `init.database.py`。
 - DB/Redis 生命周期，/health/live 与 /health/ready 分开；ready 检查数据库、Redis 和迁移版本。
 - 静态 manifest.toml、唯一 router_init(ctx)，models/schemas/repository/service/router 分责。
 - /v1/site、/v1/contents、/v1/contents/resolve、/v1/contents/{id}/comments、/v1/taxonomies；分页、分类标签、简单字面搜索、只读评论、统一 JSON 外壳与真实状态码。
@@ -137,7 +150,7 @@
 
 ## 尚未实现
 
-- 账号/Session/API Key、CSRF、正式权限、后台写入、修订/审核、协同/Yjs。
+- 注册、改密、找回密码、2FA、细粒度资源权限、API Key、后台业务写入、修订/审核、协同/Yjs。
 - 正式 type 迁移、说说导入、真实评论写入/审核/验证码/通知、点赞与密码/定时解锁。
 - Worker/Scheduler/Outbox relay、内部真实 IP AND Token 校验、缓存通知/撤回/乱序/换代恢复、镜像/CDN 及完整 P0 故障验收。预留配置不表示已启用。
 - 中文分词/全文排序及完整旧插件语义迁移；当前搜索只为公开阅读的简单字面匹配。

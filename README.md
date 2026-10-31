@@ -1,6 +1,6 @@
 # Everunfold Backend
 
-Everunfold 博客与轻量 CMS 的独立后端仓库。当前已完成公开阅读基础：严格配置、PostgreSQL 模型与显式迁移、Redis/数据库就绪检查、公开内容/分类/搜索/评论读取，以及 WordPress 公开数据导入和快照导出。另有真实匿名历史评论点赞接口，见 [ADR 0015](docs/decisions/0015-reader-feedback-and-comment-likes.md)；它不创建登录身份。当前没有后台管理写接口、认证、Worker、Scheduler 或协同编辑。
+Everunfold 博客与轻量 CMS 的独立后端仓库。当前已完成公开阅读基础、真实匿名历史评论点赞，以及正式登录所需的后端基础：PostgreSQL 用户与可撤销 Session、HttpOnly Cookie、CSRF/精确 Origin、管理员身份复核和显式数据库初始化。后台文章/媒体/用户管理写接口、Worker、Scheduler 与协同编辑仍未实现。
 
 先读 [文档入口](docs/README.md) 和 [当前交接](docs/handoff/STATUS.md)。原始设计基线及工程计划保存在 `docs/baseline/`，后续开发不依赖临时附件或聊天上下文。
 
@@ -22,7 +22,15 @@ uv run --locked python -m uvicorn app.entrypoints.api:app --host 127.0.0.1 --por
 
 ## 数据准备与前端联调
 
-数据库使用专用 `everunfold_dev`；显式迁移命令为：
+数据库使用专用 `everunfold_dev`。从空环境开始时，在项目根显式运行：
+
+```powershell
+uv run --locked python init.database.py --config config.toml
+```
+
+该入口在目标库不存在时尝试创建数据库，随后显式运行已有 Alembic 迁移，并只在用户名缺失时创建初始管理员。未提供 `EVERUNFOLD_ADMIN_PASSWORD` 时使用用户指定的默认 `admin` / `123456`；重复执行不会清库、改已有密码、改角色或提升已有账号。默认密码只可用于首次本地开发，部署到可访问环境前必须改用其他初始密码；当前尚未提供改密界面。
+
+只检查或执行已有迁移时仍可显式运行：
 
 ```powershell
 uv run --locked alembic -c migrations/alembic.ini upgrade head
@@ -48,13 +56,13 @@ uv run --locked pytest
 Remove-Item Env:RUN_DATABASE_TESTS
 ```
 
-测试会拒绝开发库并在事务中回滚。当前实际运行 30 项测试全部通过，包含导入工具测试。重新导出公开 API：`uv run --locked python -m tools.export_contracts`。
+测试会拒绝开发库并使用专用测试库；认证初始化测试还会创建并删除名称受控的临时 PostgreSQL 数据库。当前交接记录的最终结果是默认测试 `45 passed, 12 skipped`、启用测试库后 `57 passed`，包含真实双 Uvicorn 进程的跨源 Cookie/CSRF 与 Session 共享/撤销检查。认证契约导出为 `uv run --locked python -m tools.export_auth_contract`，公开 OpenAPI 导出为 `uv run --locked python -m tools.export_contracts`。
 
 GitHub Actions 配置将执行同样检查；远程实际执行结果以 Actions 为准。未添加自动部署。
 
 ## 边界
 
-公开业务路径为 `/v1/*`；开发代理 `/api` 不进入后端路由。`app/modules/content/` 按模型、DTO、数据库访问、用例服务和路由分责，由静态 Manifest 与唯一 `router_init(ctx)` 装配。未来 FastAPI、Celery Worker 与单进程 Scheduler 共用基础包但独立运行。数据库启动不自动迁移；当前没有可运行的 Worker/Scheduler 或内部缓存写入口。
+公开业务路径为 `/v1/*`；开发代理 `/api` 不进入后端路由。`app/modules/content/` 与 `app/modules/auth/` 按模型、DTO、数据库访问、用例服务和路由分责，由静态 Manifest 与唯一 `router_init(ctx)` 装配。未来 FastAPI、Celery Worker 与单进程 Scheduler 共用基础包但独立运行。数据库启动不自动迁移；当前没有可运行的 Worker/Scheduler、后台业务 CRUD 或内部缓存写入口。
 
 错误 JSON 不返回输入或异常详情；默认 ASGI 服务器日志尚未配置统一脱敏，生产前必须另行交付结构化日志、敏感信息过滤和诊断关联。当前骨架仅用于本地开发。
 
