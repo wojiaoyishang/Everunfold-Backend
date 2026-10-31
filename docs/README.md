@@ -1,6 +1,6 @@
 # Everunfold 文档入口
 
-本目录是跨上下文、跨开发者的长期交接入口。当前已有公开阅读与前台交互，本轮完成按页面注册的动态请求基线与演示能力；完整博客/CMS 尚未全部实现。
+本目录是跨上下文、跨开发者的长期交接入口。当前已有公开阅读、按页面注册的动态请求、演示身份/浏览量，以及真实匿名历史评论点赞和阅读反馈；完整博客/CMS 尚未全部实现。
 
 ## 先从这里读
 
@@ -28,6 +28,8 @@
 ## 目录职责
 
 本轮接入入口：[动态请求开发指南](development/reader-requests.md) 与 [验收记录](handoff/reader-requests-verification.md)。原始设计依据保留在 [动态数据盘点](handoff/public-dynamic-data-audit.md)。
+
+最新补充：[阅读反馈与评论点赞验收](handoff/reader-feedback-verification.md)，包括真实后端确认、离线反馈与未完成的视觉核验边界。
 
 | 目录 | 内容与维护时机 |
 | --- | --- |

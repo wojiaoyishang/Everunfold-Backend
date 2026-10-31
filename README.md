@@ -1,6 +1,6 @@
 # Everunfold Backend
 
-Everunfold 博客与轻量 CMS 的独立后端仓库。当前已完成公开阅读基础：严格配置、PostgreSQL 模型与显式迁移、Redis/数据库就绪检查、公开内容/分类/搜索/评论读取，以及 WordPress 公开数据导入和快照导出。当前没有后台写接口、认证、Worker、Scheduler 或协同编辑。
+Everunfold 博客与轻量 CMS 的独立后端仓库。当前已完成公开阅读基础：严格配置、PostgreSQL 模型与显式迁移、Redis/数据库就绪检查、公开内容/分类/搜索/评论读取，以及 WordPress 公开数据导入和快照导出。另有真实匿名历史评论点赞接口，见 [ADR 0015](docs/decisions/0015-reader-feedback-and-comment-likes.md)；它不创建登录身份。当前没有后台管理写接口、认证、Worker、Scheduler 或协同编辑。
 
 先读 [文档入口](docs/README.md) 和 [当前交接](docs/handoff/STATUS.md)。原始设计基线及工程计划保存在 `docs/baseline/`，后续开发不依赖临时附件或聊天上下文。
 
