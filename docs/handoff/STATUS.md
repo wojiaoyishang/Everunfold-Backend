@@ -1,16 +1,19 @@
 # 后端交接状态
 
-## 最新交付：真实登录后端与数据库初始化
+## 最新交付：真实登录、空后台与数据库初始化
 
-更新：2026-10-31（Asia/Shanghai）。用户要求先完成基本登录页并把后台保持为空；本仓库只负责后端认证与初始化，不修改前端。
+更新：2026-10-31（Asia/Shanghai）。用户要求先完成基本登录页并把后台保持为空。后端认证/初始化与前端登录/空后台已分别实现并完成跨源联调。
 
 - 认证契约提交 `23691fa`，实现提交 `c771c81`。`auth-v0.1` 提供 `/v1/auth/session`、`/v1/auth/login`、`/v1/auth/logout` 与 `/v1/admin/session`。
 - PostgreSQL `0003_auth_sessions` 已实现用户、可撤销 Session、跨进程登录限流与认证审计；密码为 Argon2id 哈希，数据库只存随机 Session token 摘要。登录/退出要求预会话 CSRF 与精确 Origin，管理员接口每次核对数据库当前角色。
 - 根目录 `init.database.py` 支持目标库缺失时创建、显式迁移和首次管理员创建；未提供环境密码时按用户要求使用 `admin` / `123456`。重复执行不清库、不重置已有密码/角色，也不提升同名普通账号。
+- 实际 `everunfold_dev` 已从 `0002_comment_likes` 显式升级到 `0003_auth_sessions`，迁移前后 87 条内容、11 条评论均保持不变；缺失的 `admin` 管理员已创建，默认初始密码与本轮要求一致。
 - 认证响应统一 HttpOnly Cookie、`private, no-store`、精确带凭据 CORS；非回环 `BACKEND_BASE_URL` 强制 HTTPS，回环 HTTP 仅供本地开发。
 - 最终检查：`uv lock --check`、Ruff、格式、mypy、`alembic check` 通过；默认测试 **45 passed, 12 skipped**，隔离 PostgreSQL 全量测试 **57 passed**。其中包含真实双 Uvicorn 进程的跨源 Cookie/CSRF、Session 共享/撤销，以及临时空库初始化/重复执行/数据保留测试。详情见 [认证后端验收](authentication-verification.md)。
-- 未执行生产 HTTPS/Cookie 实机、真实浏览器登录、前端仓库联调、反向代理来源/IP 策略或真实开发库初始化。现有 8001 进程未重启，不能假定正在运行的旧进程已经加载本轮代码。默认密码仅适用于首次本地开发；改密/找回/2FA/用户管理仍未实现。
-- 公共 ADR、入口索引与架构约束已在后端更新；前端仓库尚未同步这些公共文档，也未提交登录页/空后台联调。下一步由前端按 `auth-v0.1` 接入，再安排生产 HTTPS/浏览器验收与后台业务 CRUD。只做本地提交，不 push。
+- 前端使用后端 `ce825d0` 的契约生成客户端，完成登录、失败/重试、密码显隐、管理员复核、退出和受控回跳；身份确认与失败态复用登录卡片，管理员验证后切换为 Everunfold 主题化顶部栏、左侧导航和空仪表盘。排版只参考 WordPress 的信息组织，不复制其视觉皮肤。
+- 真实浏览器已覆盖错误密码、成功登录、恶意 `next`、API 阻断/恢复、退出、深色主题及 1440/390/320px 无横向溢出；详情见 [前后端登录与空后台验收](authentication-frontend-verification.md)。
+- 未执行生产 HTTPS/Secure Cookie、反向代理来源/IP 策略、Safari/Firefox 和真实移动硬件。默认密码仅适用于首次本地开发；改密/找回、2FA、用户管理和后台业务 CRUD 仍未实现。
+- 公共 ADR、入口索引、架构约束和前后端验收记录已同步两仓库。正常后端 8001 与前端 3000 保留。只做本地提交，不 push。
 
 ## 最新设计：媒体库、上传路径与 CDN 扩展
 

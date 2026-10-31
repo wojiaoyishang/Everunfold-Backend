@@ -1,6 +1,6 @@
 # Everunfold Backend
 
-Everunfold 博客与轻量 CMS 的独立后端仓库。当前已完成公开阅读基础、真实匿名历史评论点赞，以及正式登录所需的后端基础：PostgreSQL 用户与可撤销 Session、HttpOnly Cookie、CSRF/精确 Origin、管理员身份复核和显式数据库初始化。后台文章/媒体/用户管理写接口、Worker、Scheduler 与协同编辑仍未实现。
+Everunfold 博客与轻量 CMS 的独立后端仓库。当前已完成公开阅读基础、真实匿名历史评论点赞，以及基础管理员登录所需的后端能力：PostgreSQL 用户与可撤销 Session、HttpOnly Cookie、CSRF/精确 Origin、管理员身份复核和显式数据库初始化。独立前端已接入登录与主题化空后台；后台文章/媒体/用户管理写接口、Worker、Scheduler 与协同编辑仍未实现。
 
 先读 [文档入口](docs/README.md) 和 [当前交接](docs/handoff/STATUS.md)。原始设计基线及工程计划保存在 `docs/baseline/`，后续开发不依赖临时附件或聊天上下文。
 
@@ -36,7 +36,7 @@ uv run --locked python init.database.py --config config.toml
 uv run --locked alembic -c migrations/alembic.ini upgrade head
 ```
 
-本机已经迁移并导入公开内容。完整提取、导入、刷新前端快照和手动验收步骤见 [公开阅读运行指南](docs/development/public-reading.md) 与 [导入工具](tools/wordpress_import/README.md)。原 SQL、公开内容快照、文章媒体和实际配置不进入 Git，新克隆需自行准备数据。
+本机 `everunfold_dev` 已从迁移 `0002_comment_likes` 显式升级到 `0003_auth_sessions`，原 87 条内容与 11 条评论保持不变，并已创建缺失的默认管理员。完整提取、导入、刷新前端快照和手动验收步骤见 [公开阅读运行指南](docs/development/public-reading.md) 与 [导入工具](tools/wordpress_import/README.md)。原 SQL、公开内容快照、文章媒体和实际配置不进入 Git，新克隆需自行准备数据。
 
 ## 检查
 
