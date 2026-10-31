@@ -1,64 +1,49 @@
 # 后端交接状态
 
-更新：2026-10-31（Asia/Shanghai）。阶段：**公开阅读第一版，基础后端与本地公开数据闭环**。应用版本 0.2.0，公开契约 0.1.0。
+更新：2026-10-31（Asia/Shanghai）。在线阶段：**基础后端与公开阅读**。应用版本 0.2.0，公开 API/快照契约 0.1.0；另有前台展示草案 0.2.0-preview.1。
 
-进行中的新交付：用户已授权落实通用功能盘点。后端新增 `0.2.0-preview.1` 展示契约草案及导出工具供前端生成类型，见 [ADR 0007](../decisions/0007-shuoshuo-and-reader-features.md)。仅用于前台原型；运行中 API/数据库/0.1 快照不变，不执行全量导入。前端和最终检查仍在推进，后续更新本页。
+## 本轮交付与范围
 
-最新检查（未实施功能）：用户要求优先完善前台通用功能与说说；高中日记、关于页及其他特色页面都后置为自定义页面，不计入主题补齐。接口先约定大致形状，前台完成后再整体导入文章。本轮继续核对 Argon 源码、公开 HTML 和当前实现，见 [前台差异盘点](frontend-gap-audit-2026-10-31.md)。本仓库仅同步报告、索引和状态；没有改代码、契约、配置、数据库或执行导入。后端原测试结果未重跑。
+用户确认实施通用前台功能，说说优先；高中日记、关于及特色页面留到后续自定义页面，后台主题设置和整体导入后置。旧轮只读盘点限制已结束，但本轮没有迁移数据库或执行整体导入。
 
-后续顺序以最新要求为准：先说说及通用评论/图片/搜索/分享能力，自定义页面后置，整体导入另排。补查明确了评论格式/图片贴纸/验证码状态、图片与正文工具、密码/定时开放、分享预览等差异；它们目前都是未实施建议，不能因为旧主题支持就默认全部移植。kind → type 仍未升级，正式契约仍由后端发布；密码/审核/通知等权威状态不能由前端演示替代。原 /ss/ 为空及 localhost:3000 不可连接均为前轮观察，本轮只读公开 HTML/源码并核验交接文档，没有重新运行本地服务或浏览器验收。
+- 本仓库 `29f198a`：新增 app/modules/content/presentation_schema.py、tools/export_presentation_contract.py、contracts/presentation-v0.2.schema.json 与 5 项针对性测试。
+- 草案 type=article/shuoshuo/page，含评论开放、互动计数和访问状态；说说允许无标题，受限投影禁止正文/摘要/媒体映射，定时状态必须有开放时间。草案未装配 HTTP 路由，没有替换在线 0.1 kind 或修改数据库。
+- 前端从该确定提交生成类型、Schema 副本和 SHA256，使用唯一适配层接入旧数据和四条虚构说说。首页混排/说说列表详情、评论格式与贴纸、图片/代码/脚注工具、搜索、推荐分享及外观偏好已实现。细节见 [ADR 0007](../decisions/0007-shuoshuo-and-reader-features.md)、[内容类型衔接](../architecture/content-types.md) 和 [本轮验证](frontend-reader-verification.md)。
+- 正式说说导入、type 生产迁移、验证码/审核/身份/权限与真实评论点赞尚未实现，不以草案或前端演示冒充正式业务。
 
-最新前台交付：二级菜单、文章标题/头图、整卡点击、评论本页演示及持久阅读偏好已实现，动态背景开关移入设置并保存明确播放/暂停。见 [ADR 0006](../decisions/0006-public-ui-completion.md) 与 [本轮验证](frontend-interaction-verification.md)。后端本轮仅同步文档，代码、数据库、公开契约及用户运行中的 8001 服务未改。
-
-**后端设计待办（用户已确认）：文章和说说是不同内容类型，首页展示不同，后台与前后端必须统一顶层 type。** 当前 0.1.0 仍用 kind=article/page，未实现说说导入/接口/卡片。后续按 [内容类型衔接](../architecture/content-types.md) 盘点、设计兼容版本，再同步数据库、导入器、查询、契约、快照及前端生成类型；不要遗漏或只改前端。
-
-后续前台交互动效阶段：前端已接原 WebM 背景与持久壳软导航，目录/样式分责见 frontend-ui.md 和 ADR 0003；浏览器实际验收已完成。本轮后端代码/数据库/契约未变，未停止用户 8001 实例，原后端检查是公开阅读阶段证据而非本轮重跑。
-
-前台本轮原站复刻已实施：默认播放与共享纵向工具列、滚动惯性、保留旧正文的加载、累计进度、封面/导航/侧栏及阅读组件已接入。见 [ADR 0004](../decisions/0004-reference-fidelity.md) 和 [复刻验证](frontend-fidelity-verification.md)。本后端仓库仅同步文档；后端代码、配置、数据库和契约未改，8001 服务未停止，未重新运行后端测试。
+本轮后端 5 项草案测试、Ruff 格式/检查通过；mypy 检查两个新增源码文件通过。前端 39 项测试、lint/typecheck/格式、23 项页面 HTTP 回归和独立副本生产构建通过。浏览器连接器要求重登，本机 computer-use 被用户物理 Esc 中止，已停止应用输入；本轮未做桌面/手机视觉交互验收。没有重跑旧后端数据库/多进程验收，不将前端结果代替后端检查。
 
 ## 恢复上下文
 
-最新前端修正：实际 Edge 的系统 reduce=true 曾关闭全部动画/视频/惯性。现按用户要求默认完整动效，保留跟随系统/减少动态选项；阅读设置改为不锁滚动的 popover，统一小数滚轮阻尼，并补齐侧栏/目录/折叠/图片/按钮的双向过渡。当前依据为 [ADR 0005](../decisions/0005-site-motion-policy.md) 与 [整站动效验证](frontend-global-motion-verification.md)，前述 ADR 0004 的部分细节已被替代。本后端仍仅同步文档，不把前端测试当作后端重新验收。
+先读本页、docs/README.md、development/protocol.md、architecture/constraints.md、上述 ADR 0007 和验证记录。旧 ADR 0001–0006 及浏览器证据作为历史保留，原始基线在 docs/baseline/，不依赖临时附件或聊天恢复进度。
 
-先读本页、[文档索引](../README.md)、[开发协议](../development/protocol.md)、[公开阅读运行指南](../development/public-reading.md) 和 [公开阅读验证](public-reading-verification.md)；前台最新交互见 frontend-interaction-verification.md。原始附件在 docs/baseline/，保留字节与哈希；ADR 0001 是历史初始化范围，当前采用 ADR 0002–0006。
+开始前检查分支与工作区、保留协作者修改。用户要求分阶段本地提交，**远程 push 由用户执行，代理不得 push**。后端端口 **8001**、前端 **3000**，不占用其他项目的 8000；本轮未停止后端，未更改后端实际配置。
 
-开始前检查 git status 与分支，保留协作者修改。**最新用户要求：按阶段本地提交，远程 push 由用户自行执行。** 后端本地端口为 **8001**，不要再占用其他项目的 8000。
+## 已实现后端与现有数据
 
-## 已实现与实际数据
+- 严格服务端 TOML 配置与显式环境覆盖，未知字段拒绝，敏感字段脱敏；真实配置均忽略提交。
+- SQLAlchemy asyncpg 模型、独立请求 Session、显式 Alembic 迁移/迁移互斥；服务启动不自动改库。
+- DB/Redis 生命周期，/health/live 与 /health/ready 分开；ready 检查数据库、Redis 和迁移版本。
+- 静态 manifest.toml、唯一 router_init(ctx)，models/schemas/repository/service/router 分责。
+- /v1/site、/v1/contents、/v1/contents/resolve、/v1/contents/{id}/comments、/v1/taxonomies；分页、分类标签、简单字面搜索、只读评论、统一 JSON 外壳与真实状态码。
+- 公开读取仅 published + public；草稿/撤回/受限/不列出记录不进入公开列表/统计/解析。业务 OpenAPI 与 Schema 在 contracts/。
+- 只读 WordPress 提取、节点级媒体/内链处理、同事务幂等导入、一致快照导出及原子替换；只作为受控本地工具，非完整生产同步。
+- 现有试导入 78 文章、9 普通页面、11 评论、78 标签、7 分类；排除 4 商城系统页和 3 密码保护内容。快照 generation=3；312 媒体约 55.3 MB 留在前端忽略目录。未迁 WordPress 账户及评论邮箱/IP/UA，原备份和线上站点未改。
 
-- 严格 TOML 加载器：项目根定位、CONFIG_FILE、明确环境覆盖、未知字段拒绝与 SecretStr 脱敏；不自动读取示例或 .env。真实 config.toml / config.test.local.toml 已填写并忽略提交。
-- SQLAlchemy asyncpg 模型、独立请求 Session、显式 Alembic 迁移与迁移互斥；启动不修改 schema。开发库 everunfold_dev、测试库 everunfold_test 已迁移。
-- 生命周期管理 DB/Redis；/health/live 与 /health/ready 分开，ready 检查数据库、Redis、迁移版本。
-- 静态 manifest.toml 与唯一 router_init(ctx) 装配公开内容模块；models、schemas、repository、service、router 分责。
-- /v1/site、/v1/contents、/v1/contents/resolve、/v1/contents/{id}/comments、/v1/taxonomies，支持分页、分类标签、简单中文/字面关键词搜索和只读评论。
-- 公开投影统一筛选 published + public，草稿/撤回/受限/不列出内容不泄漏到列表、统计或解析；统一 JSON 外壳与真实状态码，OpenAPI 错误响应也采用相同外壳。
-- 后端权威 JSON Schema 与业务 OpenAPI 在 contracts/；前端生成类型并记录来源版本/SHA256。
-- 只读 SQL 白名单提取、媒体/内链节点处理、一次事务幂等导入、一致事务快照导出与原子替换；工具在 tools/wordpress_import/。
-- 本地实际数据：78 文章、9 普通页、11 评论、78 标签、7 分类；排除 4 个商城系统页及 3 条密码保护内容。公开快照 generation=3、约 1.1 MB，已导出前端；312 项媒体约 55.3 MB 留在忽略目录。
-- 相同输入重复导入已验证新增 0、更新 0、changed=0，generation 不增加。账户、邮箱/IP/UA 未迁入；原备份和线上站点未修改。
-
-## 验证结果
-
-Ruff、格式、mypy（34 个源码文件）、锁文件检查通过；30 项测试全部通过，含专用 PostgreSQL 测试库事务回滚和 10 项导入工具测试。真实网络 8001 的就绪、内容解析、公开评论、分页、422/404、CORS 与 OpenAPI 错误外壳通过。详细命令和限制见当前验证文档。
+历史公开阅读验收：Ruff、格式、mypy（当时 34 文件）、锁文件检查、30 项测试（含独立 PostgreSQL 测试库和导入测试）、8001 就绪/API/422/404/CORS/OpenAPI 外壳通过。详见 public-reading-verification.md；这些属于旧阶段证据，并非本轮重跑。
 
 ## 尚未实现
 
-- 账号/Session/API Key、CSRF、权限管理、后台写接口、完整正式 Revision 与审核、协同/Yjs、任务管理。
-- Celery Worker、Scheduler/Outbox relay、内部服务双重校验和 HTTP 缓存回调；预留配置不代表服务已启用。
-- 完整 ICP、可靠撤回/乱序/换代恢复、镜像主动追赶、CDN 插件、生产日志脱敏与完整 P0 故障验收。
-- 当前搜索是 PostgreSQL 可重建文档上的简单字面匹配，不声称实现中文分词/全文排序。
-- 本次只做公开阅读试导入，不是所有受限内容/插件语义的最终迁移。未知短代码按字面安全降级，7 个未导入同源目标保留原站外链并报告。
-- 公开阅读阶段的浏览器工具停止属于历史；后续前台动效阶段内置浏览器已可用，具体桌面/窄屏验证见 frontend-motion-verification.md。
+- 账号/Session/API Key、CSRF、正式权限、后台写入、修订/审核、协同/Yjs。
+- 正式 type 迁移、说说导入、真实评论写入/审核/验证码/通知、点赞与密码/定时解锁。
+- Worker/Scheduler/Outbox relay、内部真实 IP AND Token 校验、缓存通知/撤回/乱序/换代恢复、镜像/CDN 及完整 P0 故障验收。预留配置不表示已启用。
+- 中文分词/全文排序及完整旧插件语义迁移；当前搜索只为公开阅读的简单字面匹配。
 
-## 下一步
+## 下一步与协作
 
-1. 用户按运行指南检查前台外观和导航，再修视觉差异；前端已知边界以其交接为准。
-2. 设计正式修订/审核与身份权限后再开放写入，补业务、审计和 Outbox 原子事务，不给当前只读模型直接加匿名写接口。
-3. 冻结内部 ICP/WS 契约，再逐项实现可靠任务/回调、撤回与协同，执行对应真实多进程 P0。
-4. 剩余迁移短代码、受限内容和外链按报告逐项处理，之后再制定生产发布、切站与恢复演练。
+1. 用户按新前台验证记录检查说说/评论/图片/设置及窄屏交互，再修实际反馈。当前浏览器中止不得被当成验收通过。
+2. 前台定稿后确定生产 type 契约和兼容窗口，同步数据库、查询、导入器、公开快照、统计及前端生成客户端；显式迁移，禁止只改生成文件。
+3. 全量导入另行安排，先只读盘点说说/原 URL/媒体/评论关系；不要为展示样例运行导入器。
+4. 正式写入在身份/权限/审核设计明确后落实业务、审计、Outbox 同事务，再逐项实现可靠任务、缓存与协同并验收相应 P0。
 
-## 目录与协作
-
-app/core 为基础设施，app/modules/content 为内容业务；migrations 为显式结构变更，contracts 为契约权威，tools 为显式操作命令，docs 为设计/交接。前端项目在 E:\Programming\Node\Everunfold-Frontend，主题与数据层分离。
-
-阶段提交可在 git log 查看；origin/main 仍是上次初始化远程提交，当前阶段提交尚未推送。公共规范、环境、运行指南、ADR 与基线盘点在两仓库同步；每次后续交付更新本页和验证记录。
+前端项目 E:\Programming\Node\Everunfold-Frontend。app/core 为基础设施，app/modules/content 为业务，contracts 为权威契约，migrations 显式迁移，tools 显式操作，docs 为跨上下文交接。公共说明/ADR 与原始基线哈希已核对两仓库同步；仓库 STATUS 各自维护。实际配置、SQL、备份、用户数据、.venv 不提交。仅本地提交，没有推送或部署。
