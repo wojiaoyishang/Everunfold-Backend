@@ -14,6 +14,11 @@ BACKEND_BASE_URL = "http://127.0.0.1:8001"
 [project]
 key = "lovepikachu"            # 唯一项目标识，前缀根为 lovepikachu:
 
+[reader_preview]
+# 显式启用后提供 /v1/reader-preview/* 假身份和假浏览量；不创建会话、不记账。
+# 仅用于当前前台联调，默认关闭；生产真实身份/统计不能使用这些值。
+enabled = false
+
 [database]
 url = "postgresql+asyncpg://everunfold:change-me@127.0.0.1:5432/everunfold_dev"
 # 可由环境变量 DATABASE_URL 覆盖（上面仅为本地开发示例）

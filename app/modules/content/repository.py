@@ -94,6 +94,10 @@ class ContentRepository:
         )
         return list(await self.session.scalars(statement))
 
+    async def public_ids(self, ids: list[uuid.UUID]) -> list[uuid.UUID]:
+        statement = select(Content.id).where(Content.id.in_(ids), *public_conditions())
+        return list(await self.session.scalars(statement))
+
     async def taxonomies(self, kind: TaxonomyKind | None = None) -> list[tuple[Taxonomy, int]]:
         statement = (
             select(Taxonomy, func.count(Content.id))

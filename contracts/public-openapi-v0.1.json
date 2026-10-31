@@ -471,6 +471,161 @@
           }
         }
       }
+    },
+    "/v1/reader-preview/identity": {
+      "get": {
+        "tags": [
+          "reader-preview"
+        ],
+        "summary": "Identity",
+        "operationId": "identity_v1_reader_preview_identity_get",
+        "parameters": [
+          {
+            "name": "persona",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "guest",
+                "member"
+              ],
+              "type": "string",
+              "default": "guest",
+              "title": "Persona"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicResponse_ReaderIdentity_"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "资源不存在或不允许公开访问",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "请求参数无效",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "配置、数据或依赖暂不可用",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "服务端处理失败",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/reader-preview/metrics": {
+      "get": {
+        "tags": [
+          "reader-preview"
+        ],
+        "summary": "Metrics",
+        "operationId": "metrics_v1_reader_preview_metrics_get",
+        "parameters": [
+          {
+            "name": "ids",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "minItems": 1,
+              "maxItems": 20,
+              "title": "Ids"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicResponse_ReaderMetrics_"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "资源不存在或不允许公开访问",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "请求参数无效",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "配置、数据或依赖暂不可用",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "服务端处理失败",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1025,6 +1180,62 @@
         ],
         "title": "PublicResponse[Page[PublicComment]]"
       },
+      "PublicResponse_ReaderIdentity_": {
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "title": "Success",
+            "default": true
+          },
+          "code": {
+            "type": "integer",
+            "title": "Code",
+            "default": 200
+          },
+          "msg": {
+            "type": "string",
+            "title": "Msg",
+            "default": "请求成功"
+          },
+          "data": {
+            "$ref": "#/components/schemas/ReaderIdentity"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "title": "PublicResponse[ReaderIdentity]"
+      },
+      "PublicResponse_ReaderMetrics_": {
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "title": "Success",
+            "default": true
+          },
+          "code": {
+            "type": "integer",
+            "title": "Code",
+            "default": 200
+          },
+          "msg": {
+            "type": "string",
+            "title": "Msg",
+            "default": "请求成功"
+          },
+          "data": {
+            "$ref": "#/components/schemas/ReaderMetrics"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "title": "PublicResponse[ReaderMetrics]"
+      },
       "PublicResponse_SiteDTO_": {
         "properties": {
           "success": {
@@ -1080,6 +1291,92 @@
           "data"
         ],
         "title": "PublicResponse[TaxonomyList]"
+      },
+      "ReaderIdentity": {
+        "properties": {
+          "mode": {
+            "type": "string",
+            "const": "demo",
+            "title": "Mode"
+          },
+          "persona": {
+            "type": "string",
+            "enum": [
+              "guest",
+              "member"
+            ],
+            "title": "Persona"
+          },
+          "display_name": {
+            "type": "string",
+            "title": "Display Name"
+          },
+          "sampled_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Sampled At"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "mode",
+          "persona",
+          "display_name",
+          "sampled_at"
+        ],
+        "title": "ReaderIdentity"
+      },
+      "ReaderMetric": {
+        "properties": {
+          "content_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Content Id"
+          },
+          "views": {
+            "type": "integer",
+            "maximum": 996.0,
+            "minimum": 0.0,
+            "title": "Views"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "content_id",
+          "views"
+        ],
+        "title": "ReaderMetric"
+      },
+      "ReaderMetrics": {
+        "properties": {
+          "mode": {
+            "type": "string",
+            "const": "demo",
+            "title": "Mode"
+          },
+          "sampled_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Sampled At"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ReaderMetric"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "mode",
+          "sampled_at",
+          "items"
+        ],
+        "title": "ReaderMetrics"
       },
       "SiteDTO": {
         "properties": {

@@ -179,6 +179,12 @@ class CORSConfig(ConfigModel):
         return [validate_http_base(value) for value in values]
 
 
+class ReaderPreviewConfig(ConfigModel):
+    """Opt-in synthetic reader data; never an authentication or counting service."""
+
+    enabled: bool = False
+
+
 class Settings(ConfigModel):
     BACKEND_BASE_URL: str
     project: ProjectConfig = Field(default_factory=ProjectConfig)
@@ -192,6 +198,7 @@ class Settings(ConfigModel):
     limits: LimitsConfig = Field(default_factory=LimitsConfig)
     outbox: OutboxConfig = Field(default_factory=OutboxConfig)
     cors: CORSConfig = Field(default_factory=CORSConfig)
+    reader_preview: ReaderPreviewConfig = Field(default_factory=ReaderPreviewConfig)
 
     _backend_url = field_validator("BACKEND_BASE_URL")(validate_http_base)
 

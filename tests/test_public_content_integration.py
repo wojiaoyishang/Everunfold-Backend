@@ -12,7 +12,7 @@ from sqlalchemy import text
 from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import load_settings
+from app.core.config import ReaderPreviewConfig, load_settings
 from app.core.database import Database
 from app.entrypoints.api import create_app
 from app.modules.content.models import (
@@ -259,3 +259,46 @@ async def test_snapshot_contains_only_public_projection_and_consistent_stats(
     assert snapshot.source_epoch
     # This read transaction must not persist fixtures, create schemas, or write Redis state.
     assert await database_session.scalar(text("SELECT current_database()")) == "everunfold_test"
+
+
+async def test_reader_preview_filters_visibility_without_writing(
+    database_session: AsyncSession,
+) -> None:
+    seeded = await seed_public_case(database_session)
+    items = seeded["contents"]
+    settings = load_settings("config.test.local.toml").model_copy(
+        update={"reader_preview": ReaderPreviewConfig(enabled=True)}
+    )
+    application = create_app(settings)
+
+    async def shared_session() -> AsyncIterator[AsyncSession]:
+        yield database_session
+
+    application.dependency_overrides[get_session] = shared_session
+    async with (
+        application.router.lifespan_context(application),
+        AsyncClient(
+            transport=ASGITransport(app=application), base_url="http://testserver"
+        ) as client,
+    ):
+        ids = [item.id for item in items] + [items[0].id, uuid.uuid4()]
+        before = (
+            await PublicContentService(ContentRepository(database_session)).snapshot()
+        ).contents
+        first = await client.get(
+            "/v1/reader-preview/metrics", params=[("ids", str(i)) for i in ids]
+        )
+        second = await client.get(
+            "/v1/reader-preview/metrics", params=[("ids", str(i)) for i in ids]
+        )
+        assert first.status_code == 200
+        data = first.json()["data"]
+        assert data["mode"] == "demo"
+        assert {item["content_id"] for item in data["items"]} == {str(i.id) for i in items[:3]}
+        assert len(data["items"]) == 3
+        assert data["items"] == second.json()["data"]["items"]
+        assert "no-store" in first.headers["cache-control"]
+        after = (
+            await PublicContentService(ContentRepository(database_session)).snapshot()
+        ).contents
+        assert [item.model_dump() for item in before] == [item.model_dump() for item in after]

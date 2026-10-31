@@ -2,7 +2,13 @@
 
 更新：2026-10-31（Asia/Shanghai）。本轮：**动态数据规范设计（未实施）**；现有在线能力仍为基础后端与公开阅读。应用版本 0.2.0，公开 API/快照契约 0.1.0；另有前台展示草案 0.2.0-preview.1。
 
-## 最新交付：公开首屏与动态数据设计
+## 本轮实施进度：动态请求演示基线
+
+用户已授权实现基础请求、假登录/浏览量、导航状态标记，并验证后端离线有/无缓存。后端先完成 opt-in `reader_preview.enabled`、只读 `/v1/reader-preview/identity` 与批量 `/metrics`，契约为 `reader-preview-v0.1.schema.json` / 0.1.0-preview.1。默认关闭；假身份不创建 Session/凭据，假浏览量不写库、不增加历史访问，按公开内容过滤。公开正文契约仍为 0.1.0。
+
+38 项测试通过（含真实 PostgreSQL 隔离测试库、公开过滤、批量上限、不可用与无会话/CORS），Ruff/格式/mypy 通过。初次完整测试发现新路由遗漏统一错误响应的 OpenAPI 声明，已复用公开路由声明修复并重跑通过。前端接入和真实离线场景此时尚未完成；最终交付结果将补入本页。当前阶段仅本地提交，远程推送由用户执行。
+
+## 前一轮交付：公开首屏与动态数据设计
 
 按用户要求只盘点和写文档。新交付为 [public-dynamic-1 设计规范](../architecture/public-dynamic-data.md)、[ADR 0013](../decisions/0013-public-dynamic-data.md)、[盘点记录](public-dynamic-data-audit.md)，开发协议升级为 development-3；两仓库均更新索引与同步清单。
 
