@@ -6,10 +6,18 @@ import re
 import tomllib
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal, Self
 from urllib.parse import urlsplit
 
-from pydantic import BaseModel, ConfigDict, Field, SecretStr, ValidationError, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    SecretStr,
+    ValidationError,
+    field_validator,
+    model_validator,
+)
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 _IDENTIFIER = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$")
@@ -37,6 +45,15 @@ def validate_http_base(value: str) -> str:
     except ValueError as exc:
         raise ValueError("invalid URL port") from exc
     return value.rstrip("/")
+
+
+def is_loopback_host(host: str) -> bool:
+    if host == "localhost":
+        return True
+    try:
+        return ipaddress.ip_address(host).is_loopback
+    except ValueError:
+        return False
 
 
 class ConfigModel(BaseModel):
@@ -185,6 +202,28 @@ class ReaderPreviewConfig(ConfigModel):
     enabled: bool = False
 
 
+class AuthConfig(ConfigModel):
+    cookie_name: str = "everunfold_session"
+    cookie_domain: str | None = None
+    cookie_secure: bool | None = None
+    cookie_samesite: Literal["lax", "strict", "none"] = "lax"
+    session_seconds: int = Field(default=43200, ge=300, le=604800)
+    pre_session_seconds: int = Field(default=900, ge=60, le=3600)
+    login_window_seconds: int = Field(default=900, ge=60, le=86400)
+    login_attempts_per_account: int = Field(default=10, ge=1, le=100)
+    login_attempts_per_ip: int = Field(default=50, ge=1, le=1000)
+    bootstrap_attempts_per_ip: int = Field(default=60, ge=1, le=1000)
+
+    @field_validator("cookie_name")
+    @classmethod
+    def valid_cookie_name(cls, value: str) -> str:
+        if not re.fullmatch(r"[A-Za-z0-9_-]{1,64}", value) or value.startswith(
+            ("__Host-", "__Secure-")
+        ):
+            raise ValueError("invalid cookie name")
+        return value
+
+
 class Settings(ConfigModel):
     BACKEND_BASE_URL: str
     project: ProjectConfig = Field(default_factory=ProjectConfig)
@@ -199,8 +238,38 @@ class Settings(ConfigModel):
     outbox: OutboxConfig = Field(default_factory=OutboxConfig)
     cors: CORSConfig = Field(default_factory=CORSConfig)
     reader_preview: ReaderPreviewConfig = Field(default_factory=ReaderPreviewConfig)
+    auth: AuthConfig = Field(default_factory=AuthConfig)
 
     _backend_url = field_validator("BACKEND_BASE_URL")(validate_http_base)
+
+    @model_validator(mode="after")
+    def valid_auth_deployment(self) -> Self:
+        url = urlsplit(self.BACKEND_BASE_URL)
+        loopback = is_loopback_host(url.hostname or "")
+        if url.scheme != "https" and not loopback:
+            raise ValueError(
+                "browser authentication requires HTTPS outside loopback development origins"
+            )
+        secure = self.auth.cookie_secure
+        if secure is None:
+            secure = url.scheme == "https"
+            self.auth.cookie_secure = secure
+        if not secure and not loopback:
+            raise ValueError("insecure cookies are only allowed on loopback development origins")
+        if url.scheme == "https" and not secure:
+            raise ValueError("HTTPS requires Secure cookies")
+        if self.auth.cookie_samesite == "none" and not secure:
+            raise ValueError("SameSite=None requires Secure cookies")
+        domain = self.auth.cookie_domain
+        if domain is not None:
+            domain = domain.lstrip(".").lower()
+            if not re.fullmatch(r"[a-z0-9]+(?:[.-][a-z0-9]+)+", domain):
+                raise ValueError("invalid cookie domain")
+            host = url.hostname or ""
+            if host != domain and not host.endswith("." + domain):
+                raise ValueError("cookie domain must contain the configured API host")
+            self.auth.cookie_domain = domain
+        return self
 
     @field_validator("frontends")
     @classmethod

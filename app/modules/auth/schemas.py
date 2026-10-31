@@ -6,7 +6,7 @@ from uuid import UUID
 
 from pydantic import Field
 
-from app.modules.content.schemas import ErrorResponse, PublicModel, PublicResponse
+from app.core.schemas import ErrorResponse, PublicModel, PublicResponse
 
 
 class LoginInput(PublicModel):

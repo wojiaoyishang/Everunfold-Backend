@@ -1,0 +1,4 @@
+id = "auth"
+version = "0.1.0"
+dependencies = []
+router_entrypoint = "app.modules.auth:router_init"

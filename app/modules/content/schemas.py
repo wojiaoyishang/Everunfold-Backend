@@ -1,30 +1,16 @@
 """Public DTOs. Fields are deliberately separate from private persistence models."""
 
 from datetime import datetime
-from typing import Any, Literal
+from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import Field
+
+from app.core.schemas import ErrorResponse as ErrorResponse
+from app.core.schemas import PublicModel as PublicModel
+from app.core.schemas import PublicResponse as PublicResponse
 
 ContentKind = Literal["article", "page"]
 TaxonomyKind = Literal["category", "tag"]
-
-
-class PublicModel(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-
-class PublicResponse[T](PublicModel):
-    success: bool = True
-    code: int = 200
-    msg: str = "请求成功"
-    data: T
-
-
-class ErrorResponse(PublicModel):
-    success: Literal[False]
-    code: int
-    msg: str
-    data: Any = None
 
 
 class Page[T](PublicModel):

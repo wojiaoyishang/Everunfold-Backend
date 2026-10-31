@@ -1,4 +1,4 @@
-"""Read-only public API with explicit configuration and lifespan-owned connections."""
+"""Public reading and browser authentication with explicit lifecycle boundaries."""
 
 import asyncio
 import logging
@@ -7,14 +7,15 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.exc import SQLAlchemyError
 from starlette.exceptions import HTTPException
 
 from app.core.config import ConfigurationError, Settings, load_settings
-from app.core.modules import register_content_module
+from app.core.modules import register_auth_module, register_content_module
 from app.core.responses import JSONResponseError, JSONResponseFail, JSONResponseSuccess
 from app.core.runtime import Runtime
+from app.modules.auth.middleware import AuthBoundaryMiddleware, BusinessCORSMiddleware
+from app.modules.auth.service import AuthFailure
 
 logger = logging.getLogger(__name__)
 
@@ -41,17 +42,28 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     application = FastAPI(
         title="Everunfold Backend",
         version="0.2.0",
-        description="公开阅读 API；配置、显式迁移和公开导入与服务启动分离。",
+        description="公开阅读与浏览器认证 API；配置、显式迁移和数据准备与服务启动分离。",
         lifespan=lifespan,
     )
     application.add_middleware(
-        CORSMiddleware,
-        allow_origins=resolved.cors.allowed_origins if resolved else [],
-        allow_credentials=False,
-        allow_methods=["GET", "PUT"],
-        allow_headers=["Accept", "Content-Type", "X-Everunfold-Visitor"],
+        AuthBoundaryMiddleware,
+        allowed_origins=(
+            [resolved.BACKEND_BASE_URL, *resolved.cors.allowed_origins] if resolved else []
+        ),
+    )
+    application.add_middleware(
+        BusinessCORSMiddleware,
+        allowed_origins=resolved.cors.allowed_origins if resolved else [],
     )
     register_content_module(application)
+    register_auth_module(application)
+
+    @application.exception_handler(AuthFailure)
+    async def handle_auth_error(request: Request, exc: AuthFailure) -> JSONResponseFail:
+        headers = {"Retry-After": str(exc.retry_after)} if exc.retry_after is not None else None
+        return JSONResponseFail(
+            status_code=exc.status, code=exc.code, msg=exc.message, headers=headers
+        )
 
     @application.exception_handler(HTTPException)
     async def handle_http_error(request: Request, exc: HTTPException) -> JSONResponseFail:
@@ -78,17 +90,22 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         # This application log omits the value; ASGI server logging still needs a
         # production redaction policy because Starlette re-raises server errors.
         logger.error("Unhandled request error: %s", type(exc).__name__)
-        return JSONResponseError()
+        headers = (
+            {"Cache-Control": "private, no-store", "Pragma": "no-cache"}
+            if request.url.path.startswith(("/v1/auth/", "/v1/admin/"))
+            else None
+        )
+        return JSONResponseError(headers=headers)
 
     @application.exception_handler(OSError)
     @application.exception_handler(SQLAlchemyError)
     async def handle_storage_error(request: Request, exc: SQLAlchemyError) -> JSONResponseFail:
-        logger.error("Public storage unavailable: %s", type(exc).__name__)
+        logger.error("Request storage unavailable: %s", type(exc).__name__)
         return JSONResponseFail(msg="服务暂不可用", status_code=503)
 
     @application.get("/health/live", tags=["health"])
     async def live() -> JSONResponseSuccess:
-        return JSONResponseSuccess(data={"status": "alive", "stage": "public-read"})
+        return JSONResponseSuccess(data={"status": "alive", "stage": "browser-auth"})
 
     @application.get("/health/ready", tags=["health"], response_model=None)
     async def ready(request: Request) -> JSONResponseSuccess | JSONResponseFail:

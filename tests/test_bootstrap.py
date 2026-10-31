@@ -19,7 +19,7 @@ def test_liveness_does_not_claim_readiness(test_settings: Settings) -> None:
             "success": True,
             "code": 200,
             "msg": "请求成功",
-            "data": {"status": "alive", "stage": "public-read"},
+            "data": {"status": "alive", "stage": "browser-auth"},
         }
         readiness = client.get("/health/ready")
         assert readiness.status_code == 503

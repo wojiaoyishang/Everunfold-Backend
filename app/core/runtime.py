@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from anyio import CapacityLimiter
 from redis.asyncio import Redis
 
 from app.core.config import Settings
@@ -15,6 +16,7 @@ class Runtime:
     settings: Settings
     database: Database
     redis: Redis
+    password_limiter: CapacityLimiter
 
     @classmethod
     def create(cls, settings: Settings) -> Runtime:
@@ -28,6 +30,7 @@ class Runtime:
                 socket_timeout=timeout,
                 protocol=2,
             ),
+            password_limiter=CapacityLimiter(2),
         )
 
     async def close(self) -> None:
