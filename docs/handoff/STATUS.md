@@ -11,6 +11,7 @@
 - 认证响应统一 HttpOnly Cookie、`private, no-store`、精确带凭据 CORS；非回环 `BACKEND_BASE_URL` 强制 HTTPS，回环 HTTP 仅供本地开发。
 - 最终检查：`uv lock --check`、Ruff、格式、mypy、`alembic check` 通过；默认测试 **45 passed, 12 skipped**，隔离 PostgreSQL 全量测试 **57 passed**。其中包含真实双 Uvicorn 进程的跨源 Cookie/CSRF、Session 共享/撤销，以及临时空库初始化/重复执行/数据保留测试。详情见 [认证后端验收](authentication-verification.md)。
 - 前端使用后端 `ce825d0` 的契约生成客户端，完成登录、失败/重试、密码显隐、管理员复核、退出和受控回跳；身份确认与失败态复用登录卡片，管理员验证后切换为 Everunfold 主题化顶部栏、左侧导航和空仪表盘。排版只参考 WordPress 的信息组织，不复制其视觉皮肤。
+- 认证入口新增整体柔焦的星空营地背景：高密度星空、山脊、松林、帐篷、篝火、火星和萤火保持统一景深，登录卡片清晰；完整动态下星层漂移、亮星闪烁和流星出现，减少动态时全部静止。
 - 真实浏览器已覆盖错误密码、成功登录、恶意 `next`、API 阻断/恢复、退出、深色主题及 1440/390/320px 无横向溢出；详情见 [前后端登录与空后台验收](authentication-frontend-verification.md)。
 - 未执行生产 HTTPS/Secure Cookie、反向代理来源/IP 策略、Safari/Firefox 和真实移动硬件。默认密码仅适用于首次本地开发；改密/找回、2FA、用户管理和后台业务 CRUD 仍未实现。
 - 公共 ADR、入口索引、架构约束和前后端验收记录已同步两仓库。正常后端 8001 与前端 3000 保留。只做本地提交，不 push。
