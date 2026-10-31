@@ -15,9 +15,10 @@ def test_openapi_documents_the_actual_public_error_envelope(test_settings: Setti
     for path, operations in schema["paths"].items():
         if not path.startswith("/v1/"):
             continue
-        for status in ("404", "422", "503", "500"):
-            documented = operations["get"]["responses"][status]["content"]["application/json"]
-            assert documented["schema"]["$ref"] == "#/components/schemas/ErrorResponse"
+        for operation in operations.values():
+            for status in ("404", "422", "503", "500"):
+                documented = operation["responses"][status]["content"]["application/json"]
+                assert documented["schema"]["$ref"] == "#/components/schemas/ErrorResponse"
     with TestClient(application) as client:
         response = client.get("/v1/contents", params={"page": 0})
     assert response.status_code == 422

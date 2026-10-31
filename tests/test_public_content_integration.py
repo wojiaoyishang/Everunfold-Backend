@@ -8,13 +8,14 @@ from typing import Any
 
 import pytest
 from httpx2 import ASGITransport, AsyncClient
-from sqlalchemy import text
+from sqlalchemy import select, text
 from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import ReaderPreviewConfig, load_settings
 from app.core.database import Database
 from app.entrypoints.api import create_app
+from app.modules.content.comment_likes import CommentLikeService
 from app.modules.content.models import (
     Comment,
     Content,
@@ -179,6 +180,36 @@ async def seed_public_case(session: AsyncSession) -> dict[str, Any]:
     )
     await session.flush()
     return {"contents": items}
+
+
+async def test_comment_likes_are_confirmed_idempotent_and_private(
+    database_session: AsyncSession,
+) -> None:
+    seeded = await seed_public_case(database_session)
+    comments = list(
+        await database_session.scalars(
+            select(Comment).where(Comment.content_id == seeded["contents"][0].id)
+        )
+    )
+    visible = next(item for item in comments if item.status == "approved")
+    hidden = next(item for item in comments if item.status == "hidden")
+    service = CommentLikeService(database_session)
+    visitor, other = uuid.uuid4(), uuid.uuid4()
+    assert (await service.read([visible.id], visitor))[0].count == 0
+    assert await service.read([hidden.id, uuid.uuid4()], visitor) == []
+    first = await service.set(visible.id, visitor, True)
+    assert first.liked and first.count == 1
+    assert (await service.set(visible.id, visitor, True)).count == 1
+    other_state = (await service.read([visible.id], other))[0]
+    assert not other_state.liked and other_state.count == 1
+    assert (await service.set(visible.id, other, True)).count == 2
+    final = await service.set(visible.id, visitor, False)
+    assert not final.liked and final.count == 1
+    assert (await service.set(visible.id, visitor, False)).count == 1
+    # Filtering is rechecked on every read; a stale snapshot cannot grant access.
+    visible.status = "hidden"
+    await database_session.flush()
+    assert await service.read([visible.id], other) == []
 
 
 async def test_public_api_filters_pagination_search_and_comment_privacy(

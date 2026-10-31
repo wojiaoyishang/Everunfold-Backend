@@ -626,10 +626,268 @@
           }
         }
       }
+    },
+    "/v1/comments/likes": {
+      "get": {
+        "tags": [
+          "comment-likes"
+        ],
+        "summary": "Read Likes",
+        "operationId": "read_likes_v1_comments_likes_get",
+        "parameters": [
+          {
+            "name": "ids",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "minItems": 1,
+              "maxItems": 50,
+              "title": "Ids"
+            }
+          },
+          {
+            "name": "X-Everunfold-Visitor",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid4",
+              "title": "X-Everunfold-Visitor"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicResponse_CommentLikes_"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "资源不存在或不允许公开访问",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "请求参数无效",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "配置、数据或依赖暂不可用",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "服务端处理失败",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "来源不允许",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/comments/{comment_id}/like": {
+      "put": {
+        "tags": [
+          "comment-likes"
+        ],
+        "summary": "Set Like",
+        "operationId": "set_like_v1_comments__comment_id__like_put",
+        "parameters": [
+          {
+            "name": "comment_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Comment Id"
+            }
+          },
+          {
+            "name": "X-Everunfold-Visitor",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid4",
+              "title": "X-Everunfold-Visitor"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CommentLikeInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicResponse_CommentLikeState_"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "资源不存在或不允许公开访问",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "请求参数无效",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "配置、数据或依赖暂不可用",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "服务端处理失败",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "来源不允许",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
     "schemas": {
+      "CommentLikeInput": {
+        "properties": {
+          "liked": {
+            "type": "boolean",
+            "title": "Liked"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "liked"
+        ],
+        "title": "CommentLikeInput"
+      },
+      "CommentLikeState": {
+        "properties": {
+          "comment_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Comment Id"
+          },
+          "liked": {
+            "type": "boolean",
+            "title": "Liked"
+          },
+          "count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Count"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "comment_id",
+          "liked",
+          "count"
+        ],
+        "title": "CommentLikeState"
+      },
+      "CommentLikes": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/CommentLikeState"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "title": "CommentLikes"
+      },
       "ContentBlock": {
         "properties": {
           "id": {
@@ -1095,6 +1353,62 @@
           "created_at"
         ],
         "title": "PublicComment"
+      },
+      "PublicResponse_CommentLikeState_": {
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "title": "Success",
+            "default": true
+          },
+          "code": {
+            "type": "integer",
+            "title": "Code",
+            "default": 200
+          },
+          "msg": {
+            "type": "string",
+            "title": "Msg",
+            "default": "请求成功"
+          },
+          "data": {
+            "$ref": "#/components/schemas/CommentLikeState"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "title": "PublicResponse[CommentLikeState]"
+      },
+      "PublicResponse_CommentLikes_": {
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "title": "Success",
+            "default": true
+          },
+          "code": {
+            "type": "integer",
+            "title": "Code",
+            "default": 200
+          },
+          "msg": {
+            "type": "string",
+            "title": "Msg",
+            "default": "请求成功"
+          },
+          "data": {
+            "$ref": "#/components/schemas/CommentLikes"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "title": "PublicResponse[CommentLikes]"
       },
       "PublicResponse_ContentDetail_": {
         "properties": {

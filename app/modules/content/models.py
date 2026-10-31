@@ -112,6 +112,18 @@ class SearchDocument(Base):
     body: Mapped[str] = mapped_column(Text)
 
 
+class CommentLike(Base):
+    """Anonymous browser preferences; never an account or an access credential."""
+
+    __tablename__ = "comment_likes"
+
+    comment_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("comments.id", ondelete="CASCADE"), primary_key=True
+    )
+    visitor_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
 class SiteSettings(Base):
     __tablename__ = "site_settings"
     __table_args__ = (

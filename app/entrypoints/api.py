@@ -48,8 +48,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         CORSMiddleware,
         allow_origins=resolved.cors.allowed_origins if resolved else [],
         allow_credentials=False,
-        allow_methods=["GET"],
-        allow_headers=["Accept", "Content-Type"],
+        allow_methods=["GET", "PUT"],
+        allow_headers=["Accept", "Content-Type", "X-Everunfold-Visitor"],
     )
     register_content_module(application)
 
