@@ -9,7 +9,7 @@ from app.core.schemas import ErrorResponse as ErrorResponse
 from app.core.schemas import PublicModel as PublicModel
 from app.core.schemas import PublicResponse as PublicResponse
 
-ContentKind = Literal["article", "page"]
+ContentKind = Literal["article", "shuoshuo", "page"]
 TaxonomyKind = Literal["category", "tag"]
 
 
@@ -104,7 +104,7 @@ class TaxonomyList(PublicModel):
 
 
 class PublicSnapshot(PublicModel):
-    schema_version: Literal["0.1.0"] = "0.1.0"
+    schema_version: Literal["0.1.0", "0.2.0"] = "0.2.0"
     source_epoch: str = Field(min_length=1)
     generation: int = Field(ge=1)
     exported_at: datetime

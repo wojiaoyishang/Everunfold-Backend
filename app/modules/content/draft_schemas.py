@@ -7,6 +7,7 @@ from uuid import UUID
 from pydantic import Field, model_validator
 
 from app.core.schemas import PublicModel, PublicResponse
+from app.modules.content.publication_schemas import ContentDelivery, ContentSyncState
 from app.modules.content.type_registry import ContentTypeDefinition
 
 
@@ -33,7 +34,7 @@ class DraftFields(PublicModel):
 class DraftQuery(PublicModel):
     type_id: str = Field(min_length=1, max_length=64)
     search: str = Field(default="", max_length=200)
-    status: Literal["draft", "trash"] = "draft"
+    status: Literal["all", "draft", "published", "trash"] = "all"
     page: int = Field(default=1, ge=1, le=100_000)
     page_size: int = Field(default=15, ge=1, le=50)
 
@@ -67,6 +68,9 @@ class DraftSummary(PublicModel):
     revision: int
     status: Literal["draft", "trash"]
     is_demo: bool
+    published_revision: int | None = None
+    public_path: str | None = None
+    published_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -95,3 +99,5 @@ class ContentAdminContract(PublicModel):
     catalog: PublicResponse[DraftCatalog]
     detail: PublicResponse[DraftDetail]
     types: PublicResponse[ContentTypeCatalog]
+    sync_state: PublicResponse[ContentSyncState]
+    delivery: ContentDelivery
