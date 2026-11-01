@@ -589,6 +589,7 @@ def test_settings_atomic_save_restart_delivery_and_crash_replay(tmp_path: Path) 
                 frontend,
                 node_executable,
                 node_env,
+                config_file,
             )
 
             # CDN origin changes republish a new version, never overwrite a prior ACKed file.

@@ -10,6 +10,8 @@ from uuid import UUID, uuid4
 
 import httpx2 as httpx
 
+from tests.imported_preview_process_checks import check_imported_preview
+
 
 def check_content_publication(
     client: Any,
@@ -26,6 +28,7 @@ def check_content_publication(
     frontend: Path,
     node: str,
     node_env: dict[str, str],
+    backend_config: Path,
 ) -> None:
     prefix = "/v1/admin/content/"
 
@@ -184,3 +187,14 @@ def check_content_publication(
     ).json()["data"]
     assert restored["published_revision"] is None
     assert not any(item["id"] == moment["id"] for item in snapshot()["contents"])
+    native = post(
+        "publish",
+        {
+            "id": draft["id"],
+            "operation_id": str(uuid4()),
+            "expected_revision": withdrawn.json()["data"]["revision"],
+            "fields": fields,
+        },
+    )
+    assert native.status_code == 200, native.text
+    check_imported_preview(client, sql, state, snapshot, wait_for, backend_config, draft["id"])
