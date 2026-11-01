@@ -10,6 +10,7 @@ from app.core.responses import JSONResponseSuccess
 from app.core.schemas import ErrorResponse, PublicResponse
 from app.modules.auth.router import auth_runtime
 from app.modules.auth.service import AuthFailure
+from app.modules.media.management import MediaManagement
 from app.modules.media.media_validation import MAX_MEDIA_BYTES
 from app.modules.media.models import MediaAsset
 from app.modules.media.schemas import (
@@ -18,8 +19,12 @@ from app.modules.media.schemas import (
     IconQuery,
     IconUpload,
     MediaCatalog,
+    MediaDetails,
+    MediaEdit,
     MediaItem,
+    MediaLookup,
     MediaQuery,
+    MediaUpdate,
     MediaUpload,
 )
 from app.modules.media.service import MediaService
@@ -108,3 +113,28 @@ async def serve(object_key: str, request: Request) -> FileResponse:
                 "Cross-Origin-Resource-Policy": "cross-origin",
             },
         )
+
+
+@router.post("/v1/admin/media/detail", response_model=PublicResponse[MediaDetails])
+async def media_detail(payload: MediaLookup, ctx: Authorized) -> JSONResponseSuccess:
+    return JSONResponseSuccess(
+        data=await MediaManagement(ctx.service.session, ctx.service.config).details(payload.id)
+    )
+
+
+@router.post("/v1/admin/media/update", response_model=PublicResponse[MediaDetails])
+async def media_update(payload: MediaUpdate, ctx: Authorized) -> JSONResponseSuccess:
+    return JSONResponseSuccess(
+        data=await MediaManagement(ctx.service.session, ctx.service.config).update(
+            payload, ctx.actor.id
+        )
+    )
+
+
+@router.post("/v1/admin/media/edit", response_model=PublicResponse[MediaDetails])
+async def media_edit(payload: MediaEdit, ctx: Authorized) -> JSONResponseSuccess:
+    return JSONResponseSuccess(
+        data=await MediaManagement(ctx.service.session, ctx.service.config).edit(
+            payload, ctx.actor.id
+        )
+    )

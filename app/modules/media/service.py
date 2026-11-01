@@ -4,6 +4,7 @@ import asyncio
 import hashlib
 import uuid
 from datetime import UTC, datetime
+from typing import Any
 
 from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert
@@ -93,6 +94,10 @@ class MediaService:
         upload_id: str,
         actor: uuid.UUID,
         purpose: str,
+        *,
+        source_id: uuid.UUID | None = None,
+        recipe: dict[str, Any] | None = None,
+        metadata: dict[str, str] | None = None,
     ) -> IconAsset:
         digest = hashlib.sha256(data).hexdigest()
         media_id = uuid.uuid5(actor, upload_id)
@@ -114,6 +119,9 @@ class MediaService:
                 status="staging",
                 purpose=purpose,
                 storage_id="local",
+                source_id=source_id,
+                edit_recipe=recipe,
+                **(metadata or {}),
             )
             .on_conflict_do_nothing(index_elements=["id"])
         )
@@ -123,6 +131,8 @@ class MediaService:
             asset.sha256 != digest
             or asset.filename != name
             or asset.purpose != purpose
+            or asset.source_id != source_id
+            or asset.edit_recipe != recipe
             or asset.deleted_at is not None
         ):
             raise AuthFailure(409, 40930, "该上传标识已经用于其他文件")
@@ -143,7 +153,12 @@ class MediaService:
                     user_id=actor,
                     resource=f"media:{media_id}",
                     revision=1,
-                    changes={"operation": "upload", "sha256": digest, "size": len(data)},
+                    changes={
+                        "operation": "edit" if source_id else "upload",
+                        "sha256": digest,
+                        "size": len(data),
+                        "source_id": str(source_id) if source_id else None,
+                    },
                 )
             )
         await self.session.commit()
@@ -187,6 +202,7 @@ class MediaService:
                 MediaItem(
                     **self.dto(asset).model_dump(),
                     kind="video" if asset.mime.startswith("video/") else "image",
+                    title=asset.title,
                 )
                 for asset in assets
             ],

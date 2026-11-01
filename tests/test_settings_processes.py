@@ -23,6 +23,7 @@ import pytest
 from sqlalchemy.engine import make_url
 
 from app.core.config import load_settings
+from tests.media_process_checks import check_media_management
 from tests.test_auth_http_processes import free_port, uvicorn_process
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -565,6 +566,8 @@ def test_settings_atomic_save_restart_delivery_and_crash_replay(tmp_path: Path) 
             bound_revision = bound.json()["data"]["revision"]
             bound_file = applied_file.parent / f"public-settings.{bound_revision}.json"
             assert json.loads(bound_file.read_text(encoding="utf-8"))["value"] == bound_value
+
+            check_media_management(client, csrf, cookies, api_a, api_b, sql)
 
             # CDN origin changes republish a new version, never overwrite a prior ACKed file.
             raw["media"]["base_url"] = "https://cdn.example.test/assets"

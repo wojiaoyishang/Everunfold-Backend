@@ -13,8 +13,12 @@ from app.modules.media.schemas import (
     IconQuery,
     IconUpload,
     MediaCatalog,
+    MediaDetails,
+    MediaEdit,
     MediaItem,
+    MediaLookup,
     MediaQuery,
+    MediaUpdate,
     MediaUpload,
 )
 
@@ -197,6 +201,10 @@ class DeliveryReceipt(SettingsModel):
 
 
 class SettingsContract(PublicModel):
+    media_lookup: MediaLookup
+    media_update: MediaUpdate
+    media_edit: MediaEdit
+    media_details: PublicResponse[MediaDetails]
     media_query: MediaQuery
     media_upload: MediaUpload
     media_catalog: PublicResponse[MediaCatalog]

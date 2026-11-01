@@ -2,9 +2,10 @@
 
 import uuid
 from datetime import UTC, datetime
+from typing import Any
 
-from sqlalchemy import CheckConstraint, DateTime, Integer, String
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
@@ -27,3 +28,11 @@ class MediaAsset(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )
+
+    title: Mapped[str] = mapped_column(String(160), default="", server_default="")
+    alt_text: Mapped[str] = mapped_column(String(1000), default="", server_default="")
+    caption: Mapped[str] = mapped_column(Text, default="", server_default="")
+    description: Mapped[str] = mapped_column(Text, default="", server_default="")
+    revision: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
+    source_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("media_assets.id"))
+    edit_recipe: Mapped[dict[str, Any] | None] = mapped_column(JSONB)

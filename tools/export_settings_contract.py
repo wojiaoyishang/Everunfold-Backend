@@ -10,8 +10,29 @@ from app.modules.settings.schemas import SettingsContract
 def build_schema() -> dict[str, Any]:
     schema = SettingsContract.model_json_schema()
     schema["$schema"] = "http://json-schema.org/draft-07/schema#"
-    schema["x-everunfold-contract-version"] = "1.3.0"
+    schema["x-everunfold-contract-version"] = "1.4.0"
     schema["x-everunfold-operations"] = [
+        {
+            "name": "readMedia",
+            "path": "/v1/admin/media/detail",
+            "method": "POST",
+            "input": "media_lookup",
+            "response": "media_details",
+        },
+        {
+            "name": "updateMedia",
+            "path": "/v1/admin/media/update",
+            "method": "POST",
+            "input": "media_update",
+            "response": "media_details",
+        },
+        {
+            "name": "editMedia",
+            "path": "/v1/admin/media/edit",
+            "method": "POST",
+            "input": "media_edit",
+            "response": "media_details",
+        },
         {
             "name": "queryMedia",
             "path": "/v1/admin/media/query",
