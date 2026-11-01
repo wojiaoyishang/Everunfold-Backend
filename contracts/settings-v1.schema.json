@@ -301,6 +301,90 @@
       "title": "PolicyState",
       "type": "object"
     },
+    "PublicResponse_NodeList_": {
+      "additionalProperties": false,
+      "properties": {
+        "success": {
+          "default": true,
+          "title": "Success",
+          "type": "boolean"
+        },
+        "code": {
+          "default": 200,
+          "title": "Code",
+          "type": "integer"
+        },
+        "msg": {
+          "default": "请求成功",
+          "title": "Msg",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/NodeList"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "title": "PublicResponse[NodeList]",
+      "type": "object"
+    },
+    "PublicResponse_PolicyState_": {
+      "additionalProperties": false,
+      "properties": {
+        "success": {
+          "default": true,
+          "title": "Success",
+          "type": "boolean"
+        },
+        "code": {
+          "default": 200,
+          "title": "Code",
+          "type": "integer"
+        },
+        "msg": {
+          "default": "请求成功",
+          "title": "Msg",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/PolicyState"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "title": "PublicResponse[PolicyState]",
+      "type": "object"
+    },
+    "PublicResponse_SettingsState_": {
+      "additionalProperties": false,
+      "properties": {
+        "success": {
+          "default": true,
+          "title": "Success",
+          "type": "boolean"
+        },
+        "code": {
+          "default": 200,
+          "title": "Code",
+          "type": "integer"
+        },
+        "msg": {
+          "default": "请求成功",
+          "title": "Msg",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/SettingsState"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "title": "PublicResponse[SettingsState]",
+      "type": "object"
+    },
     "PublicSettings": {
       "additionalProperties": false,
       "properties": {
@@ -563,19 +647,19 @@
   "additionalProperties": false,
   "properties": {
     "settings": {
-      "$ref": "#/$defs/SettingsState"
+      "$ref": "#/$defs/PublicResponse_SettingsState_"
     },
     "save_settings": {
       "$ref": "#/$defs/SaveSettings"
     },
     "policy": {
-      "$ref": "#/$defs/PolicyState"
+      "$ref": "#/$defs/PublicResponse_PolicyState_"
     },
     "save_policy": {
       "$ref": "#/$defs/SavePolicy"
     },
     "nodes": {
-      "$ref": "#/$defs/NodeList"
+      "$ref": "#/$defs/PublicResponse_NodeList_"
     },
     "delivery": {
       "$ref": "#/$defs/SettingsDelivery"
