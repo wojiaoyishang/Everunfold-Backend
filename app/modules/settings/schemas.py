@@ -7,7 +7,16 @@ from urllib.parse import urlsplit
 from pydantic import ConfigDict, Field, field_validator, model_validator
 
 from app.core.schemas import PublicModel, PublicResponse
-from app.modules.media.schemas import IconAsset, IconCatalog, IconQuery, IconUpload
+from app.modules.media.schemas import (
+    IconAsset,
+    IconCatalog,
+    IconQuery,
+    IconUpload,
+    MediaCatalog,
+    MediaItem,
+    MediaQuery,
+    MediaUpload,
+)
 
 
 class SettingsModel(PublicModel):
@@ -47,10 +56,14 @@ class MenuItem(MenuLink):
     children: list["MenuItem"] = Field(default_factory=list)
 
 
+MediaReference = r"^(?:|media:[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})$"
+
+
 class SitePreferences(SettingsModel):
     name: str = Field(min_length=1, max_length=120)
     description: str = Field(max_length=300)
     author: str = Field(min_length=1, max_length=100)
+    avatar_media_id: str = Field(default="", pattern=MediaReference)
     avatar_url: str = Field(default="", max_length=2048)
     notice: str = Field(default="", max_length=1000)
     navigation: list[MenuItem] = Field(default_factory=list)
@@ -93,6 +106,8 @@ class ThemePreferences(SettingsModel):
     mode: Literal["system", "light", "dark"] = "system"
     hero_title: str = Field(default="", max_length=160)
     hero_subtitle: str = Field(default="", max_length=300)
+    background_media_id: str = Field(default="", pattern=MediaReference)
+    background_video_media_id: str = Field(default="", pattern=MediaReference)
     background_url: str = Field(default="", max_length=2048)
     background_video_url: str = Field(
         default="/reference/campfire-background.webm", max_length=2048
@@ -180,9 +195,11 @@ class DeliveryReceipt(SettingsModel):
     durable: Literal[True]
 
 
-
-
 class SettingsContract(PublicModel):
+    media_query: MediaQuery
+    media_upload: MediaUpload
+    media_catalog: PublicResponse[MediaCatalog]
+    media_item: PublicResponse[MediaItem]
     icons: PublicResponse[IconCatalog]
     icon_query: IconQuery
     icon_upload: IconUpload
