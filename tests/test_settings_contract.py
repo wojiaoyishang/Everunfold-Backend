@@ -1,6 +1,9 @@
 """Boundary checks for the administrator's public settings and node policy."""
 
 import json
+import os
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -74,3 +77,22 @@ def test_policy_is_bounded_and_cannot_expire_public_snapshots() -> None:
     ]:
         with pytest.raises(ValidationError):
             CachePolicy.model_validate(invalid)
+
+
+def test_scheduler_import_does_not_load_business_or_api() -> None:
+    root = Path(__file__).resolve().parents[1]
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "import sys; import app.entrypoints.scheduler; "
+            "assert 'app.modules.settings.delivery' not in sys.modules; "
+            "assert 'app.entrypoints.api' not in sys.modules",
+        ],
+        cwd=root,
+        env={**os.environ, "CONFIG_FILE": str(root / "config.example.toml")},
+        capture_output=True,
+        text=True,
+        timeout=15,
+    )
+    assert result.returncode == 0, result.stderr

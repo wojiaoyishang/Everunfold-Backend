@@ -5,7 +5,7 @@ import uuid
 
 from redis import Redis
 
-from app.entrypoints.worker import celery_app, settings
+from app.core.task_queue import celery_app, settings
 
 
 def main() -> None:

@@ -56,13 +56,13 @@ uv run --locked pytest
 Remove-Item Env:RUN_DATABASE_TESTS
 ```
 
-测试会拒绝开发库并使用专用测试库；认证初始化测试还会创建并删除名称受控的临时 PostgreSQL 数据库。当前交接记录的最终结果是默认测试 `45 passed, 12 skipped`、启用测试库后 `57 passed`，包含真实双 Uvicorn 进程的跨源 Cookie/CSRF 与 Session 共享/撤销检查。认证契约导出为 `uv run --locked python -m tools.export_auth_contract`，公开 OpenAPI 导出为 `uv run --locked python -m tools.export_contracts`。
+测试会拒绝开发库并使用专用测试库；认证初始化测试还会创建并删除名称受控的临时 PostgreSQL 数据库。当前启用测试库后的完整检查为 `68 passed`，包含双 Uvicorn 的 Cookie/CSRF/共享会话，以及独立 Worker/Scheduler/Node 接收器的设置事务、崩溃重投和恢复检查。认证契约导出为 `uv run --locked python -m tools.export_auth_contract`，公开 OpenAPI 导出为 `uv run --locked python -m tools.export_contracts`。
 
 GitHub Actions 配置将执行同样检查；远程实际执行结果以 Actions 为准。未添加自动部署。
 
 ## 边界
 
-公开业务路径为 `/v1/*`；开发代理 `/api` 不进入后端路由。`app/modules/content/` 与 `app/modules/auth/` 按模型、DTO、数据库访问、用例服务和路由分责，由静态 Manifest 与唯一 `router_init(ctx)` 装配。未来 FastAPI、Celery Worker 与单进程 Scheduler 共用基础包但独立运行。数据库启动不自动迁移；当前设置模块已有独立 Worker/Scheduler 和专用 Node 设置接收器；完整内容发布缓存接口、文章/媒体 CRUD 仍未交付。
+公开业务路径为 `/v1/*`；开发代理 `/api` 不进入后端路由。`app/modules/content/` 与 `app/modules/auth/` 按模型、DTO、数据库访问、用例服务和路由分责，由静态 Manifest 与唯一 `router_init(ctx)` 装配。FastAPI、Celery Worker 与单进程 Scheduler 共用基础包并分别提供独立入口。数据库启动不自动迁移；当前设置模块已有独立 Worker/Scheduler 和专用 Node 设置接收器；完整内容发布缓存接口、文章/媒体 CRUD 仍未交付。
 
 错误 JSON 不返回输入或异常详情；默认 ASGI 服务器日志尚未配置统一脱敏，生产前必须另行交付结构化日志、敏感信息过滤和诊断关联。当前骨架仅用于本地开发。
 
