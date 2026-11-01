@@ -6,7 +6,7 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -185,7 +185,13 @@ class MediaService:
         if query.kind != "all":
             where.append(MediaAsset.mime.startswith(query.kind + "/"))
         if query.query.strip():
-            where.append(MediaAsset.filename.icontains(query.query.strip(), autoescape=True))
+            term = query.query.strip()
+            where.append(
+                or_(
+                    MediaAsset.filename.icontains(term, autoescape=True),
+                    MediaAsset.title.icontains(term, autoescape=True),
+                )
+            )
         total = (
             await self.session.scalar(select(func.count()).select_from(MediaAsset).where(*where))
             or 0

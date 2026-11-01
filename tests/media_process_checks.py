@@ -35,7 +35,7 @@ def check_media_management(
     asyncio.run(
         sql(
             "ALTER TABLE settings_audit ADD CONSTRAINT metadata_rollback "
-            "CHECK (resource NOT LIKE 'media:%')"
+            "CHECK (resource NOT LIKE 'media:%') NOT VALID"
         )
     )
     assert client.post("/v1/admin/media/update", json=update, headers=csrf).status_code == 503
@@ -63,6 +63,10 @@ def check_media_management(
         "data"
     ]
     assert current["revision"] == 2
+    found = client.post(
+        "/v1/admin/media/query", json={"query": current["metadata"]["title"]}, headers=csrf
+    ).json()["data"]
+    assert [entry["id"] for entry in found["items"]] == [item["id"]]
     assert (
         client.post(
             "/v1/admin/media/update", json={**update, "metadata": current["metadata"]}, headers=csrf
@@ -82,7 +86,7 @@ def check_media_management(
     asyncio.run(
         sql(
             "ALTER TABLE settings_audit ADD CONSTRAINT edit_rollback "
-            "CHECK (resource NOT LIKE 'media:%')"
+            "CHECK (resource NOT LIKE 'media:%') NOT VALID"
         )
     )
     assert client.post("/v1/admin/media/edit", json=edit, headers=csrf).status_code == 503

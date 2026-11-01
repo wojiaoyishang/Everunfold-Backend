@@ -27,7 +27,8 @@ def test_rotation_crop_resize_preserves_original_and_alpha(tmp_path: Path) -> No
     assert path.read_bytes() == original
     flipped, _, _ = transform_bitmap(path, ImageRecipe(flip_horizontal=True, flip_vertical=True))
     with Image.open(io.BytesIO(flipped)) as edited:
-        assert edited.getpixel((0, 0))[3] == 0
+        pixel = edited.getpixel((0, 0))
+        assert isinstance(pixel, tuple) and pixel[3] == 0
         assert edited.getpixel((11, 7)) == (255, 0, 0, 255)
 
 
