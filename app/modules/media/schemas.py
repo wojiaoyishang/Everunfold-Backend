@@ -15,6 +15,7 @@ class IconAsset(PublicModel):
     mime: str
     size: int
     created_at: datetime
+    reused: bool = False
 
 
 class IconCatalog(PublicModel):
@@ -36,8 +37,10 @@ class IconUpload(PublicModel):
 
 
 class MediaItem(IconAsset):
-    kind: Literal["image", "video"]
+    kind: Literal["image", "video", "file"]
     title: str = ""
+    deleted: bool = False
+    purge_pending: bool = False
 
 
 class MediaCatalog(PublicModel):
@@ -48,10 +51,12 @@ class MediaCatalog(PublicModel):
 
 
 class MediaQuery(IconQuery):
-    kind: Literal["all", "image", "video"] = "all"
+    kind: Literal["all", "image", "video", "file"] = "all"
+    trash: bool = False
 
 
 class MediaUpload(PublicModel):
+    purpose: Literal["library", "icon"] = "library"
     filename: str = Field(min_length=1, max_length=160)
     upload_id: str = Field(pattern=r"^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$")
 
@@ -106,3 +111,15 @@ class ImageRecipe(PublicModel):
 class MediaEdit(MediaLookup):
     edit_id: str = Field(pattern=r"^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$")
     recipe: ImageRecipe
+
+
+class MediaRemove(MediaLookup):
+    expected_revision: int = Field(ge=1)
+    delete_original: bool = False
+
+
+class MediaRemoval(PublicModel):
+    id: str
+    deleted: bool
+    purged: bool
+    purge_pending: bool

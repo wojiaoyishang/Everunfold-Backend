@@ -10,6 +10,8 @@ from uuid import uuid4
 class ObjectStorage(Protocol):
     def publish(self, key: str, data: bytes, digest: str) -> None: ...
     def path(self, key: str) -> Path: ...
+    def remove(self, key: str, digest: str) -> None: ...
+    def matches(self, key: str, digest: str) -> bool: ...
 
 
 class LocalObjectStorage:
@@ -50,3 +52,19 @@ class LocalObjectStorage:
                     os.close(directory)
         finally:
             temporary.unlink(missing_ok=True)
+
+    def matches(self, key: str, digest: str) -> bool:
+        target = self.path(key)
+        if not target.is_file():
+            return False
+        with target.open("rb") as stream:
+            return hashlib.file_digest(stream, "sha256").hexdigest() == digest
+
+    def remove(self, key: str, digest: str) -> None:
+        target = self.path(key)
+        if not target.exists():
+            return
+        if not self.matches(key, digest):
+            raise OSError("refusing to remove changed original")
+        # A single resolved file under the configured uploads root; never recurse.
+        target.unlink()

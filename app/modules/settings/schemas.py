@@ -18,6 +18,8 @@ from app.modules.media.schemas import (
     MediaItem,
     MediaLookup,
     MediaQuery,
+    MediaRemoval,
+    MediaRemove,
     MediaUpdate,
     MediaUpload,
 )
@@ -201,6 +203,8 @@ class DeliveryReceipt(SettingsModel):
 
 
 class SettingsContract(PublicModel):
+    media_remove: MediaRemove
+    media_removal: MediaRemoval
     media_lookup: MediaLookup
     media_update: MediaUpdate
     media_edit: MediaEdit

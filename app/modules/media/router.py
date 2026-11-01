@@ -13,6 +13,7 @@ from app.modules.auth.service import AuthFailure
 from app.modules.media.management import MediaManagement
 from app.modules.media.media_validation import MAX_MEDIA_BYTES
 from app.modules.media.models import MediaAsset
+from app.modules.media.removal import MediaRemovalService
 from app.modules.media.schemas import (
     IconAsset,
     IconCatalog,
@@ -24,6 +25,8 @@ from app.modules.media.schemas import (
     MediaItem,
     MediaLookup,
     MediaQuery,
+    MediaRemoval,
+    MediaRemove,
     MediaUpdate,
     MediaUpload,
 )
@@ -77,7 +80,7 @@ async def media_upload(
     async for chunk in request.stream():
         size += len(chunk)
         if size > MAX_MEDIA_BYTES:
-            raise AuthFailure(413, 41330, "视频不超过 128 MB，图片不超过 20 MB")
+            raise AuthFailure(413, 41330, "单个文件不超过 128 MB")
         chunks.append(chunk)
     data = b"".join(chunks)
     return JSONResponseSuccess(
@@ -106,6 +109,7 @@ async def serve(object_key: str, request: Request) -> FileResponse:
         return FileResponse(
             path,
             media_type=asset.mime,
+            filename=asset.filename if asset.mime == "application/octet-stream" else None,
             headers={
                 "X-Content-Type-Options": "nosniff",
                 "Content-Security-Policy": "default-src 'none'; style-src 'none'; sandbox",
@@ -135,6 +139,24 @@ async def media_update(payload: MediaUpdate, ctx: Authorized) -> JSONResponseSuc
 async def media_edit(payload: MediaEdit, ctx: Authorized) -> JSONResponseSuccess:
     return JSONResponseSuccess(
         data=await MediaManagement(ctx.service.session, ctx.service.config).edit(
+            payload, ctx.actor.id
+        )
+    )
+
+
+@router.post("/v1/admin/media/remove", response_model=PublicResponse[MediaRemoval])
+async def media_remove(payload: MediaRemove, ctx: Authorized) -> JSONResponseSuccess:
+    return JSONResponseSuccess(
+        data=await MediaRemovalService(ctx.service.session, ctx.service.config).remove(
+            payload, ctx.actor.id
+        )
+    )
+
+
+@router.post("/v1/admin/media/restore", response_model=PublicResponse[MediaRemoval])
+async def media_restore(payload: MediaLookup, ctx: Authorized) -> JSONResponseSuccess:
+    return JSONResponseSuccess(
+        data=await MediaRemovalService(ctx.service.session, ctx.service.config).restore(
             payload, ctx.actor.id
         )
     )

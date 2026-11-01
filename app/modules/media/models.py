@@ -4,7 +4,7 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -20,7 +20,7 @@ class MediaAsset(Base):
     filename: Mapped[str] = mapped_column(String(160))
     mime: Mapped[str] = mapped_column(String(64))
     size: Mapped[int] = mapped_column(Integer)
-    sha256: Mapped[str] = mapped_column(String(64))
+    sha256: Mapped[str] = mapped_column(String(64), index=True)
     storage_id: Mapped[str] = mapped_column(String(32), default="local")
     object_key: Mapped[str] = mapped_column(String(256), unique=True)
     status: Mapped[str] = mapped_column(String(16), default="staging")
@@ -36,3 +36,17 @@ class MediaAsset(Base):
     revision: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
     source_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("media_assets.id"))
     edit_recipe: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+
+    icon_enabled: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    purge_pending: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    purged_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class MediaUploadReceipt(Base):
+    """Request identity is separate from the content identity reused across uploads."""
+
+    __tablename__ = "media_upload_receipts"
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
+    signature: Mapped[str] = mapped_column(String(64))
+    asset_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("media_assets.id"), index=True)
+    reused: Mapped[bool] = mapped_column(Boolean)

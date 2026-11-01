@@ -12,16 +12,21 @@ from app.modules.media.image_processing import BITMAP_MIMES, inspect_bitmap, tra
 from app.modules.media.models import MediaAsset
 from app.modules.media.schemas import MediaDetails, MediaEdit, MediaMetadata, MediaUpdate
 from app.modules.media.service import MediaService
+from app.modules.media.upload_validation import media_kind
 from app.modules.settings.models import SettingsAudit
 
 
 class MediaManagement(MediaService):
-    async def asset(self, reference: str, *, lock: bool = False) -> MediaAsset:
+    async def asset(
+        self, reference: str, *, lock: bool = False, include_deleted: bool = False
+    ) -> MediaAsset:
         statement = select(MediaAsset).where(
             MediaAsset.id == uuid.UUID(reference[6:]),
             MediaAsset.status == "ready",
-            MediaAsset.deleted_at.is_(None),
+            MediaAsset.purged_at.is_(None),
         )
+        if not include_deleted:
+            statement = statement.where(MediaAsset.deleted_at.is_(None))
         if lock:
             statement = statement.with_for_update().execution_options(populate_existing=True)
         asset = await self.session.scalar(statement)
@@ -30,9 +35,9 @@ class MediaManagement(MediaService):
         return asset
 
     async def details(self, reference: str) -> MediaDetails:
-        asset = await self.asset(reference)
+        asset = await self.asset(reference, include_deleted=True)
         width, height = (None, None)
-        if asset.mime in BITMAP_MIMES:
+        if asset.mime in BITMAP_MIMES and not asset.deleted_at:
             width, height = await asyncio.to_thread(
                 inspect_bitmap, self.storage.path(asset.object_key)
             )
@@ -41,7 +46,9 @@ class MediaManagement(MediaService):
         )
         return MediaDetails(
             **self.dto(asset).model_dump(),
-            kind="video" if asset.mime.startswith("video/") else "image",
+            kind=media_kind(asset.mime),
+            deleted=asset.deleted_at is not None,
+            purge_pending=asset.purge_pending,
             title=asset.title,
             metadata=MediaMetadata.model_validate(asset, from_attributes=True),
             revision=asset.revision,

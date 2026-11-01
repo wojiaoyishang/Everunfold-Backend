@@ -1,19 +1,16 @@
 """Media identity, validation and transactional registration stay outside storage plugins."""
 
 import asyncio
-import hashlib
 import uuid
-from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import func, or_, select
-from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
 from app.modules.auth.service import AuthFailure
-from app.modules.media.media_validation import validate_media
 from app.modules.media.models import MediaAsset
+from app.modules.media.publishing import publish
 from app.modules.media.schemas import (
     IconAsset,
     IconCatalog,
@@ -25,8 +22,8 @@ from app.modules.media.schemas import (
     MediaUpload,
 )
 from app.modules.media.storage import LocalObjectStorage, ObjectStorage
+from app.modules.media.upload_validation import media_kind, validate_upload
 from app.modules.media.validation import validate_icon
-from app.modules.settings.models import SettingsAudit
 
 
 class MediaService:
@@ -51,7 +48,7 @@ class MediaService:
         where = [
             MediaAsset.status == "ready",
             MediaAsset.deleted_at.is_(None),
-            MediaAsset.purpose == "icon",
+            MediaAsset.icon_enabled.is_(True),
         ]
         if query.query.strip():
             where.append(MediaAsset.filename.icontains(query.query.strip(), autoescape=True))
@@ -77,13 +74,13 @@ class MediaService:
         )
 
     async def upload_media(self, payload: MediaUpload, data: bytes, actor: uuid.UUID) -> MediaItem:
-        mime, extension = await asyncio.to_thread(validate_media, data)
+        mime, extension = await asyncio.to_thread(
+            validate_upload, data, payload.filename, payload.purpose
+        )
         asset = await self.publish(
-            data, mime, extension, payload.filename, payload.upload_id, actor, "library"
+            data, mime, extension, payload.filename, payload.upload_id, actor, payload.purpose
         )
-        return MediaItem(
-            **asset.model_dump(), kind="video" if mime.startswith("video/") else "image"
-        )
+        return MediaItem(**asset.model_dump(), kind=media_kind(mime))
 
     async def publish(
         self,
@@ -99,70 +96,19 @@ class MediaService:
         recipe: dict[str, Any] | None = None,
         metadata: dict[str, str] | None = None,
     ) -> IconAsset:
-        digest = hashlib.sha256(data).hexdigest()
-        media_id = uuid.uuid5(actor, upload_id)
-        now = datetime.now(UTC)
-        key = f"{now:%Y/%m}/{media_id}/original.{extension}"
-        name = filename.replace("\\", "/").split("/")[-1]
-        if not name.strip() or any(ord(char) < 32 for char in name):
-            raise AuthFailure(422, 42230, "文件名称无效")
-        await self.session.execute(
-            insert(MediaAsset)
-            .values(
-                id=media_id,
-                uploader_id=actor,
-                filename=name,
-                mime=mime,
-                size=len(data),
-                sha256=digest,
-                object_key=key,
-                status="staging",
-                purpose=purpose,
-                storage_id="local",
-                source_id=source_id,
-                edit_recipe=recipe,
-                **(metadata or {}),
-            )
-            .on_conflict_do_nothing(index_elements=["id"])
+        return await publish(
+            self,
+            data,
+            mime,
+            extension,
+            filename,
+            upload_id,
+            actor,
+            purpose,
+            source_id=source_id,
+            recipe=recipe,
+            metadata=metadata,
         )
-        asset = await self.session.get(MediaAsset, media_id)
-        assert asset is not None
-        if (
-            asset.sha256 != digest
-            or asset.filename != name
-            or asset.purpose != purpose
-            or asset.source_id != source_id
-            or asset.edit_recipe != recipe
-            or asset.deleted_at is not None
-        ):
-            raise AuthFailure(409, 40930, "该上传标识已经用于其他文件")
-        # Persist the resumable upload identity before the external filesystem operation.
-        await self.session.commit()
-        await asyncio.to_thread(self.storage.publish, asset.object_key, data, digest)
-        asset = await self.session.scalar(
-            select(MediaAsset)
-            .where(MediaAsset.id == media_id)
-            .with_for_update()
-            .execution_options(populate_existing=True)
-        )
-        assert asset is not None
-        if asset.status != "ready":
-            asset.status = "ready"
-            self.session.add(
-                SettingsAudit(
-                    user_id=actor,
-                    resource=f"media:{media_id}",
-                    revision=1,
-                    changes={
-                        "operation": "edit" if source_id else "upload",
-                        "sha256": digest,
-                        "size": len(data),
-                        "source_id": str(source_id) if source_id else None,
-                    },
-                )
-            )
-        await self.session.commit()
-        return self.dto(asset)
 
     async def resolve_icons(self, ids: set[str]) -> dict[str, str]:
         if not ids:
@@ -172,7 +118,7 @@ class MediaService:
                 MediaAsset.id.in_([uuid.UUID(key[6:]) for key in ids]),
                 MediaAsset.status == "ready",
                 MediaAsset.deleted_at.is_(None),
-                MediaAsset.purpose == "icon",
+                MediaAsset.icon_enabled.is_(True),
             )
         )
         result = {self.dto(asset).id: self.dto(asset).url for asset in assets}
@@ -181,8 +127,14 @@ class MediaService:
         return result
 
     async def catalog_media(self, query: MediaQuery) -> MediaCatalog:
-        where = [MediaAsset.status == "ready", MediaAsset.deleted_at.is_(None)]
-        if query.kind != "all":
+        where = [
+            MediaAsset.status == "ready",
+            MediaAsset.purged_at.is_(None),
+            MediaAsset.deleted_at.is_not(None) if query.trash else MediaAsset.deleted_at.is_(None),
+        ]
+        if query.kind == "file":
+            where.append(MediaAsset.mime == "application/octet-stream")
+        elif query.kind != "all":
             where.append(MediaAsset.mime.startswith(query.kind + "/"))
         if query.query.strip():
             term = query.query.strip()
@@ -207,7 +159,9 @@ class MediaService:
             items=[
                 MediaItem(
                     **self.dto(asset).model_dump(),
-                    kind="video" if asset.mime.startswith("video/") else "image",
+                    kind=media_kind(asset.mime),
+                    deleted=asset.deleted_at is not None,
+                    purge_pending=asset.purge_pending,
                     title=asset.title,
                 )
                 for asset in assets

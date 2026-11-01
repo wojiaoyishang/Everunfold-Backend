@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import Settings
 from app.modules.auth.service import AuthFailure
 from app.modules.content.models import SiteSettings
+from app.modules.media.locking import lock_references
 from app.modules.media.service import MediaService
 from app.modules.settings.defaults import public_settings, stored_settings
 from app.modules.settings.models import NodePolicy, SettingsAudit, SettingsDeliveryEvent
@@ -156,6 +157,7 @@ class SettingsService:
         )
 
     async def save(self, payload: SaveSettings, actor: uuid.UUID) -> SettingsState:
+        await lock_references(self.session)
         record = await self.site(locked=True)
         if record.generation != payload.expected_revision:
             raise AuthFailure(409, 40920, "设置已被修改，请重新读取后合并你的更改")
