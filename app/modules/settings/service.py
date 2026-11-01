@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import Settings
 from app.modules.auth.service import AuthFailure
 from app.modules.content.models import SiteSettings
+from app.modules.media.service import MediaService
 from app.modules.settings.defaults import public_settings, stored_settings
 from app.modules.settings.models import NodePolicy, SettingsAudit, SettingsDeliveryEvent
 from app.modules.settings.schemas import (
@@ -18,6 +19,7 @@ from app.modules.settings.schemas import (
     DeliveryState,
     NodeList,
     PolicyState,
+    PublicSettings,
     SavePolicy,
     SaveSettings,
     SettingsDelivery,
@@ -39,12 +41,24 @@ class SettingsService:
             raise AuthFailure(503, 50320, "站点设置尚未初始化，请先执行数据库初始化")
         return record
 
+    async def resolve(self, value: PublicSettings) -> PublicSettings:
+        pending = list(value.site.navigation)
+        icons: set[str] = set()
+        while pending:
+            item = pending.pop()
+            if item.icon.startswith("media:"):
+                icons.add(item.icon)
+            pending.extend(item.children)
+        return value.model_copy(
+            update={"icon_urls": await MediaService(self.session, self.config).resolve_icons(icons)}
+        )
+
     async def state(self, record: SiteSettings | None = None) -> SettingsState:
         record = record or await self.site()
         return SettingsState(
             source_epoch=str(record.source_epoch),
             revision=record.generation,
-            value=public_settings(record.data),
+            value=await self.resolve(public_settings(record.data)),
             delivery=[
                 await self.delivery(node, record.source_epoch, "public-settings", record.generation)
                 for node in self.config.frontends
@@ -116,7 +130,8 @@ class SettingsService:
         record = await self.site(locked=True)
         if record.generation != payload.expected_revision:
             raise AuthFailure(409, 40920, "设置已被修改，请重新读取后合并你的更改")
-        before = public_settings(record.data)
+        payload.value = await self.resolve(payload.value)
+        before = await self.resolve(public_settings(record.data))
         if before != payload.value:
             record.data = stored_settings(record.data, payload.value)
             record.generation += 1
@@ -187,7 +202,7 @@ class SettingsService:
         site = await self.site(locked=True)
         policy = await self.policy(node)
         for resource, revision, value in [
-            ("public-settings", site.generation, public_settings(site.data)),
+            ("public-settings", site.generation, await self.resolve(public_settings(site.data))),
             ("cache-policy", policy.revision, policy.value),
         ]:
             await self.enqueue(node, site.source_epoch, resource, revision, value)  # type: ignore[arg-type]

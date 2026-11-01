@@ -10,8 +10,22 @@ from app.modules.settings.schemas import SettingsContract
 def build_schema() -> dict[str, Any]:
     schema = SettingsContract.model_json_schema()
     schema["$schema"] = "http://json-schema.org/draft-07/schema#"
-    schema["x-everunfold-contract-version"] = "1.0.0"
+    schema["x-everunfold-contract-version"] = "1.1.0"
     schema["x-everunfold-operations"] = [
+        {
+            "name": "queryIcons",
+            "path": "/v1/admin/icons/query",
+            "method": "POST",
+            "input": "icon_query",
+            "response": "icons",
+        },
+        {
+            "name": "uploadIcon",
+            "path": "/v1/admin/icons/upload",
+            "method": "POST",
+            "input": "icon_upload",
+            "response": "icon",
+        },
         {
             "name": "readSettings",
             "path": "/v1/admin/settings",

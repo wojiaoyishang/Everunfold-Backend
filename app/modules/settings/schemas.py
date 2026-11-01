@@ -7,6 +7,7 @@ from urllib.parse import urlsplit
 from pydantic import ConfigDict, Field, field_validator, model_validator
 
 from app.core.schemas import PublicModel, PublicResponse
+from app.modules.media.schemas import IconAsset, IconCatalog, IconQuery, IconUpload
 
 
 class SettingsModel(PublicModel):
@@ -35,14 +36,15 @@ class MenuLink(SettingsModel):
     id: str = Field(pattern=r"^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,63}$")
     label: str = Field(min_length=1, max_length=60)
     href: str = Field(min_length=1, max_length=2048)
-    icon: Literal[
-        "home", "archive", "leaf", "book", "folder", "tag", "link", "star", "bell", "flask"
-    ] = "link"
+    icon: str = Field(
+        default="link",
+        pattern=r"^(?:[a-z][a-z-]{0,31}|media:[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})$",
+    )
     _url = field_validator("href")(safe_url)
 
 
 class MenuItem(MenuLink):
-    children: list[MenuLink] = Field(default_factory=list, max_length=12)
+    children: list["MenuItem"] = Field(default_factory=list)
 
 
 class SitePreferences(SettingsModel):
@@ -51,7 +53,7 @@ class SitePreferences(SettingsModel):
     author: str = Field(min_length=1, max_length=100)
     avatar_url: str = Field(default="", max_length=2048)
     notice: str = Field(default="", max_length=1000)
-    navigation: list[MenuItem] = Field(default_factory=list, max_length=12)
+    navigation: list[MenuItem] = Field(default_factory=list)
     seo_description: str = Field(default="", max_length=300)
     title_template: str = Field(default="%s · %site%", max_length=160)
     allow_indexing: bool = True
@@ -73,7 +75,14 @@ class SitePreferences(SettingsModel):
 
     @model_validator(mode="after")
     def unique_menu_ids(self) -> Self:
-        ids = [link.id for item in self.navigation for link in [item, *item.children]]
+        ids = []
+        pending = list(self.navigation)
+        while pending:
+            item = pending.pop()
+            ids.append(item.id)
+            if len(ids) > 256:
+                raise ValueError("at most 256 menu entries")
+            pending.extend(item.children)
         if len(ids) != len(set(ids)):
             raise ValueError("duplicate menu identifiers")
         return self
@@ -95,6 +104,7 @@ class ThemePreferences(SettingsModel):
 class PublicSettings(SettingsModel):
     site: SitePreferences
     theme: ThemePreferences
+    icon_urls: dict[str, str] = Field(default_factory=dict)
 
 
 class CachePolicy(SettingsModel):
@@ -170,7 +180,13 @@ class DeliveryReceipt(SettingsModel):
     durable: Literal[True]
 
 
+
+
 class SettingsContract(PublicModel):
+    icons: PublicResponse[IconCatalog]
+    icon_query: IconQuery
+    icon_upload: IconUpload
+    icon: PublicResponse[IconAsset]
     settings: PublicResponse[SettingsState]
     save_settings: SaveSettings
     policy: PublicResponse[PolicyState]

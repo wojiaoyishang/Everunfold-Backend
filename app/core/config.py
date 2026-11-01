@@ -13,6 +13,7 @@ from pydantic import (
     BaseModel,
     ConfigDict,
     Field,
+    PrivateAttr,
     SecretStr,
     ValidationError,
     field_validator,
@@ -235,6 +236,23 @@ class AuthConfig(ConfigModel):
         return value
 
 
+class MediaConfig(ConfigModel):
+    base_url: str | None = None
+    uploads_path: str = "./uploads"
+
+    @field_validator("base_url")
+    @classmethod
+    def valid_base(cls, value: str | None) -> str | None:
+        return validate_http_base(value) if value is not None else None
+
+    @field_validator("uploads_path")
+    @classmethod
+    def valid_path(cls, value: str) -> str:
+        if not value.strip() or "\x00" in value or re.match(r"^[A-Za-z]:[^/\\]", value):
+            raise ValueError("requires an absolute or config-relative path")
+        return value
+
+
 class Settings(ConfigModel):
     BACKEND_BASE_URL: str
     project: ProjectConfig = Field(default_factory=ProjectConfig)
@@ -250,6 +268,17 @@ class Settings(ConfigModel):
     cors: CORSConfig = Field(default_factory=CORSConfig)
     reader_preview: ReaderPreviewConfig = Field(default_factory=ReaderPreviewConfig)
     auth: AuthConfig = Field(default_factory=AuthConfig)
+    media: MediaConfig = Field(default_factory=MediaConfig)
+    _config_directory: Path = PrivateAttr(default=PROJECT_ROOT)
+
+    @property
+    def uploads_directory(self) -> Path:
+        path = Path(self.media.uploads_path)
+        return (path if path.is_absolute() else self._config_directory / path).resolve()
+
+    @property
+    def media_base_url(self) -> str:
+        return self.media.base_url or self.BACKEND_BASE_URL + "/media"
 
     _backend_url = field_validator("BACKEND_BASE_URL")(validate_http_base)
 
@@ -340,7 +369,9 @@ def load_settings(
             target = nested
         target[keys[-1]] = value
     try:
-        return Settings.model_validate(data)
+        settings = Settings.model_validate(data)
+        settings._config_directory = path.resolve().parent
+        return settings
     except ValidationError as exc:
         # Pydantic's full error rendering includes input values, including credentials.
         locations = sorted({".".join(str(part) for part in error["loc"]) for error in exc.errors()})

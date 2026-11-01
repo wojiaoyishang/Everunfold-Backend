@@ -9,18 +9,7 @@ def public_settings(data: dict[str, Any]) -> PublicSettings:
     menu = []
     for index, item in enumerate(data.get("navigation", [])):
         entry = {**item, "id": item.get("id") or f"menu-{index + 1}"}
-        if entry.get("icon") not in {
-            "home",
-            "archive",
-            "leaf",
-            "book",
-            "folder",
-            "tag",
-            "link",
-            "star",
-            "bell",
-            "flask",
-        }:
+        if not entry.get("icon"):
             entry["icon"] = "home" if entry.get("href") == "/" else "link"
         menu.append(entry)
     site = {key: data[key] for key in SitePreferences.model_fields if key in data}

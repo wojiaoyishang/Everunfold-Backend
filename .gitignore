@@ -37,3 +37,6 @@ wordpress-backup/
 wp-content/
 Thumbs.db
 .DS_Store
+
+/uploads/
+/.everunfold-media-work/

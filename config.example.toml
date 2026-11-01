@@ -98,3 +98,8 @@ lease_seconds = 60  # 投递租约，须大于单次受控投递时限
 # 浏览器认证/后台请求带凭据；公开读取/匿名点赞仍不带凭据。只允许精确来源。
 [cors]
 allowed_origins = ["http://127.0.0.1:3000", "http://localhost:3000"]
+
+# 本地图标上传；路径相对于此配置文件。CDN 迁移保持 object_key 不变。
+[media]
+uploads_path = "./uploads"
+# base_url = "https://api.example.com/media" # 缺省 BACKEND_BASE_URL + /media

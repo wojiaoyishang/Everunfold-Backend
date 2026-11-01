@@ -1,0 +1,4 @@
+id = "media"
+version = "0.1.0"
+dependencies = []
+router_entrypoint = "app.modules.media:router_init"

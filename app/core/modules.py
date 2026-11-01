@@ -16,6 +16,10 @@ def register_auth_module(application: FastAPI) -> None:
     _register_module(application, "auth")
 
 
+def register_media_module(application: FastAPI) -> None:
+    _register_module(application, "media")
+
+
 def register_settings_module(application: FastAPI) -> None:
     _register_module(application, "settings")
 

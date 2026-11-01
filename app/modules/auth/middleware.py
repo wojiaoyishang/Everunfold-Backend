@@ -83,7 +83,13 @@ class AuthBoundaryMiddleware:
                 if message["type"] == "http.disconnect":
                     return
                 length += len(message.get("body", b""))
-                if length > (65536 if path.startswith("/v1/admin/") else 16384):
+                if length > (
+                    1500000
+                    if path == "/v1/admin/icons/upload"
+                    else 65536
+                    if path.startswith("/v1/admin/")
+                    else 16384
+                ):
                     await JSONResponseFail(status_code=413, msg="请求内容过大")(
                         scope, receive, private_send
                     )
