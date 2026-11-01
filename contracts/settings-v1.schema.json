@@ -1163,6 +1163,62 @@
       "title": "PublicResponse[MediaItem]",
       "type": "object"
     },
+    "PublicResponse_MediaRemovalPreview_": {
+      "additionalProperties": false,
+      "properties": {
+        "success": {
+          "default": true,
+          "title": "Success",
+          "type": "boolean"
+        },
+        "code": {
+          "default": 200,
+          "title": "Code",
+          "type": "integer"
+        },
+        "msg": {
+          "default": "请求成功",
+          "title": "Msg",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/MediaRemovalPreview"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "title": "PublicResponse[MediaRemovalPreview]",
+      "type": "object"
+    },
+    "PublicResponse_MediaRemoval_": {
+      "additionalProperties": false,
+      "properties": {
+        "success": {
+          "default": true,
+          "title": "Success",
+          "type": "boolean"
+        },
+        "code": {
+          "default": 200,
+          "title": "Code",
+          "type": "integer"
+        },
+        "msg": {
+          "default": "请求成功",
+          "title": "Msg",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/MediaRemoval"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "title": "PublicResponse[MediaRemoval]",
+      "type": "object"
+    },
     "PublicResponse_NodeList_": {
       "additionalProperties": false,
       "properties": {
@@ -1542,13 +1598,13 @@
       "$ref": "#/$defs/MediaRemovalIntent"
     },
     "media_removal_preview": {
-      "$ref": "#/$defs/MediaRemovalPreview"
+      "$ref": "#/$defs/PublicResponse_MediaRemovalPreview_"
     },
     "media_remove": {
       "$ref": "#/$defs/MediaRemove"
     },
     "media_removal": {
-      "$ref": "#/$defs/MediaRemoval"
+      "$ref": "#/$defs/PublicResponse_MediaRemoval_"
     },
     "media_lookup": {
       "$ref": "#/$defs/MediaLookup"

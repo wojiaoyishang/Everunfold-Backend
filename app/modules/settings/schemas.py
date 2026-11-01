@@ -206,9 +206,9 @@ class DeliveryReceipt(SettingsModel):
 
 class SettingsContract(PublicModel):
     media_removal_intent: MediaRemovalIntent
-    media_removal_preview: MediaRemovalPreview
+    media_removal_preview: PublicResponse[MediaRemovalPreview]
     media_remove: MediaRemove
-    media_removal: MediaRemoval
+    media_removal: PublicResponse[MediaRemoval]
     media_lookup: MediaLookup
     media_update: MediaUpdate
     media_edit: MediaEdit
