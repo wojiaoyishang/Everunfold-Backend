@@ -1,6 +1,6 @@
 # Everunfold Backend
 
-Everunfold 博客与轻量 CMS 的独立后端仓库。当前已完成公开阅读基础、真实匿名历史评论点赞，以及基础管理员登录所需的后端能力：PostgreSQL 用户与可撤销 Session、HttpOnly Cookie、CSRF/精确 Origin、管理员身份复核和显式数据库初始化。独立前端已接入登录与主题化空后台；已新增基本站点/主题/节点策略设置，以及专用于设置交付的独立 Worker/Scheduler/Node 接收链路；后台文章/媒体/用户管理与协同编辑仍未实现。
+Everunfold 博客与轻量 CMS 的独立后端仓库。当前已完成公开阅读基础、真实匿名历史评论点赞，以及基础管理员登录所需的后端能力：PostgreSQL 用户与可撤销 Session、HttpOnly Cookie、CSRF/精确 Origin、管理员身份复核和显式数据库初始化。独立前端已接入登录、站点/主题/节点策略设置、媒体库与注册式文章/说说草稿管理。设置交付具有独立 Worker/Scheduler/Node 接收链路；正式内容发布、用户管理与协同编辑尚未完成。
 
 先读 [文档入口](docs/README.md) 和 [当前交接](docs/handoff/STATUS.md)。原始设计基线及工程计划保存在 `docs/baseline/`，后续开发不依赖临时附件或聊天上下文。
 
@@ -36,7 +36,7 @@ uv run --locked python init.database.py --config config.toml
 uv run --locked alembic -c migrations/alembic.ini upgrade head
 ```
 
-本机 `everunfold_dev` 已从迁移 `0002_comment_likes` 显式升级到 `0003_auth_sessions`，原 87 条内容与 11 条评论保持不变，并已创建缺失的默认管理员。完整提取、导入、刷新前端快照和手动验收步骤见 [公开阅读运行指南](docs/development/public-reading.md) 与 [导入工具](tools/wordpress_import/README.md)。原 SQL、公开内容快照、文章媒体和实际配置不进入 Git，新克隆需自行准备数据。
+本机 `everunfold_dev` 已显式升级到 `0009_content_drafts`，保留原公开内容、评论、账号、设置与媒体；四份内容示例由独立 seed 命令添加。完整提取、导入、刷新前端快照和手动验收步骤见 [公开阅读运行指南](docs/development/public-reading.md) 与 [导入工具](tools/wordpress_import/README.md)。原 SQL、公开内容快照、文章媒体和实际配置不进入 Git，新克隆需自行准备数据。
 
 ## 检查
 
@@ -56,16 +56,18 @@ uv run --locked pytest
 Remove-Item Env:RUN_DATABASE_TESTS
 ```
 
-测试会拒绝开发库并使用专用测试库；认证初始化测试还会创建并删除名称受控的临时 PostgreSQL 数据库。当前启用测试库后的完整检查为 `68 passed`，包含双 Uvicorn 的 Cookie/CSRF/共享会话，以及独立 Worker/Scheduler/Node 接收器的设置事务、崩溃重投和恢复检查。认证契约导出为 `uv run --locked python -m tools.export_auth_contract`，公开 OpenAPI 导出为 `uv run --locked python -m tools.export_contracts`。
+测试会拒绝开发库并使用专用测试库；认证初始化测试还会创建并删除名称受控的临时 PostgreSQL 数据库。当前启用测试库后的完整检查为 `106 passed`，包含双 Uvicorn 的 Cookie/CSRF/共享会话、媒体与内容并发事务，以及独立 Worker/Scheduler/Node 接收器的设置事务、崩溃重投和恢复检查。认证契约导出为 `uv run --locked python -m tools.export_auth_contract`，公开 OpenAPI 导出为 `uv run --locked python -m tools.export_contracts`。
 
 GitHub Actions 配置将执行同样检查；远程实际执行结果以 Actions 为准。未添加自动部署。
 
 ## 边界
 
-公开业务路径为 `/v1/*`；开发代理 `/api` 不进入后端路由。`app/modules/content/` 与 `app/modules/auth/` 按模型、DTO、数据库访问、用例服务和路由分责，由静态 Manifest 与唯一 `router_init(ctx)` 装配。FastAPI、Celery Worker 与单进程 Scheduler 共用基础包并分别提供独立入口。数据库启动不自动迁移；当前设置模块已有独立 Worker/Scheduler 和专用 Node 设置接收器；完整内容发布缓存接口、文章/媒体 CRUD 仍未交付。
+公开业务路径为 `/v1/*`；开发代理 `/api` 不进入后端路由。`app/modules/content/` 与 `app/modules/auth/` 按模型、DTO、数据库访问、用例服务和路由分责，由静态 Manifest 与唯一 `router_init(ctx)` 装配。FastAPI、Celery Worker 与单进程 Scheduler 共用基础包并分别提供独立入口。数据库启动不自动迁移；当前设置模块已有独立 Worker/Scheduler 和专用 Node 设置接收器。文章/说说草稿 CRUD 与媒体管理已接通，完整内容发布和缓存分发另行实现。
 
 错误 JSON 不返回输入或异常详情；默认 ASGI 服务器日志尚未配置统一脱敏，生产前必须另行交付结构化日志、敏感信息过滤和诊断关联。当前骨架仅用于本地开发。
 
 WordPress 原始备份保留在仓库外，只读盘点见迁移文档。SQL、原媒体、真实配置、密钥、虚拟环境与日志不提交 Git。前端独立仓库：[Everunfold Frontend](https://github.com/wojiaoyishang/Everunfold-Frontend)。
 
 基本设置入口、保存端点和额外进程启动见 [设置运行指南](docs/development/settings.md)，实际多进程/离线验证见 [设置验证记录](docs/handoff/settings-verification.md)。
+
+注册式文章/说说基础草稿管理已接通；迁移 0009、示例填充与开发边界见 [内容管理](docs/development/content-management.md)。

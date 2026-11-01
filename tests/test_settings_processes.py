@@ -23,6 +23,7 @@ import pytest
 from sqlalchemy.engine import make_url
 
 from app.core.config import load_settings
+from tests.content_draft_process_checks import check_content_drafts
 from tests.media_library_process_checks import check_media_library
 from tests.media_process_checks import check_media_management
 from tests.test_auth_http_processes import free_port, uvicorn_process
@@ -570,6 +571,7 @@ def test_settings_atomic_save_restart_delivery_and_crash_replay(tmp_path: Path) 
 
             check_media_management(client, csrf, cookies, api_a, api_b, sql)
             check_media_library(client, csrf, cookies, api_a, api_b, sql, tmp_path / "uploads")
+            check_content_drafts(client, csrf, cookies, api_a, api_b, sql)
 
             # CDN origin changes republish a new version, never overwrite a prior ACKed file.
             raw["media"]["base_url"] = "https://cdn.example.test/assets"

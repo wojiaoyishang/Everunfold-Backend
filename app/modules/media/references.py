@@ -6,6 +6,7 @@ from sqlalchemy import Text, cast, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.auth.service import AuthFailure
+from app.modules.content.draft_models import ContentDraft, DraftRevision
 from app.modules.content.models import Comment, Content, SiteSettings
 from app.modules.media.models import MediaAsset
 from app.modules.settings.models import SettingsAudit, SettingsDeliveryEvent
@@ -22,6 +23,7 @@ async def require_unreferenced(
     # finds IDs embedded in URLs/HTML/Markdown; false positives intentionally block removal.
     token = str(asset.id)
     current = [
+        select(ContentDraft.id).where(cast(ContentDraft.body, Text).contains(token)),
         select(SiteSettings.id).where(cast(SiteSettings.data, Text).contains(token)),
         select(Content.id).where(
             or_(
@@ -37,6 +39,9 @@ async def require_unreferenced(
             raise AuthFailure(409, 40936, "文件仍被站点设置或内容使用，请先移除引用")
     if history:
         retained = [
+            select(DraftRevision.draft_id).where(
+                cast(DraftRevision.snapshot, Text).contains(token)
+            ),
             select(SettingsDeliveryEvent.id).where(
                 cast(SettingsDeliveryEvent.payload, Text).contains(token)
             ),

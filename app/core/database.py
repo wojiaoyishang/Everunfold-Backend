@@ -4,7 +4,7 @@ from sqlalchemy import MetaData, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
 
-SCHEMA_REVISION = "0008_media_safe_delete"
+SCHEMA_REVISION = "0009_content_drafts"
 
 
 class Base(DeclarativeBase):
