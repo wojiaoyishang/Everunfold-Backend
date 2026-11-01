@@ -36,9 +36,15 @@ async def media_operation(session: AsyncSession, *identities: str) -> AsyncItera
             for identity in identities:
                 key = lock_key(identity)
                 while True:
-                    obtained = await work.scalar(
-                        text("SELECT pg_try_advisory_lock(:key)"), {"key": key}
-                    )
+                    try:
+                        obtained = await work.scalar(
+                            text("SELECT pg_try_advisory_lock(:key)"), {"key": key}
+                        )
+                    except BaseException:
+                        # Acquisition may have reached PostgreSQL before cancellation.
+                        # Discard the connection when ownership cannot be confirmed.
+                        await connection.invalidate()
+                        raise
                     if obtained:
                         acquired.append(key)
                     await work.commit()
@@ -49,10 +55,17 @@ async def media_operation(session: AsyncSession, *identities: str) -> AsyncItera
         finally:
 
             async def release() -> None:
-                await work.rollback()
-                for key in reversed(acquired):
-                    await work.execute(text("SELECT pg_advisory_unlock(:key)"), {"key": key})
-                await work.commit()
+                try:
+                    await work.rollback()
+                    if not connection.invalidated:
+                        for key in reversed(acquired):
+                            await work.execute(
+                                text("SELECT pg_advisory_unlock(:key)"), {"key": key}
+                            )
+                        await work.commit()
+                except BaseException:
+                    await connection.invalidate()
+                    raise
 
             # Never return a connection with session-level locks to the pool.
             cleanup = asyncio.create_task(release())

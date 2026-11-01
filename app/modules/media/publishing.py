@@ -44,6 +44,12 @@ async def publish(
     async with media_operation(
         service.session, f"media-request:{identity}", f"media-hash:{digest}"
     ) as work:
+        if await work.scalar(
+            select(MediaAsset.id)
+            .where(MediaAsset.sha256 == digest, MediaAsset.purge_pending.is_(True))
+            .limit(1)
+        ):
+            raise AuthFailure(409, 40939, "同一文件尚有未完成删除，请完成后重新上传")
         receipt = await work.get(MediaUploadReceipt, identity)
         reused = False
         if receipt:

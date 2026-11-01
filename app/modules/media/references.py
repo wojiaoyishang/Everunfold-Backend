@@ -1,5 +1,7 @@
 """Conservative checks across current references and retained history."""
 
+import uuid
+
 from sqlalchemy import Text, cast, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -9,7 +11,13 @@ from app.modules.media.models import MediaAsset
 from app.modules.settings.models import SettingsAudit, SettingsDeliveryEvent
 
 
-async def require_unreferenced(session: AsyncSession, asset: MediaAsset, *, history: bool) -> None:
+async def require_unreferenced(
+    session: AsyncSession,
+    asset: MediaAsset,
+    *,
+    history: bool,
+    removing_ids: set[uuid.UUID] | None = None,
+) -> None:
     # IDs are stable through Base URL changes. Checking serialized documents also
     # finds IDs embedded in URLs/HTML/Markdown; false positives intentionally block removal.
     token = str(asset.id)
@@ -36,7 +44,10 @@ async def require_unreferenced(session: AsyncSession, asset: MediaAsset, *, hist
                 SettingsAudit.resource == "public-settings",
                 cast(SettingsAudit.changes, Text).contains(token),
             ),
-            select(MediaAsset.id).where(MediaAsset.source_id == asset.id),
+            select(MediaAsset.id).where(
+                MediaAsset.source_id == asset.id,
+                MediaAsset.id.not_in(removing_ids or set()),
+            ),
         ]
         for statement in retained:
             if await session.scalar(statement.limit(1)) is not None:

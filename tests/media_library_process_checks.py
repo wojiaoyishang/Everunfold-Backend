@@ -15,6 +15,21 @@ from PIL import Image
 def check_media_library(
     client: Any, csrf: dict[str, str], cookies: Any, api_a: str, api_b: str, sql: Any, uploads: Path
 ) -> None:
+    def remove(payload: dict[str, Any]) -> Any:
+        if "expected_plan" not in payload:
+            preview = client.post("/v1/admin/media/remove-preview", json=payload, headers=csrf)
+            if preview.status_code != 200:
+                return preview
+            plan = preview.json()["data"]
+            payload.update(
+                operation_id=plan["resume_operation_id"] or str(uuid4()),
+                expected_plan=plan["token"],
+                id=plan["id"],
+                safe_delete=plan["safe_delete"],
+                delete_original=plan["delete_original"],
+            )
+        return client.post("/v1/admin/media/remove", json=payload, headers=csrf)
+
     stream = io.BytesIO()
     Image.new("RGB", (37, 29), "orange").save(stream, "PNG")
     data = stream.getvalue()
@@ -85,10 +100,8 @@ def check_media_library(
     used_id = settings["value"]["site"]["avatar_media_id"]
     used = client.post("/v1/admin/media/detail", json={"id": used_id}, headers=csrf).json()["data"]
     assert (
-        client.post(
-            "/v1/admin/media/remove",
-            json={"id": used_id, "expected_revision": used["revision"], "delete_original": True},
-            headers=csrf,
+        remove(
+            {"id": used_id, "expected_revision": used["revision"], "delete_original": True}
         ).status_code
         == 409
     )
@@ -101,12 +114,10 @@ def check_media_library(
             "CHECK (changes->>'operation' <> 'trash') NOT VALID"
         )
     )
-    assert client.post("/v1/admin/media/remove", json=delete, headers=csrf).status_code == 503
+    assert remove(delete).status_code == 503
     assert client.get(urlsplit(first["url"]).path).content == data
     asyncio.run(sql("ALTER TABLE settings_audit DROP CONSTRAINT trash_rollback"))
-    assert client.post("/v1/admin/media/remove", json=delete, headers=csrf).json()["data"][
-        "deleted"
-    ]
+    assert remove(delete).json()["data"]["deleted"]
     assert client.get(urlsplit(first["url"]).path).status_code == 404
     assert identity in [
         i["id"]
@@ -142,12 +153,8 @@ def check_media_library(
         )
         assert fetched.headers["content-disposition"].startswith("attachment;")
         payload = {"id": item["id"], "expected_revision": 1, "delete_original": True}
-        assert client.post("/v1/admin/media/remove", json=payload, headers=csrf).json()["data"][
-            "purged"
-        ]
-        assert client.post("/v1/admin/media/remove", json=payload, headers=csrf).json()["data"][
-            "purged"
-        ]
+        assert remove(payload).json()["data"]["purged"]
+        assert remove(payload).json()["data"]["purged"]
         assert (
             client.post(
                 "/v1/admin/media/restore", json={"id": item["id"]}, headers=csrf
@@ -160,10 +167,10 @@ def check_media_library(
     assert original.is_relative_to(uploads.resolve()) and original.read_bytes() == data
     original.write_bytes(b"unexpected bytes")
     purge = {"id": identity, "expected_revision": detail()["revision"], "delete_original": True}
-    assert client.post("/v1/admin/media/remove", json=purge, headers=csrf).status_code == 503
+    assert remove(purge).status_code == 503
     assert detail()["purge_pending"] and client.get(urlsplit(first["url"]).path).status_code == 404
     original.write_bytes(data)
-    result = client.post("/v1/admin/media/remove", json=purge, headers=csrf)
+    result = remove(purge)
     assert result.status_code == 200 and result.json()["data"]["purged"]
     assert not original.exists()
     # A new upload after purge creates a new identity; old receipts never resurrect it.
@@ -183,16 +190,10 @@ def check_media_library(
         )
     )
     assert (
-        client.post(
-            "/v1/admin/media/remove",
-            json={"id": source, "expected_revision": 1, "delete_original": True},
-            headers=csrf,
-        ).status_code
-        == 409
+        remove({"id": source, "expected_revision": 1, "delete_original": True}).status_code == 409
     )
-    assert (
-        client.post(
-            "/v1/admin/media/remove", json={"id": source, "expected_revision": 1}, headers=csrf
-        ).status_code
-        == 200
-    )
+    assert remove({"id": source, "expected_revision": 1}).status_code == 200
+
+    from tests.media_deletion_process_checks import check_shared_removal
+
+    check_shared_removal(client, csrf, cookies, api_a, api_b, sql, uploads)

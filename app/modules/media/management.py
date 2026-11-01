@@ -4,7 +4,7 @@ import asyncio
 import uuid
 from pathlib import PurePosixPath
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 
 from app.modules.auth.models import User
 from app.modules.auth.service import AuthFailure
@@ -24,6 +24,7 @@ class MediaManagement(MediaService):
             MediaAsset.id == uuid.UUID(reference[6:]),
             MediaAsset.status == "ready",
             MediaAsset.purged_at.is_(None),
+            or_(MediaAsset.removed_at.is_(None), MediaAsset.purge_pending.is_(True)),
         )
         if not include_deleted:
             statement = statement.where(MediaAsset.deleted_at.is_(None))

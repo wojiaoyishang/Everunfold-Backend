@@ -113,9 +113,26 @@ class MediaEdit(MediaLookup):
     recipe: ImageRecipe
 
 
-class MediaRemove(MediaLookup):
+class MediaRemovalIntent(MediaLookup):
     expected_revision: int = Field(ge=1)
     delete_original: bool = False
+    safe_delete: bool = True
+
+
+class MediaRemovalPreview(PublicModel):
+    id: str
+    token: str
+    record_count: int
+    file_count: int
+    file_retained: bool
+    delete_original: bool
+    safe_delete: bool
+    resume_operation_id: str | None = None
+
+
+class MediaRemove(MediaRemovalIntent):
+    operation_id: str = Field(pattern=r"^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$")
+    expected_plan: str = Field(pattern=r"^[0-9a-f]{64}$")
 
 
 class MediaRemoval(PublicModel):
@@ -123,3 +140,6 @@ class MediaRemoval(PublicModel):
     deleted: bool
     purged: bool
     purge_pending: bool
+    records_removed: int = 0
+    files_deleted: int = 0
+    file_retained: bool = False

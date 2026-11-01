@@ -26,6 +26,8 @@ from app.modules.media.schemas import (
     MediaLookup,
     MediaQuery,
     MediaRemoval,
+    MediaRemovalIntent,
+    MediaRemovalPreview,
     MediaRemove,
     MediaUpdate,
     MediaUpload,
@@ -141,6 +143,13 @@ async def media_edit(payload: MediaEdit, ctx: Authorized) -> JSONResponseSuccess
         data=await MediaManagement(ctx.service.session, ctx.service.config).edit(
             payload, ctx.actor.id
         )
+    )
+
+
+@router.post("/v1/admin/media/remove-preview", response_model=PublicResponse[MediaRemovalPreview])
+async def media_remove_preview(payload: MediaRemovalIntent, ctx: Authorized) -> JSONResponseSuccess:
+    return JSONResponseSuccess(
+        data=await MediaRemovalService(ctx.service.session, ctx.service.config).preview(payload)
     )
 
 

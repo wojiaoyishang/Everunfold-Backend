@@ -720,6 +720,21 @@
         "purge_pending": {
           "title": "Purge Pending",
           "type": "boolean"
+        },
+        "records_removed": {
+          "default": 0,
+          "title": "Records Removed",
+          "type": "integer"
+        },
+        "files_deleted": {
+          "default": 0,
+          "title": "Files Deleted",
+          "type": "integer"
+        },
+        "file_retained": {
+          "default": false,
+          "title": "File Retained",
+          "type": "boolean"
         }
       },
       "required": [
@@ -729,6 +744,93 @@
         "purge_pending"
       ],
       "title": "MediaRemoval",
+      "type": "object"
+    },
+    "MediaRemovalIntent": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "pattern": "^media:[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "expected_revision": {
+          "minimum": 1,
+          "title": "Expected Revision",
+          "type": "integer"
+        },
+        "delete_original": {
+          "default": false,
+          "title": "Delete Original",
+          "type": "boolean"
+        },
+        "safe_delete": {
+          "default": true,
+          "title": "Safe Delete",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "expected_revision"
+      ],
+      "title": "MediaRemovalIntent",
+      "type": "object"
+    },
+    "MediaRemovalPreview": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "token": {
+          "title": "Token",
+          "type": "string"
+        },
+        "record_count": {
+          "title": "Record Count",
+          "type": "integer"
+        },
+        "file_count": {
+          "title": "File Count",
+          "type": "integer"
+        },
+        "file_retained": {
+          "title": "File Retained",
+          "type": "boolean"
+        },
+        "delete_original": {
+          "title": "Delete Original",
+          "type": "boolean"
+        },
+        "safe_delete": {
+          "title": "Safe Delete",
+          "type": "boolean"
+        },
+        "resume_operation_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Resume Operation Id"
+        }
+      },
+      "required": [
+        "id",
+        "token",
+        "record_count",
+        "file_count",
+        "file_retained",
+        "delete_original",
+        "safe_delete"
+      ],
+      "title": "MediaRemovalPreview",
       "type": "object"
     },
     "MediaRemove": {
@@ -748,11 +850,28 @@
           "default": false,
           "title": "Delete Original",
           "type": "boolean"
+        },
+        "safe_delete": {
+          "default": true,
+          "title": "Safe Delete",
+          "type": "boolean"
+        },
+        "operation_id": {
+          "pattern": "^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$",
+          "title": "Operation Id",
+          "type": "string"
+        },
+        "expected_plan": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Expected Plan",
+          "type": "string"
         }
       },
       "required": [
         "id",
-        "expected_revision"
+        "expected_revision",
+        "operation_id",
+        "expected_plan"
       ],
       "title": "MediaRemove",
       "type": "object"
@@ -1419,6 +1538,12 @@
   },
   "additionalProperties": false,
   "properties": {
+    "media_removal_intent": {
+      "$ref": "#/$defs/MediaRemovalIntent"
+    },
+    "media_removal_preview": {
+      "$ref": "#/$defs/MediaRemovalPreview"
+    },
     "media_remove": {
       "$ref": "#/$defs/MediaRemove"
     },
@@ -1484,6 +1609,8 @@
     }
   },
   "required": [
+    "media_removal_intent",
+    "media_removal_preview",
     "media_remove",
     "media_removal",
     "media_lookup",
@@ -1509,8 +1636,15 @@
   "title": "SettingsContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "1.5.0",
+  "x-everunfold-contract-version": "1.6.0",
   "x-everunfold-operations": [
+    {
+      "name": "previewMediaRemoval",
+      "path": "/v1/admin/media/remove-preview",
+      "method": "POST",
+      "input": "media_removal_intent",
+      "response": "media_removal_preview"
+    },
     {
       "name": "removeMedia",
       "path": "/v1/admin/media/remove",

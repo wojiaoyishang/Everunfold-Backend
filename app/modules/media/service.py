@@ -130,6 +130,7 @@ class MediaService:
         where = [
             MediaAsset.status == "ready",
             MediaAsset.purged_at.is_(None),
+            or_(MediaAsset.removed_at.is_(None), MediaAsset.purge_pending.is_(True)),
             MediaAsset.deleted_at.is_not(None) if query.trash else MediaAsset.deleted_at.is_(None),
         ]
         if query.kind == "file":

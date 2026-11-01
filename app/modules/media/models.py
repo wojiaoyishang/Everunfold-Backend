@@ -40,6 +40,7 @@ class MediaAsset(Base):
     icon_enabled: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     purge_pending: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     purged_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    removed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class MediaUploadReceipt(Base):
@@ -50,3 +51,20 @@ class MediaUploadReceipt(Base):
     signature: Mapped[str] = mapped_column(String(64))
     asset_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("media_assets.id"), index=True)
     reused: Mapped[bool] = mapped_column(Boolean)
+
+
+class MediaRemovalReceipt(Base):
+    """Frozen removal scope; retries never capture subsequently uploaded records."""
+
+    __tablename__ = "media_removal_receipts"
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
+    actor_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True))
+    asset_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("media_assets.id"))
+    sha256: Mapped[str] = mapped_column(String(64), index=True)
+    delete_original: Mapped[bool] = mapped_column(Boolean)
+    safe_delete: Mapped[bool] = mapped_column(Boolean)
+    token: Mapped[str] = mapped_column(String(64))
+    record_ids: Mapped[list[str]] = mapped_column(JSONB)
+    file_ids: Mapped[list[str]] = mapped_column(JSONB)
+    file_retained: Mapped[bool] = mapped_column(Boolean)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
