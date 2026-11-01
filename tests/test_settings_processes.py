@@ -203,6 +203,8 @@ def test_settings_atomic_save_restart_delivery_and_crash_replay(tmp_path: Path) 
             original_state = client.get("/v1/admin/settings").json()["data"]
             value = copy.deepcopy(original_state["value"])
             value["site"]["name"] = "Settings transaction"
+            value["site"]["notice_title"] = "Delivery notice"
+            value["site"]["notice"] = "First line\nSecond line"
             payload = {"expected_revision": original_state["revision"], "value": value}
             assert client.patch("/v1/admin/settings", json=payload).status_code == 403
             assert (
