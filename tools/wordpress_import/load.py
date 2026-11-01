@@ -57,6 +57,9 @@ async def load_public(input_path: Path, config_path: Path) -> dict[str, int]:
     fields: dict[str, Any]
     try:
         async with database.session_factory() as session, session.begin():
+            from app.modules.media.locking import lock_references
+
+            await lock_references(session)
             # Serialize explicit importer runs; no lock is shared with normal API reads.
             await session.execute(text("SELECT pg_advisory_xact_lock(792130143)"))
             if not await database.schema_is_current():
@@ -193,6 +196,7 @@ async def load_public(input_path: Path, config_path: Path) -> dict[str, int]:
                 changed = _set_fields(stored, {"data": site_data}) or changed
                 if changed:
                     stored.generation += 1
+                    stored.content_generation += 1
             await session.flush()
             generation = stored.generation
         return {

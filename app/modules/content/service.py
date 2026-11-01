@@ -165,7 +165,7 @@ class PublicContentService:
             comment_map[str(row.content_id)].append(projection)
         return PublicSnapshot(
             source_epoch=str(stored.source_epoch),
-            generation=stored.generation,
+            generation=stored.content_generation,
             exported_at=datetime.now(UTC),
             site=await self.site(),
             contents=[self._detail(item, taxonomy_map, counts) for item in contents],

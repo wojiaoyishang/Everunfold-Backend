@@ -16,6 +16,8 @@ from app.modules.content.draft_schemas import (
     DraftSave,
 )
 from app.modules.content.draft_service import DraftService, require_type
+from app.modules.content.publication import ContentPublication
+from app.modules.content.publication_schemas import ContentSyncState
 from app.modules.content.type_registry import content_types
 from app.modules.settings.router import Authorized
 
@@ -39,32 +41,74 @@ async def query(payload: DraftQuery, ctx: Authorized) -> JSONResponseSuccess:
 
 @router.post("/detail", response_model=PublicResponse[DraftDetail])
 async def read(payload: DraftLookup, ctx: Authorized) -> JSONResponseSuccess:
-    return JSONResponseSuccess(data=await DraftService(ctx.service.session).read(payload.id))
+    return JSONResponseSuccess(
+        data=await DraftService(ctx.service.session, ctx.service.config).read(payload.id)
+    )
 
 
 @router.post("/create", response_model=PublicResponse[DraftDetail])
 async def create(payload: DraftCreate, ctx: Authorized) -> JSONResponseSuccess:
     return JSONResponseSuccess(
-        data=await DraftService(ctx.service.session).mutate("create", payload, ctx.actor)
+        data=await DraftService(ctx.service.session, ctx.service.config).mutate(
+            "create", payload, ctx.actor
+        )
     )
 
 
 @router.post("/save", response_model=PublicResponse[DraftDetail])
 async def save(payload: DraftSave, ctx: Authorized) -> JSONResponseSuccess:
     return JSONResponseSuccess(
-        data=await DraftService(ctx.service.session).mutate("save", payload, ctx.actor)
+        data=await DraftService(ctx.service.session, ctx.service.config).mutate(
+            "save", payload, ctx.actor
+        )
     )
 
 
 @router.post("/trash", response_model=PublicResponse[DraftDetail])
 async def trash(payload: DraftMutation, ctx: Authorized) -> JSONResponseSuccess:
     return JSONResponseSuccess(
-        data=await DraftService(ctx.service.session).mutate("trash", payload, ctx.actor)
+        data=await DraftService(ctx.service.session, ctx.service.config).mutate(
+            "trash", payload, ctx.actor
+        )
     )
 
 
 @router.post("/restore", response_model=PublicResponse[DraftDetail])
 async def restore(payload: DraftMutation, ctx: Authorized) -> JSONResponseSuccess:
     return JSONResponseSuccess(
-        data=await DraftService(ctx.service.session).mutate("restore", payload, ctx.actor)
+        data=await DraftService(ctx.service.session, ctx.service.config).mutate(
+            "restore", payload, ctx.actor
+        )
+    )
+
+
+@router.post("/publish", response_model=PublicResponse[DraftDetail])
+async def publish(payload: DraftSave, ctx: Authorized) -> JSONResponseSuccess:
+    return JSONResponseSuccess(
+        data=await DraftService(ctx.service.session, ctx.service.config).mutate(
+            "publish", payload, ctx.actor
+        )
+    )
+
+
+@router.post("/withdraw", response_model=PublicResponse[DraftDetail])
+async def withdraw(payload: DraftMutation, ctx: Authorized) -> JSONResponseSuccess:
+    return JSONResponseSuccess(
+        data=await DraftService(ctx.service.session, ctx.service.config).mutate(
+            "withdraw", payload, ctx.actor
+        )
+    )
+
+
+@router.get("/publication", response_model=PublicResponse[ContentSyncState])
+async def publication(ctx: Authorized) -> JSONResponseSuccess:
+    return JSONResponseSuccess(
+        data=await ContentPublication(ctx.service.session, ctx.service.config).state()
+    )
+
+
+@router.post("/sync", response_model=PublicResponse[ContentSyncState])
+async def sync(ctx: Authorized) -> JSONResponseSuccess:
+    return JSONResponseSuccess(
+        data=await ContentPublication(ctx.service.session, ctx.service.config).retry(ctx.actor.id)
     )

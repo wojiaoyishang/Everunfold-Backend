@@ -10,16 +10,18 @@ from uuid import UUID, uuid4
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import Settings
 from app.modules.auth.models import User
 from app.modules.auth.service import AuthFailure
 from app.modules.content.draft_models import ContentDraft, DraftReceipt, DraftRevision
 from app.modules.content.draft_repository import DraftRepository, detail
 from app.modules.content.draft_schemas import DraftCreate, DraftDetail, DraftMutation, DraftSave
+from app.modules.content.publication import ContentPublication
 from app.modules.content.type_registry import ContentTypeDefinition, content_types
 from app.modules.media.locking import lock_references
 from app.modules.media.models import MediaAsset
 
-Action = Literal["create", "save", "trash", "restore"]
+Action = Literal["create", "save", "trash", "restore", "publish", "withdraw"]
 
 
 def require_type(type_id: str) -> ContentTypeDefinition:
@@ -30,8 +32,9 @@ def require_type(type_id: str) -> ContentTypeDefinition:
 
 
 class DraftService:
-    def __init__(self, session: AsyncSession) -> None:
+    def __init__(self, session: AsyncSession, config: Settings | None = None) -> None:
         self.session = session
+        self.config = config
         self.repo = DraftRepository(session)
 
     async def read(self, draft_id: UUID) -> DraftDetail:
@@ -107,6 +110,15 @@ class DraftService:
             if not row.deleted_at:
                 raise AuthFailure(409, 40952, "内容已经恢复")
             row.deleted_at = None
+        if action in {"publish", "withdraw"} or (action == "trash" and row.published_revision):
+            if self.config is None:
+                raise RuntimeError("Publication requires configured delivery targets")
+            publication = ContentPublication(self.session, self.config)
+            if action == "publish":
+                await publication.publish(row)
+            else:
+                await publication.withdraw(row)
+            await publication.stage()
         result = detail(row)
         snapshot = result.model_dump(mode="json")
         try:

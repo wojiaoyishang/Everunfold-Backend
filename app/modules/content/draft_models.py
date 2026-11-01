@@ -30,6 +30,9 @@ class ContentDraft(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    published_revision: Mapped[int | None] = mapped_column(Integer)
+    public_path: Mapped[str | None] = mapped_column(Text)
+    published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class DraftRevision(Base):

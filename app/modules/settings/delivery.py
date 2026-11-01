@@ -12,6 +12,7 @@ from sqlalchemy import or_, select
 from app.core.config import Settings
 from app.core.database import Database
 from app.modules.content.models import SiteSettings
+from app.modules.content.publication_schemas import ContentReceipt
 from app.modules.settings.models import SettingsDeliveryEvent
 from app.modules.settings.schemas import DeliveryReceipt
 
@@ -83,7 +84,12 @@ async def deliver_batch(config: Settings) -> int:
                         ),
                     ) as client:
                         response = await client.post(
-                            target.settings_receiver_url + "/internal/settings/apply",
+                            target.settings_receiver_url
+                            + (
+                                "/internal/cache/v1/apply"
+                                if payload["resource"] == "public-content"
+                                else "/internal/settings/apply"
+                            ),
                             content=encoded,
                             headers={
                                 "Content-Type": "application/json",
@@ -93,7 +99,11 @@ async def deliver_batch(config: Settings) -> int:
                     if response.status_code != 200 or len(response.content) > 8192:
                         error = f"receiver_http_{response.status_code}"
                     else:
-                        receipt = DeliveryReceipt.model_validate(response.json())
+                        receipt = (
+                            ContentReceipt.model_validate(response.json())
+                            if payload["resource"] == "public-content"
+                            else DeliveryReceipt.model_validate(response.json())
+                        )
                         if (
                             receipt.node_id != node_id
                             or receipt.source_epoch != payload["source_epoch"]

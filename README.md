@@ -1,6 +1,6 @@
 # Everunfold Backend
 
-Everunfold 博客与轻量 CMS 的独立后端仓库。当前已完成公开阅读基础、真实匿名历史评论点赞，以及基础管理员登录所需的后端能力：PostgreSQL 用户与可撤销 Session、HttpOnly Cookie、CSRF/精确 Origin、管理员身份复核和显式数据库初始化。独立前端已接入登录、站点/主题/节点策略设置、媒体库与注册式文章/说说草稿管理。设置交付具有独立 Worker/Scheduler/Node 接收链路；正式内容发布、用户管理与协同编辑尚未完成。
+Everunfold 博客与轻量 CMS 的独立后端仓库。当前已完成公开阅读基础、真实匿名历史评论点赞，以及基础管理员登录所需的后端能力：PostgreSQL 用户与可撤销 Session、HttpOnly Cookie、CSRF/精确 Origin、管理员身份复核和显式数据库初始化。独立前端已接入登录、站点/主题/节点策略设置、媒体库与注册式文章/说说草稿管理。设置与内容发布共用独立 Worker/Scheduler/Node 接收链路；文章/说说已可发布、撤回和同步到前台。用户管理、协同与完整生产缓存体系尚未完成。
 
 先读 [文档入口](docs/README.md) 和 [当前交接](docs/handoff/STATUS.md)。原始设计基线及工程计划保存在 `docs/baseline/`，后续开发不依赖临时附件或聊天上下文。
 
@@ -17,7 +17,7 @@ uv run --locked python -m uvicorn app.entrypoints.api:app --host 127.0.0.1 --por
 
 - 本机 `config.toml` 已填写并被 Git 忽略；新环境按 `config.example.toml` 建立配置，填写专用数据库/Redis 地址。加载器只读取实例文件，不回退示例、不自动搜索 `.env`，明确覆盖项见配置模块。
 - 活性检查：`http://127.0.0.1:8001/health/live`；就绪检查：`http://127.0.0.1:8001/health/ready`，分别报告数据库、Redis 和迁移版本。
-- 交互文档：`http://127.0.0.1:8001/docs`。公开业务契约 `0.1.0` 见 `contracts/`，应用版本为 `0.2.0`，二者分别维护。
+- 交互文档：`http://127.0.0.1:8001/docs`。公开内容快照契约 `0.2.0`（兼容旧 0.1）见 `contracts/`，应用版本为 `0.2.0`，二者分别维护。
 - 其他项目使用 `8000`，本项目按用户要求统一使用 `8001`。
 
 ## 数据准备与前端联调
@@ -36,7 +36,7 @@ uv run --locked python init.database.py --config config.toml
 uv run --locked alembic -c migrations/alembic.ini upgrade head
 ```
 
-本机 `everunfold_dev` 已显式升级到 `0009_content_drafts`，保留原公开内容、评论、账号、设置与媒体；四份内容示例由独立 seed 命令添加。完整提取、导入、刷新前端快照和手动验收步骤见 [公开阅读运行指南](docs/development/public-reading.md) 与 [导入工具](tools/wordpress_import/README.md)。原 SQL、公开内容快照、文章媒体和实际配置不进入 Git，新克隆需自行准备数据。
+本机 `everunfold_dev` 已显式升级到 `0010_content_publication`，保留原公开内容、评论、账号、设置与媒体；四份内容示例由独立 seed 命令添加并已通过发布接口联调。发布/同步启动与操作见 [内容管理指南](docs/development/content-management.md)。完整提取、导入、刷新前端快照和手动验收步骤见 [公开阅读运行指南](docs/development/public-reading.md) 与 [导入工具](tools/wordpress_import/README.md)。原 SQL、公开内容快照、文章媒体和实际配置不进入 Git，新克隆需自行准备数据。
 
 ## 检查
 
@@ -51,6 +51,7 @@ uv run --locked pytest
 普通测试不连接开发库；真实集成测试必须使用已迁移的独立 `everunfold_test`，本机配置为被忽略的 `config.test.local.toml`：
 
 ```powershell
+uv run python init.database.py --config config.test.local.toml --no-create-database
 $env:RUN_DATABASE_TESTS = "1"
 uv run --locked pytest
 Remove-Item Env:RUN_DATABASE_TESTS

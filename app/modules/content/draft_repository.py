@@ -23,6 +23,9 @@ def summary(row: ContentDraft) -> DraftSummary:
         revision=row.revision,
         status="trash" if row.deleted_at else "draft",
         is_demo=row.is_demo,
+        published_revision=row.published_revision,
+        public_path=row.public_path,
+        published_at=row.published_at,
         created_at=row.created_at,
         updated_at=row.updated_at,
     )
@@ -49,6 +52,10 @@ class DraftRepository:
             if query.status == "trash"
             else ContentDraft.deleted_at.is_(None)
         )
+        if query.status == "published":
+            filters.append(ContentDraft.published_revision.is_not(None))
+        elif query.status == "draft":
+            filters.append(ContentDraft.published_revision.is_(None))
         if search := query.search.strip():
             filters.append(
                 or_(

@@ -28,7 +28,7 @@ from app.modules.settings.schemas import (
     SettingsState,
 )
 
-Resource = Literal["public-settings", "cache-policy"]
+Resource = Literal["public-settings", "cache-policy", "public-content"]
 
 
 class SettingsService:

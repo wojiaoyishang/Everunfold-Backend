@@ -24,6 +24,7 @@ from sqlalchemy.engine import make_url
 
 from app.core.config import load_settings
 from tests.content_draft_process_checks import check_content_drafts
+from tests.content_publication_process_checks import check_content_publication
 from tests.media_library_process_checks import check_media_library
 from tests.media_process_checks import check_media_management
 from tests.test_auth_http_processes import free_port, uvicorn_process
@@ -156,6 +157,7 @@ def test_settings_atomic_save_restart_delivery_and_crash_replay(tmp_path: Path) 
                     "BACKEND_BASE_URL": api_a,
                     "FRONTEND_NODE_ID": node_id,
                     "backend": {"allowed_peer_ips": ["127.0.0.1"]},
+                    "cache": {"directory": str(tmp_path / "content")},
                     "settings": {
                         "directory": str(tmp_path / "applied"),
                         "source_epoch": epoch,
@@ -286,7 +288,7 @@ def test_settings_atomic_save_restart_delivery_and_crash_replay(tmp_path: Path) 
             worker.wait(timeout=8)
             receiver.terminate()
             receiver.wait(timeout=8)
-            stack.enter_context(background(node_command, node_env, frontend))
+            restored_receiver = stack.enter_context(background(node_command, node_env, frontend))
             assert json.loads(applied_file.read_text(encoding="utf-8"))["revision"] == revision
             stack.enter_context(background(worker_command, env, ROOT))
             wait_for(lambda: status() == "applied", timeout=25)
@@ -572,6 +574,22 @@ def test_settings_atomic_save_restart_delivery_and_crash_replay(tmp_path: Path) 
             check_media_management(client, csrf, cookies, api_a, api_b, sql)
             check_media_library(client, csrf, cookies, api_a, api_b, sql, tmp_path / "uploads")
             check_content_drafts(client, csrf, cookies, api_a, api_b, sql)
+            check_content_publication(
+                client,
+                csrf,
+                cookies,
+                api_a,
+                api_b,
+                sql,
+                wait_for,
+                restored_receiver,
+                lambda: stack.enter_context(background(node_command, node_env, frontend)),
+                f"http://127.0.0.1:{receiver_port}",
+                token,
+                frontend,
+                node_executable,
+                node_env,
+            )
 
             # CDN origin changes republish a new version, never overwrite a prior ACKed file.
             raw["media"]["base_url"] = "https://cdn.example.test/assets"

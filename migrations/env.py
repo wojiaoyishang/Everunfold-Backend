@@ -12,6 +12,7 @@ from app.modules.auth import models as auth_models  # noqa: F401 - include modul
 from app.modules.content import (
     draft_models,  # noqa: F401
     models,  # noqa: F401 - include module metadata
+    publication_models,  # noqa: F401
 )
 from app.modules.media import models as media_models  # noqa: F401
 from app.modules.settings import models as settings_models  # noqa: F401

@@ -18,7 +18,7 @@ class Content(Base):
     __tablename__ = "contents"
     __table_args__ = (
         Unique("source", "source_id"),
-        CheckConstraint("kind IN ('article', 'page')", name="kind"),
+        CheckConstraint("kind IN ('article', 'shuoshuo', 'page')", name="kind"),
         CheckConstraint("publication_status IN ('published', 'draft', 'withdrawn')", name="status"),
         CheckConstraint(
             "visibility IN ('public', 'unlisted', 'authenticated', 'password')", name="visibility"
@@ -135,3 +135,4 @@ class SiteSettings(Base):
     data: Mapped[dict[str, Any]] = mapped_column(JSONB)
     source_epoch: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), default=uuid.uuid4)
     generation: Mapped[int] = mapped_column(Integer, default=1)
+    content_generation: Mapped[int] = mapped_column(Integer, default=1)

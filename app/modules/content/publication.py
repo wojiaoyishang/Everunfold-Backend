@@ -1,0 +1,171 @@
+"""Publish a complete public projection and its delivery intent in the caller's transaction."""
+
+from datetime import UTC, datetime
+from uuid import UUID
+
+from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.config import Settings
+from app.modules.auth.service import AuthFailure
+from app.modules.content.draft_models import ContentDraft
+from app.modules.content.models import Content, SearchDocument
+from app.modules.content.publication_models import ContentRelease
+from app.modules.content.publication_schemas import ContentDelivery, ContentSyncState
+from app.modules.content.repository import ContentRepository
+from app.modules.content.schemas import PublicSnapshot
+from app.modules.content.service import PublicContentService
+from app.modules.settings.models import SettingsAudit, SettingsDeliveryEvent
+from app.modules.settings.service import SettingsService
+
+
+class ContentPublication:
+    def __init__(self, session: AsyncSession, config: Settings) -> None:
+        self.session, self.config = session, config
+
+    async def publish(self, draft: ContentDraft) -> None:
+        if draft.type_id not in {"article", "shuoshuo"}:
+            raise AuthFailure(422, 42254, "此类型尚未配置公开展示")
+        if not any(str(block["content"]).strip() for block in draft.body):
+            raise AuthFailure(422, 42255, "请填写正文后再发布")
+        now = datetime.now(UTC)
+        existing = await self.session.get(Content, draft.id)
+        # Stable IDs reserve a non-code URL; changing the title never changes the address.
+        prefix = "posts" if draft.type_id == "article" else "shuoshuo"
+        draft.public_path = draft.public_path or f"/{prefix}/{draft.id}.html"
+        draft.published_at = draft.published_at or now
+        draft.published_revision = draft.revision
+        body = "\n\n".join(str(block["content"]) for block in draft.body)
+        fields = dict(
+            kind=draft.type_id,
+            title=draft.title,
+            excerpt=draft.excerpt,
+            path=draft.public_path,
+            language="zh-CN",
+            author=draft.author,
+            published_at=draft.published_at,
+            updated_at=now,
+            reading_minutes=max(1, (len(body) + 399) // 400),
+            word_count=len(body),
+            content=draft.body,
+            media_urls={},
+            publication_status="published",
+            visibility="public",
+        )
+        if existing is None:
+            self.session.add(Content(id=draft.id, source="everunfold", source_id=None, **fields))
+        else:
+            for name, value in fields.items():
+                setattr(existing, name, value)
+            existing.public_generation += 1
+        await self.session.flush()
+        await self.session.execute(
+            insert(SearchDocument)
+            .values(content_id=draft.id, title=draft.title, body=body)
+            .on_conflict_do_update(
+                index_elements=["content_id"], set_={"title": draft.title, "body": body}
+            )
+        )
+
+    async def withdraw(self, draft: ContentDraft) -> bool:
+        if draft.published_revision is None:
+            return False
+        existing = await self.session.get(Content, draft.id)
+        if existing:
+            existing.publication_status = "withdrawn"
+            existing.public_generation += 1
+        draft.published_revision = None
+        return True
+
+    async def stage(self) -> ContentRelease:
+        # All writers share the reference lock followed by this row lock. The snapshot and
+        # immutable release are created before commit, without external network side effects.
+        site = await SettingsService(self.session, self.config).site(locked=True)
+        site.content_generation += 1
+        await self.session.flush()
+        snapshot = await PublicContentService(ContentRepository(self.session)).snapshot()
+        if len(snapshot.model_dump_json().encode()) > 8 * 1024 * 1024 - 4096:
+            raise AuthFailure(422, 42256, "公开内容超过当前同步容量，请调整存储方案后重试")
+        release = ContentRelease(
+            source_epoch=site.source_epoch,
+            revision=site.content_generation,
+            snapshot=snapshot.model_dump(mode="json"),
+        )
+        self.session.add(release)
+        await self.enqueue(release)
+        return release
+
+    async def enqueue(self, release: ContentRelease) -> None:
+        for node, config in self.config.frontends.items():
+            if not config.enabled or not config.settings_receiver_url:
+                continue
+            payload = ContentDelivery(
+                node_id=node,
+                source_epoch=str(release.source_epoch),
+                revision=release.revision,
+                value=PublicSnapshot.model_validate(release.snapshot),
+            ).model_dump(mode="json")
+            await self.session.execute(
+                insert(SettingsDeliveryEvent)
+                .values(
+                    node_id=node,
+                    source_epoch=release.source_epoch,
+                    resource="public-content",
+                    revision=release.revision,
+                    payload=payload,
+                )
+                .on_conflict_do_nothing(
+                    index_elements=["node_id", "source_epoch", "resource", "revision"]
+                )
+            )
+
+    async def state(self) -> ContentSyncState:
+        service = SettingsService(self.session, self.config)
+        site = await service.site()
+        return ContentSyncState(
+            source_epoch=str(site.source_epoch),
+            revision=site.content_generation,
+            delivery=[
+                await service.delivery(
+                    node, site.source_epoch, "public-content", site.content_generation
+                )
+                for node in self.config.frontends
+            ],
+        )
+
+    async def retry(self, actor_id: UUID) -> ContentSyncState:
+        from app.modules.media.locking import lock_references
+
+        await lock_references(self.session)
+        site = await SettingsService(self.session, self.config).site(locked=True)
+        release = await self.session.get(
+            ContentRelease, (site.source_epoch, site.content_generation)
+        )
+        if release is None:
+            release = await self.stage()
+        else:
+            await self.enqueue(release)
+        events = await self.session.scalars(
+            select(SettingsDeliveryEvent)
+            .where(
+                SettingsDeliveryEvent.source_epoch == release.source_epoch,
+                SettingsDeliveryEvent.resource == "public-content",
+                SettingsDeliveryEvent.revision == release.revision,
+            )
+            .with_for_update()
+        )
+        for event in events:
+            event.applied_at = event.lease_id = event.lease_until = event.error = None
+            event.attempts = 0
+            event.next_attempt_at = datetime.now(UTC)
+        self.session.add(
+            SettingsAudit(
+                user_id=actor_id,
+                resource="public-content",
+                revision=release.revision,
+                changes={"action": "retry", "source_epoch": str(release.source_epoch)},
+            )
+        )
+        await self.session.commit()
+        return await self.state()
