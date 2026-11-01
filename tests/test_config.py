@@ -74,3 +74,39 @@ def test_shared_key_generation_has_environment_scope(tmp_path: Path) -> None:
     assert redis_channel(settings, "broadcast", "api") == "lovepikachu:test-config:broadcast:api"
     with pytest.raises(ValueError):
         redis_key(settings, "*")
+
+
+def test_media_path_uses_config_directory_and_cdn_prefix(tmp_path: Path) -> None:
+    config_dir = tmp_path / "config"
+    config_dir.mkdir()
+    file = config_dir / "local.toml"
+    file.write_text(
+        VALID_CONFIG
+        + '\n[media]\nuploads_path = "./uploads"\nbase_url = "https://cdn.example.test/assets/"\n',
+        encoding="utf-8",
+    )
+    settings = load_settings(file, environ={})
+    assert settings.uploads_directory == (config_dir / "uploads").resolve()
+    assert settings.media_base_url == "https://cdn.example.test/assets"
+    absolute = (tmp_path / "absolute").as_posix()
+    file.write_text(VALID_CONFIG + f'\n[media]\nuploads_path = "{absolute}"\n', encoding="utf-8")
+    assert load_settings(file, environ={}).uploads_directory == Path(absolute).resolve()
+    assert load_settings(file, environ={}).media_base_url == "http://127.0.0.1:8000/media"
+
+
+@pytest.mark.parametrize(
+    "base",
+    [
+        "javascript:alert(1)",
+        "https://u:p@cdn.test/a",
+        "https://cdn.test/a?secret=1",
+        "https://cdn.test/a#b",
+        "https://cdn.test/a/../b",
+        "https://cdn.test/" + "a" * 1024,
+    ],
+)
+def test_invalid_media_base_is_rejected(tmp_path: Path, base: str) -> None:
+    file = tmp_path / "local.toml"
+    file.write_text(VALID_CONFIG + f'\n[media]\nbase_url = "{base}"\n', encoding="utf-8")
+    with pytest.raises(ConfigurationError):
+        load_settings(file, environ={})

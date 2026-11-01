@@ -237,13 +237,27 @@ class AuthConfig(ConfigModel):
 
 
 class MediaConfig(ConfigModel):
-    base_url: str | None = None
+    base_url: str | None = Field(default=None, max_length=1024)
     uploads_path: str = "./uploads"
 
     @field_validator("base_url")
     @classmethod
     def valid_base(cls, value: str | None) -> str | None:
-        return validate_http_base(value) if value is not None else None
+        if value is None:
+            return None
+        parsed = urlsplit(value)
+        if (
+            parsed.username is not None
+            or parsed.password is not None
+            or parsed.query
+            or parsed.fragment
+            or "\\" in value
+            or any(char.isspace() or ord(char) < 32 for char in value)
+            or ".." in parsed.path.split("/")
+        ):
+            raise ValueError("invalid media base URL")
+        validate_http_base(f"{parsed.scheme}://{parsed.netloc}")
+        return value.rstrip("/")
 
     @field_validator("uploads_path")
     @classmethod

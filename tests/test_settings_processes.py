@@ -1,6 +1,7 @@
 """P0: real API replicas, PostgreSQL, Redis, Celery, Scheduler and Node receiver."""
 
 import asyncio
+import base64
 import copy
 import json
 import os
@@ -13,6 +14,7 @@ from concurrent.futures import ThreadPoolExecutor
 from contextlib import ExitStack, contextmanager
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 from uuid import uuid4
 
 import asyncpg  # type: ignore[import-untyped]
@@ -109,6 +111,7 @@ def test_settings_atomic_save_restart_delivery_and_crash_replay(tmp_path: Path) 
         "max_attempts": 8,
         "retry_max_delay_seconds": 2,
     }
+    raw["media"] = {"uploads_path": str(tmp_path / "uploads")}
     config_file = tmp_path / "backend.local.toml"
     config_file.write_text(toml_text(raw), encoding="utf-8")
     env = {
@@ -314,6 +317,278 @@ def test_settings_atomic_save_restart_delivery_and_crash_replay(tmp_path: Path) 
             assert client.get("/v1/admin/settings").json()["data"]["revision"] == revision
             assert scheduler.poll() is None
             assert "no-store" in result.headers["cache-control"]
+            # Real authenticated uploads through two API processes share one immutable original.
+            svg = b'<svg xmlns="http://www.w3.org/2000/svg"><path d="M1 1h4v4z"/></svg>'
+            upload = {
+                "filename": "integration.svg",
+                "upload_id": str(uuid4()),
+                "data_base64": base64.b64encode(svg).decode(),
+            }
+            assert client.post("/v1/admin/icons/upload", json=upload).status_code == 403
+            bad = {**upload, "data_base64": base64.b64encode(b'<svg onload="alert(1)"/>').decode()}
+            assert client.post("/v1/admin/icons/upload", json=bad, headers=csrf).status_code == 422
+            assert (
+                httpx.post(
+                    api_b + "/v1/admin/icons/query",
+                    json={},
+                    headers={"Origin": "http://127.0.0.1:3000"},
+                ).status_code
+                == 401
+            )
+            # The file exists, but ready and audit must roll back together.
+            asyncio.run(
+                sql(
+                    "ALTER TABLE settings_audit ADD CONSTRAINT media_audit_failure "
+                    "CHECK (resource NOT LIKE 'media:%')"
+                )
+            )
+            assert (
+                client.post("/v1/admin/icons/upload", json=upload, headers=csrf).status_code == 503
+            )
+            staging = asyncio.run(sql("SELECT * FROM media_assets"))[0]
+            assert staging["status"] == "staging"
+            assert client.get("/media/" + staging["object_key"]).status_code == 404
+            assert (tmp_path / "uploads" / staging["object_key"]).read_bytes() == svg
+            asyncio.run(sql("ALTER TABLE settings_audit DROP CONSTRAINT media_audit_failure"))
+
+            def retry_icon(origin: str) -> httpx.Response:
+                return httpx.post(
+                    origin + "/v1/admin/icons/upload",
+                    json=upload,
+                    cookies=cookies,
+                    headers={**csrf, "Origin": "http://127.0.0.1:3000"},
+                    timeout=10,
+                )
+
+            with ThreadPoolExecutor(max_workers=2) as executor:
+                uploads = list(executor.map(retry_icon, [api_a, api_b]))
+            assert [response.status_code for response in uploads] == [200, 200]
+            icon = uploads[0].json()["data"]
+            assert uploads[1].json()["data"]["id"] == icon["id"]
+            assert asyncio.run(sql("SELECT count(*) AS count FROM media_assets"))[0]["count"] == 1
+            assert (
+                asyncio.run(
+                    sql(
+                        "SELECT count(*) AS count FROM settings_audit WHERE resource LIKE 'media:%'"
+                    )
+                )[0]["count"]
+                == 1
+            )
+            served = client.get(urlsplit(icon["url"]).path)
+            assert served.content == svg and served.headers["x-content-type-options"] == "nosniff"
+            assert "sandbox" in served.headers["content-security-policy"]
+            assert (
+                client.post(
+                    "/v1/admin/icons/upload",
+                    json={**upload, "filename": "changed.svg"},
+                    headers=csrf,
+                ).status_code
+                == 409
+            )
+            catalog = client.post(
+                "/v1/admin/icons/query", json={"query": "integration"}, headers=csrf
+            )
+            assert catalog.status_code == 200 and catalog.json()["data"]["total"] == 1
+            assert "no-store" in catalog.headers["cache-control"]
+            # A deeper menu and media mapping travel through the real delivery worker and receiver.
+            menu: dict[str, Any] = {
+                "id": "leaf",
+                "label": "Deep",
+                "href": "/deep",
+                "icon": icon["id"],
+            }
+            for depth in range(8):
+                menu = {"id": f"parent-{depth}", "label": "Parent", "href": "/", "children": [menu]}
+            state = client.get("/v1/admin/settings").json()["data"]
+            state["value"]["site"]["navigation"] = [menu]
+            state["value"]["icon_urls"] = {icon["id"]: "https://forged.invalid/evil.svg"}
+            result = client.patch(
+                "/v1/admin/settings",
+                json={"expected_revision": state["revision"], "value": state["value"]},
+                headers=csrf,
+            )
+            assert result.status_code == 200
+            assert result.json()["data"]["value"]["icon_urls"][icon["id"]] == icon["url"]
+            wait_for(lambda: status() == "applied")
+            latest = applied_file.parent / f"public-settings.{state['revision'] + 1}.json"
+            assert (
+                json.loads(latest.read_text(encoding="utf-8"))["value"]["icon_urls"][icon["id"]]
+                == icon["url"]
+            )
+
+            # A valid HTTP body must not commit an undeliverable settings projection.
+            current = client.get("/v1/admin/settings").json()["data"]
+            oversized = copy.deepcopy(current["value"])
+            oversized["site"]["navigation"] = [
+                {"id": f"wide-{n}", "label": "Item", "href": "/" + "p" * 910} for n in range(64)
+            ]
+            encoded = json.dumps(
+                {"expected_revision": current["revision"], "value": oversized},
+                ensure_ascii=False,
+                separators=(",", ":"),
+            ).encode()
+            assert len(encoded) < 65536
+            counts_query = (
+                "SELECT (SELECT count(*) FROM settings_audit) AS audits, "
+                "(SELECT count(*) FROM settings_delivery_events) AS events"
+            )
+            counts_before = asyncio.run(sql(counts_query))
+            rejected = client.patch(
+                "/v1/admin/settings",
+                content=encoded,
+                headers={**csrf, "Content-Type": "application/json"},
+            )
+            assert rejected.status_code == 422, rejected.text
+            assert rejected.json()["code"] == 42232
+            assert (
+                client.get("/v1/admin/settings").json()["data"]["revision"] == current["revision"]
+            )
+            assert asyncio.run(sql(counts_query)) == counts_before
+
+            # Binary uploads are authenticated, idempotent and usable through typed media fields.
+            media_metadata = {"filename": "integration-preview.mp4", "upload_id": str(uuid4())}
+            video_bytes = (ROOT / "tests/fixtures/library-preview.mp4").read_bytes()
+            binary_headers = {**csrf, "Content-Type": "application/octet-stream"}
+            assert (
+                httpx.post(
+                    api_a + "/v1/admin/media/upload",
+                    params=media_metadata,
+                    content=video_bytes,
+                    headers={
+                        "Origin": "http://127.0.0.1:3000",
+                        "Content-Type": "application/octet-stream",
+                    },
+                ).status_code
+                == 401
+            )
+            assert (
+                client.post(
+                    "/v1/admin/media/upload",
+                    params=media_metadata,
+                    content=video_bytes,
+                    headers={"Content-Type": "application/octet-stream"},
+                ).status_code
+                == 403
+            )
+            assert (
+                client.post(
+                    "/v1/admin/media/upload",
+                    params=media_metadata,
+                    content=video_bytes,
+                    headers={**csrf, "Content-Type": "text/plain"},
+                ).status_code
+                == 415
+            )
+            assert (
+                client.post(
+                    "/v1/admin/media/upload",
+                    params=media_metadata,
+                    content=b"not video",
+                    headers=binary_headers,
+                ).status_code
+                == 422
+            )
+
+            def upload_video(origin: str) -> httpx.Response:
+                return httpx.post(
+                    origin + "/v1/admin/media/upload",
+                    params=media_metadata,
+                    content=video_bytes,
+                    headers={**binary_headers, "Origin": "http://127.0.0.1:3000"},
+                    cookies=cookies,
+                    timeout=10,
+                )
+
+            with ThreadPoolExecutor(max_workers=2) as executor:
+                videos = list(executor.map(upload_video, [api_a, api_b]))
+            assert [response.status_code for response in videos] == [200, 200]
+            video = videos[0].json()["data"]
+            assert video["kind"] == "video" and videos[1].json()["data"]["id"] == video["id"]
+            assert asyncio.run(sql("SELECT count(*) AS count FROM media_assets"))[0]["count"] == 2
+            assert (
+                asyncio.run(
+                    sql(
+                        "SELECT count(*) AS count FROM settings_audit WHERE resource = $1",
+                        video["id"],
+                    )
+                )[0]["count"]
+                == 1
+            )
+            ranged = client.get(urlsplit(video["url"]).path, headers={"Range": "bytes=0-31"})
+            assert ranged.status_code == 206 and ranged.content == video_bytes[:32]
+            images = client.post(
+                "/v1/admin/media/query", json={"kind": "image"}, headers=csrf
+            ).json()["data"]
+            assert [item["id"] for item in images["items"]] == [icon["id"]]
+            assert (
+                client.post("/v1/admin/media/query", json={"kind": "video"}, headers=csrf).json()[
+                    "data"
+                ]["items"][0]["id"]
+                == video["id"]
+            )
+            current = client.get("/v1/admin/settings").json()["data"]
+            media_value = copy.deepcopy(current["value"])
+            media_value["site"].update(
+                {"avatar_media_id": icon["id"], "avatar_url": "https://forged.invalid/avatar.svg"}
+            )
+            media_value["theme"].update(
+                {
+                    "background_media_id": icon["id"],
+                    "background_video_media_id": video["id"],
+                    "background_url": "https://forged.invalid/background.svg",
+                    "background_video_url": "https://forged.invalid/background.mp4",
+                }
+            )
+            wrong_kind = copy.deepcopy(media_value)
+            wrong_kind["theme"]["background_video_media_id"] = icon["id"]
+            assert (
+                client.patch(
+                    "/v1/admin/settings",
+                    json={"expected_revision": current["revision"], "value": wrong_kind},
+                    headers=csrf,
+                ).status_code
+                == 422
+            )
+            bound = client.patch(
+                "/v1/admin/settings",
+                json={"expected_revision": current["revision"], "value": media_value},
+                headers=csrf,
+            )
+            assert bound.status_code == 200, bound.text
+            bound_value = bound.json()["data"]["value"]
+            assert bound_value["site"]["avatar_url"] == icon["url"]
+            assert bound_value["theme"]["background_url"] == icon["url"]
+            assert bound_value["theme"]["background_video_url"] == video["url"]
+            wait_for(lambda: status() == "applied")
+            bound_revision = bound.json()["data"]["revision"]
+            bound_file = applied_file.parent / f"public-settings.{bound_revision}.json"
+            assert json.loads(bound_file.read_text(encoding="utf-8"))["value"] == bound_value
+
+            # CDN origin changes republish a new version, never overwrite a prior ACKed file.
+            raw["media"]["base_url"] = "https://cdn.example.test/assets"
+            config_file.write_text(toml_text(raw), encoding="utf-8")
+            port_c = free_port()
+            with uvicorn_process(port_c, env):
+                republished = httpx.post(
+                    f"http://127.0.0.1:{port_c}/v1/admin/frontend-nodes/{node_id}/sync",
+                    cookies=cookies,
+                    headers={**csrf, "Origin": "http://127.0.0.1:3000"},
+                    timeout=10,
+                )
+                assert republished.status_code == 200, republished.text
+                wait_for(lambda: status() == "applied")
+            cdn_file = applied_file.parent / f"public-settings.{bound_revision + 1}.json"
+            cdn_value = json.loads(cdn_file.read_text(encoding="utf-8"))["value"]
+            assert cdn_value["icon_urls"][icon["id"]].startswith("https://cdn.example.test/assets/")
+            assert cdn_value["site"]["avatar_url"].startswith("https://cdn.example.test/assets/")
+            assert cdn_value["theme"]["background_video_url"].startswith(
+                "https://cdn.example.test/assets/"
+            )
+            assert json.loads(bound_file.read_text(encoding="utf-8"))["value"] == bound_value
+            assert (
+                json.loads(latest.read_text(encoding="utf-8"))["value"]["icon_urls"][icon["id"]]
+                == icon["url"]
+            )
     finally:
         # Only this test's freshly created database is eligible for cleanup.
         assert database_name.startswith("everunfold_settings_test_")

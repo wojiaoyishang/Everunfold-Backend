@@ -1,5 +1,6 @@
 """Optimistic writes and reliable intents; one commit per use case, no network I/O."""
 
+import json
 import uuid
 from datetime import UTC, datetime
 from typing import Literal
@@ -49,9 +50,37 @@ class SettingsService:
             if item.icon.startswith("media:"):
                 icons.add(item.icon)
             pending.extend(item.children)
-        return value.model_copy(
-            update={"icon_urls": await MediaService(self.session, self.config).resolve_icons(icons)}
+        service = MediaService(self.session, self.config)
+        references: dict[str, str] = {}
+        for reference, kind in [
+            (value.site.avatar_media_id, "image"),
+            (value.theme.background_media_id, "image"),
+            (value.theme.background_video_media_id, "video"),
+        ]:
+            if reference:
+                if reference in references and references[reference] != kind:
+                    raise AuthFailure(422, 42234, "同一媒体不能同时作为图片和视频")
+                references[reference] = kind
+        urls = await service.resolve_resources(references)
+        site = value.site.model_copy()
+        theme = value.theme.model_copy()
+        if site.avatar_media_id:
+            site.avatar_url = urls[site.avatar_media_id]
+        if theme.background_media_id:
+            theme.background_url = urls[theme.background_media_id]
+        if theme.background_video_media_id:
+            theme.background_video_url = urls[theme.background_video_media_id]
+        resolved = value.model_copy(
+            update={"site": site, "theme": theme, "icon_urls": await service.resolve_icons(icons)}
         )
+        # The receiver accepts 64 KiB including its versioned delivery envelope.
+        # Reserve space for that envelope; derived media URLs can exceed input size.
+        encoded = json.dumps(
+            resolved.model_dump(mode="json"), ensure_ascii=False, separators=(",", ":")
+        )
+        if len(encoded.encode("utf-8")) > 60 * 1024:
+            raise AuthFailure(422, 42232, "设置及图标数据过大，请减少菜单项或缩短链接")
+        return resolved
 
     async def state(self, record: SiteSettings | None = None) -> SettingsState:
         record = record or await self.site()
@@ -197,12 +226,39 @@ class SettingsService:
         await self.session.commit()
         return await self.policy(node)
 
-    async def retry(self, node: str) -> NodeList:
+    async def retry(self, node: str, actor: uuid.UUID) -> NodeList:
         self.node(node)
         site = await self.site(locked=True)
         policy = await self.policy(node)
+        public = await self.resolve(public_settings(site.data))
+        previous = await self.session.scalar(
+            select(SettingsDeliveryEvent)
+            .where(
+                SettingsDeliveryEvent.source_epoch == site.source_epoch,
+                SettingsDeliveryEvent.resource == "public-settings",
+                SettingsDeliveryEvent.revision == site.generation,
+            )
+            .limit(1)
+        )
+        # Deployment-owned media URLs may change without editing menu identities.
+        # Publish a new immutable revision instead of rewriting an acknowledged file.
+        if previous and public != PublicSettings.model_validate(previous.payload["value"]):
+            site.generation += 1
+            self.session.add(
+                SettingsAudit(
+                    user_id=actor,
+                    resource="public-settings",
+                    revision=site.generation,
+                    changes={"operation": "republish-derived-media-urls"},
+                )
+            )
+            for target, config in self.config.frontends.items():
+                if config.enabled and config.settings_receiver_url:
+                    await self.enqueue(
+                        target, site.source_epoch, "public-settings", site.generation, public
+                    )
         for resource, revision, value in [
-            ("public-settings", site.generation, await self.resolve(public_settings(site.data))),
+            ("public-settings", site.generation, public),
             ("cache-policy", policy.revision, policy.value),
         ]:
             await self.enqueue(node, site.source_epoch, resource, revision, value)  # type: ignore[arg-type]

@@ -1,20 +1,37 @@
 """Authenticated management and read-only serving of committed public icon originals."""
 
-from fastapi import APIRouter, Request
+from typing import Annotated
+
+from fastapi import APIRouter, Query, Request
 from sqlalchemy import select
 from starlette.responses import FileResponse
 
 from app.core.responses import JSONResponseSuccess
-from app.core.schemas import PublicResponse
+from app.core.schemas import ErrorResponse, PublicResponse
 from app.modules.auth.router import auth_runtime
 from app.modules.auth.service import AuthFailure
+from app.modules.media.media_validation import MAX_MEDIA_BYTES
 from app.modules.media.models import MediaAsset
-from app.modules.media.schemas import IconAsset, IconCatalog, IconQuery, IconUpload
+from app.modules.media.schemas import (
+    IconAsset,
+    IconCatalog,
+    IconQuery,
+    IconUpload,
+    MediaCatalog,
+    MediaItem,
+    MediaQuery,
+    MediaUpload,
+)
 from app.modules.media.service import MediaService
 from app.modules.media.storage import LocalObjectStorage
 from app.modules.settings.router import Authorized
 
-router = APIRouter(tags=["media"])
+router = APIRouter(
+    tags=["media"],
+    responses={
+        status: {"model": ErrorResponse} for status in (401, 403, 404, 409, 413, 415, 422, 500, 503)
+    },
+)
 
 
 @router.post("/v1/admin/icons/query", response_model=PublicResponse[IconCatalog])
@@ -29,6 +46,38 @@ async def upload(payload: IconUpload, ctx: Authorized) -> JSONResponseSuccess:
     return JSONResponseSuccess(
         data=await MediaService(ctx.service.session, ctx.service.config).upload(
             payload, ctx.actor.id
+        )
+    )
+
+
+@router.post("/v1/admin/media/query", response_model=PublicResponse[MediaCatalog])
+async def media_catalog(query: MediaQuery, ctx: Authorized) -> JSONResponseSuccess:
+    return JSONResponseSuccess(
+        data=await MediaService(ctx.service.session, ctx.service.config).catalog_media(query)
+    )
+
+
+@router.post("/v1/admin/media/upload", response_model=PublicResponse[MediaItem])
+async def media_upload(
+    request: Request, metadata: Annotated[MediaUpload, Query()], ctx: Authorized
+) -> JSONResponseSuccess:
+    if (
+        request.headers.get("content-type", "").split(";", 1)[0].strip().lower()
+        != "application/octet-stream"
+    ):
+        raise AuthFailure(415, 41530, "请上传文件原始字节")
+    # Authentication and CSRF are resolved before reading this bounded binary body.
+    chunks = []
+    size = 0
+    async for chunk in request.stream():
+        size += len(chunk)
+        if size > MAX_MEDIA_BYTES:
+            raise AuthFailure(413, 41330, "视频不超过 128 MB，图片不超过 20 MB")
+        chunks.append(chunk)
+    data = b"".join(chunks)
+    return JSONResponseSuccess(
+        data=await MediaService(ctx.service.session, ctx.service.config).upload_media(
+            metadata, data, ctx.actor.id
         )
     )
 

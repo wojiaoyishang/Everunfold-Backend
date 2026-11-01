@@ -77,4 +77,4 @@ async def save_policy(node_id: str, payload: SavePolicy, ctx: Authorized) -> JSO
 
 @router.post("/frontend-nodes/{node_id}/sync", response_model=PublicResponse[NodeList])
 async def retry(node_id: str, ctx: Authorized) -> JSONResponseSuccess:
-    return JSONResponseSuccess(data=await ctx.service.retry(node_id))
+    return JSONResponseSuccess(data=await ctx.service.retry(node_id, ctx.actor.id))
