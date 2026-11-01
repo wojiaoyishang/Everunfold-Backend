@@ -96,3 +96,20 @@ def test_scheduler_import_does_not_load_business_or_api() -> None:
         timeout=15,
     )
     assert result.returncode == 0, result.stderr
+
+
+def test_notice_title_is_optional_and_round_trips_without_losing_legacy_content() -> None:
+    original = {
+        "name": "Campfire",
+        "author": "Author",
+        "description": "",
+        "notice": "Existing notice",
+    }
+    value = public_settings(original)
+    assert value.site.notice_title == "" and value.site.notice == "Existing notice"
+    value.site.notice_title = "Announcement"
+    stored = stored_settings(original, value)
+    assert public_settings(stored).site.notice_title == "Announcement"
+    assert stored["notice"] == "Existing notice"
+    with pytest.raises(ValidationError):
+        SitePreferences(name="Site", author="A", description="", notice_title="x" * 121)

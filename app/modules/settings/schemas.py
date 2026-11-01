@@ -65,6 +65,7 @@ class SitePreferences(SettingsModel):
     author: str = Field(min_length=1, max_length=100)
     avatar_media_id: str = Field(default="", pattern=MediaReference)
     avatar_url: str = Field(default="", max_length=2048)
+    notice_title: str = Field(default="", max_length=120)
     notice: str = Field(default="", max_length=1000)
     navigation: list[MenuItem] = Field(default_factory=list)
     seo_description: str = Field(default="", max_length=300)
