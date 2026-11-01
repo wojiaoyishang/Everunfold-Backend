@@ -10,6 +10,7 @@ from app.core.config import load_settings
 from app.core.database import Base
 from app.modules.auth import models as auth_models  # noqa: F401 - include module metadata
 from app.modules.content import models  # noqa: F401 - include module metadata
+from app.modules.settings import models as settings_models  # noqa: F401
 
 settings = context.config.attributes.get("settings") or load_settings()
 target_metadata = Base.metadata

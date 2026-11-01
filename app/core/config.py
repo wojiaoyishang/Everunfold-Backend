@@ -142,10 +142,21 @@ class InternalAuthConfig(ConfigModel):
 
 
 class FrontendConfig(ConfigModel):
+    settings_receiver_url: str | None = None
     base_url: str
     enabled: bool = False
     nextjs_to_fastapi_token_env: str
     fastapi_to_nextjs_token_env: str
+
+    @field_validator("settings_receiver_url")
+    @classmethod
+    def valid_receiver(cls, value: str | None) -> str | None:
+        if value is not None:
+            validate_http_base(value)
+            parsed = urlsplit(value)
+            if parsed.scheme != "https" and not is_loopback_host(parsed.hostname or ""):
+                raise ValueError("internal credentials require HTTPS outside loopback")
+        return value
 
     _base_url = field_validator("base_url")(validate_http_base)
 

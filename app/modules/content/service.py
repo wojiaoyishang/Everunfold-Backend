@@ -51,7 +51,12 @@ class PublicContentService:
             tags=sum(item.kind == "tag" for item in taxonomies),
             categories=sum(item.kind == "category" for item in taxonomies),
         )
-        return SiteDTO.model_validate({**stored.data, "stats": stats})
+        data = {key: value for key, value in stored.data.items() if key in SiteDTO.model_fields}
+        data["navigation"] = [
+            {key: item[key] for key in ("label", "href", "icon") if key in item}
+            for item in data.get("navigation", [])
+        ]
+        return SiteDTO.model_validate({**data, "stats": stats})
 
     @staticmethod
     def _summary(

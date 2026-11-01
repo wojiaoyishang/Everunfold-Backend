@@ -17,7 +17,7 @@ class BusinessCORSMiddleware:
             app,
             allow_origins=allowed_origins,
             allow_credentials=True,
-            allow_methods=["GET", "POST"],
+            allow_methods=["GET", "POST", "PATCH"],
             allow_headers=["Accept", "Content-Type", "X-CSRF-Token"],
             expose_headers=["Retry-After"],
         )
@@ -66,7 +66,7 @@ class AuthBoundaryMiddleware:
                 scope, receive, private_send
             )
             return
-        if scope["method"] == "POST":
+        if write:
             if (
                 path == "/v1/auth/login"
                 and headers.get("content-type", "").split(";", 1)[0].strip().lower()
@@ -83,7 +83,7 @@ class AuthBoundaryMiddleware:
                 if message["type"] == "http.disconnect":
                     return
                 length += len(message.get("body", b""))
-                if length > 16384:
+                if length > (65536 if path.startswith("/v1/admin/") else 16384):
                     await JSONResponseFail(status_code=413, msg="请求内容过大")(
                         scope, receive, private_send
                     )

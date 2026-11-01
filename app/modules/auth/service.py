@@ -85,6 +85,20 @@ class AuthService:
             return None, None
         return record, user
 
+    async def require_admin(
+        self, raw_token: str | None, supplied_csrf: str | None, *, write: bool
+    ) -> User:
+        """Authorize within the caller's transaction, without committing it."""
+        token = valid_session_token(raw_token)
+        record, user = await self._existing(token, datetime.now(UTC))
+        if record is None or user is None:
+            raise AuthFailure(401, 40101, "请先登录")
+        if user.role != "admin":
+            raise AuthFailure(403, 40301, "当前账号没有后台访问权限")
+        if write and (token is None or not valid_csrf(token, supplied_csrf)):
+            raise AuthFailure(403, 40310, "登录状态已更新，请重新检查后重试")
+        return user
+
     async def read(self, raw_token: str | None, peer: str, *, admin: bool = False) -> SessionResult:
         token = valid_session_token(raw_token)
         now = datetime.now(UTC)

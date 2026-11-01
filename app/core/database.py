@@ -4,7 +4,7 @@ from sqlalchemy import MetaData, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
 
-SCHEMA_REVISION = "0003_auth_sessions"
+SCHEMA_REVISION = "0004_settings"
 
 
 class Base(DeclarativeBase):

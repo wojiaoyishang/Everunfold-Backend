@@ -54,7 +54,9 @@ allowed_peer_ips = ["127.0.0.1", "::1"]
 # *_token_env 的值是环境变量名，不是 Token 本身；由服务端加载器读取密钥
 [frontends.web-main]
 base_url = "http://127.0.0.1:3000"
-enabled = false                # 本阶段没有定向投递；启用前必须完成内部接口及密钥校验
+enabled = false                # 完成设置接收器、epoch/IP/Token 配置后再启用
+# 专用设置接收器；不复用公开站点端口，也不代表完整文章缓存接收接口
+# settings_receiver_url = "http://127.0.0.1:3001"
 # Next.js -> FastAPI：后端接收并校验
 nextjs_to_fastapi_token_env = "NEXTJS_TO_FASTAPI_WEB_MAIN_TOKEN"
 # FastAPI/Celery Worker -> Next.js：后端发送时使用

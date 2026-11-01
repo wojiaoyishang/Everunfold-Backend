@@ -11,7 +11,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from starlette.exceptions import HTTPException
 
 from app.core.config import ConfigurationError, Settings, load_settings
-from app.core.modules import register_auth_module, register_content_module
+from app.core.modules import register_auth_module, register_content_module, register_settings_module
 from app.core.responses import JSONResponseError, JSONResponseFail, JSONResponseSuccess
 from app.core.runtime import Runtime
 from app.modules.auth.middleware import AuthBoundaryMiddleware, BusinessCORSMiddleware
@@ -57,6 +57,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
     register_content_module(application)
     register_auth_module(application)
+    register_settings_module(application)
 
     @application.exception_handler(AuthFailure)
     async def handle_auth_error(request: Request, exc: AuthFailure) -> JSONResponseFail:

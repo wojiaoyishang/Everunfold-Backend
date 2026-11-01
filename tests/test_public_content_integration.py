@@ -8,7 +8,7 @@ from typing import Any
 
 import pytest
 from httpx2 import ASGITransport, AsyncClient
-from sqlalchemy import select, text
+from sqlalchemy import delete, select, text
 from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -162,6 +162,8 @@ async def seed_public_case(session: AsyncSession) -> dict[str, Any]:
             ),
         ]
     )
+    # Initialization now creates a singleton; isolate this fixture inside its rollback.
+    await session.execute(delete(SiteSettings))
     session.add(
         SiteSettings(
             id=1,

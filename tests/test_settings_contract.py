@@ -1,0 +1,76 @@
+"""Boundary checks for the administrator's public settings and node policy."""
+
+import json
+from pathlib import Path
+
+import pytest
+from pydantic import ValidationError
+
+from app.modules.settings.defaults import public_settings, stored_settings
+from app.modules.settings.schemas import CachePolicy, MenuItem, SitePreferences
+from tools.export_settings_contract import build_schema
+
+
+def test_settings_contract_matches_published_artifact() -> None:
+    assert (
+        json.loads(Path("contracts/settings-v1.schema.json").read_text(encoding="utf-8"))
+        == build_schema()
+    )
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "javascript:alert(1)",
+        "//evil.test/x",
+        "https://user:secret@example.com",
+        "/\\evil",
+        "https://example.com/\n",
+    ],
+)
+def test_settings_reject_unsafe_urls(url: str) -> None:
+    with pytest.raises(ValidationError):
+        MenuItem(id="nav", label="link", href=url)
+
+
+def test_blank_navigation_is_authoritative_and_legacy_settings_survive() -> None:
+    original = {
+        "name": "Campfire",
+        "author": "Author",
+        "description": "Original",
+        "notice": "",
+        "navigation": [],
+    }
+    value = public_settings(original)
+    value.site.description = "Changed"
+    value.site.navigation = []
+    stored = stored_settings(original, value)
+    assert public_settings(stored) == value
+    assert stored["navigation"] == []
+    assert stored["description"] == "Changed"
+
+
+def test_duplicate_navigation_ids_and_missing_title_placeholder_rejected() -> None:
+    with pytest.raises(ValidationError):
+        SitePreferences(
+            name="Site",
+            author="A",
+            description="",
+            navigation=[
+                MenuItem(id="same", label="A", href="/"),
+                MenuItem(id="same", label="B", href="/b"),
+            ],
+        )
+    with pytest.raises(ValidationError):
+        SitePreferences(name="Site", author="A", description="", title_template="%site%")
+
+
+def test_policy_is_bounded_and_cannot_expire_public_snapshots() -> None:
+    for invalid in [
+        {"snapshot_ttl": 60},
+        {"request_timeout_seconds": 31},
+        {"dynamic_freshness_seconds": 0},
+        {"request_timeout_seconds": "8"},
+    ]:
+        with pytest.raises(ValidationError):
+            CachePolicy.model_validate(invalid)

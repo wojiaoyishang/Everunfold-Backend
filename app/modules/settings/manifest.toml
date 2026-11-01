@@ -1,0 +1,4 @@
+id = "settings"
+version = "0.1.0"
+dependencies = []
+router_entrypoint = "app.modules.settings:router_init"
