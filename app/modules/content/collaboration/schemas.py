@@ -38,6 +38,13 @@ class ClientUpdate(PublicModel):
     payload: str = Field(max_length=1_400_000)
 
 
+class ClientAuth(PublicModel):
+    type: Literal["auth"] = "auth"
+    ticket: str = Field(max_length=128, repr=False)
+    client_id: int = Field(ge=0, le=4_294_967_295)
+    state_vector: str = Field(max_length=16_384)
+
+
 class Cursor(PublicModel):
     anchor: str = Field(max_length=512)
     head: str = Field(max_length=512)
@@ -78,3 +85,4 @@ class CollaborationContract(PublicModel):
     update: ClientUpdate
     presence: PresenceInput
     frame: ServerFrame
+    auth: ClientAuth

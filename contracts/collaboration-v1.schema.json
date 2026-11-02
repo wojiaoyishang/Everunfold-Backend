@@ -1,5 +1,39 @@
 {
   "$defs": {
+    "ClientAuth": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "auth",
+          "default": "auth",
+          "title": "Type",
+          "type": "string"
+        },
+        "ticket": {
+          "maxLength": 128,
+          "title": "Ticket",
+          "type": "string"
+        },
+        "client_id": {
+          "maximum": 4294967295,
+          "minimum": 0,
+          "title": "Client Id",
+          "type": "integer"
+        },
+        "state_vector": {
+          "maxLength": 16384,
+          "title": "State Vector",
+          "type": "string"
+        }
+      },
+      "required": [
+        "ticket",
+        "client_id",
+        "state_vector"
+      ],
+      "title": "ClientAuth",
+      "type": "object"
+    },
     "ClientUpdate": {
       "additionalProperties": false,
       "properties": {
@@ -783,6 +817,9 @@
     },
     "frame": {
       "$ref": "#/$defs/ServerFrame"
+    },
+    "auth": {
+      "$ref": "#/$defs/ClientAuth"
     }
   },
   "required": [
@@ -792,7 +829,8 @@
     "committed",
     "update",
     "presence",
-    "frame"
+    "frame",
+    "auth"
   ],
   "title": "CollaborationContract",
   "type": "object",

@@ -17,8 +17,9 @@ from sqlalchemy import select
 from app.core.redis_keys import redis_channel, redis_key
 from app.core.runtime import Runtime
 from app.modules.auth.service import AuthFailure
+from app.modules.content.collaboration.document import decode
 from app.modules.content.collaboration.models import CollaborationDocument, CollaborationUpdate
-from app.modules.content.collaboration.schemas import ClientUpdate, Peer, PresenceInput
+from app.modules.content.collaboration.schemas import ClientAuth, ClientUpdate, Peer, PresenceInput
 from app.modules.content.collaboration.service import (
     accept_update,
     authorize,
@@ -59,6 +60,7 @@ async def serve(socket: WebSocket, draft_id: UUID) -> None:
     channel = redis_channel(runtime.settings, "collab", str(draft_id), "updates")
     member = ""
     client_key = ""
+    pubsub = runtime.redis.pubsub()
     send_lock = asyncio.Lock()
 
     async def send(value: dict[str, Any]) -> None:
@@ -68,20 +70,11 @@ async def serve(socket: WebSocket, draft_id: UUID) -> None:
     try:
         async with asyncio.timeout(8):
             auth = await socket.receive_json()
-        if (
-            not isinstance(auth, dict)
-            or set(auth) != {"type", "ticket", "client_id"}
-            or auth["type"] != "auth"
-            or not isinstance(auth["ticket"], str)
-            or len(auth["ticket"]) > 128
-            or type(auth["client_id"]) is not int
-            or not 0 <= auth["client_id"] <= 4_294_967_295
-        ):
-            raise AuthFailure(401, 40102, "协同连接验证失败")
-        client_id = auth["client_id"]
+        authentication = ClientAuth.model_validate(auth)
+        client_id = authentication.client_id
         client_key = redis_key(runtime.settings, "collab", str(draft_id), "client", str(client_id))
         async with runtime.database.session_factory() as session:
-            session_hash, actor = await consume_ticket(session, draft_id, auth["ticket"])
+            session_hash, actor = await consume_ticket(session, draft_id, authentication.ticket)
         # One active connection per Y.Doc client ID: another tab creates its own client ID.
         member = f"{client_id}:{connection_id}"
         now = time.time()
@@ -98,6 +91,7 @@ async def serve(socket: WebSocket, draft_id: UUID) -> None:
             color=COLORS[actor.id.int % len(COLORS)],
         )
         presence = PresenceInput()
+        await pubsub.subscribe(channel)
         async with runtime.database.session_factory() as session:
             document = await session.get(CollaborationDocument, draft_id)
             draft = await draft_row(session, draft_id)
@@ -108,15 +102,25 @@ async def serve(socket: WebSocket, draft_id: UUID) -> None:
                     "type": "sync",
                     "epoch": str(document.epoch),
                     "committed_seq": seq,
-                    "payload": base64.b64encode(document.state).decode(),
+                    "payload": base64.b64encode(
+                        decode(document.state).get_update(
+                            base64.b64decode(authentication.state_vector, validate=True)
+                        )
+                    ).decode(),
                     "revision": revision,
                 }
             )
 
         async def incoming() -> None:
             nonlocal presence
+            window_start, messages = time.monotonic(), 0
             while True:
                 raw = await socket.receive_text()
+                if time.monotonic() - window_start > 5:
+                    window_start, messages = time.monotonic(), 0
+                messages += 1
+                if messages > 300:
+                    raise AuthFailure(429, 42970, "操作过于频繁，请稍后重试")
                 if len(raw) > 1_500_000:
                     raise AuthFailure(413, 41370, "协同更新过大，请导出本地内容")
                 value = json.loads(raw)
@@ -133,7 +137,18 @@ async def serve(socket: WebSocket, draft_id: UUID) -> None:
                     {"type": "ack", "update_id": str(update.update_id), "committed_seq": committed}
                 )
                 with suppress(RedisError, OSError):
-                    await runtime.redis.publish(channel, str(committed))
+                    await runtime.redis.publish(
+                        channel,
+                        json.dumps(
+                            {
+                                "protocol": "collab-1",
+                                "document_id": str(draft_id),
+                                "update_id": str(update.update_id),
+                                "committed_seq": committed,
+                                "origin_instance_id": str(connection_id),
+                            }
+                        ),
+                    )
 
         async def outgoing() -> None:
             nonlocal seq, revision
@@ -167,7 +182,7 @@ async def serve(socket: WebSocket, draft_id: UUID) -> None:
                     )
                     seq = update.committed_seq
                 now = time.time()
-                if now - last_presence >= 2:
+                if now - last_presence >= 0.35:
                     last_presence = now
                     try:
                         if not await redis_result(
@@ -202,7 +217,14 @@ async def serve(socket: WebSocket, draft_id: UUID) -> None:
                     except (RedisError, OSError):
                         # No cursor/connection presence is cached in durable content.
                         await send({"type": "peers", "peers": []})
-                await asyncio.sleep(0.35 if len(updates) < 16 else 0)
+                if len(updates) >= 16:
+                    await asyncio.sleep(0)
+                else:
+                    try:
+                        # Notification only wakes durable catch-up; periodic polling covers loss.
+                        await pubsub.get_message(ignore_subscribe_messages=True, timeout=0.35)
+                    except (RedisError, OSError):
+                        await asyncio.sleep(0.35)
 
         tasks = [asyncio.create_task(incoming()), asyncio.create_task(outgoing())]
         try:
@@ -226,6 +248,8 @@ async def serve(socket: WebSocket, draft_id: UUID) -> None:
         with suppress(Exception):
             await send({"type": "error", "code": 50370, "msg": "同步暂不可用，本地输入已保留"})
     finally:
+        with suppress(Exception):
+            await pubsub.aclose()
         if member:
             with suppress(RedisError, OSError):
                 await runtime.redis.zrem(room, member)
