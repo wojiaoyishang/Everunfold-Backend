@@ -12,10 +12,12 @@ dependencies = [
     "fastapi==0.162.0",
     "httpx2==2.16.0",
     "pillow==13.0.0",
+    "pycrdt==0.14.10",
     "redis==6.4.0",
     "sqlalchemy[asyncio]==2.1.6",
     "tzdata==2026.6",
     "uvicorn==0.54.0",
+    "websockets==17.4",
 ]
 
 [tool.uv]

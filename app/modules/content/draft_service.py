@@ -82,6 +82,7 @@ class DraftService:
         actor: User,
         *,
         demo: bool = False,
+        collaborative: bool = False,
     ) -> DraftDetail:
         serialized = payload.model_dump(mode="json")
         if isinstance(payload, DraftCreate | DraftSave) and payload.fields.access_password:
@@ -106,6 +107,11 @@ class DraftService:
         ).hexdigest()
         # Same lock order as settings/media writers. Also serializes retry receipts across replicas.
         await lock_references(self.session)
+        if isinstance(payload, DraftSave) and not collaborative:
+            from app.modules.content.collaboration.models import CollaborationDocument
+
+            if await self.session.get(CollaborationDocument, payload.id) is not None:
+                raise AuthFailure(409, 40972, "此草稿已启用协同，请使用协同编辑器保存")
         receipt = await self.session.get(DraftReceipt, payload.operation_id)
         if receipt:
             if receipt.actor_id != actor.id or receipt.digest != digest:
