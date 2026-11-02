@@ -7,8 +7,10 @@ from uuid import uuid4
 import pytest
 from pydantic import ValidationError
 
+from app.modules.content.content_paths import title_path
 from app.modules.content.draft_schemas import DraftBlock, DraftFields
 from app.modules.content.editor_schema import EditorSettings
+from app.modules.content.text_preview import content_preview
 from app.modules.content.type_registry import ContentTypeRegistry, content_types
 from tools.export_content_admin_contract import build_schema
 
@@ -35,6 +37,20 @@ def test_stable_unique_blocks_and_payload_bounds() -> None:
         DraftFields(body=[])
     with pytest.raises(ValidationError):
         DraftFields(body=[DraftBlock(id=uuid4(), content="x" * 80_000) for _ in range(3)])
+
+
+def test_title_paths_and_plain_previews() -> None:
+    assert title_path("今天 散步？", uuid4()) == "/今天-散步.html"
+    assert (
+        content_preview(
+            [
+                {
+                    "content": "## 标题\n<p>文字 &amp; [链接](https://example.test)</p><script>hidden()</script>"
+                }
+            ]
+        )
+        == "标题 文字 & 链接"
+    )
 
 
 @pytest.mark.parametrize(

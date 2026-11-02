@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.responses import JSONResponseSuccess
-from app.core.schemas import PublicModel, PublicResponse
+from app.core.schemas import ErrorResponse, PublicModel, PublicResponse
 from app.modules.auth.repository import AuthRepository
 from app.modules.auth.security import DUMMY_PASSWORD_HASH, verify_password
 from app.modules.auth.service import AuthFailure
@@ -34,7 +34,13 @@ class ContentAccessContract(PublicModel):
     response: PublicResponse[ContentDetail]
 
 
-router = APIRouter(prefix="/v1/reader", tags=["content-access"])
+router = APIRouter(
+    prefix="/v1/reader",
+    tags=["content-access"],
+    responses={
+        status: {"model": ErrorResponse} for status in (403, 404, 413, 415, 422, 429, 500, 503)
+    },
+)
 
 
 @router.post("/access", response_model=PublicResponse[ContentDetail])

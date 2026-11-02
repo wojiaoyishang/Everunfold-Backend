@@ -1,7 +1,6 @@
 """Publish a complete public projection and its delivery intent in the caller's transaction."""
 
 import json
-import re
 from datetime import UTC, datetime
 from uuid import UUID
 
@@ -20,6 +19,7 @@ from app.modules.content.publication_schemas import ContentDelivery, ContentSync
 from app.modules.content.repository import ContentRepository
 from app.modules.content.schemas import PublicSnapshot
 from app.modules.content.service import PublicContentService
+from app.modules.content.text_preview import content_preview
 from app.modules.settings.models import SettingsAudit, SettingsDeliveryEvent
 from app.modules.settings.service import SettingsService
 
@@ -54,12 +54,7 @@ class ContentPublication:
         draft.published_revision = draft.revision
         body = "\n\n".join(str(block["content"]) for block in draft.body)
         media = await editor_media(self.session, self.config, json.dumps(draft.body), settings)
-        excerpt = (
-            draft.excerpt
-            or re.sub(
-                r"\s+", " ", re.sub(r"<[^>]*>|!?\[[^\]]*\]\([^)]*\)|[#*_`>]", "", body)
-            ).strip()[:180]
-        )
+        excerpt = draft.excerpt or content_preview(draft.body)
         fields = dict(
             kind=draft.type_id,
             title=draft.title,

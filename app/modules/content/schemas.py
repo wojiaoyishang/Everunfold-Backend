@@ -95,9 +95,18 @@ class ContentDetail(ContentSummary):
     @model_validator(mode="after")
     def no_restricted_payload(self) -> Self:
         if self.access != "public" and (
-            self.content or self.media_urls or self.excerpt or self.cover_url
+            self.content
+            or self.media_urls
+            or self.excerpt
+            or self.cover_url
+            or self.seo_title
+            or self.seo_description
+            or self.word_count
+            or self.comment_count
         ):
             raise ValueError("Restricted snapshots may contain only the public shell")
+        if self.access == "scheduled" and not self.opens_at:
+            raise ValueError("Scheduled content requires an opening time")
         return self
 
 

@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.content.draft_models import ContentDraft
 from app.modules.content.draft_schemas import DraftCatalog, DraftDetail, DraftQuery, DraftSummary
+from app.modules.content.text_preview import content_preview
 
 
 def summary(row: ContentDraft) -> DraftSummary:
@@ -16,9 +17,7 @@ def summary(row: ContentDraft) -> DraftSummary:
         type_id=row.type_id,
         title=row.title,
         excerpt=row.excerpt,
-        preview=" ".join(" ".join(str(block.get("content", "")) for block in row.body).split())[
-            :180
-        ],
+        preview=content_preview(row.body),
         author=row.author,
         revision=row.revision,
         status="trash" if row.deleted_at else "draft",
