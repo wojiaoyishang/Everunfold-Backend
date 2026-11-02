@@ -46,11 +46,14 @@ async def authorize(session: AsyncSession, session_hash: str, *, lock: bool = Fa
     record = await session.get(
         BrowserSession, session_hash, populate_existing=True, with_for_update=lock
     )
-    user = (
-        await session.get(User, record.user_id, populate_existing=True, with_for_update=lock)
-        if record and record.user_id
-        else None
-    )
+    user = None
+    if record and record.user_id:
+        statement = (
+            select(User).where(User.id == record.user_id).execution_options(populate_existing=True)
+        )
+        # SHARE blocks role/active changes but remains compatible with audit FK KEY SHARE locks.
+        # UPDATE here would deadlock with a reference writer that later records the same actor.
+        user = await session.scalar(statement.with_for_update(read=True) if lock else statement)
     if not record or record.expires_at <= datetime.now(UTC) or not user or not user.active:
         raise AuthFailure(401, 40101, "登录已失效，请保留本地输入后重新登录")
     if user.role != "admin":

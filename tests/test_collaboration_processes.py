@@ -8,6 +8,7 @@ import subprocess
 import sys
 import tomllib
 from contextlib import ExitStack
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 from uuid import UUID, uuid4
@@ -21,7 +22,12 @@ from websockets.asyncio.client import ClientConnection, connect
 from websockets.typing import Origin
 
 from app.core.config import load_settings
+from app.core.database import Database
+from app.modules.auth.models import AuthAuditEvent
+from app.modules.auth.security import token_digest
 from app.modules.content.collaboration.document import project
+from app.modules.content.collaboration.service import authorize
+from app.modules.media.locking import lock_references
 from tests.test_auth_http_processes import ORIGIN, free_port, uvicorn_process
 from tests.test_settings_processes import toml_text
 
@@ -166,6 +172,44 @@ def test_collaboration_replicas_durable_ack_and_cutoff(tmp_path: Path) -> None:
                     return instance
 
                 try:
+                    # The permission lock must coexist with legacy reference writers' audit FKs.
+                    db = Database(url.render_as_string(hide_password=False))
+                    try:
+                        async with db.session_factory() as legacy, db.session_factory() as editing:
+                            await lock_references(legacy)
+                            authorized = asyncio.Event()
+
+                            async def wait_to_write() -> None:
+                                await authorize(
+                                    editing,
+                                    token_digest(
+                                        client.cookies.get(original.auth.cookie_name) or ""
+                                    ),
+                                    lock=True,
+                                )
+                                authorized.set()
+                                await lock_references(editing)
+                                await editing.commit()
+
+                            writer = asyncio.create_task(wait_to_write())
+                            try:
+                                async with asyncio.timeout(3):
+                                    await authorized.wait()
+                                    legacy.add(
+                                        AuthAuditEvent(
+                                            user_id=UUID(authenticated["user"]["id"]),
+                                            action="collab-lock-proof",
+                                            created_at=datetime.now(UTC),
+                                        )
+                                    )
+                                    await legacy.flush()
+                                    await legacy.commit()
+                                    await writer
+                            finally:
+                                writer.cancel()
+                                await asyncio.gather(writer, return_exceptions=True)
+                    finally:
+                        await db.close()
                     a, b = await room(api_a, 1001), await room(api_b, 1002)
                     assert a.epoch == b.epoch
                     initial = a.doc.get_update()
@@ -253,8 +297,6 @@ def test_collaboration_replicas_durable_ack_and_cutoff(tmp_path: Path) -> None:
                     assert await old.send(one) == seqs[0]
                     # Commit without Redis publish, emulating a replica dying after DB commit.
                     unseen = old.edit(second, "数据库补齐")
-                    from app.core.database import Database
-                    from app.modules.auth.security import token_digest
                     from app.modules.content.collaboration.schemas import ClientUpdate
                     from app.modules.content.collaboration.service import accept_update
 

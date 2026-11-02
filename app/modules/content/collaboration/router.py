@@ -9,7 +9,7 @@ from app.core.schemas import ErrorResponse, PublicResponse
 from app.modules.auth.router import cookie
 from app.modules.auth.security import token_digest
 from app.modules.content.collaboration.schemas import CommitDraft, CommittedDraft, TicketState
-from app.modules.content.collaboration.service import commit_draft, ticket
+from app.modules.content.collaboration.service import authorize, commit_draft, ticket
 from app.modules.content.collaboration.socket import serve
 from app.modules.content.draft_schemas import DraftLookup
 from app.modules.settings.router import Authorized
@@ -32,9 +32,10 @@ async def issue(payload: DraftLookup, request: Request, ctx: Authorized) -> JSON
 @router.post(
     "/v1/admin/content/collaboration/commit", response_model=PublicResponse[CommittedDraft]
 )
-async def commit(payload: CommitDraft, ctx: Authorized) -> JSONResponseSuccess:
+async def commit(payload: CommitDraft, request: Request, ctx: Authorized) -> JSONResponseSuccess:
+    actor = await authorize(ctx.service.session, token_digest(cookie(request) or ""), lock=True)
     return JSONResponseSuccess(
-        data=await commit_draft(ctx.service.session, ctx.service.config, ctx.actor, payload)
+        data=await commit_draft(ctx.service.session, ctx.service.config, actor, payload)
     )
 
 
