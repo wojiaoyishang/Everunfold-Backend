@@ -42,10 +42,12 @@ from app.modules.content.editor_service import editor_media
 from app.modules.media.locking import lock_references
 
 
-async def authorize(session: AsyncSession, session_hash: str) -> User:
-    record = await session.get(BrowserSession, session_hash, populate_existing=True)
+async def authorize(session: AsyncSession, session_hash: str, *, lock: bool = False) -> User:
+    record = await session.get(
+        BrowserSession, session_hash, populate_existing=True, with_for_update=lock
+    )
     user = (
-        await session.get(User, record.user_id, populate_existing=True)
+        await session.get(User, record.user_id, populate_existing=True, with_for_update=lock)
         if record and record.user_id
         else None
     )
@@ -148,7 +150,7 @@ def apply_candidate(
 async def accept_update(
     session: AsyncSession, config: Settings, draft_id: UUID, session_hash: str, update: ClientUpdate
 ) -> int:
-    actor = await authorize(session, session_hash)
+    actor = await authorize(session, session_hash, lock=True)
     try:
         payload = base64.b64decode(update.payload, validate=True)
     except ValueError as exc:
@@ -167,9 +169,10 @@ async def accept_update(
             raise AuthFailure(409, 40971, "更新标识已被使用")
         return receipt.committed_seq
     now = datetime.now(UTC)
-    if not await AuthRepository(session).consume_limit(
-        f"collab-write:{actor.id}:{draft_id}", 160, 10, now
-    ):
+    limits = AuthRepository(session)
+    allowed = await limits.consume_limit(f"collab-write:{actor.id}:{draft_id}", 160, 10, now)
+    global_allowed = await limits.consume_limit(f"collab-write-user:{actor.id}", 320, 10, now)
+    if not allowed or not global_allowed:
         await session.commit()
         raise AuthFailure(429, 42970, "修改过于频繁，正在等待重试")
     try:
@@ -241,6 +244,6 @@ async def commit_draft(
         fields=fields,
     )
     result = await DraftService(session, config).mutate(
-        payload.action, mutation, actor, collaborative=True
+        payload.action, mutation, actor, collaboration_cutoff=(payload.epoch, payload.committed_seq)
     )
     return CommittedDraft(draft=result, committed_seq=payload.committed_seq)

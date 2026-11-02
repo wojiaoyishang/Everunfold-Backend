@@ -644,7 +644,8 @@
             "ack",
             "peers",
             "error",
-            "revision"
+            "revision",
+            "media"
           ],
           "title": "Type",
           "type": "string"
@@ -749,6 +750,21 @@
           ],
           "default": null,
           "title": "Msg"
+        },
+        "media_urls": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "$ref": "#/$defs/MediaURL"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Media Urls"
         }
       },
       "required": [

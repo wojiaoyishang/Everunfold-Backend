@@ -5,7 +5,7 @@ from uuid import UUID
 from fastapi import APIRouter, Request, WebSocket
 
 from app.core.responses import JSONResponseSuccess
-from app.core.schemas import PublicResponse
+from app.core.schemas import ErrorResponse, PublicResponse
 from app.modules.auth.router import cookie
 from app.modules.auth.security import token_digest
 from app.modules.content.collaboration.schemas import CommitDraft, CommittedDraft, TicketState
@@ -14,7 +14,12 @@ from app.modules.content.collaboration.socket import serve
 from app.modules.content.draft_schemas import DraftLookup
 from app.modules.settings.router import Authorized
 
-router = APIRouter(tags=["collaboration"])
+router = APIRouter(
+    tags=["collaboration"],
+    responses={
+        status: {"model": ErrorResponse} for status in (401, 403, 404, 409, 413, 422, 429, 500, 503)
+    },
+)
 
 
 @router.post("/v1/admin/content/collaboration/ticket", response_model=PublicResponse[TicketState])

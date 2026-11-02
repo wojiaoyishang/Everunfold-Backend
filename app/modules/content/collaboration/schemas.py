@@ -7,6 +7,7 @@ from pydantic import AwareDatetime, Field
 
 from app.core.schemas import PublicModel, PublicResponse
 from app.modules.content.draft_schemas import DraftDetail, DraftLookup, DraftMutation
+from app.modules.content.schemas import MediaURL
 
 
 class TicketState(PublicModel):
@@ -66,7 +67,7 @@ class Peer(PublicModel):
 
 
 class ServerFrame(PublicModel):
-    type: Literal["sync", "update", "ack", "peers", "error", "revision"]
+    type: Literal["sync", "update", "ack", "peers", "error", "revision", "media"]
     epoch: UUID | None = None
     committed_seq: int | None = None
     payload: str | None = None
@@ -75,6 +76,7 @@ class ServerFrame(PublicModel):
     revision: int | None = None
     code: int | None = None
     msg: str | None = None
+    media_urls: dict[str, MediaURL] | None = None
 
 
 class CollaborationContract(PublicModel):

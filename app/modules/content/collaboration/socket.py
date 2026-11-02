@@ -17,7 +17,7 @@ from sqlalchemy import select
 from app.core.redis_keys import redis_channel, redis_key
 from app.core.runtime import Runtime
 from app.modules.auth.service import AuthFailure
-from app.modules.content.collaboration.document import decode
+from app.modules.content.collaboration.document import decode, project
 from app.modules.content.collaboration.models import CollaborationDocument, CollaborationUpdate
 from app.modules.content.collaboration.schemas import ClientAuth, ClientUpdate, Peer, PresenceInput
 from app.modules.content.collaboration.service import (
@@ -26,6 +26,8 @@ from app.modules.content.collaboration.service import (
     consume_ticket,
     draft_row,
 )
+from app.modules.content.editor_schema import EditorSettings
+from app.modules.content.editor_service import editor_media
 
 logger = logging.getLogger(__name__)
 COLORS = ("#4869b0", "#397d66", "#a65376", "#9c6b33", "#7a57b1")
@@ -97,6 +99,17 @@ async def serve(socket: WebSocket, draft_id: UUID) -> None:
             draft = await draft_row(session, draft_id)
             assert document is not None
             seq, revision = document.committed_seq, draft.revision
+            last_references = document.media_ids
+            fields = project(
+                decode(document.state), EditorSettings.model_validate(draft.editor_settings)
+            )
+            media = await editor_media(
+                session,
+                runtime.settings,
+                fields.model_dump_json(),
+                fields.settings or EditorSettings(),
+                strict=False,
+            )
             await send(
                 {
                     "type": "sync",
@@ -108,6 +121,7 @@ async def serve(socket: WebSocket, draft_id: UUID) -> None:
                         )
                     ).decode(),
                     "revision": revision,
+                    "media_urls": {key: value.model_dump() for key, value in media.items()},
                 }
             )
 
@@ -151,7 +165,7 @@ async def serve(socket: WebSocket, draft_id: UUID) -> None:
                     )
 
         async def outgoing() -> None:
-            nonlocal seq, revision
+            nonlocal seq, revision, last_references
             last_presence = 0.0
             while True:
                 async with runtime.database.session_factory() as session:
@@ -171,6 +185,29 @@ async def serve(socket: WebSocket, draft_id: UUID) -> None:
                             .limit(16)
                         )
                     ).all()
+                    if updates:
+                        head = await session.get(CollaborationDocument, draft_id)
+                        if head is not None and head.media_ids != last_references:
+                            last_references = head.media_ids
+                            current = project(
+                                decode(head.state),
+                                EditorSettings.model_validate(draft.editor_settings),
+                            )
+                            resolved = await editor_media(
+                                session,
+                                runtime.settings,
+                                current.model_dump_json(),
+                                current.settings or EditorSettings(),
+                                strict=False,
+                            )
+                            await send(
+                                {
+                                    "type": "media",
+                                    "media_urls": {
+                                        key: value.model_dump() for key, value in resolved.items()
+                                    },
+                                }
+                            )
                 for update in updates:
                     await send(
                         {
@@ -249,7 +286,7 @@ async def serve(socket: WebSocket, draft_id: UUID) -> None:
             await send({"type": "error", "code": 50370, "msg": "同步暂不可用，本地输入已保留"})
     finally:
         with suppress(Exception):
-            await pubsub.aclose()
+            await pubsub.aclose()  # type: ignore[no-untyped-call]
         if member:
             with suppress(RedisError, OSError):
                 await runtime.redis.zrem(room, member)

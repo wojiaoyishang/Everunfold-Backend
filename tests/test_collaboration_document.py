@@ -1,6 +1,6 @@
 """Wire/projection invariants, including unresolved Yrs dependencies."""
 
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 from pycrdt import Map
@@ -15,7 +15,10 @@ def test_crdt_projection_reorder_and_tombstone() -> None:
     one, two = str(uuid4()), str(uuid4())
     fields = DraftFields(
         title="中文🌟",
-        body=[DraftBlock(id=one, content="a"), DraftBlock(id=two, type="html", content="<p>b</p>")],
+        body=[
+            DraftBlock(id=UUID(one), content="a"),
+            DraftBlock(id=UUID(two), type="html", content="<p>b</p>"),
+        ],
     )
     doc = seed(fields)
     blocks = doc.get("blocks", type=Map)
