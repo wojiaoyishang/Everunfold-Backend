@@ -26,6 +26,7 @@ class ContentDraft(Base):
     created_by: Mapped[UUID] = mapped_column(ForeignKey("users.id"))
     body: Mapped[list[dict[str, Any]]] = mapped_column(JSONB)
     editor_settings: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
+    access_password_hash: Mapped[str | None] = mapped_column(Text)
     revision: Mapped[int] = mapped_column(Integer)
     is_demo: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

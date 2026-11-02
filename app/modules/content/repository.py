@@ -20,7 +20,19 @@ from app.modules.content.schemas import ContentKind, TaxonomyKind
 
 
 def public_conditions() -> tuple[ColumnElement[bool], ColumnElement[bool]]:
-    return Content.publication_status == "published", Content.visibility == "public"
+    return Content.publication_status == "published", or_(
+        Content.visibility == "public",
+        (Content.visibility == "password")
+        & Content.access_password_hash.is_not(None)
+        & (Content.opens_at <= func.now()),
+    )
+
+
+def presentation_conditions() -> tuple[ColumnElement[bool], ColumnElement[bool]]:
+    return Content.publication_status == "published", or_(
+        Content.visibility == "public",
+        (Content.visibility == "password") & Content.access_password_hash.is_not(None),
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -39,7 +51,7 @@ class ContentRepository:
 
     @staticmethod
     def _content_selection(query: ContentQuery) -> Select[Content]:
-        statement = select(Content).where(*public_conditions())
+        statement = select(Content).where(*presentation_conditions())
         if query.kind:
             statement = statement.where(Content.kind == query.kind)
         for kind, slug in (("category", query.category), ("tag", query.tag)):
@@ -54,7 +66,7 @@ class ContentRepository:
             statement = statement.join(SearchDocument).where(
                 or_(
                     SearchDocument.title.ilike(pattern, escape="\\"),
-                    SearchDocument.body.ilike(pattern, escape="\\"),
+                    public_conditions()[1] & SearchDocument.body.ilike(pattern, escape="\\"),
                 )
             )
         return statement
@@ -75,7 +87,7 @@ class ContentRepository:
     async def resolve(self, path: str) -> Content | None:
         return await self.session.scalar(
             select(Content)
-            .where(Content.path == path, *public_conditions())
+            .where(Content.path == path, *presentation_conditions())
             .options(selectinload(Content.taxonomies))
         )
 
@@ -88,7 +100,7 @@ class ContentRepository:
     async def all_contents(self) -> list[Content]:
         statement = (
             select(Content)
-            .where(*public_conditions())
+            .where(*presentation_conditions())
             .options(selectinload(Content.taxonomies))
             .order_by(Content.pinned.desc(), Content.published_at.desc(), Content.id)
         )

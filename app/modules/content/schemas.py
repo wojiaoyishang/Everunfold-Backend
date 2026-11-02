@@ -1,9 +1,9 @@
 """Public DTOs. Fields are deliberately separate from private persistence models."""
 
 from datetime import datetime
-from typing import Literal
+from typing import Literal, Self
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from app.core.schemas import ErrorResponse as ErrorResponse
 from app.core.schemas import PublicModel as PublicModel
@@ -57,6 +57,8 @@ class SiteDTO(PublicModel):
 
 
 class ContentSummary(PublicEditorSettings):
+    access: Literal["public", "password", "scheduled"] = "public"
+    opens_at: datetime | None = None
     id: str
     kind: ContentKind
     title: str
@@ -90,6 +92,14 @@ class ContentDetail(ContentSummary):
     content: list[ContentBlock]
     media_urls: dict[str, MediaURL]
 
+    @model_validator(mode="after")
+    def no_restricted_payload(self) -> Self:
+        if self.access != "public" and (
+            self.content or self.media_urls or self.excerpt or self.cover_url
+        ):
+            raise ValueError("Restricted snapshots may contain only the public shell")
+        return self
+
 
 class PublicComment(PublicModel):
     id: str
@@ -105,7 +115,7 @@ class TaxonomyList(PublicModel):
 
 
 class PublicSnapshot(PublicModel):
-    schema_version: Literal["0.1.0", "0.2.0", "0.3.0"] = "0.3.0"
+    schema_version: Literal["0.1.0", "0.2.0", "0.3.0", "0.4.0"] = "0.4.0"
     source_epoch: str = Field(min_length=1)
     generation: int = Field(ge=1)
     exported_at: datetime

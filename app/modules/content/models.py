@@ -50,6 +50,9 @@ class Content(Base):
     content: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, default=list)
     media_urls: Mapped[dict[str, dict[str, str]]] = mapped_column(JSONB, default=dict)
     editor_settings: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
+    access_password_hash: Mapped[str | None] = mapped_column(Text)
+    opens_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
+    open_synced_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     taxonomies: Mapped[list[Taxonomy]] = relationship(
         secondary="content_taxonomies", lazy="raise", back_populates="contents"
     )
@@ -68,6 +71,7 @@ class Taxonomy(Base):
     kind: Mapped[str] = mapped_column(String(16))
     slug: Mapped[str] = mapped_column(Text)
     name: Mapped[str] = mapped_column(Text)
+    parent_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("taxonomies.id"))
     contents: Mapped[list[Content]] = relationship(
         secondary="content_taxonomies", lazy="raise", back_populates="taxonomies"
     )

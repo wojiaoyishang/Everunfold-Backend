@@ -6,6 +6,8 @@ from typing import cast
 
 from fastapi import HTTPException
 
+from app.modules.content.access_policy import publicly_readable
+from app.modules.content.editor_schema import PublicEditorSettings
 from app.modules.content.models import Comment, Content
 from app.modules.content.repository import ContentQuery, ContentRepository
 from app.modules.content.schemas import (
@@ -60,34 +62,46 @@ class PublicContentService:
 
     @staticmethod
     def _summary(
-        item: Content, taxonomy_map: dict[str, TaxonomyDTO], comment_counts: dict[uuid.UUID, int]
+        item: Content,
+        taxonomy_map: dict[str, TaxonomyDTO],
+        comment_counts: dict[uuid.UUID, int],
+        *,
+        authorized: bool = False,
     ) -> ContentSummary:
         related = sorted(
             (taxonomy_map[str(t.id)] for t in item.taxonomies if str(t.id) in taxonomy_map),
             key=lambda value: (value.name, value.id),
         )
+        readable = authorized or publicly_readable(item)
+        public_settings = PublicEditorSettings.model_validate(
+            {
+                key: value
+                for key, value in (
+                    (item.editor_settings or {}) if readable else {"comments_open": False}
+                ).items()
+                if key in {"comments_open", "seo_title", "seo_description"}
+            }
+        ).model_dump()
         return ContentSummary(
+            access="public" if readable else "scheduled" if item.opens_at else "password",
+            opens_at=item.opens_at,
             id=str(item.id),
             kind=cast(ContentKind, item.kind),
             title=item.title,
             path=item.path,
-            excerpt=item.excerpt,
+            excerpt=item.excerpt if readable else "",
             language=item.language,
             published_at=item.published_at,
             updated_at=item.updated_at,
             author=item.author,
-            cover_url=item.cover_url,
-            reading_minutes=item.reading_minutes,
-            word_count=item.word_count,
+            cover_url=item.cover_url if readable else None,
+            reading_minutes=item.reading_minutes if readable else 1,
+            word_count=item.word_count if readable else 0,
             categories=[t for t in related if t.kind == "category"],
             tags=[t for t in related if t.kind == "tag"],
-            comment_count=comment_counts.get(item.id, 0),
+            comment_count=comment_counts.get(item.id, 0) if readable else 0,
             pinned=item.pinned,
-            **{
-                key: value
-                for key, value in (item.editor_settings or {}).items()
-                if key in {"comments_open", "seo_title", "seo_description"}
-            },
+            **public_settings,
         )
 
     async def list_contents(self, query: ContentQuery) -> Page[ContentSummary]:
@@ -103,11 +117,22 @@ class PublicContentService:
 
     @staticmethod
     def _detail(
-        item: Content, taxonomy_map: dict[str, TaxonomyDTO], comment_counts: dict[uuid.UUID, int]
+        item: Content,
+        taxonomy_map: dict[str, TaxonomyDTO],
+        comment_counts: dict[uuid.UUID, int],
+        *,
+        authorized: bool = False,
     ) -> ContentDetail:
-        summary = PublicContentService._summary(item, taxonomy_map, comment_counts)
+        summary = PublicContentService._summary(
+            item, taxonomy_map, comment_counts, authorized=authorized
+        )
+        readable = summary.access == "public"
         return ContentDetail.model_validate(
-            {**summary.model_dump(), "content": item.content, "media_urls": item.media_urls}
+            {
+                **summary.model_dump(),
+                "content": item.content if readable else [],
+                "media_urls": item.media_urls if readable else {},
+            }
         )
 
     async def resolve(self, path: str) -> ContentDetail:

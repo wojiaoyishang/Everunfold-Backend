@@ -3,13 +3,18 @@
 import re
 from uuid import NAMESPACE_URL, UUID, uuid5
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
 from app.modules.auth.service import AuthFailure
-from app.modules.content.editor_schema import EditorCatalog, EditorSettings, EditorTerm
-from app.modules.content.models import ContentTaxonomy, Taxonomy
+from app.modules.content.editor_schema import (
+    EditorCatalog,
+    EditorSettings,
+    EditorTerm,
+    EditorTermCreate,
+)
+from app.modules.content.models import Content, ContentTaxonomy, Taxonomy
 from app.modules.content.schemas import MediaURL
 from app.modules.media.models import MediaAsset
 
@@ -61,7 +66,80 @@ async def editor_catalog(session: AsyncSession) -> EditorCatalog:
     rows = await session.scalars(
         select(Taxonomy).where(Taxonomy.source_id.is_(None)).order_by(Taxonomy.name).limit(500)
     )
-    return EditorCatalog(terms=[EditorTerm(name=row.name, kind=row.kind) for row in rows])
+    counts = dict(
+        (
+            await session.execute(
+                select(ContentTaxonomy.taxonomy_id, func.count(ContentTaxonomy.content_id))
+                .join(Content, Content.id == ContentTaxonomy.content_id)
+                .where(Content.source_id.is_(None), Content.publication_status == "published")
+                .group_by(ContentTaxonomy.taxonomy_id)
+            )
+        ).all()
+    )
+    return EditorCatalog(
+        terms=[
+            EditorTerm(
+                id=row.id,
+                name=row.name,
+                kind=row.kind,
+                parent_id=row.parent_id,
+                count=counts.get(row.id, 0),
+            )
+            for row in rows
+        ]
+    )
+
+
+async def create_category(
+    session: AsyncSession, actor_id: UUID, payload: EditorTermCreate
+) -> EditorCatalog:
+    from app.modules.media.locking import lock_references
+    from app.modules.settings.models import SettingsAudit
+
+    await lock_references(session)
+    name = EditorSettings(categories=[payload.name]).categories[0]
+    parent = await session.get(Taxonomy, payload.parent_id) if payload.parent_id else None
+    if payload.parent_id and (
+        parent is None or parent.kind != "category" or parent.source_id is not None
+    ):
+        raise AuthFailure(422, 42260, "父分类不存在")
+    identity = uuid5(NAMESPACE_URL, f"everunfold:category:{name.casefold()}")
+    existing = await session.get(Taxonomy, identity)
+    if existing is not None:
+        if existing.parent_id != payload.parent_id:
+            raise AuthFailure(409, 40955, "同名分类已存在于其他层级")
+    else:
+        slug = re.sub(r"[^\w-]+", "-", name.casefold()).strip("-") or "term"
+        if await session.scalar(
+            select(Taxonomy.id).where(Taxonomy.kind == "category", Taxonomy.slug == slug)
+        ):
+            slug += "-" + identity.hex[:8]
+        session.add(
+            Taxonomy(
+                id=identity,
+                kind="category",
+                name=name,
+                slug=slug,
+                source_id=None,
+                parent_id=payload.parent_id,
+            )
+        )
+        session.add(
+            SettingsAudit(
+                user_id=actor_id,
+                resource="content-categories",
+                revision=1,
+                changes={
+                    "action": "create",
+                    "id": str(identity),
+                    "name": name,
+                    "parent_id": str(payload.parent_id) if payload.parent_id else None,
+                },
+            )
+        )
+        await session.flush()
+    await session.commit()
+    return await editor_catalog(session)
 
 
 async def publish_taxonomies(

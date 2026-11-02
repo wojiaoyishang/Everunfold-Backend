@@ -36,9 +36,13 @@ class ContentPublication:
         now = datetime.now(UTC)
         existing = await self.session.get(Content, draft.id)
         settings = EditorSettings.model_validate(draft.editor_settings or {})
-        # Stable IDs reserve a non-code URL; changing the title never changes the address.
-        prefix = "posts" if draft.type_id == "article" else "shuoshuo"
-        path = settings.path or draft.public_path or f"/{prefix}/{draft.id}.html"
+        from app.modules.content.content_paths import initial_path
+
+        path = (
+            settings.path
+            or draft.public_path
+            or await initial_path(self.session, draft.title, draft.id)
+        )
         if await self.session.scalar(
             select(Content.id).where(Content.path == path, Content.id != draft.id)
         ):
@@ -75,7 +79,12 @@ class ContentPublication:
             pinned=settings.pinned,
             editor_settings=settings.model_dump(mode="json"),
             publication_status="published",
-            visibility="public",
+            visibility=settings.visibility,
+            access_password_hash=draft.access_password_hash
+            if settings.visibility == "password"
+            else None,
+            opens_at=settings.opens_at,
+            open_synced_at=now if settings.opens_at and settings.opens_at <= now else None,
         )
         if existing is None:
             self.session.add(Content(id=draft.id, source="everunfold", source_id=None, **fields))

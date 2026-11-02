@@ -2,6 +2,7 @@
 
 import re
 import unicodedata
+from typing import Literal
 from urllib.parse import unquote
 from uuid import UUID
 
@@ -59,6 +60,8 @@ class EditorSettings(PublicModel):
     comments_open: bool = True
     seo_title: str = Field(default="", max_length=200)
     seo_description: str = Field(default="", max_length=500)
+    visibility: Literal["public", "password"] = "public"
+    opens_at: AwareDatetime | None = None
 
     @field_validator("path")
     @classmethod
@@ -80,6 +83,14 @@ class EditorSettings(PublicModel):
 class EditorTerm(PublicModel):
     name: str
     kind: str
+    id: UUID
+    count: int = Field(default=0, ge=0)
+    parent_id: UUID | None = None
+
+
+class EditorTermCreate(PublicModel):
+    name: str = Field(min_length=1, max_length=60)
+    parent_id: UUID | None = None
 
 
 class EditorCatalog(PublicModel):

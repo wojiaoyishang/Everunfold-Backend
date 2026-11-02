@@ -7,12 +7,15 @@ from datetime import UTC, datetime
 from typing import Literal
 from uuid import UUID, uuid4
 
+from anyio import to_thread
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
 from app.modules.auth.models import User
+from app.modules.auth.security import hash_password
 from app.modules.auth.service import AuthFailure
+from app.modules.content.content_paths import initial_path
 from app.modules.content.draft_models import ContentDraft, DraftReceipt, DraftRevision
 from app.modules.content.draft_repository import DraftRepository, detail
 from app.modules.content.draft_schemas import DraftCreate, DraftDetail, DraftMutation, DraftSave
@@ -57,9 +60,23 @@ class DraftService:
         *,
         demo: bool = False,
     ) -> DraftDetail:
+        serialized = payload.model_dump(mode="json")
+        if isinstance(payload, DraftCreate | DraftSave) and payload.fields.access_password:
+            password = payload.fields.access_password
+            # Use a memory-hard fingerprint instead of a cheap password oracle.
+            serialized["fields"]["access_password"] = await to_thread.run_sync(
+                lambda: hashlib.scrypt(
+                    password.encode(),
+                    salt=payload.operation_id.bytes,
+                    n=65536,
+                    r=8,
+                    p=1,
+                    maxmem=128 * 1024 * 1024,
+                ).hex()
+            )
         digest = hashlib.sha256(
             json.dumps(
-                {"action": action, "payload": payload.model_dump(mode="json"), "demo": demo},
+                {"action": action, "payload": serialized, "demo": demo},
                 sort_keys=True,
                 ensure_ascii=False,
             ).encode()
@@ -106,9 +123,28 @@ class DraftService:
                 raise AuthFailure(422, 42251, "请填写标题")
             if not definition.supports_excerpt and fields.excerpt:
                 raise AuthFailure(422, 42252, "此内容类型不使用独立摘要")
-            await self._check_media(fields.model_dump_json())
+            await self._check_media(
+                json.dumps([block.model_dump(mode="json") for block in fields.body])
+            )
             settings = fields.settings or EditorSettings.model_validate(row.editor_settings or {})
-            await editor_media(self.session, self.config, fields.model_dump_json(), settings)
+            if not settings.path:
+                settings.path = row.public_path or await initial_path(
+                    self.session, fields.title, row.id
+                )
+            if fields.access_password:
+                row.access_password_hash = await to_thread.run_sync(
+                    hash_password, fields.access_password
+                )
+            if settings.visibility == "password" and not row.access_password_hash:
+                raise AuthFailure(422, 42259, "请先设置文章密码")
+            if settings.visibility == "public" and settings.opens_at is not None:
+                raise AuthFailure(422, 42259, "定时开放需要先选择密码保护")
+            await editor_media(
+                self.session,
+                self.config,
+                json.dumps([block.model_dump(mode="json") for block in fields.body]),
+                settings,
+            )
             row.title, row.excerpt = fields.title.strip(), fields.excerpt.strip()
             row.body = [block.model_dump(mode="json") for block in fields.body]
             row.editor_settings = settings.model_dump(mode="json")

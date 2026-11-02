@@ -16,8 +16,8 @@ from app.modules.content.draft_schemas import (
     DraftSave,
 )
 from app.modules.content.draft_service import DraftService, require_type
-from app.modules.content.editor_schema import EditorCatalog
-from app.modules.content.editor_service import editor_catalog
+from app.modules.content.editor_schema import EditorCatalog, EditorTermCreate
+from app.modules.content.editor_service import create_category, editor_catalog
 from app.modules.content.publication import ContentPublication
 from app.modules.content.publication_schemas import ContentSyncState
 from app.modules.content.type_registry import content_types
@@ -38,6 +38,13 @@ async def types(ctx: Authorized) -> JSONResponseSuccess:
 @router.get("/editor-options", response_model=PublicResponse[EditorCatalog])
 async def editor_options(ctx: Authorized) -> JSONResponseSuccess:
     return JSONResponseSuccess(data=await editor_catalog(ctx.service.session))
+
+
+@router.post("/categories", response_model=PublicResponse[EditorCatalog])
+async def new_category(payload: EditorTermCreate, ctx: Authorized) -> JSONResponseSuccess:
+    return JSONResponseSuccess(
+        data=await create_category(ctx.service.session, ctx.actor.id, payload)
+    )
 
 
 @router.post("/query", response_model=PublicResponse[DraftCatalog])

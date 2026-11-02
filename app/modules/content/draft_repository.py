@@ -33,7 +33,12 @@ def summary(row: ContentDraft) -> DraftSummary:
 
 def detail(row: ContentDraft) -> DraftDetail:
     return DraftDetail.model_validate(
-        {**summary(row).model_dump(), "body": row.body, "settings": row.editor_settings or {}}
+        {
+            **summary(row).model_dump(),
+            "body": row.body,
+            "settings": row.editor_settings or {},
+            "has_password": bool(row.access_password_hash),
+        }
     )
 
 
