@@ -8,6 +8,7 @@ import pytest
 from pydantic import ValidationError
 
 from app.modules.content.draft_schemas import DraftBlock, DraftFields
+from app.modules.content.editor_schema import EditorSettings
 from app.modules.content.type_registry import ContentTypeRegistry, content_types
 from tools.export_content_admin_contract import build_schema
 
@@ -34,3 +35,35 @@ def test_stable_unique_blocks_and_payload_bounds() -> None:
         DraftFields(body=[])
     with pytest.raises(ValidationError):
         DraftFields(body=[DraftBlock(id=uuid4(), content="x" * 80_000) for _ in range(3)])
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/",
+        "//host/x",
+        "/admin/x",
+        "/category/x",
+        "/a/../b",
+        "/a?x=1",
+        "/a#x",
+        "/%2561dmin/x",
+        "/a\\b",
+        "/a//b",
+    ],
+)
+def test_editor_rejects_unsafe_or_owned_routes(path: str) -> None:
+    with pytest.raises(ValidationError):
+        EditorSettings(path=path)
+
+
+def test_editor_normalizes_terms_and_preserves_block_formats() -> None:
+    settings = EditorSettings(path="/%E6%B5%8B%E8%AF%95.html", tags=[" Python ", "python", "日常"])
+    assert settings.path == "/测试.html" and settings.tags == ["Python", "日常"]
+    with pytest.raises(ValidationError):
+        EditorSettings(display_published_at="2026-11-01T12:00")
+    blocks = [
+        DraftBlock(id=uuid4(), type="html", content="<p>保留</p>"),
+        DraftBlock(id=uuid4(), content="正文"),
+    ]
+    assert DraftFields(body=blocks).body == blocks

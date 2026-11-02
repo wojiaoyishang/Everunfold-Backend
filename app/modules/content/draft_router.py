@@ -16,6 +16,8 @@ from app.modules.content.draft_schemas import (
     DraftSave,
 )
 from app.modules.content.draft_service import DraftService, require_type
+from app.modules.content.editor_schema import EditorCatalog
+from app.modules.content.editor_service import editor_catalog
 from app.modules.content.publication import ContentPublication
 from app.modules.content.publication_schemas import ContentSyncState
 from app.modules.content.type_registry import content_types
@@ -31,6 +33,11 @@ router = APIRouter(
 @router.get("/types", response_model=PublicResponse[ContentTypeCatalog])
 async def types(ctx: Authorized) -> JSONResponseSuccess:
     return JSONResponseSuccess(data=ContentTypeCatalog(items=list(content_types.all())))
+
+
+@router.get("/editor-options", response_model=PublicResponse[EditorCatalog])
+async def editor_options(ctx: Authorized) -> JSONResponseSuccess:
+    return JSONResponseSuccess(data=await editor_catalog(ctx.service.session))
 
 
 @router.post("/query", response_model=PublicResponse[DraftCatalog])

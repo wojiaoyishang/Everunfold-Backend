@@ -32,6 +32,8 @@ class ContentPresentation(PublicModel):
     content: list[ContentBlock]
     media_urls: dict[str, MediaURL]
     comments_open: bool
+    seo_title: str = ""
+    seo_description: str = ""
     reaction_count: int = Field(ge=0)
     access: Literal["public", "password", "scheduled"]
     opens_at: datetime | None

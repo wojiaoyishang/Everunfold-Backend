@@ -20,6 +20,9 @@ class ContentTypeDefinition(PublicModel):
     title_required: bool
     supports_excerpt: bool
     editor: str
+    panels: list[str] = Field(
+        default_factory=lambda: ["publication", "cover", "taxonomy", "discussion", "seo"]
+    )
 
 
 class ContentTypeRegistry:

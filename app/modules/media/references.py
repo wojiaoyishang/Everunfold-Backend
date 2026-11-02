@@ -23,13 +23,19 @@ async def require_unreferenced(
     # finds IDs embedded in URLs/HTML/Markdown; false positives intentionally block removal.
     token = str(asset.id)
     current = [
-        select(ContentDraft.id).where(cast(ContentDraft.body, Text).contains(token)),
+        select(ContentDraft.id).where(
+            or_(
+                cast(ContentDraft.body, Text).contains(token),
+                cast(ContentDraft.editor_settings, Text).contains(token),
+            )
+        ),
         select(SiteSettings.id).where(cast(SiteSettings.data, Text).contains(token)),
         select(Content.id).where(
             or_(
                 cast(Content.content, Text).contains(token),
                 cast(Content.media_urls, Text).contains(token),
                 Content.cover_url.contains(token),
+                cast(Content.editor_settings, Text).contains(token),
             )
         ),
         select(Comment.id).where(Comment.content.contains(token)),

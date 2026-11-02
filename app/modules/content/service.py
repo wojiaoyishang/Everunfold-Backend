@@ -83,6 +83,11 @@ class PublicContentService:
             tags=[t for t in related if t.kind == "tag"],
             comment_count=comment_counts.get(item.id, 0),
             pinned=item.pinned,
+            **{
+                key: value
+                for key, value in (item.editor_settings or {}).items()
+                if key in {"comments_open", "seo_title", "seo_description"}
+            },
         )
 
     async def list_contents(self, query: ContentQuery) -> Page[ContentSummary]:

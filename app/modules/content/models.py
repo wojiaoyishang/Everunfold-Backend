@@ -49,6 +49,7 @@ class Content(Base):
     public_generation: Mapped[int] = mapped_column(Integer, default=1)
     content: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, default=list)
     media_urls: Mapped[dict[str, dict[str, str]]] = mapped_column(JSONB, default=dict)
+    editor_settings: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
     taxonomies: Mapped[list[Taxonomy]] = relationship(
         secondary="content_taxonomies", lazy="raise", back_populates="contents"
     )

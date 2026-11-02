@@ -25,6 +25,7 @@ class ContentDraft(Base):
     author: Mapped[str] = mapped_column(String(100))
     created_by: Mapped[UUID] = mapped_column(ForeignKey("users.id"))
     body: Mapped[list[dict[str, Any]]] = mapped_column(JSONB)
+    editor_settings: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
     revision: Mapped[int] = mapped_column(Integer)
     is_demo: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

@@ -32,7 +32,9 @@ def summary(row: ContentDraft) -> DraftSummary:
 
 
 def detail(row: ContentDraft) -> DraftDetail:
-    return DraftDetail.model_validate({**summary(row).model_dump(), "body": row.body})
+    return DraftDetail.model_validate(
+        {**summary(row).model_dump(), "body": row.body, "settings": row.editor_settings or {}}
+    )
 
 
 class DraftRepository:

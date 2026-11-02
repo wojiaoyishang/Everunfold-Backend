@@ -10,6 +10,7 @@ from uuid import UUID, uuid4
 
 import httpx2 as httpx
 
+from tests.editor_settings_process_checks import check_editor_settings
 from tests.imported_preview_process_checks import check_imported_preview
 
 
@@ -198,3 +199,4 @@ def check_content_publication(
     )
     assert native.status_code == 200, native.text
     check_imported_preview(client, sql, state, snapshot, wait_for, backend_config, draft["id"])
+    check_editor_settings(client, csrf, state, snapshot, wait_for)

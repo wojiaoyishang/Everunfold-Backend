@@ -7,13 +7,15 @@ from uuid import UUID
 from pydantic import Field, model_validator
 
 from app.core.schemas import PublicModel, PublicResponse
+from app.modules.content.editor_schema import EditorCatalog, EditorSettings
 from app.modules.content.publication_schemas import ContentDelivery, ContentSyncState
+from app.modules.content.schemas import MediaURL
 from app.modules.content.type_registry import ContentTypeDefinition
 
 
 class DraftBlock(PublicModel):
     id: UUID
-    type: Literal["markdown"] = "markdown"
+    type: Literal["markdown", "html"] = "markdown"
     content: str = Field(max_length=100_000)
 
 
@@ -21,6 +23,7 @@ class DraftFields(PublicModel):
     title: str = Field(default="", max_length=200)
     excerpt: str = Field(default="", max_length=1000)
     body: list[DraftBlock] = Field(min_length=1, max_length=128)
+    settings: EditorSettings | None = None
 
     @model_validator(mode="after")
     def bounded_unique_blocks(self) -> Self:
@@ -77,6 +80,8 @@ class DraftSummary(PublicModel):
 
 class DraftDetail(DraftSummary):
     body: list[DraftBlock]
+    settings: EditorSettings = Field(default_factory=EditorSettings)
+    media_urls: dict[str, MediaURL] = Field(default_factory=dict)
 
 
 class DraftCatalog(PublicModel):
@@ -91,6 +96,7 @@ class ContentTypeCatalog(PublicModel):
 
 
 class ContentAdminContract(PublicModel):
+    editor_catalog: PublicResponse[EditorCatalog]
     query: DraftQuery
     lookup: DraftLookup
     create: DraftCreate

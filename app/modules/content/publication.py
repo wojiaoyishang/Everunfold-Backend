@@ -1,5 +1,7 @@
 """Publish a complete public projection and its delivery intent in the caller's transaction."""
 
+import json
+import re
 from datetime import UTC, datetime
 from uuid import UUID
 
@@ -10,6 +12,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import Settings
 from app.modules.auth.service import AuthFailure
 from app.modules.content.draft_models import ContentDraft
+from app.modules.content.editor_schema import EditorSettings
+from app.modules.content.editor_service import editor_media, publish_taxonomies
 from app.modules.content.models import Content, SearchDocument
 from app.modules.content.publication_models import ContentRelease
 from app.modules.content.publication_schemas import ContentDelivery, ContentSyncState
@@ -31,16 +35,31 @@ class ContentPublication:
             raise AuthFailure(422, 42255, "请填写正文后再发布")
         now = datetime.now(UTC)
         existing = await self.session.get(Content, draft.id)
+        settings = EditorSettings.model_validate(draft.editor_settings or {})
         # Stable IDs reserve a non-code URL; changing the title never changes the address.
         prefix = "posts" if draft.type_id == "article" else "shuoshuo"
-        draft.public_path = draft.public_path or f"/{prefix}/{draft.id}.html"
-        draft.published_at = draft.published_at or now
+        path = settings.path or draft.public_path or f"/{prefix}/{draft.id}.html"
+        if await self.session.scalar(
+            select(Content.id).where(Content.path == path, Content.id != draft.id)
+        ):
+            raise AuthFailure(409, 40954, "该地址已被其他内容使用，请修改路径")
+        if settings.display_published_at and settings.display_published_at > now:
+            raise AuthFailure(422, 42258, "展示时间不能晚于当前时间，定时发布尚未开放")
+        draft.public_path = path
+        draft.published_at = settings.display_published_at or draft.published_at or now
         draft.published_revision = draft.revision
         body = "\n\n".join(str(block["content"]) for block in draft.body)
+        media = await editor_media(self.session, self.config, json.dumps(draft.body), settings)
+        excerpt = (
+            draft.excerpt
+            or re.sub(
+                r"\s+", " ", re.sub(r"<[^>]*>|!?\[[^\]]*\]\([^)]*\)|[#*_`>]", "", body)
+            ).strip()[:180]
+        )
         fields = dict(
             kind=draft.type_id,
             title=draft.title,
-            excerpt=draft.excerpt,
+            excerpt=excerpt,
             path=draft.public_path,
             language="zh-CN",
             author=draft.author,
@@ -49,7 +68,12 @@ class ContentPublication:
             reading_minutes=max(1, (len(body) + 399) // 400),
             word_count=len(body),
             content=draft.body,
-            media_urls={},
+            media_urls={key: value.model_dump() for key, value in media.items()},
+            cover_url=media[str(settings.cover_media_id)].original
+            if settings.cover_media_id
+            else None,
+            pinned=settings.pinned,
+            editor_settings=settings.model_dump(mode="json"),
             publication_status="published",
             visibility="public",
         )
@@ -60,6 +84,7 @@ class ContentPublication:
                 setattr(existing, name, value)
             existing.public_generation += 1
         await self.session.flush()
+        await publish_taxonomies(self.session, draft.id, settings)
         await self.session.execute(
             insert(SearchDocument)
             .values(content_id=draft.id, title=draft.title, body=body)

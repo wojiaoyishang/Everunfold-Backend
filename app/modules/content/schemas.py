@@ -8,6 +8,7 @@ from pydantic import Field
 from app.core.schemas import ErrorResponse as ErrorResponse
 from app.core.schemas import PublicModel as PublicModel
 from app.core.schemas import PublicResponse as PublicResponse
+from app.modules.content.editor_schema import PublicEditorSettings
 
 ContentKind = Literal["article", "shuoshuo", "page"]
 TaxonomyKind = Literal["category", "tag"]
@@ -55,7 +56,7 @@ class SiteDTO(PublicModel):
     stats: SiteStats
 
 
-class ContentSummary(PublicModel):
+class ContentSummary(PublicEditorSettings):
     id: str
     kind: ContentKind
     title: str
@@ -104,7 +105,7 @@ class TaxonomyList(PublicModel):
 
 
 class PublicSnapshot(PublicModel):
-    schema_version: Literal["0.1.0", "0.2.0"] = "0.2.0"
+    schema_version: Literal["0.1.0", "0.2.0", "0.3.0"] = "0.3.0"
     source_epoch: str = Field(min_length=1)
     generation: int = Field(ge=1)
     exported_at: datetime

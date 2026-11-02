@@ -16,6 +16,8 @@ from app.modules.auth.service import AuthFailure
 from app.modules.content.draft_models import ContentDraft, DraftReceipt, DraftRevision
 from app.modules.content.draft_repository import DraftRepository, detail
 from app.modules.content.draft_schemas import DraftCreate, DraftDetail, DraftMutation, DraftSave
+from app.modules.content.editor_schema import EditorSettings
+from app.modules.content.editor_service import editor_media
 from app.modules.content.publication import ContentPublication
 from app.modules.content.type_registry import ContentTypeDefinition, content_types
 from app.modules.media.locking import lock_references
@@ -41,7 +43,11 @@ class DraftService:
         row = await self.repo.find(draft_id)
         if row is None:
             raise AuthFailure(404, 40450, "找不到这份草稿")
-        return detail(row)
+        result = detail(row)
+        result.media_urls = await editor_media(
+            self.session, self.config, json.dumps(row.body), result.settings, strict=False
+        )
+        return result
 
     async def mutate(
         self,
@@ -73,6 +79,7 @@ class DraftService:
                 title="",
                 excerpt="",
                 body=[],
+                editor_settings={},
                 author=actor.display_name,
                 created_by=actor.id,
                 revision=1,
@@ -100,8 +107,11 @@ class DraftService:
             if not definition.supports_excerpt and fields.excerpt:
                 raise AuthFailure(422, 42252, "此内容类型不使用独立摘要")
             await self._check_media(fields.model_dump_json())
+            settings = fields.settings or EditorSettings.model_validate(row.editor_settings or {})
+            await editor_media(self.session, self.config, fields.model_dump_json(), settings)
             row.title, row.excerpt = fields.title.strip(), fields.excerpt.strip()
             row.body = [block.model_dump(mode="json") for block in fields.body]
+            row.editor_settings = settings.model_dump(mode="json")
         elif action == "trash":
             if row.deleted_at:
                 raise AuthFailure(409, 40952, "内容已在回收站中")
@@ -120,6 +130,9 @@ class DraftService:
                 await publication.withdraw(row)
             await publication.stage()
         result = detail(row)
+        result.media_urls = await editor_media(
+            self.session, self.config, json.dumps(row.body), result.settings, strict=False
+        )
         snapshot = result.model_dump(mode="json")
         try:
             await self.session.flush()
