@@ -97,7 +97,17 @@ class ContentTypeCatalog(PublicModel):
     items: list[ContentTypeDefinition]
 
 
+class ContentEditAction(PublicModel):
+    id: UUID
+    type_id: str
+
+
+class ContentActions(PublicModel):
+    edit: ContentEditAction | None = None
+
+
 class ContentAdminContract(PublicModel):
+    actions: PublicResponse[ContentActions]
     create_category: EditorTermCreate
     editor_catalog: PublicResponse[EditorCatalog]
     query: DraftQuery

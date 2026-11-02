@@ -60,6 +60,27 @@ def check_content_access(
     # Omitted settings/password preserves saved policy and address.
     published = write(draft, {"title": "改标题仍保留地址", "body": fields["body"]})
     assert published["public_path"] == "/新标题测试.html"
+    actions = client.get("/v1/admin/content/actions", params={"id": draft["id"]})
+    assert actions.status_code == 200 and "no-store" in actions.headers["cache-control"]
+    assert actions.json()["data"] == {"edit": {"id": draft["id"], "type_id": "article"}}
+    assert client.get("/v1/admin/content/actions", params={"id": second["id"]}).json()["data"] == {
+        "edit": None
+    }
+    with httpx.Client(base_url=api_b, timeout=8) as stranger:
+        assert (
+            stranger.get("/v1/admin/content/actions", params={"id": draft["id"]}).status_code == 401
+        )
+    actor_id = UUID(client.get("/v1/admin/session").json()["data"]["user"]["id"])
+    asyncio.run(sql("UPDATE users SET role='user' WHERE id=$1", actor_id))
+    try:
+        assert (
+            client.get("/v1/admin/content/actions", params={"id": draft["id"]}).status_code == 403
+        )
+    finally:
+        asyncio.run(sql("UPDATE users SET role='admin' WHERE id=$1", actor_id))
+    assert client.get("/v1/admin/content/actions", params={"id": uuid4()}).json()["data"] == {
+        "edit": None
+    }
     wait_for(lambda: state()["delivery"][0]["status"] == "applied")
     cached = next(item for item in snapshot()["contents"] if item["id"] == draft["id"])
     assert cached["access"] == "password" and not cached["content"] and not cached["media_urls"]

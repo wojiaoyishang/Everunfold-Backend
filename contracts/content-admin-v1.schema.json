@@ -1,5 +1,23 @@
 {
   "$defs": {
+    "ContentActions": {
+      "additionalProperties": false,
+      "properties": {
+        "edit": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ContentEditAction"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "title": "ContentActions",
+      "type": "object"
+    },
     "ContentBlock": {
       "additionalProperties": false,
       "properties": {
@@ -237,6 +255,26 @@
         "media_urls"
       ],
       "title": "ContentDetail",
+      "type": "object"
+    },
+    "ContentEditAction": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "type_id": {
+          "title": "Type Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "type_id"
+      ],
+      "title": "ContentEditAction",
       "type": "object"
     },
     "ContentSyncState": {
@@ -1207,6 +1245,34 @@
       "title": "PublicComment",
       "type": "object"
     },
+    "PublicResponse_ContentActions_": {
+      "additionalProperties": false,
+      "properties": {
+        "success": {
+          "default": true,
+          "title": "Success",
+          "type": "boolean"
+        },
+        "code": {
+          "default": 200,
+          "title": "Code",
+          "type": "integer"
+        },
+        "msg": {
+          "default": "请求成功",
+          "title": "Msg",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/ContentActions"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "title": "PublicResponse[ContentActions]",
+      "type": "object"
+    },
     "PublicResponse_ContentSyncState_": {
       "additionalProperties": false,
       "properties": {
@@ -1572,6 +1638,9 @@
   },
   "additionalProperties": false,
   "properties": {
+    "actions": {
+      "$ref": "#/$defs/PublicResponse_ContentActions_"
+    },
     "create_category": {
       "$ref": "#/$defs/EditorTermCreate"
     },
@@ -1610,6 +1679,7 @@
     }
   },
   "required": [
+    "actions",
     "create_category",
     "editor_catalog",
     "query",
@@ -1626,7 +1696,7 @@
   "title": "ContentAdminContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "1.3.0",
+  "x-everunfold-contract-version": "1.4.0",
   "x-everunfold-content-types": [
     {
       "id": "article",
@@ -1666,6 +1736,13 @@
     }
   ],
   "x-everunfold-operations": [
+    {
+      "name": "readContentActions",
+      "path": "/v1/admin/content/actions",
+      "method": "GET",
+      "input": "lookup",
+      "response": "actions"
+    },
     {
       "name": "createContentCategory",
       "path": "/v1/admin/content/categories",

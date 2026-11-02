@@ -18,9 +18,17 @@ from app.modules.auth.service import AuthFailure
 from app.modules.content.content_paths import initial_path
 from app.modules.content.draft_models import ContentDraft, DraftReceipt, DraftRevision
 from app.modules.content.draft_repository import DraftRepository, detail
-from app.modules.content.draft_schemas import DraftCreate, DraftDetail, DraftMutation, DraftSave
+from app.modules.content.draft_schemas import (
+    ContentActions,
+    ContentEditAction,
+    DraftCreate,
+    DraftDetail,
+    DraftMutation,
+    DraftSave,
+)
 from app.modules.content.editor_schema import EditorSettings
 from app.modules.content.editor_service import editor_media
+from app.modules.content.models import Content
 from app.modules.content.publication import ContentPublication
 from app.modules.content.type_registry import ContentTypeDefinition, content_types
 from app.modules.media.locking import lock_references
@@ -41,6 +49,21 @@ class DraftService:
         self.session = session
         self.config = config
         self.repo = DraftRepository(session)
+
+    async def public_actions(self, content_id: UUID) -> ContentActions:
+        """Called only after the same current-account authorization as the editor itself."""
+        row = await self.repo.find(content_id)
+        published = await self.session.get(Content, content_id)
+        if (
+            row is None
+            or row.deleted_at is not None
+            or row.published_revision is None
+            or content_types.get(row.type_id) is None
+            or published is None
+            or published.publication_status != "published"
+        ):
+            return ContentActions()
+        return ContentActions(edit=ContentEditAction(id=row.id, type_id=row.type_id))
 
     async def read(self, draft_id: UUID) -> DraftDetail:
         row = await self.repo.find(draft_id)

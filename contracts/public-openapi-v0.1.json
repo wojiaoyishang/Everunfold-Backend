@@ -1011,6 +1011,109 @@
         }
       }
     },
+    "/v1/admin/content/actions": {
+      "get": {
+        "tags": [
+          "content-management"
+        ],
+        "summary": "Content Actions",
+        "operationId": "content_actions_v1_admin_content_actions_get",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicResponse_ContentActions_"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        }
+      }
+    },
     "/v1/admin/content/categories": {
       "post": {
         "tags": [
@@ -4806,6 +4909,23 @@
         ],
         "title": "ContentAccessInput"
       },
+      "ContentActions": {
+        "properties": {
+          "edit": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ContentEditAction"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "ContentActions"
+      },
       "ContentBlock": {
         "properties": {
           "id": {
@@ -5000,6 +5120,26 @@
           "media_urls"
         ],
         "title": "ContentDetail"
+      },
+      "ContentEditAction": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "type_id": {
+            "type": "string",
+            "title": "Type Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "type_id"
+        ],
+        "title": "ContentEditAction"
       },
       "ContentSummary": {
         "properties": {
@@ -7190,6 +7330,34 @@
           "data"
         ],
         "title": "PublicResponse[CommentLikes]"
+      },
+      "PublicResponse_ContentActions_": {
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "title": "Success",
+            "default": true
+          },
+          "code": {
+            "type": "integer",
+            "title": "Code",
+            "default": 200
+          },
+          "msg": {
+            "type": "string",
+            "title": "Msg",
+            "default": "请求成功"
+          },
+          "data": {
+            "$ref": "#/components/schemas/ContentActions"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "title": "PublicResponse[ContentActions]"
       },
       "PublicResponse_ContentDetail_": {
         "properties": {

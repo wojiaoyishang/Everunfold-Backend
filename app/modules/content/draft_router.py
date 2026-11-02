@@ -1,11 +1,14 @@
 """Private content management, assembled only through content.router_init."""
 
+from uuid import UUID
+
 from fastapi import APIRouter
 
 from app.core.responses import JSONResponseSuccess
 from app.core.schemas import ErrorResponse, PublicResponse
 from app.modules.content.draft_repository import DraftRepository
 from app.modules.content.draft_schemas import (
+    ContentActions,
     ContentTypeCatalog,
     DraftCatalog,
     DraftCreate,
@@ -38,6 +41,11 @@ async def types(ctx: Authorized) -> JSONResponseSuccess:
 @router.get("/editor-options", response_model=PublicResponse[EditorCatalog])
 async def editor_options(ctx: Authorized) -> JSONResponseSuccess:
     return JSONResponseSuccess(data=await editor_catalog(ctx.service.session))
+
+
+@router.get("/actions", response_model=PublicResponse[ContentActions])
+async def content_actions(id: UUID, ctx: Authorized) -> JSONResponseSuccess:
+    return JSONResponseSuccess(data=await DraftService(ctx.service.session).public_actions(id))
 
 
 @router.post("/categories", response_model=PublicResponse[EditorCatalog])
