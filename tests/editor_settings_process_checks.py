@@ -20,7 +20,7 @@ def check_editor_settings(client: Any, csrf: Any, state: Any, snapshot: Any, wai
     assert uploaded.status_code == 200, uploaded.text
     media = uploaded.json()["data"]
     media_id = media["id"].removeprefix("media:")
-    fields = {
+    fields: dict[str, Any] = {
         "title": "Editor properties proof",
         "body": [
             {

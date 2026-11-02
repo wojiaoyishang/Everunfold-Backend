@@ -61,7 +61,7 @@ def test_editor_normalizes_terms_and_preserves_block_formats() -> None:
     settings = EditorSettings(path="/%E6%B5%8B%E8%AF%95.html", tags=[" Python ", "python", "日常"])
     assert settings.path == "/测试.html" and settings.tags == ["Python", "日常"]
     with pytest.raises(ValidationError):
-        EditorSettings(display_published_at="2026-11-01T12:00")
+        EditorSettings.model_validate({"display_published_at": "2026-11-01T12:00"})
     blocks = [
         DraftBlock(id=uuid4(), type="html", content="<p>保留</p>"),
         DraftBlock(id=uuid4(), content="正文"),
