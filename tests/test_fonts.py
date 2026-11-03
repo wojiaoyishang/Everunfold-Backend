@@ -3,8 +3,8 @@
 import io
 
 import pytest
-from fontTools.fontBuilder import FontBuilder
-from fontTools.pens.ttGlyphPen import TTGlyphPen
+from fontTools.fontBuilder import FontBuilder  # type: ignore[import-untyped]
+from fontTools.pens.ttGlyphPen import TTGlyphPen  # type: ignore[import-untyped]
 
 from app.modules.auth.service import AuthFailure
 from app.modules.media.fonts import inspect_font

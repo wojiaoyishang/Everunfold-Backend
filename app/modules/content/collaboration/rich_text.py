@@ -123,6 +123,29 @@ def convert_children(
         style = attributes.get("style", "") or ""
         css = dict(part.strip().split(":", 1) for part in style.split(";") if ":" in part)
         css = {k.strip().lower(): v.strip() for k, v in css.items()}
+        if tag == "figure":
+            if set(attributes) - {"style"} or set(css) - {"text-align"}:
+                raise ValueError("custom figure")
+            parts = [
+                part for part in child["children"] if not isinstance(part, str) or part.strip()
+            ]
+            images = [part for part in parts if isinstance(part, dict) and part["tag"] == "img"]
+            captions = [
+                part for part in parts if isinstance(part, dict) and part["tag"] == "figcaption"
+            ]
+            if len(images) != 1 or len(captions) > 1 or len(parts) != len(images) + len(captions):
+                raise ValueError("custom figure structure")
+            image = convert_children(images)[0]
+            if captions:
+                if captions[0]["attrs"] or any(
+                    not isinstance(part, str) for part in captions[0]["children"]
+                ):
+                    raise ValueError("custom caption")
+                image["attrs"]["caption"] = "".join(captions[0]["children"])
+            if css.get("text-align"):
+                image["attrs"]["alignment"] = css["text-align"]
+            output.append(image)
+            continue
         if tag in {"thead", "tbody", "tfoot"} and not attributes:
             output.extend(convert_children(child["children"], marks))
             continue
@@ -277,6 +300,8 @@ def render_node(node: dict[str, Any], depth: int = 0) -> str:
         attributes["style"] = "text-align:" + alignment
     for key in ("start", "src", "alt", "title", "width", "height", "colspan", "rowspan"):
         if key in attrs:
+            if key in {"start", "colspan", "rowspan"} and attrs[key] == 1:
+                continue
             attributes[key] = attrs[key]
     if kind == "codeBlock":
         language = attrs.get("language")
@@ -286,6 +311,17 @@ def render_node(node: dict[str, Any], depth: int = 0) -> str:
             else ""
         )
         return f"<pre><code{suffix}>{content}</code></pre>"
+    if kind == "image" and (attrs.get("caption") or attrs.get("alignment")):
+        alignment = attrs.get("alignment")
+        if alignment and alignment not in {"left", "center", "right"}:
+            raise ValueError("image alignment")
+        figure = attr_string({"style": "text-align:" + alignment}) if alignment else ""
+        caption = (
+            f"<figcaption>{html.escape(str(attrs['caption']), quote=False)}</figcaption>"
+            if attrs.get("caption")
+            else ""
+        )
+        return f"<figure{figure}><img{attr_string(attributes)}>{caption}</figure>"
     return f"<{tag}{attr_string(attributes)}>" + ("" if tag in VOIDS else content + f"</{tag}>")
 
 

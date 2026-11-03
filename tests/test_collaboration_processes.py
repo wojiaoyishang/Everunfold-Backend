@@ -16,7 +16,7 @@ from uuid import UUID, uuid4
 import asyncpg  # type: ignore[import-untyped]
 import httpx2 as httpx
 import pytest
-from pycrdt import Doc, Map
+from pycrdt import Doc, Map, XmlElement
 from sqlalchemy.engine import make_url
 from websockets.asyncio.client import ClientConnection, connect
 from websockets.typing import Origin
@@ -53,13 +53,18 @@ class Room:
 
     def edit(self, block_id: str, value: str) -> dict[str, Any]:
         vector = self.doc.get_state()
-        text = self.doc.get("blocks", type=Map)[block_id]["content"]
-        text.insert(len(text), value)
+        block = self.doc.get("blocks", type=Map)[block_id]
+        if "rich" in block:
+            block["rich"].children.append(XmlElement("rawHtml", attributes={"html": value}))
+        else:
+            text = block["content"]
+            text.insert(len(text), value)
         return {
             "type": "update",
             "epoch": self.epoch,
             "update_id": str(uuid4()),
             "payload": base64.b64encode(self.doc.get_update(vector)).decode(),
+            "rich_versions": {block_id: 0} if "rich" in block else {},
         }
 
     async def send(self, update: dict[str, Any]) -> int:
@@ -340,6 +345,154 @@ def test_collaboration_replicas_durable_ack_and_cutoff(tmp_path: Path) -> None:
                     resolved = await old.receive("media")
                     assert media_id in resolved["media_urls"]
                     assert resolved["media_urls"][media_id]["original"].endswith(".png")
+                    # Real font parsing and hash reuse across replicas share the upload lifecycle.
+                    from tests.test_fonts import font_bytes
+
+                    font_data = font_bytes("woff2")
+                    font_upload = client.post(
+                        "/v1/admin/media/upload",
+                        params={
+                            "filename": "proof.woff2",
+                            "upload_id": str(uuid4()),
+                            "purpose": "font",
+                        },
+                        headers={**csrf, "Content-Type": "application/octet-stream"},
+                        content=font_data,
+                    )
+                    assert font_upload.status_code == 200, font_upload.text
+                    font_identity = font_upload.json()["data"]["id"]
+                    reused = client.post(
+                        api_b + "/v1/admin/media/upload",
+                        params={
+                            "filename": "proof-again.woff2",
+                            "upload_id": str(uuid4()),
+                            "purpose": "font",
+                        },
+                        headers={**csrf, "Content-Type": "application/octet-stream"},
+                        content=font_data,
+                    )
+                    assert (
+                        reused.status_code == 200
+                        and reused.json()["data"]["id"] == font_identity
+                        and reused.json()["data"]["reused"]
+                    )
+                    font_catalog = client.post(
+                        api_b + "/v1/admin/fonts/query", json={"query": font_identity}, headers=csrf
+                    ).json()["data"]
+                    assert font_catalog["items"][0]["info"]["family"] == "Everunfold Test"
+                    assert font_identity[6:] in client.get("/v1/fonts.css").text
+                    # Source ownership is durable across replicas, independent of awareness.
+                    acquired = client.post(
+                        PREFIX + "collaboration/source/acquire",
+                        json={"id": identity, "block_id": second, "client_id": 1003},
+                        headers=csrf,
+                    )
+                    assert acquired.status_code == 200, acquired.text
+                    source_lease = acquired.json()["data"]
+                    denied = client.post(
+                        api_b + PREFIX + "collaboration/source/acquire",
+                        json={"id": identity, "block_id": second, "client_id": 1004},
+                        headers=csrf,
+                    )
+                    assert denied.status_code == 409 and denied.json()["code"] == 40974
+                    other_block = old.edit(first, "源码期间的其他区块输入")
+                    assert await old.send(other_block) == 7
+                    rejected = b.edit(second, "不应覆盖源码的输入")
+                    await b.socket.send(json.dumps(rejected))
+                    assert (await b.receive("error"))["code"] == 40974
+                    assert "不应覆盖" in project(b.doc).body[1].content
+                    source_html = (
+                        f'<h2>源码应用</h2><p><span data-font="site://media/{font_identity[6:]}" '
+                        f'style="font-family:ef-font-{font_identity[6:]}">字体内容</span></p>'
+                    )
+                    application = {
+                        "id": identity,
+                        "block_id": second,
+                        "lease_id": source_lease["lease_id"],
+                        "operation_id": str(uuid4()),
+                        "expected_hash": source_lease["expected_hash"],
+                        "html": source_html,
+                    }
+                    # A failed PostgreSQL write rolls back the document, receipt and generation.
+                    await sql(
+                        "ALTER TABLE collaboration_updates ADD CONSTRAINT fail_source "
+                        "CHECK (committed_seq < 8)"
+                    )
+                    failed_source = client.post(
+                        api_b + PREFIX + "collaboration/source/apply",
+                        json=application,
+                        headers=csrf,
+                    )
+                    assert failed_source.status_code == 503
+                    assert (await sql("SELECT committed_seq FROM collaboration_documents"))[0][
+                        "committed_seq"
+                    ] == 7
+                    assert (await sql("SELECT generation FROM collaboration_source_leases"))[0][
+                        "generation"
+                    ] == 0
+                    await sql("ALTER TABLE collaboration_updates DROP CONSTRAINT fail_source")
+                    applied = client.post(
+                        api_b + PREFIX + "collaboration/source/apply",
+                        json=application,
+                        headers=csrf,
+                    )
+                    assert applied.status_code == 200, applied.text
+                    assert (
+                        applied.json()["data"]["committed_seq"] == 8
+                        and applied.json()["data"]["generation"] == 1
+                    )
+                    assert (
+                        client.post(
+                            PREFIX + "collaboration/source/apply", json=application, headers=csrf
+                        ).json()
+                        == applied.json()
+                    )
+                    b = await room(api_b, 1005)
+                    assert "源码应用" in project(b.doc).body[1].content
+                    while old.seq < 8:
+                        await old.receive("update")
+                    assert project(old.doc).body == project(b.doc).body
+                    # Stale offline HTML edits retain their local text and are never silently ACKed.
+                    await b.socket.send(json.dumps(rejected))
+                    stale = await b.receive("error")
+                    assert stale["code"] == 40975
+                    assert (await sql("SELECT committed_seq FROM collaboration_documents"))[0][
+                        "committed_seq"
+                    ] == 8
+                    b = await room(api_b, 1006)
+                    expired_lease = client.post(
+                        PREFIX + "collaboration/source/acquire",
+                        json={"id": identity, "block_id": second, "client_id": 1006},
+                        headers=csrf,
+                    ).json()["data"]
+                    await sql(
+                        "UPDATE collaboration_source_leases "
+                        "SET expires_at=now()-interval '1 second'"
+                    )
+                    expired_payload = {
+                        **application,
+                        "operation_id": str(uuid4()),
+                        "lease_id": expired_lease["lease_id"],
+                        "expected_hash": expired_lease["expected_hash"],
+                    }
+                    assert (
+                        client.post(
+                            PREFIX + "collaboration/source/apply",
+                            json=expired_payload,
+                            headers=csrf,
+                        ).status_code
+                        == 409
+                    )
+                    # A font referenced by an unsaved collaborative draft cannot be removed.
+                    font_detail = client.post(
+                        "/v1/admin/media/detail", json={"id": font_identity}, headers=csrf
+                    ).json()["data"]
+                    removal = client.post(
+                        "/v1/admin/media/remove-preview",
+                        json={"id": font_identity, "expected_revision": font_detail["revision"]},
+                        headers=csrf,
+                    )
+                    assert removal.status_code == 409, removal.text
                     # Session revocation closes idle sockets, and prevents fresh tickets.
                     await sql("UPDATE users SET active=false WHERE username='admin'")
                     revoked = await b.receive("error")

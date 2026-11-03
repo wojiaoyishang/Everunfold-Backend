@@ -4,7 +4,7 @@ from sqlalchemy import MetaData, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
 
-SCHEMA_REVISION = "0013_collaboration"
+SCHEMA_REVISION = "0015_rich_source_leases"
 
 
 class Base(DeclarativeBase):

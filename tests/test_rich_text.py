@@ -16,7 +16,11 @@ from app.modules.content.draft_schemas import DraftBlock, DraftFields
         "<h2>标题😀</h2><p>一 <strong>二</strong> 三</p>",
         "<table><tbody><tr><td><p>单元格</p></td></tr></tbody></table>",
         '<div class="custom-widget" data-any="value">保留原始结构</div>',
-        '<p><span data-font="site://media/11111111-1111-1111-1111-111111111111" style="font-family:ef-font-11111111-1111-1111-1111-111111111111;font-size:18px">字体</span></p>',
+        '<figure style="text-align:center"><img src="https://example.com/a.png" '
+        'alt="图片" width="400"><figcaption>图片说明</figcaption></figure>',
+        '<p><span data-font="site://media/11111111-1111-1111-1111-111111111111" '
+        'style="font-family:ef-font-11111111-1111-1111-1111-111111111111;'
+        'font-size:18px">字体</span></p>',
     ],
 )
 def test_initial_visual_projection_keeps_original_source(source: str) -> None:
@@ -31,6 +35,7 @@ def test_initial_visual_projection_keeps_original_source(source: str) -> None:
         or "字体" in canonical
         or "单元格" in canonical
         or "custom-widget" in canonical
+        or "图片说明" in canonical
     )
 
 
