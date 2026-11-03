@@ -18,6 +18,14 @@ class IconAsset(PublicModel):
     reused: bool = False
 
 
+class FontInfo(PublicModel):
+    family: str
+    style: Literal["normal", "italic"]
+    weight_min: int = Field(ge=1, le=1000)
+    weight_max: int = Field(ge=1, le=1000)
+    format: Literal["woff2", "woff", "truetype", "opentype"]
+
+
 class IconCatalog(PublicModel):
     items: list[IconAsset]
     page: int

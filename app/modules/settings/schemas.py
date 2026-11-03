@@ -9,6 +9,7 @@ from pydantic import ConfigDict, Field, field_validator, model_validator
 from app.core.schemas import PublicModel, PublicResponse
 from app.modules.media.fonts import FontCatalog
 from app.modules.media.schemas import (
+    FontInfo,
     IconAsset,
     IconCatalog,
     IconQuery,
@@ -112,6 +113,9 @@ class SitePreferences(SettingsModel):
 
 
 class ThemePreferences(SettingsModel):
+    font_media_id: str = Field(default="", pattern=MediaReference)
+    font_url: str = Field(default="", max_length=2048)
+    font_info: FontInfo | None = None
     accent: str = Field(default="#673bb7", pattern=r"^#[0-9a-fA-F]{6}$")
     mode: Literal["system", "light", "dark"] = "system"
     hero_title: str = Field(default="", max_length=160)

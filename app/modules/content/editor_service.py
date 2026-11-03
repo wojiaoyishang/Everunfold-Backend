@@ -17,6 +17,7 @@ from app.modules.content.editor_schema import (
 from app.modules.content.models import Content, ContentTaxonomy, Taxonomy
 from app.modules.content.schemas import MediaURL
 from app.modules.media.models import MediaAsset
+from app.modules.media.schemas import FontInfo
 
 MEDIA_REFERENCE = re.compile(r"site://media/([0-9a-fA-F-]{36})")
 
@@ -56,8 +57,14 @@ async def editor_media(
         )
     ):
         raise AuthFailure(409, 40953, "引用的媒体不可用，封面必须是图片")
+    font_ids = {UUID(value) for value in re.findall(r"ef-font-([0-9a-fA-F-]{36})", body)}
+    if strict and any(key not in available or not available[key].font_info for key in font_ids):
+        raise AuthFailure(409, 40953, "引用的字体不可用，请重新选择")
     return {
-        str(key): MediaURL(original=config.media_base_url + "/" + row.object_key)
+        str(key): MediaURL(
+            original=config.media_base_url + "/" + row.object_key,
+            font=FontInfo.model_validate(row.font_info) if row.font_info else None,
+        )
         for key, row in available.items()
     }
 

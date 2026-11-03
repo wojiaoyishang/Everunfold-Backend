@@ -9,6 +9,7 @@ from app.core.schemas import ErrorResponse as ErrorResponse
 from app.core.schemas import PublicModel as PublicModel
 from app.core.schemas import PublicResponse as PublicResponse
 from app.modules.content.editor_schema import PublicEditorSettings
+from app.modules.media.schemas import FontInfo
 
 ContentKind = Literal["article", "shuoshuo", "page"]
 TaxonomyKind = Literal["category", "tag"]
@@ -86,6 +87,7 @@ class ContentBlock(PublicModel):
 class MediaURL(PublicModel):
     original: str
     webp: str = ""
+    font: FontInfo | None = None
 
 
 class ContentDetail(ContentSummary):
@@ -124,7 +126,7 @@ class TaxonomyList(PublicModel):
 
 
 class PublicSnapshot(PublicModel):
-    schema_version: Literal["0.1.0", "0.2.0", "0.3.0", "0.4.0"] = "0.4.0"
+    schema_version: Literal["0.1.0", "0.2.0", "0.3.0", "0.4.0", "0.5.0"] = "0.5.0"
     source_epoch: str = Field(min_length=1)
     generation: int = Field(ge=1)
     exported_at: datetime

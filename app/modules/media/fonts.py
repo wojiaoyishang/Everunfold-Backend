@@ -6,7 +6,6 @@ from typing import Any, Literal
 from uuid import UUID
 
 from fontTools.ttLib import TTFont, TTLibError  # type: ignore[import-untyped]
-from pydantic import Field
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -14,17 +13,9 @@ from app.core.config import Settings
 from app.core.schemas import PublicModel
 from app.modules.auth.service import AuthFailure
 from app.modules.media.models import MediaAsset
-from app.modules.media.schemas import IconAsset, IconQuery
+from app.modules.media.schemas import FontInfo, IconAsset, IconQuery
 
 MAX_FONT_BYTES = 20 * 1024 * 1024
-
-
-class FontInfo(PublicModel):
-    family: str
-    style: Literal["normal", "italic"]
-    weight_min: int = Field(ge=1, le=1000)
-    weight_max: int = Field(ge=1, le=1000)
-    format: Literal["woff2", "woff", "truetype", "opentype"]
 
 
 class FontAsset(IconAsset):
