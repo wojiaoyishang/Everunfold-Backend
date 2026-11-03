@@ -2,6 +2,7 @@
 
 import io
 import re
+from uuid import UUID
 from typing import Any, Literal
 
 from fontTools.ttLib import TTFont, TTLibError  # type: ignore[import-untyped]
@@ -102,12 +103,15 @@ async def query_fonts(session: AsyncSession, settings: Settings, query: IconQuer
     ]
     if query.query.strip():
         term = query.query.strip()
-        where.append(
-            or_(
-                MediaAsset.filename.icontains(term, autoescape=True),
-                MediaAsset.title.icontains(term, autoescape=True),
+        if re.fullmatch(r"media:[0-9a-f-]{36}", term):
+            where.append(MediaAsset.id == UUID(term[6:]))
+        else:
+            where.append(
+                or_(
+                    MediaAsset.filename.icontains(term, autoescape=True),
+                    MediaAsset.title.icontains(term, autoescape=True),
+                )
             )
-        )
     total = await session.scalar(select(func.count()).select_from(MediaAsset).where(*where)) or 0
     assets = await session.scalars(
         select(MediaAsset)
