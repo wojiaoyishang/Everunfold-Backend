@@ -2,6 +2,8 @@
 
 import base64
 import hashlib
+import logging
+import traceback
 from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid4
 
@@ -29,6 +31,7 @@ from app.modules.content.collaboration.models import (
     CollaborationTicket,
     CollaborationUpdate,
 )
+from app.modules.content.collaboration.position_history import position_history, require_append_only
 from app.modules.content.collaboration.schemas import (
     ClientUpdate,
     CommitDraft,
@@ -161,8 +164,10 @@ def apply_candidate(
     state: bytes, update: bytes, policy: EditorSettings
 ) -> tuple[bytes, DraftFields]:
     doc = decode(state)
+    history = position_history(doc)
     doc.apply_update(update)
     require_integrated(update, doc)
+    require_append_only(history, doc)
     fields = project(doc, policy)
     encoded = doc.get_update()
     if len(encoded) > MAX_STATE:
@@ -206,6 +211,13 @@ async def accept_update(
             EditorSettings.model_validate(draft.editor_settings),
         )
     except (ValueError, TypeError, KeyError, RuntimeError) as exc:
+        location = traceback.extract_tb(exc.__traceback__)[-1]
+        logging.getLogger(__name__).warning(
+            "Collaborative projection rejected: %s at %s:%s",
+            type(exc).__name__,
+            location.name,
+            location.lineno,
+        )
         raise AuthFailure(422, 42270, "协同更新不符合文档规则，请导出本地内容") from exc
     from app.modules.content.collaboration.source_leases import verify_rich_update
 

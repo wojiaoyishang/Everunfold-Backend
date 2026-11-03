@@ -56,6 +56,19 @@ class Room:
         block = self.doc.get("blocks", type=Map)[block_id]
         if "rich" in block:
             block["rich"].children.append(XmlElement("rawHtml", attributes={"html": value}))
+            # Structural edits from the real SDK also carry append-only position history.
+            client = self.doc.client_id
+            history = self.doc.get(f"__tiptap_position_migrations:item:{client}:0", type=Map)
+            clock = 1000 + len(history)
+            history[f"{client}:{clock}"] = {
+                "version": 1,
+                "client": client,
+                "clock": clock,
+                "seen": [[client, clock]],
+                "transfers": [
+                    {"source": {"client": client, "clock": 1, "length": 1}, "target": None}
+                ],
+            }
         else:
             text = block["content"]
             text.insert(len(text), value)

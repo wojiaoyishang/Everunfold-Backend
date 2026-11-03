@@ -7,6 +7,7 @@ from uuid import UUID
 
 from pycrdt import Array, Decoder, Doc, Map, Text, get_update
 
+from app.modules.content.collaboration.position_history import position_history
 from app.modules.content.collaboration.rich_text import initialize_block, projected_html
 from app.modules.content.draft_schemas import DraftFields
 from app.modules.content.editor_schema import EditorSettings
@@ -62,8 +63,7 @@ def decode(state: bytes) -> Doc[Any]:
 
 
 def project(doc: Doc[Any], policy: EditorSettings | None = None) -> DraftFields:
-    if set(doc.keys()) != {"meta", "order", "blocks"}:
-        raise ValueError("未知的协同文档结构")
+    position_history(doc)
     meta = doc.get("meta", type=Map)
     blocks = doc.get("blocks", type=Map)
     order = doc.get("order", type=Array)
