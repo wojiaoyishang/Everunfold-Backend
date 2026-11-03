@@ -134,7 +134,8 @@ class MediaService:
             MediaAsset.deleted_at.is_not(None) if query.trash else MediaAsset.deleted_at.is_(None),
         ]
         if query.kind == "file":
-            where.append(MediaAsset.mime == "application/octet-stream")
+            where.append(~MediaAsset.mime.startswith("image/"))
+            where.append(~MediaAsset.mime.startswith("video/"))
         elif query.kind != "all":
             where.append(MediaAsset.mime.startswith(query.kind + "/"))
         if query.query.strip():

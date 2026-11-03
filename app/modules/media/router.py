@@ -4,12 +4,13 @@ from typing import Annotated
 
 from fastapi import APIRouter, Query, Request
 from sqlalchemy import select
-from starlette.responses import FileResponse
+from starlette.responses import FileResponse, Response
 
 from app.core.responses import JSONResponseSuccess
 from app.core.schemas import ErrorResponse, PublicResponse
 from app.modules.auth.router import auth_runtime
 from app.modules.auth.service import AuthFailure
+from app.modules.media.fonts import FontCatalog, font_stylesheet, query_fonts
 from app.modules.media.management import MediaManagement
 from app.modules.media.media_validation import MAX_MEDIA_BYTES
 from app.modules.media.models import MediaAsset
@@ -42,6 +43,25 @@ router = APIRouter(
         status: {"model": ErrorResponse} for status in (401, 403, 404, 409, 413, 415, 422, 500, 503)
     },
 )
+
+
+@router.post("/v1/admin/fonts/query", response_model=PublicResponse[FontCatalog])
+async def fonts(query: IconQuery, ctx: Authorized) -> JSONResponseSuccess:
+    return JSONResponseSuccess(
+        data=await query_fonts(ctx.service.session, ctx.service.config, query)
+    )
+
+
+@router.get("/v1/fonts.css", response_class=Response)
+async def fonts_css(request: Request) -> Response:
+    runtime = auth_runtime(request)
+    async with runtime.database.session_factory() as session:
+        css = await font_stylesheet(session, runtime.settings)
+    return Response(
+        css,
+        media_type="text/css",
+        headers={"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"},
+    )
 
 
 @router.post("/v1/admin/icons/query", response_model=PublicResponse[IconCatalog])

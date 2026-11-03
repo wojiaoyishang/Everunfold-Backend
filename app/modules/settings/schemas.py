@@ -7,6 +7,7 @@ from urllib.parse import urlsplit
 from pydantic import ConfigDict, Field, field_validator, model_validator
 
 from app.core.schemas import PublicModel, PublicResponse
+from app.modules.media.fonts import FontCatalog
 from app.modules.media.schemas import (
     IconAsset,
     IconCatalog,
@@ -205,6 +206,7 @@ class DeliveryReceipt(SettingsModel):
 
 
 class SettingsContract(PublicModel):
+    fonts: PublicResponse[FontCatalog]
     media_removal_intent: MediaRemovalIntent
     media_removal_preview: PublicResponse[MediaRemovalPreview]
     media_remove: MediaRemove

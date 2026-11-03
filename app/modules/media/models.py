@@ -36,6 +36,7 @@ class MediaAsset(Base):
     revision: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
     source_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("media_assets.id"))
     edit_recipe: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    font_info: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
     icon_enabled: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     purge_pending: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")

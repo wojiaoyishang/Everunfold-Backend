@@ -56,7 +56,7 @@ class MediaQuery(IconQuery):
 
 
 class MediaUpload(PublicModel):
-    purpose: Literal["library", "icon"] = "library"
+    purpose: Literal["library", "icon", "font"] = "library"
     filename: str = Field(min_length=1, max_length=160)
     upload_id: str = Field(pattern=r"^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$")
 

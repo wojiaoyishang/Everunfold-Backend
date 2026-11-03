@@ -107,6 +107,11 @@ async def publish(
                 )
             )
         assert asset is not None
+        if mime.startswith("font/") and asset.font_info is None:
+            from app.modules.media.fonts import inspect_font
+
+            _, _, asset.font_info = await asyncio.to_thread(inspect_font, data)
+            asset.mime = mime
         if asset.deleted_at is not None:
             raise AuthFailure(410, 41030, "这个上传对应的文件已经删除，请重新选择文件")
         promoted = purpose == "icon" and not asset.icon_enabled

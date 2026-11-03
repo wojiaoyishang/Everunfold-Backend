@@ -24,6 +24,11 @@ def validate_upload(data: bytes, filename: str, purpose: str) -> tuple[str, str]
             raise AuthFailure(413, 41330, "图标不超过 1 MB")
         _, mime, extension = validate_icon(base64.b64encode(data).decode("ascii"))
         return mime, extension
+    if purpose == "font" or data[:4] in {b"wOF2", b"wOFF", b"OTTO", b"\x00\x01\x00\x00"}:
+        from app.modules.media.fonts import inspect_font
+
+        mime, extension, _ = inspect_font(data)
+        return mime, extension
     extension = PurePosixPath(filename.replace("\\", "/")).suffix.lower().lstrip(".")
     known = extension in {"png", "jpg", "jpeg", "webp", "svg", "mp4", "webm"}
     signature = (
