@@ -26,6 +26,7 @@ from app.modules.content.collaboration.service import (
     consume_ticket,
     draft_row,
 )
+from app.modules.content.collaboration.source_leases import source_states
 from app.modules.content.editor_schema import EditorSettings
 from app.modules.content.editor_service import editor_media
 
@@ -167,10 +168,19 @@ async def serve(socket: WebSocket, draft_id: UUID) -> None:
         async def outgoing() -> None:
             nonlocal seq, revision, last_references
             last_presence = 0.0
+            last_sources = ""
             while True:
                 async with runtime.database.session_factory() as session:
                     await authorize(session, session_hash)
                     draft = await draft_row(session, draft_id)
+                    sources = [
+                        item.model_dump(mode="json")
+                        for item in await source_states(session, draft_id)
+                    ]
+                    serialized_sources = json.dumps(sources, sort_keys=True)
+                    if serialized_sources != last_sources:
+                        last_sources = serialized_sources
+                        await send({"type": "sources", "sources": sources})
                     if draft.revision != revision:
                         revision = draft.revision
                         await send({"type": "revision", "revision": revision})

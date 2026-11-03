@@ -3,7 +3,15 @@
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import DateTime, ForeignKey, Integer, LargeBinary, String, UniqueConstraint
+from sqlalchemy import (
+    BigInteger,
+    DateTime,
+    ForeignKey,
+    Integer,
+    LargeBinary,
+    String,
+    UniqueConstraint,
+)
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -35,6 +43,20 @@ class CollaborationUpdate(Base):
     payload: Mapped[bytes] = mapped_column(LargeBinary)
     actor_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    source_signature: Mapped[str | None] = mapped_column(String(64))
+
+
+class SourceLease(Base):
+    __tablename__ = "collaboration_source_leases"
+    draft_id: Mapped[UUID] = mapped_column(
+        ForeignKey("collaboration_documents.draft_id"), primary_key=True
+    )
+    block_id: Mapped[UUID] = mapped_column(primary_key=True)
+    generation: Mapped[int] = mapped_column(Integer, default=0)
+    lease_id: Mapped[UUID | None] = mapped_column()
+    session_hash: Mapped[str | None] = mapped_column(String(64))
+    client_id: Mapped[int | None] = mapped_column(BigInteger)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class CollaborationTicket(Base):

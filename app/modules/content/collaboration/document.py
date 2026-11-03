@@ -7,6 +7,7 @@ from uuid import UUID
 
 from pycrdt import Array, Decoder, Doc, Map, Text, get_update
 
+from app.modules.content.collaboration.rich_text import initialize_block, projected_html
 from app.modules.content.draft_schemas import DraftFields
 from app.modules.content.editor_schema import EditorSettings
 
@@ -19,7 +20,7 @@ MAX_STATE = 4_194_304
 
 def seed(fields: DraftFields) -> Doc[Any]:
     settings = (fields.settings or EditorSettings()).model_dump(mode="json")
-    return Doc(
+    doc: Doc[Any] = Doc(
         {
             "meta": Map(
                 {
@@ -41,6 +42,17 @@ def seed(fields: DraftFields) -> Doc[Any]:
             ),
         }
     )
+    prepare_rich(doc)
+    return doc
+
+
+def prepare_rich(doc: Doc[Any]) -> bool:
+    changed = False
+    for block in doc.get("blocks", type=Map).values():
+        if isinstance(block, Map) and block.get("type") == "html" and "rich" not in block:
+            initialize_block(block)
+            changed = True
+    return changed
 
 
 def decode(state: bytes) -> Doc[Any]:
@@ -75,13 +87,15 @@ def project(doc: Doc[Any], policy: EditorSettings | None = None) -> DraftFields:
         UUID(key)
         if (
             not isinstance(block, Map)
-            or set(block.keys()) != {"type", "content", "deleted"}
+            or set(block.keys())
+            - {"type", "content", "deleted", "rich", "rich_base", "rich_generation"}
+            or not {"type", "content", "deleted"}.issubset(block.keys())
             or not isinstance(block["content"], Text)
             or not isinstance(block["deleted"], bool)
             or block["type"] not in {"markdown", "html"}
         ):
             raise ValueError("正文块格式错误")
-        if len(str(block["content"])) > 100_000:
+        if len(projected_html(block)) > 100_000:
             raise ValueError("单块正文过长")
     for key in order:
         if not isinstance(key, str) or key not in blocks:
@@ -90,7 +104,7 @@ def project(doc: Doc[Any], policy: EditorSettings | None = None) -> DraftFields:
         if key in seen or block["deleted"]:
             continue
         seen.add(key)
-        body.append({"id": key, "type": block["type"], "content": str(block["content"])})
+        body.append({"id": key, "type": block["type"], "content": projected_html(block)})
     return DraftFields.model_validate(
         {
             "title": str(meta["title"]),

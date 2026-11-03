@@ -2,8 +2,8 @@
 
 import io
 import re
-from uuid import UUID
 from typing import Any, Literal
+from uuid import UUID
 
 from fontTools.ttLib import TTFont, TTLibError  # type: ignore[import-untyped]
 from pydantic import Field

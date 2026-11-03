@@ -18,6 +18,7 @@ from app.modules.content.collaboration.document import (
     MAX_STATE,
     MAX_UPDATE,
     decode,
+    prepare_rich,
     project,
     references,
     require_integrated,
@@ -94,6 +95,25 @@ async def ticket(session: AsyncSession, draft_id: UUID, session_hash: str) -> Ti
             updated_at=now,
         )
         session.add(document)
+    else:
+        doc = decode(document.state)
+        vector = doc.get_state()
+        if prepare_rich(doc):
+            update = doc.get_update(vector)
+            document.committed_seq += 1
+            document.state = doc.get_update()
+            document.updated_at = now
+            session.add(
+                CollaborationUpdate(
+                    draft_id=draft_id,
+                    update_id=uuid4(),
+                    committed_seq=document.committed_seq,
+                    digest=hashlib.sha256(update).hexdigest(),
+                    payload=update,
+                    actor_id=row.created_by,
+                    created_at=now,
+                )
+            )
     allowed = await AuthRepository(session).consume_limit(
         "collab-ticket:" + session_hash, 60, 60, now
     )
@@ -187,6 +207,9 @@ async def accept_update(
         )
     except (ValueError, TypeError, KeyError, RuntimeError) as exc:
         raise AuthFailure(422, 42270, "协同更新不符合文档规则，请导出本地内容") from exc
+    from app.modules.content.collaboration.source_leases import verify_rich_update
+
+    await verify_rich_update(session, draft_id, document.state, state, update.rich_versions)
     await editor_media(
         session, config, fields.model_dump_json(), fields.settings or EditorSettings()
     )

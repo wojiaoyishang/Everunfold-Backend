@@ -37,6 +37,48 @@ class ClientUpdate(PublicModel):
     epoch: UUID
     update_id: UUID
     payload: str = Field(max_length=1_400_000)
+    rich_versions: dict[UUID, int] = Field(default_factory=dict, max_length=512)
+
+
+class SourceAcquire(DraftLookup):
+    block_id: UUID
+    client_id: int = Field(ge=0, le=4_294_967_295)
+
+
+class SourceCommand(DraftLookup):
+    block_id: UUID
+    lease_id: UUID
+
+
+class SourceApply(SourceCommand):
+    operation_id: UUID
+    expected_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
+    html: str = Field(max_length=100_000)
+
+
+class SourceState(PublicModel):
+    block_id: UUID
+    generation: int = Field(ge=0)
+    client_id: int | None
+    expires_at: AwareDatetime | None
+
+
+class SourceAcquired(PublicModel):
+    lease_id: UUID
+    html: str
+    expected_hash: str
+    expires_at: AwareDatetime
+
+
+class SourceApplied(PublicModel):
+    operation_id: UUID
+    committed_seq: int
+    payload: str
+    generation: int
+
+
+class SourceReleased(PublicModel):
+    released: Literal[True] = True
 
 
 class ClientAuth(PublicModel):
@@ -67,7 +109,7 @@ class Peer(PublicModel):
 
 
 class ServerFrame(PublicModel):
-    type: Literal["sync", "update", "ack", "peers", "error", "revision", "media"]
+    type: Literal["sync", "update", "ack", "peers", "error", "revision", "media", "sources"]
     epoch: UUID | None = None
     committed_seq: int | None = None
     payload: str | None = None
@@ -77,9 +119,16 @@ class ServerFrame(PublicModel):
     code: int | None = None
     msg: str | None = None
     media_urls: dict[str, MediaURL] | None = None
+    sources: list[SourceState] | None = None
 
 
 class CollaborationContract(PublicModel):
+    source_acquire: SourceAcquire
+    source_command: SourceCommand
+    source_apply: SourceApply
+    source_acquired: PublicResponse[SourceAcquired]
+    source_applied: PublicResponse[SourceApplied]
+    source_released: PublicResponse[SourceReleased]
     lookup: DraftLookup
     ticket: PublicResponse[TicketState]
     commit: CommitDraft

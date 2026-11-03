@@ -8,9 +8,24 @@ from app.core.responses import JSONResponseSuccess
 from app.core.schemas import ErrorResponse, PublicResponse
 from app.modules.auth.router import cookie
 from app.modules.auth.security import token_digest
-from app.modules.content.collaboration.schemas import CommitDraft, CommittedDraft, TicketState
+from app.modules.content.collaboration.schemas import (
+    CommitDraft,
+    CommittedDraft,
+    SourceAcquire,
+    SourceAcquired,
+    SourceApplied,
+    SourceApply,
+    SourceCommand,
+    SourceReleased,
+    TicketState,
+)
 from app.modules.content.collaboration.service import authorize, commit_draft, ticket
 from app.modules.content.collaboration.socket import serve
+from app.modules.content.collaboration.source_leases import (
+    acquire_source,
+    apply_source,
+    command_source,
+)
 from app.modules.content.draft_schemas import DraftLookup
 from app.modules.settings.router import Authorized
 
@@ -20,6 +35,55 @@ router = APIRouter(
         status: {"model": ErrorResponse} for status in (401, 403, 404, 409, 413, 422, 429, 500, 503)
     },
 )
+
+
+@router.post(
+    "/v1/admin/content/collaboration/source/acquire", response_model=PublicResponse[SourceAcquired]
+)
+async def source_acquire(
+    payload: SourceAcquire, request: Request, ctx: Authorized
+) -> JSONResponseSuccess:
+    return JSONResponseSuccess(
+        data=await acquire_source(ctx.service.session, payload, token_digest(cookie(request) or ""))
+    )
+
+
+@router.post(
+    "/v1/admin/content/collaboration/source/renew", response_model=PublicResponse[SourceAcquired]
+)
+async def source_renew(
+    payload: SourceCommand, request: Request, ctx: Authorized
+) -> JSONResponseSuccess:
+    return JSONResponseSuccess(
+        data=await command_source(
+            ctx.service.session, payload, token_digest(cookie(request) or ""), release=False
+        )
+    )
+
+
+@router.post(
+    "/v1/admin/content/collaboration/source/release", response_model=PublicResponse[SourceReleased]
+)
+async def source_release(
+    payload: SourceCommand, request: Request, ctx: Authorized
+) -> JSONResponseSuccess:
+    await command_source(
+        ctx.service.session, payload, token_digest(cookie(request) or ""), release=True
+    )
+    return JSONResponseSuccess(data=SourceReleased())
+
+
+@router.post(
+    "/v1/admin/content/collaboration/source/apply", response_model=PublicResponse[SourceApplied]
+)
+async def source_apply(
+    payload: SourceApply, request: Request, ctx: Authorized
+) -> JSONResponseSuccess:
+    return JSONResponseSuccess(
+        data=await apply_source(
+            ctx.service.session, ctx.service.config, payload, token_digest(cookie(request) or "")
+        )
+    )
 
 
 @router.post("/v1/admin/content/collaboration/ticket", response_model=PublicResponse[TicketState])
