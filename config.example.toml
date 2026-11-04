@@ -23,8 +23,10 @@ enabled = false
 # Session 存 PostgreSQL，Cookie 不保存身份/密码；初始化管理员另运行 init.database.py。
 cookie_name = "everunfold_session"
 cookie_samesite = "lax"
-# 非回环浏览器认证必须使用 HTTPS；cookie_secure 默认按 BACKEND_BASE_URL 推导，
-# 仅回环开发地址允许明文 HTTP 或 cookie_secure = false。
+# 默认非回环浏览器认证使用 HTTPS；cookie_secure 按 BACKEND_BASE_URL 推导。
+# 用户明确要求内网 HTTP 调试时可设 allow_private_http = true；仅允许字面
+# RFC1918 IPv4 / IPv6 ULA 地址，不放宽内部凭据传输、精确 Origin 或 CSRF。
+# allow_private_http = false
 # cookie_domain 默认不设置（仅 API 主机），需要同站部署时再明确填写。
 session_seconds = 43200
 pre_session_seconds = 900

@@ -1,5 +1,7 @@
 # Everunfold Backend
 
+新 Docker 设备已提供[容器开发部署指南](docs/development/container-deployment.md)：当前 HTTP 入口为 `http://172.16.3.2:3000`，API 8001 与其他服务由独立 Supervisor 管理。下方旧本地环境说明保留供参考，当前状态以最新交接为准。
+
 当前功能联调仅展示新后台发布的测试文章/说说；旧 WordPress 试导入内容已撤回。开发工具与恢复边界见 [内容管理指南](docs/development/content-management.md)。
 
 Everunfold 博客与轻量 CMS 的独立后端仓库。当前已完成公开阅读基础、真实匿名历史评论点赞，以及基础管理员登录所需的后端能力：PostgreSQL 用户与可撤销 Session、HttpOnly Cookie、CSRF/精确 Origin、管理员身份复核和显式数据库初始化。独立前端已接入登录、站点/主题/节点策略设置、媒体库与注册式文章/说说草稿管理。设置与内容发布共用独立 Worker/Scheduler/Node 接收链路；文章/说说已可发布、撤回和同步到前台。用户管理、协同与完整生产缓存体系尚未完成。

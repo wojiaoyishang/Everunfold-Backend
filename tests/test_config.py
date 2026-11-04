@@ -110,3 +110,46 @@ def test_invalid_media_base_is_rejected(tmp_path: Path, base: str) -> None:
     file.write_text(VALID_CONFIG + f'\n[media]\nbase_url = "{base}"\n', encoding="utf-8")
     with pytest.raises(ConfigurationError):
         load_settings(file, environ={})
+
+
+@pytest.mark.parametrize("host", ["10.0.0.2", "172.16.3.2", "192.168.1.2", "[fd00::2]"])
+def test_private_http_requires_explicit_opt_in(tmp_path: Path, host: str) -> None:
+    file = tmp_path / "config.toml"
+    content = VALID_CONFIG.replace("http://127.0.0.1:8000", f"http://{host}:3000")
+    file.write_text(content, encoding="utf-8")
+    with pytest.raises(ConfigurationError):
+        load_settings(file, environ={})
+    file.write_text(content + "\n[auth]\nallow_private_http = true\n", encoding="utf-8")
+    assert load_settings(file, environ={}).auth.cookie_secure is False
+
+
+@pytest.mark.parametrize("host", ["8.8.8.8", "172.32.0.1", "169.254.1.2", "0.0.0.0", "api.test"])
+def test_private_http_opt_in_never_allows_other_hosts(tmp_path: Path, host: str) -> None:
+    file = tmp_path / "config.toml"
+    file.write_text(
+        VALID_CONFIG.replace("http://127.0.0.1:8000", f"http://{host}:3000")
+        + "\n[auth]\nallow_private_http = true\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(ConfigurationError):
+        load_settings(file, environ={})
+
+
+@pytest.mark.parametrize(
+    "origin, extra",
+    [
+        ("https://172.16.3.2:3000", "cookie_secure = false"),
+        ("http://172.16.3.2:3000", 'cookie_samesite = "none"'),
+    ],
+)
+def test_private_http_keeps_https_and_samesite_cookie_rules(
+    tmp_path: Path, origin: str, extra: str
+) -> None:
+    file = tmp_path / "config.toml"
+    file.write_text(
+        VALID_CONFIG.replace("http://127.0.0.1:8000", origin)
+        + f"\n[auth]\nallow_private_http = true\n{extra}\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(ConfigurationError):
+        load_settings(file, environ={})

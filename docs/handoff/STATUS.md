@@ -1,5 +1,14 @@
 # 后端交接状态
 
+## 最新交付：新设备 Docker 内网 HTTP 部署（2026-11-04）
+
+- 已优先阅读 docs 交接、开发协议与约束；按用户当前要求部署至新容器，入口 **http://172.16.3.2:3000**。宿主机映射由用户完成，实际经宿主机地址访问通过。服务全部绑定 0.0.0.0，Nginx3000 / Next3100 / API8001 / 接收器3001；独立 Worker、Scheduler 与 Supervisor 均已运行。
+- 新业务库 Everunfold 初始无表，显式迁移至0015_rich_source_leases并创建独立 admin。Redis按container-dev隔离；两向Token、密码、实际TOML、缓存及日志被忽略且权限受限。未导入WordPress或恢复不存在的旧设备PostgreSQL/媒体备份；仅生成合法空快照/初始设置，测试稿最终可恢复回收。
+- 用户明确不使用HTTPS；新增默认关闭的auth.allow_private_http，仅允许显式内网字面地址，保持精确Origin/CSRF/HttpOnly与内部IP AND Token。前端HTTP兼容共享安全随机UUID和SHA-256，无新依赖、契约版本或数据库迁移。
+- 最终锁文件、Ruff/296格式、mypy143通过；真实数据库完整156项（66.30s）通过，包含双API/协同/Worker/Scheduler/Node P0。首次155+1失败源于旧开发工具回环保护，通过临时仅回环测试转接后完整通过；未放宽工具保护，转接已关闭。前端check207项及隔离生产18私有入口/离线/撤回通过。
+- 远程HTTP真实登录/CSRF、WS首帧、源文指纹保存、发布200/撤回404、设置/策略/内容持久ACK、六进程重启和Session保留均通过。浏览器完成登录、首次草稿保存/在线协同；其后连接中断，二次保存和完整视觉矩阵未作为实页验收。见[本轮验收](container-deployment-verification.md)。
+- 新增[部署指南](../development/container-deployment.md)、ADR0053、Supervisor/Nginx模板及启停脚本；KDE登录自启已配置，未重启整个容器。当前服务保留，实际配置和业务数据不提交。仅本地提交，用户自行推送。下一步继续WordPress只读预检及导入规划，旧生产站切换另行处理。
+
 ## 最新交付：代码块设置契约与真实投递验证（2026-11-04）
 
 - 20ecd44新增theme.code默认外观、行号、折行、折叠行数、字号/行高/制表宽度和稳定字体引用；复用现有设置revision、审计、投递与媒体引用保护，不新增SQL迁移，数据库head仍0015。

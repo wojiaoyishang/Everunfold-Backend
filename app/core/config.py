@@ -57,6 +57,18 @@ def is_loopback_host(host: str) -> bool:
         return False
 
 
+def is_private_network_host(host: str) -> bool:
+    """Recognize literal LAN addresses without trusting DNS resolution or forwarded headers."""
+    try:
+        address = ipaddress.ip_address(host)
+    except ValueError:
+        return False
+    return any(
+        address in ipaddress.ip_network(network)
+        for network in ("10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "fc00::/7")
+    )
+
+
 class ConfigModel(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True, validate_default=True)
 
@@ -218,6 +230,7 @@ class AuthConfig(ConfigModel):
     cookie_name: str = "everunfold_session"
     cookie_domain: str | None = None
     cookie_secure: bool | None = None
+    allow_private_http: bool = False
     cookie_samesite: Literal["lax", "strict", "none"] = "lax"
     session_seconds: int = Field(default=43200, ge=300, le=604800)
     pre_session_seconds: int = Field(default=900, ge=60, le=3600)
@@ -300,16 +313,19 @@ class Settings(ConfigModel):
     def valid_auth_deployment(self) -> Self:
         url = urlsplit(self.BACKEND_BASE_URL)
         loopback = is_loopback_host(url.hostname or "")
-        if url.scheme != "https" and not loopback:
+        local_http = loopback or (
+            self.auth.allow_private_http and is_private_network_host(url.hostname or "")
+        )
+        if url.scheme != "https" and not local_http:
             raise ValueError(
-                "browser authentication requires HTTPS outside loopback development origins"
+                "browser authentication requires HTTPS or explicit private-network HTTP development"
             )
         secure = self.auth.cookie_secure
         if secure is None:
             secure = url.scheme == "https"
             self.auth.cookie_secure = secure
-        if not secure and not loopback:
-            raise ValueError("insecure cookies are only allowed on loopback development origins")
+        if not secure and not local_http:
+            raise ValueError("insecure cookies require a permitted local development origin")
         if url.scheme == "https" and not secure:
             raise ValueError("HTTPS requires Secure cookies")
         if self.auth.cookie_samesite == "none" and not secure:

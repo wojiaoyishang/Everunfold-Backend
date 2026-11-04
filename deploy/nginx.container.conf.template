@@ -1,0 +1,52 @@
+# Replace __RUNTIME_DIR__ and __PUBLIC_HOST__ before use.
+worker_processes 1;
+pid "__RUNTIME_DIR__/nginx.pid";
+error_log "__RUNTIME_DIR__/nginx-error.log" warn;
+
+events { worker_connections 1024; }
+
+http {
+    include /etc/nginx/mime.types;
+    default_type application/octet-stream;
+    server_tokens off;
+    access_log off;
+    client_max_body_size 40m;
+    client_body_temp_path "__RUNTIME_DIR__/client-temp";
+    proxy_temp_path "__RUNTIME_DIR__/proxy-temp";
+    fastcgi_temp_path "__RUNTIME_DIR__/fastcgi-temp";
+    uwsgi_temp_path "__RUNTIME_DIR__/uwsgi-temp";
+    scgi_temp_path "__RUNTIME_DIR__/scgi-temp";
+
+    map $http_upgrade $connection_upgrade {
+        default upgrade;
+        '' close;
+    }
+
+    server {
+        listen 0.0.0.0:3000;
+        server_name __PUBLIC_HOST__ localhost 127.0.0.1;
+
+        proxy_http_version 1.1;
+        proxy_set_header Host $http_host;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $connection_upgrade;
+        proxy_read_timeout 3600s;
+
+        # Public ingress must never expose privileged internal endpoints.
+        location = /internal { return 404; }
+        location ^~ /internal/ { return 404; }
+
+        # Preserve the real API and websocket paths; no /api prefix rewriting.
+        location ~ ^/(v1/|ws/v1/|media/|health/|docs(?:/|$)|redoc$|openapi\.json$) {
+            proxy_pass http://127.0.0.1:8001;
+            proxy_request_buffering off;
+            proxy_buffering off;
+        }
+
+        # Includes Next development assets and its hot-reload websocket.
+        location / {
+            proxy_pass http://127.0.0.1:3100;
+            proxy_buffering off;
+        }
+    }
+}
