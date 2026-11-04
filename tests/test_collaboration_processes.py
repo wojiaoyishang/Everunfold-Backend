@@ -2,6 +2,7 @@
 
 import asyncio
 import base64
+import hashlib
 import json
 import os
 import subprocess
@@ -506,6 +507,70 @@ def test_collaboration_replicas_durable_ack_and_cutoff(tmp_path: Path) -> None:
                         headers=csrf,
                     )
                     assert removal.status_code == 409, removal.text
+                    # One formal save writes exact HTML and Markdown into the draft and
+                    # into the same durable update received through the other API.
+                    before = project(b.doc)
+                    html = "<h2>保留 &amp; 源码</h2>\n\n<p>  缩进  </p>"
+                    markdown = "## 同步验证\n\n* 保留 Markdown 空行"
+                    block_sources = [
+                        {
+                            "id": str(block.id),
+                            "type": block.type,
+                            "base_hash": hashlib.sha256(block.content.encode()).hexdigest(),
+                            "content": source,
+                        }
+                        for block, source in zip(before.body, (markdown, html), strict=True)
+                    ]
+                    save_sources = {
+                        **commit,
+                        "operation_id": str(uuid4()),
+                        "expected_revision": 2,
+                        "committed_seq": b.seq,
+                        "action": "save",
+                        "block_sources": block_sources,
+                    }
+                    await sql(
+                        "ALTER TABLE content_draft_revisions ADD CONSTRAINT fail_source_commit "
+                        "CHECK (revision <> 3) NOT VALID"
+                    )
+                    failed_save = client.post(
+                        api_b + PREFIX + "collaboration/commit", json=save_sources, headers=csrf
+                    )
+                    assert failed_save.status_code == 503
+                    assert (await sql("SELECT committed_seq FROM collaboration_documents"))[0][
+                        "committed_seq"
+                    ] == b.seq
+                    await sql(
+                        "ALTER TABLE content_draft_revisions DROP CONSTRAINT fail_source_commit"
+                    )
+                    source_save = client.post(
+                        api_b + PREFIX + "collaboration/commit", json=save_sources, headers=csrf
+                    )
+                    assert source_save.status_code == 200, source_save.text
+                    saved = source_save.json()["data"]
+                    assert saved["committed_seq"] == 9
+                    assert [part["content"] for part in saved["draft"]["body"]] == [markdown, html]
+                    assert (
+                        client.post(
+                            api_a + PREFIX + "collaboration/commit", json=save_sources, headers=csrf
+                        ).json()
+                        == source_save.json()
+                    )
+                    await old.receive("update", update_id=save_sources["operation_id"])
+                    assert [block.content for block in project(old.doc).body] == [markdown, html]
+                    conflict = client.post(
+                        api_a + PREFIX + "collaboration/commit",
+                        json={
+                            **save_sources,
+                            "operation_id": str(uuid4()),
+                            "expected_revision": 3,
+                        },
+                        headers=csrf,
+                    )
+                    assert conflict.status_code == 409 and conflict.json()["code"] == 40976
+                    assert (await sql("SELECT committed_seq FROM collaboration_documents"))[0][
+                        "committed_seq"
+                    ] == 9
                     # Session revocation closes idle sockets, and prevents fresh tickets.
                     await sql("UPDATE users SET active=false WHERE username='admin'")
                     revoked = await b.receive("error")
