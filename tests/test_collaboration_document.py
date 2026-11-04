@@ -4,6 +4,7 @@ from uuid import UUID, uuid4
 
 import pytest
 from pycrdt import Map
+from pydantic import ValidationError
 
 from app.modules.content.collaboration.document import decode, project, seed
 from app.modules.content.collaboration.service import apply_candidate
@@ -57,3 +58,22 @@ def test_forbidden_policy_and_missing_dependencies_are_not_acknowledgeable() -> 
     doc.get("meta", type=Map)["settings"]["visibility"] = "public"
     with pytest.raises(ValueError):
         project(doc)
+
+
+def test_upload_placeholders_cannot_be_saved_as_formal_content() -> None:
+    from app.modules.content.collaboration.schemas import BlockSourcePatch
+
+    marker = '<img src="everunfold-upload://temporary" alt="uploading">'
+    with pytest.raises(ValidationError):
+        DraftFields(body=[DraftBlock(id=uuid4(), type="html", content=marker)])
+    with pytest.raises(ValidationError):
+        BlockSourcePatch(id=uuid4(), type="html", base_hash="a" * 64, content=marker)
+    DraftFields(
+        body=[
+            DraftBlock(
+                id=uuid4(),
+                type="html",
+                content='&lt;img src="everunfold-upload://example"&gt;',
+            )
+        ]
+    )

@@ -3,10 +3,15 @@
 from typing import Literal
 from uuid import UUID
 
-from pydantic import AwareDatetime, Field
+from pydantic import AwareDatetime, Field, field_validator
 
 from app.core.schemas import PublicModel, PublicResponse
-from app.modules.content.draft_schemas import DraftDetail, DraftLookup, DraftMutation
+from app.modules.content.draft_schemas import (
+    DraftDetail,
+    DraftLookup,
+    DraftMutation,
+    has_upload_placeholder,
+)
 from app.modules.content.schemas import MediaURL
 
 
@@ -23,6 +28,13 @@ class BlockSourcePatch(PublicModel):
     type: Literal["markdown", "html"]
     base_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
     content: str = Field(max_length=100_000)
+
+    @field_validator("content")
+    @classmethod
+    def uploaded_images_ready(cls, value: str) -> str:
+        if has_upload_placeholder(value):
+            raise ValueError("请等待图片上传完成或移除上传占位")
+        return value
 
 
 class CommitDraft(DraftMutation):

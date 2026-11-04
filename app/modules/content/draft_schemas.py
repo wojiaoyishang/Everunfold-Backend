@@ -1,5 +1,6 @@
 """Private draft CRUD contract, independent of the published snapshot contract."""
 
+import re
 from datetime import datetime
 from typing import Literal, Self
 from uuid import UUID
@@ -11,6 +12,10 @@ from app.modules.content.editor_schema import EditorCatalog, EditorSettings, Edi
 from app.modules.content.publication_schemas import ContentDelivery, ContentSyncState
 from app.modules.content.schemas import MediaURL
 from app.modules.content.type_registry import ContentTypeDefinition
+
+
+def has_upload_placeholder(source: str) -> bool:
+    return bool(re.search(r"""<img\b[^>]*\bsrc\s*=\s*["']?everunfold-upload://""", source, re.I))
 
 
 class DraftBlock(PublicModel):
@@ -28,6 +33,8 @@ class DraftFields(PublicModel):
 
     @model_validator(mode="after")
     def bounded_unique_blocks(self) -> Self:
+        if any(has_upload_placeholder(block.content) for block in self.body):
+            raise ValueError("请等待图片上传完成或移除上传占位")
         if len({block.id for block in self.body}) != len(self.body):
             raise ValueError("正文块 ID 不可重复")
         if sum(len(block.content) for block in self.body) > 200_000:
