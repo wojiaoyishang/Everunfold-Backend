@@ -112,7 +112,22 @@ class SitePreferences(SettingsModel):
         return self
 
 
+class CodePreferences(SettingsModel):
+    light_scheme: Literal["paper", "github"] = "paper"
+    dark_scheme: Literal["slate", "github"] = "slate"
+    line_numbers: bool = True
+    wrap: bool = False
+    collapse_lines: int = Field(default=18, ge=0, le=200)
+    font_size: int = Field(default=13, ge=11, le=20)
+    line_height: float = Field(default=1.7, ge=1.3, le=2.2)
+    tab_size: int = Field(default=4, ge=2, le=8)
+    font_media_id: str = Field(default="", pattern=MediaReference)
+    font_url: str = Field(default="", max_length=2048)
+    font_info: FontInfo | None = None
+
+
 class ThemePreferences(SettingsModel):
+    code: CodePreferences = Field(default_factory=CodePreferences)
     font_media_id: str = Field(default="", pattern=MediaReference)
     font_url: str = Field(default="", max_length=2048)
     font_info: FontInfo | None = None

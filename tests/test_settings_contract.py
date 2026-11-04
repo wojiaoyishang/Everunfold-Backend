@@ -10,7 +10,7 @@ import pytest
 from pydantic import ValidationError
 
 from app.modules.settings.defaults import public_settings, stored_settings
-from app.modules.settings.schemas import CachePolicy, MenuItem, SitePreferences
+from app.modules.settings.schemas import CachePolicy, CodePreferences, MenuItem, SitePreferences
 from tools.export_settings_contract import build_schema
 
 
@@ -51,6 +51,28 @@ def test_blank_navigation_is_authoritative_and_legacy_settings_survive() -> None
     assert public_settings(stored) == value
     assert stored["navigation"] == []
     assert stored["description"] == "Changed"
+
+
+def test_code_preferences_are_bounded_and_legacy_defaults_round_trip() -> None:
+    original = {"name": "Campfire", "author": "A", "description": ""}
+    value = public_settings(original)
+    assert value.theme.code == CodePreferences()
+    value.theme.code = CodePreferences(
+        light_scheme="github", line_numbers=False, collapse_lines=24, font_size=14
+    )
+    assert public_settings(stored_settings(original, value)) == value
+    for invalid in [
+        {"light_scheme": "custom.css"},
+        {"collapse_lines": -1},
+        {"collapse_lines": 201},
+        {"font_size": "14"},
+        {"tab_size": 9},
+        {"line_height": 0.2},
+        {"font_media_id": "https://untrusted.test/font.woff2"},
+        {"extra": True},
+    ]:
+        with pytest.raises(ValidationError):
+            CodePreferences.model_validate(invalid)
 
 
 def test_duplicate_navigation_ids_and_missing_title_placeholder_rejected() -> None:

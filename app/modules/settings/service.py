@@ -58,6 +58,7 @@ class SettingsService:
             (value.theme.background_media_id, "image"),
             (value.theme.background_video_media_id, "video"),
             (value.theme.font_media_id, "font"),
+            (value.theme.code.font_media_id, "font"),
         ]:
             if reference:
                 if reference in references and references[reference] != kind:
@@ -66,19 +67,22 @@ class SettingsService:
         urls = await service.resolve_resources(references)
         site = value.site.model_copy()
         theme = value.theme.model_copy()
-        theme.font_url = ""
-        theme.font_info = None
-        if theme.font_media_id:
+        theme.code = theme.code.model_copy()
+        for font in (theme, theme.code):
+            font.font_url = ""
+            font.font_info = None
+            if not font.font_media_id:
+                continue
             from uuid import UUID
 
             from app.modules.media.models import MediaAsset
             from app.modules.media.schemas import FontInfo
 
-            asset = await self.session.get(MediaAsset, UUID(theme.font_media_id[6:]))
+            asset = await self.session.get(MediaAsset, UUID(font.font_media_id[6:]))
             if asset is None or asset.font_info is None:
                 raise AuthFailure(422, 42234, "请选择有效的字体")
-            theme.font_url = urls[theme.font_media_id]
-            theme.font_info = FontInfo.model_validate(asset.font_info)
+            font.font_url = urls[font.font_media_id]
+            font.font_info = FontInfo.model_validate(asset.font_info)
         if site.avatar_media_id:
             site.avatar_url = urls[site.avatar_media_id]
         if theme.background_media_id:
