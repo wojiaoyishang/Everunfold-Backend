@@ -16,6 +16,7 @@ from app.modules.auth.models import BrowserSession, User
 from app.modules.auth.repository import AuthRepository
 from app.modules.auth.security import new_session_token, token_digest
 from app.modules.auth.service import AuthFailure
+from app.modules.content.collaboration.block_sources import patched_fields, stage_block_sources
 from app.modules.content.collaboration.document import (
     MAX_STATE,
     MAX_UPDATE,
@@ -38,7 +39,7 @@ from app.modules.content.collaboration.schemas import (
     CommittedDraft,
     TicketState,
 )
-from app.modules.content.draft_models import ContentDraft
+from app.modules.content.draft_models import ContentDraft, DraftReceipt
 from app.modules.content.draft_schemas import DraftFields, DraftSave
 from app.modules.content.draft_service import DraftService
 from app.modules.content.editor_schema import EditorSettings
@@ -271,7 +272,26 @@ async def commit_draft(
         for update in updates:
             doc.apply_update(update.payload)
         state = doc.get_update()
-    fields = project(decode(state), EditorSettings.model_validate(row.editor_settings))
+    policy = EditorSettings.model_validate(row.editor_settings)
+    fields = project(decode(state), policy)
+    committed_seq = payload.committed_seq
+    if payload.block_sources:
+        if payload.action == "withdraw":
+            raise AuthFailure(422, 42270, "撤回不能提交本地正文修改")
+        fields = patched_fields(fields, payload.block_sources)
+        receipt = await session.get(DraftReceipt, payload.operation_id)
+        if receipt is None:
+            if row.revision != payload.expected_revision:
+                raise AuthFailure(409, 40951, "内容已在其他地方保存，本地修改已保留")
+            if await session.get(CollaborationUpdate, (payload.id, payload.operation_id)):
+                raise AuthFailure(409, 40971, "操作标识已被使用")
+            committed_seq = await stage_block_sources(session, document, actor, payload, policy)
+        else:
+            prior_update = await session.get(
+                CollaborationUpdate, (payload.id, payload.operation_id)
+            )
+            if prior_update:
+                committed_seq = prior_update.committed_seq
     assert fields.settings is not None
     fields.settings.visibility, fields.settings.opens_at = payload.visibility, payload.opens_at
     fields.access_password = payload.access_password
@@ -284,4 +304,4 @@ async def commit_draft(
     result = await DraftService(session, config).mutate(
         payload.action, mutation, actor, collaboration_cutoff=(payload.epoch, payload.committed_seq)
     )
-    return CommittedDraft(draft=result, committed_seq=payload.committed_seq)
+    return CommittedDraft(draft=result, committed_seq=committed_seq)

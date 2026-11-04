@@ -18,10 +18,18 @@ class TicketState(PublicModel):
     protocol: Literal["collab-1"] = "collab-1"
 
 
+class BlockSourcePatch(PublicModel):
+    id: UUID
+    type: Literal["markdown", "html"]
+    base_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
+    content: str = Field(max_length=100_000)
+
+
 class CommitDraft(DraftMutation):
     epoch: UUID
     committed_seq: int = Field(ge=0)
     action: Literal["save", "publish", "withdraw"] = "save"
+    block_sources: list[BlockSourcePatch] = Field(default_factory=list, max_length=128)
     visibility: Literal["public", "password"] = "public"
     opens_at: AwareDatetime | None = None
     access_password: str | None = Field(default=None, min_length=1, max_length=200, repr=False)
