@@ -210,6 +210,17 @@ def test_settings_atomic_save_restart_delivery_and_crash_replay(tmp_path: Path) 
             value["site"]["name"] = "Settings transaction"
             value["site"]["notice_title"] = "Delivery notice"
             value["site"]["notice"] = "First line\nSecond line"
+            value["theme"]["code"].update(
+                {
+                    "light_scheme": "github",
+                    "line_numbers": False,
+                    "font_size": 15,
+                    "line_height": 1.8,
+                    "tab_size": 8,
+                    "collapse_lines": 24,
+                    "wrap": True,
+                }
+            )
             payload = {"expected_revision": original_state["revision"], "value": value}
             assert client.patch("/v1/admin/settings", json=payload).status_code == 403
             assert (
@@ -533,8 +544,25 @@ def test_settings_atomic_save_restart_delivery_and_crash_replay(tmp_path: Path) 
                 ]["items"][0]["id"]
                 == video["id"]
             )
+            from tests.test_fonts import font_bytes
+
+            font_upload = client.post(
+                "/v1/admin/media/upload",
+                params={
+                    "filename": "code-proof.woff2",
+                    "upload_id": str(uuid4()),
+                    "purpose": "font",
+                },
+                content=font_bytes("woff2"),
+                headers={**csrf, "Content-Type": "application/octet-stream"},
+            )
+            assert font_upload.status_code == 200, font_upload.text
+            font = font_upload.json()["data"]
             current = client.get("/v1/admin/settings").json()["data"]
             media_value = copy.deepcopy(current["value"])
+            media_value["theme"]["code"].update(
+                {"font_media_id": font["id"], "font_url": "https://forged.invalid/code.woff2"}
+            )
             media_value["site"].update(
                 {"avatar_media_id": icon["id"], "avatar_url": "https://forged.invalid/avatar.svg"}
             )
@@ -566,10 +594,31 @@ def test_settings_atomic_save_restart_delivery_and_crash_replay(tmp_path: Path) 
             assert bound_value["site"]["avatar_url"] == icon["url"]
             assert bound_value["theme"]["background_url"] == icon["url"]
             assert bound_value["theme"]["background_video_url"] == video["url"]
+            assert bound_value["theme"]["code"]["font_url"] == font["url"]
+            assert bound_value["theme"]["code"]["font_info"]["family"] == "Everunfold Test"
             wait_for(lambda: status() == "applied")
             bound_revision = bound.json()["data"]["revision"]
             bound_file = applied_file.parent / f"public-settings.{bound_revision}.json"
             assert json.loads(bound_file.read_text(encoding="utf-8"))["value"] == bound_value
+            removal = {
+                "id": font["id"],
+                "expected_revision": client.post(
+                    "/v1/admin/media/detail", json={"id": font["id"]}, headers=csrf
+                ).json()["data"]["revision"],
+                "delete_original": True,
+            }
+            plan = client.post("/v1/admin/media/remove-preview", json=removal, headers=csrf)
+            if plan.status_code == 200:
+                plan = client.post(
+                    "/v1/admin/media/remove",
+                    json={
+                        **removal,
+                        "operation_id": str(uuid4()),
+                        "expected_plan": plan.json()["data"]["token"],
+                    },
+                    headers=csrf,
+                )
+            assert plan.status_code == 409
 
             check_media_management(client, csrf, cookies, api_a, api_b, sql)
             check_media_library(client, csrf, cookies, api_a, api_b, sql, tmp_path / "uploads")
@@ -610,6 +659,9 @@ def test_settings_atomic_save_restart_delivery_and_crash_replay(tmp_path: Path) 
             assert cdn_value["icon_urls"][icon["id"]].startswith("https://cdn.example.test/assets/")
             assert cdn_value["site"]["avatar_url"].startswith("https://cdn.example.test/assets/")
             assert cdn_value["theme"]["background_video_url"].startswith(
+                "https://cdn.example.test/assets/"
+            )
+            assert cdn_value["theme"]["code"]["font_url"].startswith(
                 "https://cdn.example.test/assets/"
             )
             assert json.loads(bound_file.read_text(encoding="utf-8"))["value"] == bound_value
