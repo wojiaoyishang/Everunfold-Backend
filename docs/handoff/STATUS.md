@@ -1,5 +1,12 @@
 # 后端交接状态
 
+## 最新调研：代码块设置和展示（2026-11-04，待实施提案）
+
+- 本轮用户只要求调研，后端代码、依赖、契约、数据库和公开快照均未修改，未运行实现测试；仅更新交接并本地提交，用户推送。
+- 前端审查现有TextArea插入窗口、Highlight.js阅读高亮/复制/折行/展开，并参考旧Argon的主题、行号与折行选项。提议复用CodeMirror输入、统一CodeBlock框体/标题/行号/重点行/长块折叠，并分全站主题默认、单片段参数、读者临时偏好。
+- 全站代码外观拟沿既有FastAPI主题设置持久化和节点同步；单片段参数拟通过经校验的源文元数据保留，不存高亮DOM。具体字段、Markdown/HTML语法和契约版本尚未冻结；本轮不据此变更后端Schema。读者折行/展开不得覆盖作者源文或写入主库。
+- 技术建议优先保留Highlight.js、参考[Expressive Code框体](https://expressive-code.com/key-features/frames/)及[标记](https://expressive-code.com/key-features/text-markers/)，[Shiki](https://shiki.matsu.io/guide/best-performance)仅作为后续候选，尚未安装或基准测试。字体/语法按使用加载，复用原派生缓存失效；本轮未作出换库产品定案。
+
 ## 最新交付：公式/吐司与前台草稿预览规范同步（2026-11-04）
 
 - 后端业务代码、配置、依赖、契约和数据库0015未改。同步前端d5b1937/93d37e8/4f6d8fa/da03e76/329d7af的结构化公式、全局上传吐司及窗口/区块库修复；新增MathLive仅为前端编辑依赖，本地按打开加载，不进入阅读端。
