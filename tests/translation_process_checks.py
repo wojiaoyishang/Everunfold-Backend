@@ -195,6 +195,63 @@ def check_translations(
         headers=csrf,
     )
     assert configured.status_code == 200, configured.text
+    # Registry changes preserve existing URLs while new Chinese paths use the configured prefix.
+    customized = configured.json()["data"]
+    custom_value = customized["value"]
+    chinese = next(
+        item
+        for item in custom_value["site"]["language_catalog"]["languages"]
+        if item["code"] == "zh-CN"
+    )
+    chinese.update(prefix="/zh", flag="⭐", ui_locale="en")
+    configured = client.patch(
+        "/v1/admin/settings",
+        json={"expected_revision": customized["revision"], "value": custom_value},
+        headers=csrf,
+    )
+    assert configured.status_code == 200, configured.text
+    chinese = next(
+        item
+        for item in configured.json()["data"]["value"]["site"]["language_catalog"]["languages"]
+        if item["code"] == "zh-CN"
+    )
+    assert chinese["flag"] == "⭐" and chinese["ui_locale"] == "zh-CN"
+    prefixed = post(
+        "create",
+        {
+            "operation_id": str(uuid4()),
+            "type_id": "article",
+            "fields": {
+                "title": "Configured Chinese prefix",
+                "body": [
+                    {"id": str(uuid4()), "type": "markdown", "content": "Chinese prefix proof"}
+                ],
+            },
+        },
+    )
+    assert prefixed.status_code == 200, prefixed.text
+    assert prefixed.json()["data"]["settings"]["path"].startswith("/zh/")
+    collision_fields = {
+        "title": "Language navigation collision",
+        "body": [
+            {"id": str(uuid4()), "type": "markdown", "content": "Reserved localized path proof"}
+        ],
+        "settings": {"path": "/ja/search"},
+    }
+    collision = post(
+        "create", {"operation_id": str(uuid4()), "type_id": "article", "fields": collision_fields}
+    )
+    assert collision.status_code == 200, collision.text
+    refused = post(
+        "publish",
+        {
+            "id": collision.json()["data"]["id"],
+            "expected_revision": collision.json()["data"]["revision"],
+            "operation_id": str(uuid4()),
+            "fields": collision_fields,
+        },
+    )
+    assert refused.status_code == 422 and refused.json()["code"] == 42295
     assert any(
         item["code"] == "ja" for item in client.get("/v1/languages").json()["data"]["languages"]
     )
