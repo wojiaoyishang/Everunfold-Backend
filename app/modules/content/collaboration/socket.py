@@ -2,6 +2,8 @@
 
 import asyncio
 import base64
+import colorsys
+import hashlib
 import json
 import logging
 import time
@@ -32,7 +34,17 @@ from app.modules.content.editor_service import editor_media
 from app.modules.content.merge_lock import lock_state
 
 logger = logging.getLogger(__name__)
-COLORS = ("#4869b0", "#397d66", "#a65376", "#9c6b33", "#7a57b1")
+
+
+def peer_color(actor_id: UUID, client_id: int) -> str:
+    digest = hashlib.sha256(f"{actor_id}:{client_id}".encode()).digest()
+    hue = int.from_bytes(digest[:3], "big") / 16_777_216
+    saturation = 0.48 + digest[3] / 255 * 0.14
+    lightness = 0.34 + digest[4] / 255 * 0.08
+    return "#" + "".join(
+        f"{round(channel * 255):02x}" for channel in colorsys.hls_to_rgb(hue, lightness, saturation)
+    )
+
 
 # Shared leases bound connections across API processes; presence is never authoritative.
 LEASE = """
@@ -92,7 +104,7 @@ async def serve(socket: WebSocket, draft_id: UUID) -> None:
             connection_id=connection_id,
             client_id=client_id,
             name=actor.display_name,
-            color=COLORS[actor.id.int % len(COLORS)],
+            color=peer_color(actor.id, client_id),
         )
         presence = PresenceInput()
         await pubsub.subscribe(channel)

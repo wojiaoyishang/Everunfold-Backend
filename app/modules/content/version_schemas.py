@@ -34,6 +34,7 @@ class VersionItem(PublicModel):
     committed_seq: int | None
     parents: list[int]
     current: bool
+    branch_id: UUID | None = None
 
 
 class VersionDetail(PublicModel):

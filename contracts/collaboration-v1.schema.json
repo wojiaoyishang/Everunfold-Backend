@@ -2284,6 +2284,19 @@
         "current": {
           "title": "Current",
           "type": "boolean"
+        },
+        "branch_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Branch Id"
         }
       },
       "required": [

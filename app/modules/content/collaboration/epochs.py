@@ -2,16 +2,18 @@
 
 from uuid import UUID, uuid4
 
+from pycrdt import Map, Text
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.auth.service import AuthFailure
-from app.modules.content.collaboration.document import decode, seed
+from app.modules.content.collaboration.document import MAX_STATE, decode, project, seed
 from app.modules.content.collaboration.models import (
     CollaborationDocument,
     CollaborationEpoch,
     CollaborationUpdate,
 )
+from app.modules.content.collaboration.rich_text import projected_html
 from app.modules.content.draft_schemas import DraftFields
 
 
@@ -56,7 +58,18 @@ async def replace_epoch(
         )
         session.add(prior)
     prior.final_seq = head.committed_seq
-    state = seed(fields, source_first=True).get_update()
+    next_doc = seed(fields, source_first=True)
+    previous_blocks = decode(head.state).get("blocks", type=Map)
+    blocks = next_doc.get("blocks", type=Map)
+    for key, block in previous_blocks.items():
+        if key not in blocks:
+            blocks[key] = Map(
+                {"type": block["type"], "content": Text(projected_html(block)), "deleted": True}
+            )
+    project(next_doc)
+    state = next_doc.get_update()
+    if len(state) > MAX_STATE:
+        raise AuthFailure(413, 41370, "合并后的协同历史过大，请先导出草稿")
     head.epoch = uuid4()
     head.committed_seq += 1
     head.initial_seq = head.committed_seq

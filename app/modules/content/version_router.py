@@ -28,7 +28,7 @@ from app.modules.settings.router import Authorized
 router = APIRouter(
     prefix="/v1/admin/content/versions",
     tags=["content-versions"],
-    responses={status: {"model": ErrorResponse} for status in (401, 403, 404, 409, 422, 503)},
+    responses={status: {"model": ErrorResponse} for status in (401, 403, 404, 409, 422, 500, 503)},
 )
 
 

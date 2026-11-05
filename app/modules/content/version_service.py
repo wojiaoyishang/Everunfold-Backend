@@ -7,6 +7,7 @@ from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 from anyio import to_thread
+from pydantic import ValidationError
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -15,7 +16,11 @@ from app.modules.auth.models import User
 from app.modules.auth.service import AuthFailure
 from app.modules.content.collaboration.document import decode, project, references
 from app.modules.content.collaboration.epochs import replace_epoch, state_at
-from app.modules.content.collaboration.models import CollaborationDocument, CollaborationUpdate
+from app.modules.content.collaboration.models import (
+    CollaborationDocument,
+    CollaborationEpoch,
+    CollaborationUpdate,
+)
 from app.modules.content.collaboration.service import draft_row
 from app.modules.content.draft_models import ContentDraft, DraftBranch, DraftMerge, DraftRevision
 from app.modules.content.draft_schemas import DraftFields
@@ -72,6 +77,15 @@ def historical_fields(item: DraftRevision) -> DraftFields:
 
 async def version_item(session: AsyncSession, item: DraftRevision, latest: int) -> VersionItem:
     actor = await session.get(User, item.actor_id)
+    merged = (
+        await session.scalar(
+            select(DraftMerge).where(
+                DraftMerge.draft_id == item.draft_id, DraftMerge.result_revision == item.revision
+            )
+        )
+        if item.action == "merge"
+        else None
+    )
     return VersionItem(
         revision=item.revision,
         actor=actor.display_name if actor else "编辑者",
@@ -80,7 +94,8 @@ async def version_item(session: AsyncSession, item: DraftRevision, latest: int) 
         created_at=item.created_at,
         epoch=item.epoch,
         committed_seq=item.committed_seq,
-        parents=item.parents,
+        parents=[merged.target_revision] if merged else item.parents,
+        branch_id=merged.branch_id if merged else None,
         current=item.revision == latest,
     )
 
@@ -197,6 +212,15 @@ async def upload_branch(
             # Reconcile accepted operations whose ACK was lost, without importing other
             # users' intervening changes into the local side or counting our edit twice.
             receipts = []
+            head = await session.get(CollaborationDocument, row.id)
+            old_epoch = await session.get(CollaborationEpoch, (row.id, payload.base_epoch))
+            epoch_end = (
+                head.committed_seq
+                if head and head.epoch == payload.base_epoch
+                else old_epoch.final_seq
+                if old_epoch
+                else None
+            )
             seen: set[UUID] = set()
             for update in payload.updates:
                 if update.update_id in seen:
@@ -204,6 +228,8 @@ async def upload_branch(
                 seen.add(update.update_id)
                 receipt = await session.get(CollaborationUpdate, (row.id, update.update_id))
                 if receipt:
+                    if epoch_end is None or receipt.committed_seq > epoch_end:
+                        raise AuthFailure(409, 40981, "更新回执不属于这份草稿的基线")
                     try:
                         raw = base64.b64decode(update.payload, validate=True)
                     except ValueError as exc:
@@ -344,6 +370,8 @@ async def auto_checkpoint(session: AsyncSession, draft_id: UUID) -> None:
     )
     assert head is not None
     prior = await session.get(DraftRevision, (draft_id, row.revision))
+    if prior and historical_fields(prior) == snapshot_fields(row):
+        return
     if (
         (now - head.updated_at).total_seconds() < 10
         or (
@@ -430,7 +458,10 @@ async def begin_merge(session: AsyncSession, actor: User, payload: MergeBegin) -
                 remote=versions[2].get(key),
             )
         )
-    DraftFields.model_validate(result)
+    try:
+        DraftFields.model_validate(result)
+    except ValidationError as exc:
+        raise AuthFailure(422, 42282, "合并结果超出正文或区块限制，请先整理草稿") from exc
     now = datetime.now(UTC)
     item = DraftMerge(
         id=payload.merge_id,
@@ -490,7 +521,10 @@ async def resolve_merge(session: AsyncSession, actor: User, payload: MergeResolv
             raise AuthFailure(422, 42282, "合并结果格式无效") from exc
         resolved.add(resolution.key)
     # Validate structure before persisting any conflict decision.
-    result = safe_fields(DraftFields.model_validate(result)).model_dump(mode="json")
+    try:
+        result = safe_fields(DraftFields.model_validate(result)).model_dump(mode="json")
+    except ValidationError as exc:
+        raise AuthFailure(422, 42282, "合并结果格式或长度无效，请检查这项决策") from exc
     item.result, item.resolved = result, sorted(resolved)
     item.expires_at = datetime.now(UTC) + timedelta(seconds=LEASE_SECONDS)
     await session.commit()
@@ -565,14 +599,7 @@ async def command_merge(
                 note=branch.note,
                 epoch=head.epoch,
                 committed_seq=head.committed_seq,
-                parents=list(
-                    dict.fromkeys(
-                        [
-                            item.target_revision,
-                            *([branch.base_revision] if branch.base_revision else []),
-                        ]
-                    )
-                ),
+                parents=[item.target_revision],
                 created_at=row.updated_at,
             )
         )
