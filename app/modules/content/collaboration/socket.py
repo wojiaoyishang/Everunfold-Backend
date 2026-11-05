@@ -183,7 +183,16 @@ async def serve(socket: WebSocket, draft_id: UUID) -> None:
                         await send({"type": "sources", "sources": sources})
                     if draft.revision != revision:
                         revision = draft.revision
-                        await send({"type": "revision", "revision": revision})
+                        head = await session.get(CollaborationDocument, draft_id)
+                        # The revision may reach the browser before its update batch.
+                        # A save must wait for at least this durable document cutoff.
+                        await send(
+                            {
+                                "type": "revision",
+                                "revision": revision,
+                                "committed_seq": head.committed_seq if head else seq,
+                            }
+                        )
                     updates = (
                         await session.scalars(
                             select(CollaborationUpdate)

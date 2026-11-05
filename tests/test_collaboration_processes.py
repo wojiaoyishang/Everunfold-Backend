@@ -40,11 +40,14 @@ class Room:
     def __init__(self, socket: ClientConnection, doc: Doc[Any], epoch: str) -> None:
         self.socket, self.doc, self.epoch = socket, doc, epoch
         self.seq = 0
+        self.revisions: list[tuple[int, int]] = []
 
     async def receive(self, kind: str, *, update_id: str | None = None) -> dict[str, Any]:
         async with asyncio.timeout(8):
             while True:
                 value = json.loads(await self.socket.recv())
+                if value["type"] == "revision":
+                    self.revisions.append((value["revision"], value["committed_seq"]))
                 if value["type"] in {"sync", "update"}:
                     self.doc.apply_update(base64.b64decode(value["payload"]))
                     self.seq = value["committed_seq"]
@@ -557,6 +560,7 @@ def test_collaboration_replicas_durable_ack_and_cutoff(tmp_path: Path) -> None:
                         == source_save.json()
                     )
                     await old.receive("update", update_id=save_sources["operation_id"])
+                    assert (3, 9) in old.revisions
                     assert [block.content for block in project(old.doc).body] == [markdown, html]
                     conflict = client.post(
                         api_a + PREFIX + "collaboration/commit",
