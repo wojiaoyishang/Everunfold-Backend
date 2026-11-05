@@ -105,13 +105,18 @@ class DraftRepository:
                 select(ContentDraft.translation_group_id).where(*filters).distinct().correlate(None)
             )
             group_filter = TranslationGroup.id.in_(matched)
-            total = await self.session.scalar(
-                select(func.count()).select_from(TranslationGroup).where(group_filter)
-            )
             selection = (
                 select(ContentDraft)
                 .join(TranslationGroup, TranslationGroup.source_id == ContentDraft.id)
                 .where(group_filter)
+                .where(
+                    ContentDraft.deleted_at.is_not(None)
+                    if query.status == "trash"
+                    else ContentDraft.deleted_at.is_(None)
+                )
+            )
+            total = await self.session.scalar(
+                select(func.count()).select_from(selection.subquery())
             )
         else:
             total = await self.session.scalar(

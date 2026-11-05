@@ -95,7 +95,7 @@ class Translations:
             .with_for_update()
         )
         if group is None or group.revision != payload.expected_revision:
-            raise AuthFailure(409, 40984, "语言关联已变化，请刷新后重试")
+            raise AuthFailure(409, 40990, "语言关联已变化，请刷新后重试")
         members = list(
             await self.session.scalars(
                 select(ContentDraft)
@@ -110,7 +110,7 @@ class Translations:
         refresh_public = False
         if action == "create" and isinstance(payload, TranslationCreate):
             if any(item.language == payload.language for item in members):
-                raise AuthFailure(409, 40984, "该语言版本已存在，请直接打开或恢复")
+                raise AuthFailure(409, 40990, "该语言版本已存在，请直接打开或恢复")
             if source.deleted_at:
                 raise AuthFailure(409, 40952, "请先恢复原文，再创建译文")
             await require_unlocked(self.session, source.id)
@@ -168,11 +168,12 @@ class Translations:
                 )
             )
         elif action == "link" and isinstance(payload, TranslationLink):
+            await require_unlocked(self.session, source.id)
             target = await self.session.get(ContentDraft, payload.target_id, with_for_update=True)
             if target is None or target.deleted_at or target.type_id != group.type_id:
-                raise AuthFailure(422, 42260, "请选择同类型且未回收的内容")
+                raise AuthFailure(422, 42290, "请选择同类型且未回收的内容")
             if any(item.language == target.language for item in members):
-                raise AuthFailure(409, 40984, "该语言版本已存在，请直接打开或恢复")
+                raise AuthFailure(409, 40990, "该语言版本已存在，请直接打开或恢复")
             await require_unlocked(self.session, target.id)
             old = await self.session.get(
                 TranslationGroup, target.translation_group_id, with_for_update=True
@@ -186,7 +187,7 @@ class Translations:
                 .limit(1)
             )
             if old is None or count is not None:
-                raise AuthFailure(409, 40984, "目标已有其他译文，请先解除原有关联")
+                raise AuthFailure(409, 40990, "目标已有其他译文，请先解除原有关联")
             target.translation_group_id = group.id
             target.translated_from_revision = source.published_revision or source.revision
             public_target = await self.session.get(Content, target.id)
@@ -197,8 +198,9 @@ class Translations:
             await self.session.delete(old)
         elif action == "unlink":
             if row.id == source.id:
-                raise AuthFailure(409, 40984, "请从译文入口解除关联，原文保留当前组")
+                raise AuthFailure(409, 40990, "请从译文入口解除关联，原文保留当前组")
             await require_unlocked(self.session, row.id)
+            await require_unlocked(self.session, source.id)
             new_group = TranslationGroup(
                 id=uuid4(), source_id=row.id, type_id=row.type_id, revision=1
             )
@@ -242,7 +244,7 @@ class Translations:
             await require_unlocked(self.session, row.id)
             row.translated_from_revision = source.published_revision or source.revision
         else:
-            raise AuthFailure(422, 42260, "不支持此语言操作")
+            raise AuthFailure(422, 42290, "不支持此语言操作")
         group.revision += 1
         await self.session.flush()
         if refresh_public:

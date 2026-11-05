@@ -1,0 +1,12 @@
+{
+  "m_48144f96c150": "Sign in first.",
+  "m_032540a57809": "This account cannot access administration.",
+  "m_d09be604634c": "Your session changed. Check your session and try again.",
+  "m_0c0ba92c92ce": "Your session changed. Refresh and try again.",
+  "m_3245d6d9e5a0": "Too many sign-in attempts. Try again later.",
+  "m_2e61b8d74d36": "Incorrect username or password",
+  "m_1701251f0508": "Too many requests. Try again later.",
+  "m_73b277b2a587": "This request origin is not allowed.",
+  "m_9404f9859dca": "Use a JSON request.",
+  "m_25cdd4251023": "Request payload is too large."
+}

@@ -8,7 +8,19 @@ LOCALES: tuple[Locale, ...] = ("zh-CN", "en")
 
 
 def supported_locale(value: str | None) -> Locale | None:
-    for entry in (value or "").split(","):
+    choices: list[tuple[float, int, str]] = []
+    for order, entry in enumerate((value or "").split(",")):
+        parts = entry.split(";")
+        quality = 1.0
+        try:
+            for parameter in parts[1:]:
+                if parameter.strip().startswith("q="):
+                    quality = float(parameter.strip()[2:])
+        except ValueError:
+            continue
+        if 0 < quality <= 1:
+            choices.append((-quality, order, parts[0]))
+    for _, _, entry in sorted(choices):
         code = entry.split(";", 1)[0].strip().replace("_", "-").lower()
         if code == "en" or code.startswith("en-"):
             return "en"

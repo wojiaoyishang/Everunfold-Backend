@@ -133,6 +133,31 @@ async def verify_versions(
         ("versions/merge/begin", {"branch_id": branch_id, "merge_id": str(uuid4())}),
     ]:
         assert post(path, payload, expected=409)["code"] in {40972, 40980}
+    group = post("translations/query", {})
+    assert (
+        post(
+            "translations/create",
+            {
+                "operation_id": str(uuid4()),
+                "expected_revision": group["revision"],
+                "language": "en",
+            },
+            expected=409,
+        )["code"]
+        == 40980
+    )
+    assert (
+        post(
+            "translations/trash",
+            {
+                "operation_id": str(uuid4()),
+                "expected_revision": group["revision"],
+                "members": {member["id"]: member["revision"] for member in group["members"]},
+            },
+            expected=409,
+        )["code"]
+        == 40980
+    )
     post("versions/merge/renew", {"merge_id": merge_id})
     post("versions/merge/cancel", {"merge_id": merge_id})
     assert post("versions/list", {})["lock"] is None

@@ -105,9 +105,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         headers = (
             {"Cache-Control": "private, no-store", "Pragma": "no-cache"}
             if request.url.path.startswith(("/v1/auth/", "/v1/admin/"))
-            else None
+            else {}
         )
-        return JSONResponseError(headers=headers)
+        locale = getattr(request.state, "locale", "zh-CN")
+        headers.update({"Content-Language": locale, "Vary": "X-Site-Locale, Accept-Language"})
+        return JSONResponseError(msg=i18n.t("core.error", locale=locale), headers=headers)
 
     @application.exception_handler(OSError)
     @application.exception_handler(SQLAlchemyError)

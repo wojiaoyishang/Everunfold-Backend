@@ -1,0 +1,11 @@
+{
+  "m_fd9706085752": "Site settings have not been initialized. Initialize the database first.",
+  "m_0c618d48247c": "Settings and icon data are too large. Reduce menu items or shorten links.",
+  "m_21126948f946": "Settings changed. Reload and merge your changes.",
+  "m_3f9e593958fe": "Apply template changes in the shortcode library.",
+  "m_7b4519294b96": "Node not found",
+  "m_5b99e362a892": "The node policy changed. Reload and merge your changes.",
+  "m_ca13d59b6255": "Choose a valid font.",
+  "m_062e88e7362c": "Media referenced by the shortcode is unavailable.",
+  "m_414269719fc7": "The same media cannot be both an image and a video."
+}

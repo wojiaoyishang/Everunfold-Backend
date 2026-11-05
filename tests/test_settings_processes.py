@@ -29,6 +29,7 @@ from tests.media_library_process_checks import check_media_library
 from tests.media_process_checks import check_media_management
 from tests.shortcodes_process_checks import check_shortcodes
 from tests.test_auth_http_processes import free_port, uvicorn_process
+from tests.translation_process_checks import check_translations
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -687,6 +688,7 @@ def test_settings_atomic_save_restart_delivery_and_crash_replay(tmp_path: Path) 
                 node_executable,
                 node_env,
             )
+            check_translations(client, csrf, cookies, api_a, api_b)
     finally:
         # Only this test's freshly created database is eligible for cleanup.
         assert database_name.startswith("everunfold_settings_test_")

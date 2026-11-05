@@ -15,8 +15,24 @@ def check_translations(
     def post(path: str, data: dict[str, Any]) -> Any:
         return client.post(prefix + path, json=data, headers=csrf)
 
+    def localized_health(index: int) -> None:
+        language = "en" if index % 2 else "zh-CN"
+        response = httpx.get(
+            (api_a if index % 3 else api_b) + "/health/live", headers={"X-Site-Locale": language}
+        )
+        assert response.status_code == 200
+        assert response.headers["content-language"] == language
+        assert response.json()["msg"] == ("Request successful" if language == "en" else "请求成功")
+
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        list(pool.map(localized_health, range(24)))
+
     assert (
-        httpx.post(api_a + prefix + "translations/query", json={"id": str(uuid4())}).status_code
+        httpx.post(
+            api_a + prefix + "translations/query",
+            json={"id": str(uuid4())},
+            headers={"Origin": "http://127.0.0.1:3000"},
+        ).status_code
         == 401
     )
     fields = {
@@ -94,6 +110,27 @@ def check_translations(
         == 0
     )
     assert post("detail", {"id": identity}).json()["data"]["body"] == original["body"]
+    removed = post(
+        "trash",
+        {"id": target["id"], "expected_revision": target["revision"], "operation_id": str(uuid4())},
+    )
+    assert removed.status_code == 200, removed.text
+    assert (
+        post("query", {"type_id": "article", "search": fields["title"], "status": "trash"}).json()[
+            "data"
+        ]["total"]
+        == 0
+    )
+    restored = post(
+        "restore",
+        {
+            "id": target["id"],
+            "expected_revision": removed.json()["data"]["revision"],
+            "operation_id": str(uuid4()),
+        },
+    )
+    assert restored.status_code == 200, restored.text
+    target = restored.json()["data"]
     for item, content in ((original, fields), (target, english_fields)):
         result = post(
             "publish",

@@ -7,8 +7,6 @@ from uuid import UUID, uuid4
 
 import httpx2 as httpx
 
-from tests.translation_process_checks import check_translations
-
 
 def check_content_drafts(
     client: Any, csrf: dict[str, str], cookies: Any, api_a: str, api_b: str, sql: Any
@@ -132,7 +130,6 @@ def check_content_drafts(
     )
     # Permission is checked on every request, including reads with an existing valid cookie.
     _check_media_history(client, csrf, post)
-    check_translations(client, csrf, cookies, api_a, api_b)
     asyncio.run(sql("UPDATE users SET role='user' WHERE username='admin'"))
     try:
         assert client.get(prefix + "types").status_code == 403

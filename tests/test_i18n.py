@@ -6,6 +6,7 @@ from fastapi.testclient import TestClient
 
 from app.core.config import Settings
 from app.core.i18n import current_locale, i18n
+from app.core.locales import resolve_locale
 from app.entrypoints.api import create_app
 
 
@@ -13,6 +14,15 @@ def test_locale_messages_and_missing_fallback(caplog: object) -> None:
     assert i18n.t("core.success", locale="en-US") == "Request successful"
     assert i18n.t("core.success", locale="zh-CN") == "请求成功"
     assert i18n.t("core.unknown", locale="en") == "core.unknown"
+    assert resolve_locale("en;q=0, zh-CN;q=0.5") == "zh-CN"
+    assert resolve_locale("zh-CN;q=0.2,en;q=0.9") == "en"
+    assert resolve_locale("en;q=invalid,zh-CN") == "zh-CN"
+    token = current_locale.set("en")
+    try:
+        assert i18n.message("请先登录") == "Sign in first."
+        assert i18n.message("文章标题等用户文字") == "文章标题等用户文字"
+    finally:
+        current_locale.reset(token)
 
 
 def test_concurrent_locale_contexts_are_isolated() -> None:

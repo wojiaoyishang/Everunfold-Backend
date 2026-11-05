@@ -85,6 +85,7 @@ class LocaleMiddleware:
             headers.get("Accept-Language")
         )
         token = current_locale.set(locale)
+        scope.setdefault("state", {})["locale"] = locale
 
         async def localized_send(message: Message) -> None:
             if message["type"] == "http.response.start":

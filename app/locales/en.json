@@ -1,5 +1,9 @@
 {
   "success": "Request successful",
   "failure": "Request failed",
-  "error": "Unable to process the request"
+  "error": "Unable to process the request",
+  "m_a3d1b587446e": "Invalid request parameters",
+  "m_6aee6a5f51ce": "Service temporarily unavailable",
+  "method_not_allowed": "Request method not allowed",
+  "request_rejected": "Request rejected"
 }

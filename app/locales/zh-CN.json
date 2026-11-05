@@ -1,5 +1,9 @@
 {
   "success": "请求成功",
   "failure": "请求失败",
-  "error": "处理失败"
+  "error": "处理失败",
+  "m_a3d1b587446e": "请求参数无效",
+  "m_6aee6a5f51ce": "服务暂不可用",
+  "method_not_allowed": "请求方法不允许",
+  "request_rejected": "请求被拒绝"
 }
