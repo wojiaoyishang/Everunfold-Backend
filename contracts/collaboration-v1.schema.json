@@ -129,6 +129,14 @@
             }
           ],
           "title": "Merged Revision"
+        },
+        "review_blocks": {
+          "items": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "title": "Review Blocks",
+          "type": "array"
         }
       },
       "required": [
@@ -266,6 +274,15 @@
           },
           "maxItems": 1000,
           "title": "Updates",
+          "type": "array"
+        },
+        "review_blocks": {
+          "items": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "maxItems": 128,
+          "title": "Review Blocks",
           "type": "array"
         }
       },

@@ -7774,6 +7774,14 @@
               }
             ],
             "title": "Merged Revision"
+          },
+          "review_blocks": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Review Blocks"
           }
         },
         "additionalProperties": false,
@@ -7908,6 +7916,15 @@
             "type": "array",
             "maxItems": 1000,
             "title": "Updates"
+          },
+          "review_blocks": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "maxItems": 128,
+            "title": "Review Blocks"
           }
         },
         "additionalProperties": false,

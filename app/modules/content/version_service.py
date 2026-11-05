@@ -29,6 +29,7 @@ from app.modules.content.version_schemas import (
     BranchLookup,
     BranchUpload,
     MergeBegin,
+    MergeConflict,
     MergeDetail,
     MergeLookup,
     MergeResolve,
@@ -95,6 +96,7 @@ async def branch_item(session: AsyncSession, item: DraftBranch) -> BranchItem:
         base_revision=item.base_revision,
         created_at=item.created_at,
         merged_revision=item.merged_revision,
+        review_blocks=item.base.get("_review_blocks", []),
     )
 
 
@@ -181,13 +183,15 @@ async def upload_branch(
         ):
             raise AuthFailure(409, 40983, "草稿分支编号已用于另一项修改")
     else:
+        review_blocks = [str(key) for key in payload.review_blocks]
         if payload.fields.access_password:
             raise AuthFailure(422, 42281, "文章密码不能保存在分支草稿中")
         if payload.base_branch_id is not None:
             parent = await session.get(DraftBranch, payload.base_branch_id)
             if parent is None or parent.draft_id != row.id:
                 raise AuthFailure(404, 40452, "找不到草稿的共同基线")
-            base = DraftFields.model_validate(parent.base)
+            base = branch_base(parent)
+            review_blocks = list(set(review_blocks) | set(parent.base.get("_review_blocks", [])))
         elif payload.base_epoch is not None and payload.base_seq is not None:
             doc = decode(await state_at(session, row.id, payload.base_epoch, payload.base_seq))
             # Reconcile accepted operations whose ACK was lost, without importing other
@@ -225,6 +229,9 @@ async def upload_branch(
         await editor_media(
             session, config, fields.model_dump_json(), fields.settings or EditorSettings()
         )
+        base_snapshot = safe_fields(base).model_dump(mode="json")
+        if review_blocks:
+            base_snapshot["_review_blocks"] = review_blocks
         branch = DraftBranch(
             id=payload.branch_id,
             draft_id=row.id,
@@ -233,7 +240,7 @@ async def upload_branch(
             base_epoch=payload.base_epoch,
             base_seq=payload.base_seq,
             base_revision=payload.base_revision,
-            base=safe_fields(base).model_dump(mode="json"),
+            base=base_snapshot,
             fields=fields.model_dump(mode="json"),
             digest=digest,
             created_at=datetime.now(UTC),
@@ -246,7 +253,7 @@ async def upload_branch(
         await session.commit()
     return BranchDetail(
         branch=await branch_item(session, branch),
-        base=DraftFields.model_validate(branch.base),
+        base=branch_base(branch),
         fields=DraftFields.model_validate(branch.fields),
     )
 
@@ -260,7 +267,7 @@ async def read_branch(
         raise AuthFailure(404, 40452, "分支草稿不存在或已删除")
     result = BranchDetail(
         branch=await branch_item(session, branch),
-        base=DraftFields.model_validate(branch.base),
+        base=branch_base(branch),
         fields=DraftFields.model_validate(branch.fields),
     )
     if remove:
@@ -272,6 +279,12 @@ async def read_branch(
         branch.deleted_at = datetime.now(UTC)
         await session.commit()
     return result
+
+
+def branch_base(branch: DraftBranch) -> DraftFields:
+    return DraftFields.model_validate(
+        {key: value for key, value in branch.base.items() if key != "_review_blocks"}
+    )
 
 
 def merge_detail(item: DraftMerge) -> MergeDetail:
@@ -396,6 +409,27 @@ async def begin_merge(session: AsyncSession, actor: User, payload: MergeBegin) -
         branch.fields.model_dump(mode="json"),
         remote.model_dump(mode="json"),
     )
+    for block_id in branch.branch.review_blocks:
+        key = str(block_id)
+        if any(
+            conflict.path == ["body"] or conflict.path[:2] == ["body", key]
+            for conflict in conflicts
+        ):
+            continue
+        versions = [
+            {str(block.id): block.model_dump(mode="json") for block in fields.body}
+            for fields in (branch.base, branch.fields, remote)
+        ]
+        conflicts.append(
+            MergeConflict(
+                key="body/" + key,
+                path=["body", key],
+                kind="block",
+                base=versions[0].get(key),
+                local=versions[1].get(key),
+                remote=versions[2].get(key),
+            )
+        )
     DraftFields.model_validate(result)
     now = datetime.now(UTC)
     item = DraftMerge(

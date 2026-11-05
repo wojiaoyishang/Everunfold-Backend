@@ -1,9 +1,9 @@
 """Private version, detached branch and three-way merge contract."""
 
-from typing import Literal
+from typing import Literal, Self
 from uuid import UUID
 
-from pydantic import AwareDatetime, Field, JsonValue
+from pydantic import AwareDatetime, Field, JsonValue, model_validator
 
 from app.core.schemas import PublicModel
 from app.modules.content.draft_schemas import DraftFields, DraftLookup
@@ -56,6 +56,15 @@ class BranchUpload(DraftLookup):
     base_branch_id: UUID | None = None
     fields: DraftFields
     updates: list[BranchUpdate] = Field(default_factory=list, max_length=1000)
+    review_blocks: list[UUID] = Field(default_factory=list, max_length=128)
+
+    @model_validator(mode="after")
+    def bounded_updates(self) -> Self:
+        if sum(len(update.payload) for update in self.updates) > 5_600_000:
+            raise ValueError("未确认更新过多，请保留并分批恢复草稿")
+        if self.fields.access_password:
+            raise ValueError("文章密码不能保存在分支草稿中")
+        return self
 
 
 class BranchLookup(DraftLookup):
@@ -71,6 +80,7 @@ class BranchItem(PublicModel):
     base_seq: int | None
     created_at: AwareDatetime
     merged_revision: int | None
+    review_blocks: list[UUID] = Field(default_factory=list)
 
 
 class BranchDetail(PublicModel):
