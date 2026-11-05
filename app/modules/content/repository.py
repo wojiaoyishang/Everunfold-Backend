@@ -45,6 +45,7 @@ class ContentQuery:
     tag: str | None = None
     language: str | None = None
     all_languages: bool = False
+    default_language: str = "zh-CN"
 
 
 class ContentRepository:
@@ -80,7 +81,7 @@ class ContentRepository:
                 partition_by=func.coalesce(Content.translation_group_id, Content.id),
                 order_by=(
                     case((Content.language == query.language, 0), else_=1),
-                    case((Content.language == "zh-CN", 0), else_=1),
+                    case((Content.language == query.default_language, 0), else_=1),
                     Content.published_at.desc(),
                     Content.id,
                 ),
@@ -132,7 +133,10 @@ class ContentRepository:
 
     async def taxonomies(self, kind: TaxonomyKind | None = None) -> list[tuple[Taxonomy, int]]:
         statement = (
-            select(Taxonomy, func.count(Content.id))
+            select(
+                Taxonomy,
+                func.count(func.distinct(func.coalesce(Content.translation_group_id, Content.id))),
+            )
             .join(ContentTaxonomy, ContentTaxonomy.taxonomy_id == Taxonomy.id)
             .join(Content, Content.id == ContentTaxonomy.content_id)
             .where(*public_conditions())

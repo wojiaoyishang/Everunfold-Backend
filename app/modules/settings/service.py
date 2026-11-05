@@ -12,7 +12,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
 from app.modules.auth.service import AuthFailure
-from app.modules.content.models import SiteSettings
+from app.modules.content.draft_models import ContentDraft
+from app.modules.content.models import Content, SiteSettings
 from app.modules.media.locking import lock_references
 from app.modules.media.service import MediaService
 from app.modules.settings.defaults import public_settings, stored_settings
@@ -222,6 +223,18 @@ class SettingsService:
             raise AuthFailure(409, 40920, "设置已被修改，请重新读取后合并你的更改")
         payload.value = await self.resolve(payload.value)
         before = await self.resolve(public_settings(record.data))
+        removed_languages = {item.code for item in before.site.language_catalog.languages} - {
+            item.code for item in payload.value.site.language_catalog.languages
+        }
+        if removed_languages and (
+            await self.session.scalar(
+                select(ContentDraft.id).where(ContentDraft.language.in_(removed_languages)).limit(1)
+            )
+            or await self.session.scalar(
+                select(Content.id).where(Content.language.in_(removed_languages)).limit(1)
+            )
+        ):
+            raise AuthFailure(422, 42292, "该语言仍有文章或说说，请保留语言或改为禁用")
         if not shortcode_write and before.shortcodes != payload.value.shortcodes:
             raise AuthFailure(422, 42280, "请在短代码库中应用模板修改")
         if before != payload.value:

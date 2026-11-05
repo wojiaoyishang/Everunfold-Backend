@@ -33,6 +33,7 @@ from app.modules.content.merge_lock import require_unlocked
 from app.modules.content.models import Content
 from app.modules.content.publication import ContentPublication
 from app.modules.media.locking import lock_references
+from app.modules.settings.languages import require_language
 from app.modules.settings.models import SettingsAudit
 
 
@@ -109,6 +110,7 @@ class Translations:
         publication = ContentPublication(self.session, self.config)
         refresh_public = False
         if action == "create" and isinstance(payload, TranslationCreate):
+            await require_language(self.session, payload.language)
             if any(item.language == payload.language for item in members):
                 raise AuthFailure(409, 40990, "该语言版本已存在，请直接打开或恢复")
             if source.deleted_at:

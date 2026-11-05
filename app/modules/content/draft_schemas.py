@@ -7,12 +7,12 @@ from uuid import UUID
 
 from pydantic import Field, model_validator
 
-from app.core.locales import Locale
 from app.core.schemas import PublicModel, PublicResponse
 from app.modules.content.editor_schema import EditorCatalog, EditorSettings, EditorTermCreate
 from app.modules.content.publication_schemas import ContentDelivery, ContentSyncState
 from app.modules.content.schemas import MediaURL
 from app.modules.content.type_registry import ContentTypeDefinition
+from app.modules.settings.languages import LanguageCatalog, LanguageCode
 
 
 def has_upload_placeholder(source: str) -> bool:
@@ -49,7 +49,7 @@ class DraftQuery(PublicModel):
     status: Literal["all", "draft", "published", "trash"] = "all"
     page: int = Field(default=1, ge=1, le=100_000)
     page_size: int = Field(default=15, ge=1, le=50)
-    language: Locale | None = None
+    language: LanguageCode | None = None
     grouped: bool = True
 
 
@@ -61,7 +61,7 @@ class DraftCreate(PublicModel):
     operation_id: UUID
     type_id: str = Field(min_length=1, max_length=64)
     fields: DraftFields
-    language: Locale = "zh-CN"
+    language: LanguageCode | None = None
 
 
 class DraftMutation(DraftLookup):
@@ -136,7 +136,7 @@ class TranslationMutation(PublicModel):
 
 
 class TranslationCreate(TranslationMutation):
-    language: Locale
+    language: LanguageCode
     copy_source: bool = False
 
 
@@ -145,7 +145,7 @@ class TranslationLink(TranslationMutation):
 
 
 class TranslationGroupMutation(TranslationMutation):
-    members: dict[UUID, int] = Field(min_length=1, max_length=32)
+    members: dict[UUID, int] = Field(min_length=1)
 
 
 class ContentTypeCatalog(PublicModel):
@@ -162,6 +162,7 @@ class ContentActions(PublicModel):
 
 
 class ContentAdminContract(PublicModel):
+    languages: PublicResponse[LanguageCatalog]
     actions: PublicResponse[ContentActions]
     create_category: EditorTermCreate
     editor_catalog: PublicResponse[EditorCatalog]

@@ -41,7 +41,7 @@ class ContentPublication:
         path = (
             settings.path
             or draft.public_path
-            or await initial_path(self.session, draft.title, draft.id)
+            or await initial_path(self.session, draft.title, draft.id, language=draft.language)
         )
         if await self.session.scalar(
             select(Content.id).where(Content.path == path, Content.id != draft.id)

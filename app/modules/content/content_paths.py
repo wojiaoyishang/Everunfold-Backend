@@ -10,22 +10,29 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.modules.content.draft_models import ContentDraft
 from app.modules.content.editor_schema import content_path
 from app.modules.content.models import Content
+from app.modules.settings.languages import language_catalog
 
 
-def title_path(title: str, identity: UUID, *, language: str = "zh-CN") -> str:
+def title_path(
+    title: str, identity: UUID, *, language: str = "zh-CN", prefix: str | None = None
+) -> str:
     slug = re.sub(
         r"[^\w-]+", "-", unicodedata.normalize("NFC", title).strip(), flags=re.UNICODE
     ).strip("-_")[:160]
     if not slug:
         slug = str(identity)
-    prefix = "/en" if language == "en" else ""
+    prefix = prefix if prefix is not None else "" if language == "zh-CN" else "/" + language.lower()
     return content_path(f"{prefix}/{slug}.html")
 
 
 async def initial_path(
     session: AsyncSession, title: str, identity: UUID, *, language: str = "zh-CN"
 ) -> str:
-    candidate = title_path(title, identity, language=language)
+    catalog = await language_catalog(session)
+    entry = next((item for item in catalog.languages if item.code == language), None)
+    candidate = title_path(
+        title, identity, language=language, prefix=entry.prefix if entry else None
+    )
     root = candidate[:-5]
     counter = 1
     while True:

@@ -7,7 +7,6 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.locales import Locale, resolve_locale
 from app.core.runtime import Runtime
 from app.modules.content.repository import ContentQuery, ContentRepository
 from app.modules.content.schemas import (
@@ -23,6 +22,12 @@ from app.modules.content.schemas import (
     TaxonomyList,
 )
 from app.modules.content.service import PublicContentService
+from app.modules.settings.languages import (
+    LanguageCatalog,
+    LanguageCode,
+    language_catalog,
+    preferred_language,
+)
 
 router = APIRouter(
     prefix="/v1",
@@ -56,6 +61,11 @@ def get_service(session: Annotated[AsyncSession, Depends(get_session)]) -> Publi
 Service = Annotated[PublicContentService, Depends(get_service)]
 
 
+@router.get("/languages", response_model=PublicResponse[LanguageCatalog])
+async def languages(service: Service) -> PublicResponse[LanguageCatalog]:
+    return PublicResponse(data=await language_catalog(service.repository.session))
+
+
 @router.get("/site", response_model=PublicResponse[SiteDTO])
 async def site(service: Service) -> PublicResponse[SiteDTO]:
     return PublicResponse(data=await service.site())
@@ -71,11 +81,12 @@ async def contents(
     kind: ContentKind | None = None,
     category: Annotated[str | None, Query(max_length=200)] = None,
     tag: Annotated[str | None, Query(max_length=200)] = None,
-    language: Locale | None = None,
+    language: LanguageCode | None = None,
     all_languages: bool = False,
 ) -> PublicResponse[Page[ContentSummary]]:
     if page_size > runtime_from_request(request).settings.http.max_page_size:
         raise HTTPException(status_code=422)
+    catalog = await language_catalog(service.repository.session)
     query = ContentQuery(
         page,
         page_size,
@@ -84,10 +95,11 @@ async def contents(
         category,
         tag,
         language
-        or resolve_locale(
-            request.headers.get("X-Site-Locale") or request.headers.get("Accept-Language")
+        or preferred_language(
+            catalog, request.headers.get("X-Site-Locale") or request.headers.get("Accept-Language")
         ),
         all_languages,
+        catalog.default_code,
     )
     return PublicResponse(data=await service.list_contents(query))
 

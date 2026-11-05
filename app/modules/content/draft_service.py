@@ -39,6 +39,7 @@ from app.modules.content.publication import ContentPublication
 from app.modules.content.type_registry import ContentTypeDefinition, content_types
 from app.modules.media.locking import lock_references
 from app.modules.media.models import MediaAsset
+from app.modules.settings.languages import require_language
 
 Action = Literal["create", "save", "trash", "restore", "publish", "withdraw"]
 
@@ -132,9 +133,10 @@ class DraftService:
                 raise AuthFailure(409, 40972, "此草稿已启用协同，请使用协同编辑器保存")
         now = datetime.now(UTC)
         if isinstance(payload, DraftCreate):
+            selected_language = await require_language(self.session, payload.language)
             row = ContentDraft(
                 id=uuid4(),
-                language=payload.language,
+                language=selected_language.code,
                 type_id=payload.type_id,
                 title="",
                 excerpt="",

@@ -11,7 +11,7 @@ from app.modules.shortcodes.registry import builtin_catalog
 def build_schema() -> dict[str, Any]:
     schema = SettingsContract.model_json_schema()
     schema["$schema"] = "http://json-schema.org/draft-07/schema#"
-    schema["x-everunfold-contract-version"] = "1.9.0"
+    schema["x-everunfold-contract-version"] = "1.10.0"
     schema["x-everunfold-shortcodes"] = [item.model_dump() for item in builtin_catalog()]
     schema["x-everunfold-operations"] = [
         {

@@ -37,6 +37,7 @@ def check_translations(
     )
     fields = {
         "title": "Language group transaction proof",
+        "settings": {"categories": ["语言分组验收"]},
         "body": [{"id": str(uuid4()), "type": "markdown", "content": "独立中文正文"}],
     }
     original = post(
@@ -146,6 +147,8 @@ def check_translations(
         "data"
     ]
     assert public["language"] == "en" and len(public["translations"]) == 2
+    terms = client.get("/v1/taxonomies", params={"kind": "category"}).json()["data"]["items"]
+    assert next(item["count"] for item in terms if item["name"] == "语言分组验收") == 1
     assert all(
         set(item) == {"id", "language", "path", "access", "is_original"}
         for item in public["translations"]
@@ -181,6 +184,76 @@ def check_translations(
     )
     assert relinked.status_code == 200, relinked.text
     group = relinked.json()["data"]
+    state = client.get("/v1/admin/settings").json()["data"]
+    settings_value = state["value"]
+    settings_value["site"]["language_catalog"]["languages"].append(
+        {"code": "ja", "name": "日本語", "prefix": "/ja", "enabled": True, "ui_locale": "en"}
+    )
+    configured = client.patch(
+        "/v1/admin/settings",
+        json={"expected_revision": state["revision"], "value": settings_value},
+        headers=csrf,
+    )
+    assert configured.status_code == 200, configured.text
+    assert any(
+        item["code"] == "ja" for item in client.get("/v1/languages").json()["data"]["languages"]
+    )
+    third = post(
+        "translations/create",
+        {
+            "id": identity,
+            "expected_revision": group["revision"],
+            "operation_id": str(uuid4()),
+            "language": "ja",
+            "copy_source": True,
+        },
+    )
+    assert third.status_code == 200, third.text
+    group = third.json()["data"]
+    assert len(group["members"]) == 3
+    japanese = next(item for item in group["members"] if item["language"] == "ja")
+    assert (
+        post("detail", {"id": japanese["id"]}).json()["data"]["settings"]["path"].startswith("/ja/")
+    )
+    listed = post(
+        "query", {"type_id": "article", "language": "ja", "search": fields["title"]}
+    ).json()["data"]
+    assert listed["total"] == 1 and listed["items"][0]["id"] == identity
+    state = configured.json()["data"]
+    settings_value = state["value"]
+    settings_value["site"]["language_catalog"]["languages"] = [
+        item
+        for item in settings_value["site"]["language_catalog"]["languages"]
+        if item["code"] != "ja"
+    ]
+    rejected = client.patch(
+        "/v1/admin/settings",
+        json={"expected_revision": state["revision"], "value": settings_value},
+        headers=csrf,
+    )
+    assert rejected.status_code == 422 and rejected.json()["code"] == 42292
+    settings_value = state["value"]
+    settings_value["site"]["language_catalog"]["languages"].append(
+        {"code": "ja", "name": "日本語", "prefix": "/ja", "enabled": False, "ui_locale": "en"}
+    )
+    disabled = client.patch(
+        "/v1/admin/settings",
+        json={"expected_revision": state["revision"], "value": settings_value},
+        headers=csrf,
+    )
+    assert disabled.status_code == 200, disabled.text
+    assert (
+        post(
+            "create",
+            {
+                "operation_id": str(uuid4()),
+                "type_id": "article",
+                "language": "ja",
+                "fields": {"title": "Blocked disabled language", "body": []},
+            },
+        ).status_code
+        == 422
+    )
     mutation = {
         "id": identity,
         "operation_id": str(uuid4()),

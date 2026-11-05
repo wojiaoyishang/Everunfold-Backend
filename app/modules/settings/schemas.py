@@ -27,6 +27,7 @@ from app.modules.media.schemas import (
     MediaUpdate,
     MediaUpload,
 )
+from app.modules.settings.languages import LanguageCatalog
 from app.modules.shortcodes.schemas import (
     PreviewShortcode,
     PublicShortcode,
@@ -80,6 +81,7 @@ MediaReference = r"^(?:|media:[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})$"
 
 
 class SitePreferences(SettingsModel):
+    language_catalog: LanguageCatalog = Field(default_factory=LanguageCatalog)
     name: str = Field(min_length=1, max_length=120)
     description: str = Field(max_length=300)
     author: str = Field(min_length=1, max_length=100)
