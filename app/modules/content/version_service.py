@@ -177,7 +177,14 @@ async def upload_branch(
         ):
             raise AuthFailure(409, 40983, "草稿分支编号已用于另一项修改")
     else:
-        if payload.base_epoch is not None and payload.base_seq is not None:
+        if payload.fields.access_password:
+            raise AuthFailure(422, 42281, "文章密码不能保存在分支草稿中")
+        if payload.base_branch_id is not None:
+            parent = await session.get(DraftBranch, payload.base_branch_id)
+            if parent is None or parent.draft_id != row.id:
+                raise AuthFailure(404, 40452, "找不到草稿的共同基线")
+            base = DraftFields.model_validate(parent.base)
+        elif payload.base_epoch is not None and payload.base_seq is not None:
             doc = decode(await state_at(session, row.id, payload.base_epoch, payload.base_seq))
             # Reconcile accepted operations whose ACK was lost, without importing other
             # users' intervening changes into the local side or counting our edit twice.
@@ -205,7 +212,7 @@ async def upload_branch(
             base = project(doc, EditorSettings.model_validate(row.editor_settings))
         elif payload.base_revision is not None:
             old = await session.get(DraftRevision, (row.id, payload.base_revision))
-            if old is None or old.deleted_at:
+            if old is None:
                 raise AuthFailure(404, 40451, "历史草稿不存在或已删除")
             base = historical_fields(old)
         else:

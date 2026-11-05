@@ -7788,6 +7788,18 @@
             ],
             "title": "Base Revision"
           },
+          "base_branch_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base Branch Id"
+          },
           "fields": {
             "$ref": "#/components/schemas/DraftFields"
           },

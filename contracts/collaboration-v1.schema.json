@@ -237,6 +237,19 @@
           "default": null,
           "title": "Base Revision"
         },
+        "base_branch_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Base Branch Id"
+        },
         "fields": {
           "$ref": "#/$defs/DraftFields"
         },

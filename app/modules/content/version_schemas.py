@@ -50,6 +50,7 @@ class BranchUpload(DraftLookup):
     base_epoch: UUID | None = None
     base_seq: int | None = Field(default=None, ge=0)
     base_revision: int | None = Field(default=None, ge=1)
+    base_branch_id: UUID | None = None
     fields: DraftFields
     updates: list[BranchUpdate] = Field(default_factory=list, max_length=1000)
 
