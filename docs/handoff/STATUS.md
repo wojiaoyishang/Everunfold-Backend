@@ -1,5 +1,11 @@
 # 后端交接状态
 
+## 最新交付：工作区重启后启动脚本（2026-11-05，Asia/Shanghai）
+
+- 新增可执行`deploy/start-test.sh`，工作区`/workspace/start-everunfold.sh`以相对软链接调用；复用原Supervisor，热态重复执行不重启已有服务。 默认等待120秒，核对六进程、四个0.0.0.0端口和API/代理健康/后台HTTP200；支持仅检查、帮助、等待时限和并发启动锁，脚本不写密码/实际公开IP。
+- Bash语法、从工作区执行、重复启动/仅检查/帮助、无效输入及持锁拒绝均通过；六进程PID保持，真实健康和页面200。未停现有Supervisor或重启整个容器，冷启动未声称完成；本轮未重复业务/P0测试，文章及WordPress未改。
+- [运行说明5](../development/container-deployment.md)、[验收补充](container-deployment-verification.md)与哈希双仓库同步；服务保留，仅本地提交，由用户推送。
+
 ## 最新交付：前台预览信息对齐（2026-11-05，Asia/Shanghai）
 
 - 本轮只同步前台预览栏对齐的共同验收和截图；后端业务、API、协同通知与实际配置未变。前端将标题/修订按基线对齐，图标独立居中。
