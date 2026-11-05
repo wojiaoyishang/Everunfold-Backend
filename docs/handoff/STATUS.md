@@ -1,5 +1,12 @@
 # 后端交接状态
 
+## 当前运行：宿主机地址恢复（2026-11-05，Asia/Shanghai）
+
+- 用户已配置端口映射，实际公开BACKEND_BASE_URL、前端PUBLIC_SITE_URL及web-main公开地址改为http://172.16.3.2:3000。服务端API8001/内部接收器3001仍为回环，精确Origin与Next开发允许主机原已包含该地址；HTTP、0.0.0.0四监听器保留，六进程重启后RUNNING。
+- 预检1份当前已发布投影含旧回环媒体URL，只更新media_urls/cover_url派生前缀和public_generation，保留标题/正文/编辑属性/时间/草稿修订4，生成内容release8并同事务记录审计/Outbox，节点已应用。设置走原retry，修订1已应用；历史release不改写，没有从未发布草稿重新发布。
+- 宿主机真实HTTP主页/登录/健康、精确Origin/CSRF/admin认证、7份媒体、canonical/HTML无旧回环公开地址、只读协同WS sync通过；详见[验收](remote-address-verification.md)。只改配置和派生投影，未重复完整故障P0/211项前端检查，无代码/依赖/契约变化。
+- 实际配置及投影更新前备份、一次性脚本和结果在忽略目录var/container/url-change-20261105，均不提交；指南3/验收/公共索引与哈希已双仓库同步。WordPress未改，仅本地Git提交，由用户推送。
+
 ## 最新交付：Markdown源码语法高亮（2026-11-04）
 
 - 本轮只改前端源码编辑配色与代码围栏按语言高亮：共享CodeEditor区分标题/强调/链接/代码/列表引用/语法符号等，浅色、深色和系统深色使用后台语义变量。原代码窗口与围栏复用既有语言清单/别名及加载缓存，未知语法保留普通文本。
