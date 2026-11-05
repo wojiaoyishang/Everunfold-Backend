@@ -116,6 +116,8 @@ class ShortcodeService:
             row = await self.locked(payload.id, payload.expected_revision)
             if row.name != payload.value.name:
                 raise AuthFailure(422, 42280, "调用名称创建后不能修改")
+            if row.applied_revision is not None and row.data.get("kind") != payload.value.kind:
+                raise AuthFailure(422, 42280, "已应用模板的调用类型不能修改")
             if row.data != payload.value.model_dump():
                 row.revision += 1
                 row.data = payload.value.model_dump()
@@ -127,7 +129,7 @@ class ShortcodeService:
             if len(rows) >= 100:
                 raise AuthFailure(422, 42280, "最多保存 100 个自定义短代码")
             if any(row.name == payload.value.name for row in rows):
-                raise AuthFailure(409, 40980, "调用名称已存在")
+                raise AuthFailure(409, 40981, "调用名称已存在")
             row = ShortcodeDefinition(
                 id=uuid.UUID(compiled.id),
                 name=payload.value.name,

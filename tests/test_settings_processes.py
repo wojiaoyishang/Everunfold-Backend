@@ -27,6 +27,7 @@ from tests.content_draft_process_checks import check_content_drafts
 from tests.content_publication_process_checks import check_content_publication
 from tests.media_library_process_checks import check_media_library
 from tests.media_process_checks import check_media_management
+from tests.shortcodes_process_checks import check_shortcodes
 from tests.test_auth_http_processes import free_port, uvicorn_process
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -668,6 +669,23 @@ def test_settings_atomic_save_restart_delivery_and_crash_replay(tmp_path: Path) 
             assert (
                 json.loads(latest.read_text(encoding="utf-8"))["value"]["icon_urls"][icon["id"]]
                 == icon["url"]
+            )
+            check_shortcodes(
+                client,
+                csrf,
+                cookies,
+                api_a,
+                api_b,
+                sql,
+                wait_for,
+                node_id,
+                epoch,
+                tmp_path / "applied",
+                f"http://127.0.0.1:{receiver_port}",
+                token,
+                frontend,
+                node_executable,
+                node_env,
             )
     finally:
         # Only this test's freshly created database is eligible for cleanup.

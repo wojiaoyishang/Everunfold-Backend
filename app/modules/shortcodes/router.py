@@ -3,7 +3,7 @@
 from fastapi import APIRouter
 
 from app.core.responses import JSONResponseSuccess
-from app.core.schemas import PublicResponse
+from app.core.schemas import ErrorResponse, PublicResponse
 from app.modules.settings.router import Authorized
 from app.modules.shortcodes.schemas import (
     PreviewShortcode,
@@ -16,7 +16,13 @@ from app.modules.shortcodes.schemas import (
 )
 from app.modules.shortcodes.service import ShortcodeService
 
-router = APIRouter(prefix="/v1/admin/shortcodes", tags=["shortcodes"])
+router = APIRouter(
+    prefix="/v1/admin/shortcodes",
+    tags=["shortcodes"],
+    responses={
+        status: {"model": ErrorResponse} for status in (401, 403, 404, 409, 413, 415, 422, 500, 503)
+    },
+)
 
 
 def service(ctx: Authorized) -> ShortcodeService:
