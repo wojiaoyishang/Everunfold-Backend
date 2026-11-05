@@ -7,6 +7,7 @@ from pydantic import AwareDatetime, Field, JsonValue
 
 from app.core.schemas import PublicModel
 from app.modules.content.draft_schemas import DraftFields, DraftLookup
+from app.modules.content.schemas import MediaURL
 
 
 class TicketRequest(DraftLookup):
@@ -38,6 +39,7 @@ class VersionItem(PublicModel):
 class VersionDetail(PublicModel):
     version: VersionItem
     fields: DraftFields
+    media_urls: dict[str, MediaURL] = Field(default_factory=dict)
 
 
 class BranchUpdate(PublicModel):
@@ -75,6 +77,7 @@ class BranchDetail(PublicModel):
     branch: BranchItem
     base: DraftFields
     fields: DraftFields
+    media_urls: dict[str, MediaURL] = Field(default_factory=dict)
 
 
 class MergeConflict(PublicModel):
@@ -155,6 +158,7 @@ class MergeDetail(PublicModel):
     conflicts: list[MergeConflict]
     resolved: list[str]
     result_revision: int | None
+    media_urls: dict[str, MediaURL] = Field(default_factory=dict)
 
 
 class VersionDeleted(PublicModel):

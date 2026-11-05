@@ -47,6 +47,13 @@
         },
         "fields": {
           "$ref": "#/$defs/DraftFields"
+        },
+        "media_urls": {
+          "additionalProperties": {
+            "$ref": "#/$defs/MediaURL"
+          },
+          "title": "Media Urls",
+          "type": "object"
         }
       },
       "required": [
@@ -1065,6 +1072,13 @@
             }
           ],
           "title": "Result Revision"
+        },
+        "media_urls": {
+          "additionalProperties": {
+            "$ref": "#/$defs/MediaURL"
+          },
+          "title": "Media Urls",
+          "type": "object"
         }
       },
       "required": [
@@ -2180,6 +2194,13 @@
         },
         "fields": {
           "$ref": "#/$defs/DraftFields"
+        },
+        "media_urls": {
+          "additionalProperties": {
+            "$ref": "#/$defs/MediaURL"
+          },
+          "title": "Media Urls",
+          "type": "object"
         }
       },
       "required": [

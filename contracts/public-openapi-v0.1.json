@@ -7692,6 +7692,13 @@
           },
           "fields": {
             "$ref": "#/components/schemas/DraftFields"
+          },
+          "media_urls": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/MediaURL"
+            },
+            "type": "object",
+            "title": "Media Urls"
           }
         },
         "additionalProperties": false,
@@ -10692,6 +10699,13 @@
               }
             ],
             "title": "Result Revision"
+          },
+          "media_urls": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/MediaURL"
+            },
+            "type": "object",
+            "title": "Media Urls"
           }
         },
         "additionalProperties": false,
@@ -13574,6 +13588,13 @@
           },
           "fields": {
             "$ref": "#/components/schemas/DraftFields"
+          },
+          "media_urls": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/MediaURL"
+            },
+            "type": "object",
+            "title": "Media Urls"
           }
         },
         "additionalProperties": false,
