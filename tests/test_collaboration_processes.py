@@ -576,6 +576,9 @@ def test_collaboration_replicas_durable_ack_and_cutoff(tmp_path: Path) -> None:
                         "committed_seq"
                     ] == 9
                     # Session revocation closes idle sockets, and prevents fresh tickets.
+                    from tests.version_process_checks import verify_versions
+
+                    await verify_versions(client, csrf, api_a, api_b, sql, connections)
                     await sql("UPDATE users SET active=false WHERE username='admin'")
                     revoked = await b.receive("error")
                     assert revoked["code"] == 40101

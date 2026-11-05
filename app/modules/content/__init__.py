@@ -13,6 +13,7 @@ def router_init(ctx: object) -> dict[str, Any]:
     from app.modules.content.draft_router import router as drafts_router
     from app.modules.content.reader_preview import router as preview_router
     from app.modules.content.router import router
+    from app.modules.content.version_router import router as version_router
 
     assembled = APIRouter()
     assembled.include_router(router)
@@ -21,4 +22,5 @@ def router_init(ctx: object) -> dict[str, Any]:
     assembled.include_router(drafts_router)
     assembled.include_router(access_router)
     assembled.include_router(collaboration_router)
+    assembled.include_router(version_router)
     return {"id": "content", "version": "0.1.0", "router": assembled}

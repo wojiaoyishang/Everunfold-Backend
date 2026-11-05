@@ -29,6 +29,7 @@ from app.modules.content.collaboration.service import (
 from app.modules.content.collaboration.source_leases import source_states
 from app.modules.content.editor_schema import EditorSettings
 from app.modules.content.editor_service import editor_media
+from app.modules.content.merge_lock import lock_state
 
 logger = logging.getLogger(__name__)
 COLORS = ("#4869b0", "#397d66", "#a65376", "#9c6b33", "#7a57b1")
@@ -100,6 +101,7 @@ async def serve(socket: WebSocket, draft_id: UUID) -> None:
             draft = await draft_row(session, draft_id)
             assert document is not None
             seq, revision = document.committed_seq, draft.revision
+            epoch = document.epoch
             last_references = document.media_ids
             fields = project(
                 decode(document.state), EditorSettings.model_validate(draft.editor_settings)
@@ -144,9 +146,16 @@ async def serve(socket: WebSocket, draft_id: UUID) -> None:
                     continue
                 update = ClientUpdate.model_validate(value)
                 async with runtime.database.session_factory() as session:
-                    committed = await accept_update(
-                        session, runtime.settings, draft_id, session_hash, update
-                    )
+                    try:
+                        committed = await accept_update(
+                            session, runtime.settings, draft_id, session_hash, update
+                        )
+                    except AuthFailure as exc:
+                        if exc.code not in {40970, 40980}:
+                            raise
+                        await session.rollback()
+                        await send({"type": "error", "code": exc.code, "msg": exc.message})
+                        continue
                 # This point is reachable only after PostgreSQL commit; duplicates re-ACK same seq.
                 await send(
                     {"type": "ack", "update_id": str(update.update_id), "committed_seq": committed}
@@ -166,13 +175,45 @@ async def serve(socket: WebSocket, draft_id: UUID) -> None:
                     )
 
         async def outgoing() -> None:
-            nonlocal seq, revision, last_references
+            nonlocal seq, revision, last_references, epoch
             last_presence = 0.0
             last_sources = ""
+            last_control = ""
+            last_checkpoint = time.monotonic()
             while True:
                 async with runtime.database.session_factory() as session:
                     await authorize(session, session_hash)
                     draft = await draft_row(session, draft_id)
+                    head = await session.get(CollaborationDocument, draft_id)
+                    assert head is not None
+                    locked = await lock_state(session, draft_id)
+                    control = json.dumps(
+                        locked.model_dump(mode="json") if locked else None, sort_keys=True
+                    )
+                    # Reset first on generation changes. An old client must never replay
+                    # its outbox into the merged head, even if it missed the freeze frame.
+                    if head.epoch != epoch:
+                        epoch, seq = head.epoch, head.committed_seq
+                        await send(
+                            {
+                                "type": "reset",
+                                "epoch": str(epoch),
+                                "committed_seq": seq,
+                                "payload": base64.b64encode(head.state).decode(),
+                                "revision": draft.revision,
+                                "merge": locked.model_dump(mode="json") if locked else None,
+                            }
+                        )
+                    if control != last_control:
+                        last_control = control
+                        await send(
+                            {
+                                "type": "control",
+                                "epoch": str(epoch),
+                                "committed_seq": head.committed_seq,
+                                "merge": locked.model_dump(mode="json") if locked else None,
+                            }
+                        )
                     sources = [
                         item.model_dump(mode="json")
                         for item in await source_states(session, draft_id)
@@ -237,6 +278,12 @@ async def serve(socket: WebSocket, draft_id: UUID) -> None:
                         }
                     )
                     seq = update.committed_seq
+                if time.monotonic() - last_checkpoint > 10:
+                    last_checkpoint = time.monotonic()
+                    from app.modules.content.version_service import auto_checkpoint
+
+                    async with runtime.database.session_factory() as checkpoint_session:
+                        await auto_checkpoint(checkpoint_session, draft_id)
                 now = time.time()
                 if now - last_presence >= 0.35:
                     last_presence = now

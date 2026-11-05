@@ -642,3 +642,12 @@ container-deployment-5记录工作区可执行入口、既有Supervisor复用、
 | --- | --- |
 | `docs/development/container-deployment.md` | `70fdf1537df886be277b8e60bb650257e414d9bb6e4d0ced5dca314e12fedc97` |
 | `docs/handoff/container-deployment-verification.md` | `2796bbc4f19d2e24f156a594266f4d85919a1b4d2d39c4181e8cabc368a999da` |
+
+## collaboration-2 后端阶段同步（2026-11-05）
+
+前端接入及整体验收进行中，见ADR0061。
+
+| 公共文件 | SHA256 |
+| --- | --- |
+| `docs/README.md` | `28a2dde1dd6060fc10c410471f1bf54a65d4e78f016730a36d79bc44fbf4ae99` |
+| `docs/decisions/0061-cursors-offline-branches-and-version-merges.md` | `e622f37e8933a1aa9d4a96b2a0424bd6e8b663aabbc69dbf542a2787ffc65483` |

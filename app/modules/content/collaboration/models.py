@@ -5,6 +5,7 @@ from uuid import UUID
 
 from sqlalchemy import (
     BigInteger,
+    Boolean,
     DateTime,
     ForeignKey,
     Integer,
@@ -28,6 +29,18 @@ class CollaborationDocument(Base):
     state: Mapped[bytes] = mapped_column(LargeBinary)
     media_ids: Mapped[list[str]] = mapped_column(JSONB)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    initial_seq: Mapped[int] = mapped_column(Integer, default=0)
+    source_first: Mapped[bool] = mapped_column(Boolean, default=False)
+
+
+class CollaborationEpoch(Base):
+    __tablename__ = "collaboration_epochs"
+
+    draft_id: Mapped[UUID] = mapped_column(ForeignKey("content_drafts.id"), primary_key=True)
+    epoch: Mapped[UUID] = mapped_column(primary_key=True)
+    initial_seq: Mapped[int] = mapped_column(Integer)
+    final_seq: Mapped[int | None] = mapped_column(Integer)
+    initial_state: Mapped[bytes] = mapped_column(LargeBinary)
 
 
 class CollaborationUpdate(Base):

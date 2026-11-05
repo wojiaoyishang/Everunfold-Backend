@@ -46,6 +46,51 @@ class DraftRevision(Base):
     action: Mapped[str] = mapped_column(String(16))
     snapshot: Mapped[dict[str, Any]] = mapped_column(JSONB)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    note: Mapped[str] = mapped_column(String(200), default="")
+    epoch: Mapped[UUID | None] = mapped_column()
+    committed_seq: Mapped[int | None] = mapped_column(Integer)
+    parents: Mapped[list[int]] = mapped_column(JSONB, default=list)
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class DraftBranch(Base):
+    __tablename__ = "content_draft_branches"
+
+    id: Mapped[UUID] = mapped_column(primary_key=True)
+    draft_id: Mapped[UUID] = mapped_column(ForeignKey("content_drafts.id"), index=True)
+    actor_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"))
+    note: Mapped[str] = mapped_column(String(200))
+    base_epoch: Mapped[UUID | None] = mapped_column()
+    base_seq: Mapped[int | None] = mapped_column(Integer)
+    base_revision: Mapped[int | None] = mapped_column(Integer)
+    base: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    fields: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    digest: Mapped[str] = mapped_column(String(64))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    merged_revision: Mapped[int | None] = mapped_column(Integer)
+
+
+class DraftMerge(Base):
+    __tablename__ = "content_draft_merges"
+
+    id: Mapped[UUID] = mapped_column(primary_key=True)
+    draft_id: Mapped[UUID] = mapped_column(ForeignKey("content_drafts.id"), index=True)
+    branch_id: Mapped[UUID] = mapped_column(ForeignKey("content_draft_branches.id"))
+    actor_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"))
+    epoch: Mapped[UUID] = mapped_column()
+    target_seq: Mapped[int] = mapped_column(Integer)
+    target_revision: Mapped[int] = mapped_column(Integer)
+    status: Mapped[str] = mapped_column(String(16))
+    base: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    local: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    remote: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    result: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    conflicts: Mapped[list[dict[str, Any]]] = mapped_column(JSONB)
+    resolved: Mapped[list[str]] = mapped_column(JSONB, default=list)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    result_revision: Mapped[int | None] = mapped_column(Integer)
 
 
 class DraftReceipt(Base):

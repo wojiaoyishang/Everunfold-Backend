@@ -23,6 +23,7 @@ from app.modules.content.draft_schemas import (
     ContentEditAction,
     DraftCreate,
     DraftDetail,
+    DraftFields,
     DraftMutation,
     DraftSave,
 )
@@ -83,6 +84,8 @@ class DraftService:
         *,
         demo: bool = False,
         collaboration_cutoff: tuple[UUID, int] | None = None,
+        note: str = "",
+        live_fields: DraftFields | None = None,
     ) -> DraftDetail:
         serialized = payload.model_dump(mode="json")
         if isinstance(payload, DraftCreate | DraftSave) and payload.fields.access_password:
@@ -101,6 +104,8 @@ class DraftService:
         digest_input: dict[str, object] = {"action": action, "payload": serialized, "demo": demo}
         if collaboration_cutoff is not None:
             digest_input["collaboration_cutoff"] = str(collaboration_cutoff)
+        if note:
+            digest_input["note"] = note
         digest = hashlib.sha256(
             json.dumps(
                 digest_input,
@@ -142,6 +147,9 @@ class DraftService:
             if existing is None:
                 raise AuthFailure(404, 40450, "找不到这份草稿")
             row = existing
+            from app.modules.content.merge_lock import require_unlocked
+
+            await require_unlocked(self.session, row.id)
             if row.revision != payload.expected_revision:
                 raise AuthFailure(409, 40951, "内容已在其他地方修改，请保留输入并重新读取后再保存")
             row.revision += 1
@@ -212,6 +220,10 @@ class DraftService:
                     action=action,
                     snapshot=snapshot,
                     created_at=now,
+                    note=note,
+                    epoch=collaboration_cutoff[0] if collaboration_cutoff else None,
+                    committed_seq=collaboration_cutoff[1] if collaboration_cutoff else None,
+                    parents=[row.revision - 1] if row.revision > 1 else [],
                 )
             )
             self.session.add(
@@ -224,6 +236,18 @@ class DraftService:
                     created_at=now,
                 )
             )
+            if live_fields is not None:
+                # A checkpoint captures its exact cutoff; reading the working head
+                # must still include edits accepted after that cutoff.
+                row.title, row.excerpt = live_fields.title, live_fields.excerpt
+                row.body = [block.model_dump(mode="json") for block in live_fields.body]
+                live_settings = live_fields.settings or EditorSettings()
+                saved_settings = EditorSettings.model_validate(row.editor_settings)
+                live_settings.visibility, live_settings.opens_at = (
+                    saved_settings.visibility,
+                    saved_settings.opens_at,
+                )
+                row.editor_settings = live_settings.model_dump(mode="json")
             await self.session.commit()
         except Exception:
             await self.session.rollback()

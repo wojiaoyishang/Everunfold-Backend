@@ -10,7 +10,7 @@ from app.modules.content.collaboration.schemas import CollaborationContract
 def build_schema() -> dict[str, Any]:
     schema = CollaborationContract.model_json_schema()
     schema["$schema"] = "http://json-schema.org/draft-07/schema#"
-    schema["x-everunfold-contract-version"] = "1.2.0"
+    schema["x-everunfold-contract-version"] = "2.0.0"
     schema["x-everunfold-operations"] = [
         {
             "name": "acquireHtmlSource",
@@ -55,6 +55,29 @@ def build_schema() -> dict[str, Any]:
             "response": "committed",
         },
     ]
+    for name, suffix, input_type, response in [
+        ("listDraftVersions", "list", "version_query", "version_catalog"),
+        ("readDraftVersion", "read", "version_lookup", "version_detail"),
+        ("deleteDraftVersion", "delete", "version_lookup", "version_deleted"),
+        ("uploadDraftBranch", "branch/upload", "branch_upload", "branch_detail"),
+        ("readDraftBranch", "branch/read", "branch_lookup", "branch_detail"),
+        ("deleteDraftBranch", "branch/delete", "branch_lookup", "version_deleted"),
+        ("beginDraftMerge", "merge/begin", "merge_begin", "merge_detail"),
+        ("readDraftMerge", "merge/read", "merge_lookup", "merge_detail"),
+        ("resolveDraftMerge", "merge/resolve", "merge_resolve", "merge_detail"),
+        ("renewDraftMerge", "merge/renew", "merge_lookup", "merge_detail"),
+        ("cancelDraftMerge", "merge/cancel", "merge_lookup", "merge_detail"),
+        ("finishDraftMerge", "merge/finish", "merge_lookup", "merge_detail"),
+    ]:
+        schema["x-everunfold-operations"].append(
+            {
+                "name": name,
+                "path": "/v1/admin/content/versions/" + suffix,
+                "method": "POST",
+                "input": input_type,
+                "response": response,
+            }
+        )
     return schema
 
 

@@ -13,6 +13,22 @@ from app.modules.content.draft_schemas import (
     has_upload_placeholder,
 )
 from app.modules.content.schemas import MediaURL
+from app.modules.content.version_schemas import (
+    BranchDetail,
+    BranchLookup,
+    BranchUpload,
+    MergeBegin,
+    MergeDetail,
+    MergeLock,
+    MergeLookup,
+    MergeResolve,
+    TicketRequest,
+    VersionCatalog,
+    VersionDeleted,
+    VersionDetail,
+    VersionLookup,
+    VersionQuery,
+)
 
 
 class TicketState(PublicModel):
@@ -20,7 +36,7 @@ class TicketState(PublicModel):
     draft_id: UUID
     epoch: UUID
     ws_path: str
-    protocol: Literal["collab-1"] = "collab-1"
+    protocol: Literal["collab-1", "collab-2"] = "collab-1"
 
 
 class BlockSourcePatch(PublicModel):
@@ -41,6 +57,7 @@ class CommitDraft(DraftMutation):
     epoch: UUID
     committed_seq: int = Field(ge=0)
     action: Literal["save", "publish", "withdraw"] = "save"
+    note: str = Field(default="", max_length=200)
     block_sources: list[BlockSourcePatch] = Field(default_factory=list, max_length=128)
     visibility: Literal["public", "password"] = "public"
     opens_at: AwareDatetime | None = None
@@ -129,7 +146,18 @@ class Peer(PublicModel):
 
 
 class ServerFrame(PublicModel):
-    type: Literal["sync", "update", "ack", "peers", "error", "revision", "media", "sources"]
+    type: Literal[
+        "sync",
+        "update",
+        "ack",
+        "peers",
+        "error",
+        "revision",
+        "media",
+        "sources",
+        "control",
+        "reset",
+    ]
     epoch: UUID | None = None
     committed_seq: int | None = None
     payload: str | None = None
@@ -140,6 +168,7 @@ class ServerFrame(PublicModel):
     msg: str | None = None
     media_urls: dict[str, MediaURL] | None = None
     sources: list[SourceState] | None = None
+    merge: MergeLock | None = None
 
 
 class CollaborationContract(PublicModel):
@@ -149,7 +178,7 @@ class CollaborationContract(PublicModel):
     source_acquired: PublicResponse[SourceAcquired]
     source_applied: PublicResponse[SourceApplied]
     source_released: PublicResponse[SourceReleased]
-    lookup: DraftLookup
+    lookup: TicketRequest
     ticket: PublicResponse[TicketState]
     commit: CommitDraft
     committed: PublicResponse[CommittedDraft]
@@ -157,3 +186,15 @@ class CollaborationContract(PublicModel):
     presence: PresenceInput
     frame: ServerFrame
     auth: ClientAuth
+    version_query: VersionQuery
+    version_lookup: VersionLookup
+    version_catalog: PublicResponse[VersionCatalog]
+    version_detail: PublicResponse[VersionDetail]
+    version_deleted: PublicResponse[VersionDeleted]
+    branch_upload: BranchUpload
+    branch_lookup: BranchLookup
+    branch_detail: PublicResponse[BranchDetail]
+    merge_begin: MergeBegin
+    merge_lookup: MergeLookup
+    merge_resolve: MergeResolve
+    merge_detail: PublicResponse[MergeDetail]

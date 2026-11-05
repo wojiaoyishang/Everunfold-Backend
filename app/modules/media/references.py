@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.auth.service import AuthFailure
 from app.modules.content.collaboration.models import CollaborationDocument
-from app.modules.content.draft_models import ContentDraft, DraftRevision
+from app.modules.content.draft_models import ContentDraft, DraftBranch, DraftMerge, DraftRevision
 from app.modules.content.models import Comment, Content, SiteSettings
 from app.modules.media.models import MediaAsset
 from app.modules.settings.models import SettingsAudit, SettingsDeliveryEvent
@@ -25,6 +25,13 @@ async def require_unreferenced(
     # finds IDs embedded in URLs/HTML/Markdown; false positives intentionally block removal.
     token = str(asset.id)
     current = [
+        select(DraftBranch.id).where(
+            or_(
+                cast(DraftBranch.base, Text).contains(token),
+                cast(DraftBranch.fields, Text).contains(token),
+            )
+        ),
+        select(DraftMerge.id).where(cast(DraftMerge.result, Text).contains(token)),
         select(ShortcodeDefinition.id).where(cast(ShortcodeDefinition.data, Text).contains(token)),
         select(CollaborationDocument.draft_id).where(
             cast(CollaborationDocument.media_ids, Text).contains(token)

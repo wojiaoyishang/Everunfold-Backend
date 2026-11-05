@@ -26,7 +26,7 @@ from app.modules.content.collaboration.source_leases import (
     apply_source,
     command_source,
 )
-from app.modules.content.draft_schemas import DraftLookup
+from app.modules.content.version_schemas import TicketRequest
 from app.modules.settings.router import Authorized
 
 router = APIRouter(
@@ -87,9 +87,14 @@ async def source_apply(
 
 
 @router.post("/v1/admin/content/collaboration/ticket", response_model=PublicResponse[TicketState])
-async def issue(payload: DraftLookup, request: Request, ctx: Authorized) -> JSONResponseSuccess:
+async def issue(payload: TicketRequest, request: Request, ctx: Authorized) -> JSONResponseSuccess:
     return JSONResponseSuccess(
-        data=await ticket(ctx.service.session, payload.id, token_digest(cookie(request) or ""))
+        data=await ticket(
+            ctx.service.session,
+            payload.id,
+            token_digest(cookie(request) or ""),
+            source_first=payload.source_first,
+        )
     )
 
 

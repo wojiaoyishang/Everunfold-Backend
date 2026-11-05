@@ -19,7 +19,7 @@ MAX_UPDATE = 1_048_576
 MAX_STATE = 4_194_304
 
 
-def seed(fields: DraftFields) -> Doc[Any]:
+def seed(fields: DraftFields, *, source_first: bool = False) -> Doc[Any]:
     settings = (fields.settings or EditorSettings()).model_dump(mode="json")
     doc: Doc[Any] = Doc(
         {
@@ -43,7 +43,8 @@ def seed(fields: DraftFields) -> Doc[Any]:
             ),
         }
     )
-    prepare_rich(doc)
+    if not source_first:
+        prepare_rich(doc)
     return doc
 
 

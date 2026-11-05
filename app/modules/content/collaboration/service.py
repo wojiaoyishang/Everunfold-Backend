@@ -8,6 +8,7 @@ from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid4
 
 from anyio import to_thread
+from pycrdt import Map
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -44,6 +45,7 @@ from app.modules.content.draft_schemas import DraftFields, DraftSave
 from app.modules.content.draft_service import DraftService
 from app.modules.content.editor_schema import EditorSettings
 from app.modules.content.editor_service import editor_media
+from app.modules.content.merge_lock import require_unlocked
 from app.modules.media.locking import lock_references
 
 
@@ -74,7 +76,9 @@ async def draft_row(session: AsyncSession, draft_id: UUID, *, lock: bool = False
     return row
 
 
-async def ticket(session: AsyncSession, draft_id: UUID, session_hash: str) -> TicketState:
+async def ticket(
+    session: AsyncSession, draft_id: UUID, session_hash: str, *, source_first: bool = False
+) -> TicketState:
     await lock_references(session)
     row = await draft_row(session, draft_id, lock=True)
     document = await session.get(CollaborationDocument, draft_id)
@@ -88,7 +92,7 @@ async def ticket(session: AsyncSession, draft_id: UUID, session_hash: str) -> Ti
                 "settings": row.editor_settings,
             }
         )
-        state = seed(fields).get_update()
+        state = seed(fields, source_first=source_first).get_update()
         document = CollaborationDocument(
             draft_id=draft_id,
             epoch=uuid4(),
@@ -97,12 +101,24 @@ async def ticket(session: AsyncSession, draft_id: UUID, session_hash: str) -> Ti
             state=state,
             media_ids=sorted(references(fields)),
             updated_at=now,
+            initial_seq=0,
+            source_first=source_first,
         )
         session.add(document)
-    else:
+    elif source_first and not document.source_first:
+        from app.modules.content.collaboration.epochs import replace_epoch
+
+        await require_unlocked(session, draft_id)
+        await replace_epoch(
+            session,
+            document,
+            project(decode(document.state), EditorSettings.model_validate(row.editor_settings)),
+        )
+    elif not document.source_first:
         doc = decode(document.state)
         vector = doc.get_state()
         if prepare_rich(doc):
+            await require_unlocked(session, draft_id)
             update = doc.get_update(vector)
             document.committed_seq += 1
             document.state = doc.get_update()
@@ -141,7 +157,11 @@ async def ticket(session: AsyncSession, draft_id: UUID, session_hash: str) -> Ti
     )
     await session.commit()
     return TicketState(
-        ticket=secret, draft_id=draft_id, epoch=document.epoch, ws_path=f"/ws/v1/collab/{draft_id}"
+        ticket=secret,
+        draft_id=draft_id,
+        epoch=document.epoch,
+        ws_path=f"/ws/v1/collab/{draft_id}",
+        protocol="collab-2" if document.source_first else "collab-1",
     )
 
 
@@ -162,13 +182,15 @@ async def consume_ticket(session: AsyncSession, draft_id: UUID, secret: str) -> 
 
 
 def apply_candidate(
-    state: bytes, update: bytes, policy: EditorSettings
+    state: bytes, update: bytes, policy: EditorSettings, source_first: bool = False
 ) -> tuple[bytes, DraftFields]:
     doc = decode(state)
     history = position_history(doc)
     doc.apply_update(update)
     require_integrated(update, doc)
     require_append_only(history, doc)
+    if source_first and any("rich" in block for block in doc.get("blocks", type=Map).values()):
+        raise ValueError("源码协同不能混入另一份富文本正文")
     fields = project(doc, policy)
     encoded = doc.get_update()
     if len(encoded) > MAX_STATE:
@@ -197,6 +219,7 @@ async def accept_update(
         if receipt.digest != digest or receipt.actor_id != actor.id:
             raise AuthFailure(409, 40971, "更新标识已被使用")
         return receipt.committed_seq
+    await require_unlocked(session, draft_id)
     now = datetime.now(UTC)
     limits = AuthRepository(session)
     allowed = await limits.consume_limit(f"collab-write:{actor.id}:{draft_id}", 160, 10, now)
@@ -210,6 +233,7 @@ async def accept_update(
             document.state,
             payload,
             EditorSettings.model_validate(draft.editor_settings),
+            document.source_first,
         )
     except (ValueError, TypeError, KeyError, RuntimeError) as exc:
         location = traceback.extract_tb(exc.__traceback__)[-1]
@@ -230,6 +254,12 @@ async def accept_update(
     document.state = state
     document.media_ids = sorted(set(document.media_ids) | references(fields))
     document.updated_at = now
+    if document.source_first:
+        # Durable live head is distinct from explicit version checkpoints/publication.
+        draft.title, draft.excerpt = fields.title, fields.excerpt
+        draft.body = [block.model_dump(mode="json") for block in fields.body]
+        draft.editor_settings = (fields.settings or EditorSettings()).model_dump(mode="json")
+        draft.updated_at = now
     session.add(
         CollaborationUpdate(
             draft_id=draft_id,
@@ -250,6 +280,7 @@ async def commit_draft(
 ) -> CommittedDraft:
     await lock_references(session)
     row = await draft_row(session, payload.id, lock=True)
+    await require_unlocked(session, payload.id)
     document = await session.get(CollaborationDocument, payload.id, with_for_update=True)
     if (
         not document
@@ -266,6 +297,7 @@ async def commit_draft(
             .where(
                 CollaborationUpdate.draft_id == payload.id,
                 CollaborationUpdate.committed_seq <= payload.committed_seq,
+                CollaborationUpdate.committed_seq > document.initial_seq,
             )
             .order_by(CollaborationUpdate.committed_seq)
         )
@@ -302,6 +334,11 @@ async def commit_draft(
         fields=fields,
     )
     result = await DraftService(session, config).mutate(
-        payload.action, mutation, actor, collaboration_cutoff=(payload.epoch, payload.committed_seq)
+        payload.action,
+        mutation,
+        actor,
+        collaboration_cutoff=(payload.epoch, payload.committed_seq),
+        note=payload.note,
+        live_fields=project(decode(document.state), policy) if document.source_first else None,
     )
     return CommittedDraft(draft=result, committed_seq=committed_seq)

@@ -35,6 +35,7 @@ from app.modules.content.collaboration.schemas import (
 from app.modules.content.collaboration.service import authorize, draft_row
 from app.modules.content.editor_schema import EditorSettings
 from app.modules.content.editor_service import editor_media
+from app.modules.content.merge_lock import require_unlocked
 from app.modules.media.locking import lock_references
 
 
@@ -58,6 +59,7 @@ async def acquire_source(
     await authorize(session, session_hash, lock=True)
     await lock_references(session)
     await draft_row(session, payload.id, lock=True)
+    await require_unlocked(session, payload.id)
     document = await session.get(CollaborationDocument, payload.id, with_for_update=True)
     if document is None:
         raise AuthFailure(409, 40970, "请先连接共享草稿")
@@ -101,6 +103,7 @@ async def command_source(
     await authorize(session, session_hash, lock=True)
     await lock_references(session)
     await draft_row(session, payload.id, lock=True)
+    await require_unlocked(session, payload.id)
     lease = await session.get(SourceLease, (payload.id, payload.block_id), with_for_update=True)
     now = datetime.now(UTC)
     if not lease or lease.lease_id != payload.lease_id or lease.session_hash != session_hash:
@@ -137,6 +140,7 @@ async def apply_source(
     ).hexdigest()
     await lock_references(session)
     draft = await draft_row(session, payload.id, lock=True)
+    await require_unlocked(session, payload.id)
     document = await session.get(CollaborationDocument, payload.id, with_for_update=True)
     lease = await session.get(SourceLease, (payload.id, payload.block_id), with_for_update=True)
     receipt = await session.get(CollaborationUpdate, (payload.id, payload.operation_id))
