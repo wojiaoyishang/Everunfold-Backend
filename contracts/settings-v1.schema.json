@@ -627,6 +627,12 @@
           "title": "Name",
           "type": "string"
         },
+        "flag": {
+          "default": "",
+          "maxLength": 16,
+          "title": "Flag",
+          "type": "string"
+        },
         "prefix": {
           "default": "",
           "pattern": "^(?:|/[a-z0-9][a-z0-9-]{0,31})$",
@@ -2568,6 +2574,40 @@
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
   "x-everunfold-contract-version": "1.10.0",
+  "x-everunfold-language-regions": {
+    "zh": "CN",
+    "en": "GB",
+    "ja": "JP",
+    "fr": "FR",
+    "de": "DE",
+    "es": "ES",
+    "pt": "PT",
+    "ru": "RU",
+    "ar": "SA",
+    "ko": "KR",
+    "it": "IT",
+    "nl": "NL",
+    "hi": "IN",
+    "uk": "UA",
+    "vi": "VN",
+    "th": "TH",
+    "id": "ID",
+    "tr": "TR",
+    "pl": "PL",
+    "fi": "FI",
+    "sv": "SE",
+    "nb": "NO",
+    "da": "DK",
+    "el": "GR",
+    "he": "IL",
+    "fa": "IR",
+    "bn": "BD",
+    "ta": "IN",
+    "ms": "MY",
+    "fil": "PH",
+    "ur": "PK",
+    "sw": "TZ"
+  },
   "x-everunfold-shortcodes": [
     {
       "id": "15184599-2f9b-541f-a81f-439ce0ea0e8f",

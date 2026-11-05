@@ -17,6 +17,7 @@ from app.modules.content.models import Content, SiteSettings
 from app.modules.media.locking import lock_references
 from app.modules.media.service import MediaService
 from app.modules.settings.defaults import public_settings, stored_settings
+from app.modules.settings.languages import language_route_pattern
 from app.modules.settings.models import NodePolicy, SettingsAudit, SettingsDeliveryEvent
 from app.modules.settings.schemas import (
     CachePolicy,
@@ -223,6 +224,16 @@ class SettingsService:
             raise AuthFailure(409, 40920, "设置已被修改，请重新读取后合并你的更改")
         payload.value = await self.resolve(payload.value)
         before = await self.resolve(public_settings(record.data))
+        if before.site.language_catalog != payload.value.site.language_catalog:
+            pattern = language_route_pattern(payload.value.site.language_catalog)
+            if pattern and await self.session.scalar(
+                select(Content.id)
+                .where(Content.path.op("~")(pattern), Content.publication_status == "published")
+                .limit(1)
+            ):
+                raise AuthFailure(
+                    422, 42294, "语言前缀与已有公开地址冲突，请更换前缀或先调整内容地址"
+                )
         removed_languages = {item.code for item in before.site.language_catalog.languages} - {
             item.code for item in payload.value.site.language_catalog.languages
         }

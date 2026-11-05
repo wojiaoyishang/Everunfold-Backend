@@ -114,5 +114,6 @@
   "m_0abb4aa12271": "Duplicate content block update",
   "m_1cd74a25f344": "This block was removed. Your local changes are retained.",
   "m_1f1c1fae8d37": "This block was updated elsewhere. Your local changes are retained.",
-  "m_acdab10c9d41": "Another editor is changing this block. Your local input is retained."
+  "m_acdab10c9d41": "Another editor is changing this block. Your local input is retained.",
+  "m_f0e774fc0997": "This address is used by language navigation. Choose another content address."
 }

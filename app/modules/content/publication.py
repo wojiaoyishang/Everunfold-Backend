@@ -49,6 +49,10 @@ class ContentPublication:
             raise AuthFailure(409, 40954, "该地址已被其他内容使用，请修改路径")
         if settings.display_published_at and settings.display_published_at > now:
             raise AuthFailure(422, 42258, "展示时间不能晚于当前时间，定时发布尚未开放")
+        from app.modules.settings.languages import language_catalog, reserved_language_path
+
+        if reserved_language_path(path, await language_catalog(self.session)):
+            raise AuthFailure(422, 42295, "该地址由语言导航使用，请更换内容地址")
         draft.public_path = path
         draft.published_at = settings.display_published_at or draft.published_at or now
         draft.published_revision = draft.revision

@@ -242,6 +242,57 @@ def check_translations(
         headers=csrf,
     )
     assert disabled.status_code == 200, disabled.text
+    # Changing the configured default also governs requests that omit language.
+    configured_default = disabled.json()["data"]
+    default_value = configured_default["value"]
+    default_catalog = default_value["site"]["language_catalog"]
+    default_catalog["default_code"] = "ja"
+    for entry in default_catalog["languages"]:
+        if entry["code"] == "ja":
+            entry.update(enabled=True, prefix="")
+        elif entry["code"] == "zh-CN":
+            entry["prefix"] = "/zh-cn"
+    changed_default = client.patch(
+        "/v1/admin/settings",
+        json={"expected_revision": configured_default["revision"], "value": default_value},
+        headers=csrf,
+    )
+    assert changed_default.status_code == 200, changed_default.text
+    default_draft = post(
+        "create",
+        {
+            "operation_id": str(uuid4()),
+            "type_id": "article",
+            "fields": {
+                "title": "Configured default language",
+                "body": [
+                    {
+                        "id": str(uuid4()),
+                        "type": "markdown",
+                        "content": "Configured default language proof",
+                    }
+                ],
+            },
+        },
+    )
+    assert default_draft.status_code == 200, default_draft.text
+    assert default_draft.json()["data"]["language"] == "ja"
+    assert not default_draft.json()["data"]["settings"]["path"].startswith("/ja/")
+    default_catalog["default_code"] = "zh-CN"
+    for entry in default_catalog["languages"]:
+        if entry["code"] == "ja":
+            entry.update(enabled=False, prefix="/ja")
+        elif entry["code"] == "zh-CN":
+            entry["prefix"] = ""
+    restored_default = client.patch(
+        "/v1/admin/settings",
+        json={
+            "expected_revision": changed_default.json()["data"]["revision"],
+            "value": default_value,
+        },
+        headers=csrf,
+    )
+    assert restored_default.status_code == 200, restored_default.text
     assert (
         post(
             "create",
@@ -249,7 +300,16 @@ def check_translations(
                 "operation_id": str(uuid4()),
                 "type_id": "article",
                 "language": "ja",
-                "fields": {"title": "Blocked disabled language", "body": []},
+                "fields": {
+                    "title": "Blocked disabled language",
+                    "body": [
+                        {
+                            "id": str(uuid4()),
+                            "type": "markdown",
+                            "content": "Disabled language proof",
+                        }
+                    ],
+                },
             },
         ).status_code
         == 422
