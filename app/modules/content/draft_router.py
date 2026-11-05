@@ -58,7 +58,9 @@ async def new_category(payload: EditorTermCreate, ctx: Authorized) -> JSONRespon
 @router.post("/query", response_model=PublicResponse[DraftCatalog])
 async def query(payload: DraftQuery, ctx: Authorized) -> JSONResponseSuccess:
     require_type(payload.type_id)
-    return JSONResponseSuccess(data=await DraftRepository(ctx.service.session).catalog(payload))
+    return JSONResponseSuccess(
+        data=await DraftRepository(ctx.service.session, ctx.service.config).catalog(payload)
+    )
 
 
 @router.post("/detail", response_model=PublicResponse[DraftDetail])

@@ -9039,7 +9039,7 @@
         "properties": {
           "items": {
             "items": {
-              "$ref": "#/components/schemas/DraftSummary"
+              "$ref": "#/components/schemas/DraftListItem"
             },
             "type": "array",
             "title": "Items"
@@ -9275,6 +9275,147 @@
         ],
         "title": "DraftFields"
       },
+      "DraftListItem": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "type_id": {
+            "type": "string",
+            "title": "Type Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "excerpt": {
+            "type": "string",
+            "title": "Excerpt"
+          },
+          "preview": {
+            "type": "string",
+            "title": "Preview"
+          },
+          "author": {
+            "type": "string",
+            "title": "Author"
+          },
+          "revision": {
+            "type": "integer",
+            "title": "Revision"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "trash"
+            ],
+            "title": "Status"
+          },
+          "is_demo": {
+            "type": "boolean",
+            "title": "Is Demo"
+          },
+          "published_revision": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published Revision"
+          },
+          "public_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Public Path"
+          },
+          "published_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published At"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          },
+          "cover_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cover Url"
+          },
+          "categories": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Categories"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Tags"
+          },
+          "comment_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Comment Count",
+            "default": 0
+          },
+          "pinned": {
+            "type": "boolean",
+            "title": "Pinned",
+            "default": false
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "type_id",
+          "title",
+          "excerpt",
+          "preview",
+          "author",
+          "revision",
+          "status",
+          "is_demo",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "DraftListItem"
+      },
       "DraftLookup": {
         "properties": {
           "id": {
@@ -9394,111 +9535,6 @@
           "fields"
         ],
         "title": "DraftSave"
-      },
-      "DraftSummary": {
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Id"
-          },
-          "type_id": {
-            "type": "string",
-            "title": "Type Id"
-          },
-          "title": {
-            "type": "string",
-            "title": "Title"
-          },
-          "excerpt": {
-            "type": "string",
-            "title": "Excerpt"
-          },
-          "preview": {
-            "type": "string",
-            "title": "Preview"
-          },
-          "author": {
-            "type": "string",
-            "title": "Author"
-          },
-          "revision": {
-            "type": "integer",
-            "title": "Revision"
-          },
-          "status": {
-            "type": "string",
-            "enum": [
-              "draft",
-              "trash"
-            ],
-            "title": "Status"
-          },
-          "is_demo": {
-            "type": "boolean",
-            "title": "Is Demo"
-          },
-          "published_revision": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Published Revision"
-          },
-          "public_path": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Public Path"
-          },
-          "published_at": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date-time"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Published At"
-          },
-          "created_at": {
-            "type": "string",
-            "format": "date-time",
-            "title": "Created At"
-          },
-          "updated_at": {
-            "type": "string",
-            "format": "date-time",
-            "title": "Updated At"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "id",
-          "type_id",
-          "title",
-          "excerpt",
-          "preview",
-          "author",
-          "revision",
-          "status",
-          "is_demo",
-          "created_at",
-          "updated_at"
-        ],
-        "title": "DraftSummary"
       },
       "EditorCatalog": {
         "properties": {

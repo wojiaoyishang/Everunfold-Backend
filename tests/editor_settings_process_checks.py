@@ -46,6 +46,15 @@ def check_editor_settings(client: Any, csrf: Any, state: Any, snapshot: Any, wai
     assert created.status_code == 200, created.text
     draft = created.json()["data"]
     assert draft["media_urls"][media_id]["original"] == media["url"]
+    for keyword in ("Editor properties", "测试分类", "测试标签", draft["author"]):
+        response = post("query", {"type_id": "article", "search": keyword})
+        assert response.status_code == 200, response.text
+        listed = next(row for row in response.json()["data"]["items"] if row["id"] == draft["id"])
+        assert listed["cover_url"] == media["url"]
+        assert listed["categories"] == ["测试分类"] and listed["tags"] == ["测试标签"]
+        assert listed["pinned"] and listed["comment_count"] == 0
+        assert "body" not in listed and "access_password" not in listed
+    assert not post("query", {"type_id": "shuoshuo", "search": "测试标签"}).json()["data"]["items"]
 
     def write(action: str, value: Any, current: Any) -> Any:
         return post(

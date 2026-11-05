@@ -93,8 +93,16 @@ class DraftDetail(DraftSummary):
     has_password: bool = False
 
 
+class DraftListItem(DraftSummary):
+    cover_url: str | None = None
+    categories: list[str] = Field(default_factory=list)
+    tags: list[str] = Field(default_factory=list)
+    comment_count: int = Field(default=0, ge=0)
+    pinned: bool = False
+
+
 class DraftCatalog(PublicModel):
-    items: list[DraftSummary]
+    items: list[DraftListItem]
     total: int
     page: int
     page_size: int

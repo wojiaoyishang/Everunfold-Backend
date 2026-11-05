@@ -6,8 +6,18 @@ from sqlalchemy import Text, cast, func, or_, select
 from sqlalchemy.dialects.postgresql import JSONPATH
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import Settings
 from app.modules.content.draft_models import ContentDraft
-from app.modules.content.draft_schemas import DraftCatalog, DraftDetail, DraftQuery, DraftSummary
+from app.modules.content.draft_schemas import (
+    DraftCatalog,
+    DraftDetail,
+    DraftListItem,
+    DraftQuery,
+    DraftSummary,
+)
+from app.modules.content.editor_schema import EditorSettings
+from app.modules.content.editor_service import editor_media
+from app.modules.content.repository import ContentRepository
 from app.modules.content.text_preview import content_preview
 
 
@@ -42,8 +52,9 @@ def detail(row: ContentDraft) -> DraftDetail:
 
 
 class DraftRepository:
-    def __init__(self, session: AsyncSession) -> None:
+    def __init__(self, session: AsyncSession, config: Settings | None = None) -> None:
         self.session = session
+        self.config = config
 
     async def find(self, draft_id: UUID, *, lock: bool = False) -> ContentDraft | None:
         query = select(ContentDraft).where(ContentDraft.id == draft_id)
@@ -67,6 +78,13 @@ class DraftRepository:
                 or_(
                     ContentDraft.title.icontains(search, autoescape=True),
                     ContentDraft.excerpt.icontains(search, autoescape=True),
+                    ContentDraft.author.icontains(search, autoescape=True),
+                    cast(ContentDraft.editor_settings["categories"], Text).icontains(
+                        search, autoescape=True
+                    ),
+                    cast(ContentDraft.editor_settings["tags"], Text).icontains(
+                        search, autoescape=True
+                    ),
                     cast(
                         func.jsonb_path_query_array(
                             ContentDraft.body, cast("$[*].content", JSONPATH)
@@ -78,15 +96,40 @@ class DraftRepository:
         total = await self.session.scalar(
             select(func.count()).select_from(ContentDraft).where(*filters)
         )
-        rows = await self.session.scalars(
-            select(ContentDraft)
-            .where(*filters)
-            .order_by(ContentDraft.updated_at.desc(), ContentDraft.id)
-            .offset((query.page - 1) * query.page_size)
-            .limit(query.page_size)
+        rows = list(
+            await self.session.scalars(
+                select(ContentDraft)
+                .where(*filters)
+                .order_by(ContentDraft.updated_at.desc(), ContentDraft.id)
+                .offset((query.page - 1) * query.page_size)
+                .limit(query.page_size)
+            )
         )
+        settings = [EditorSettings.model_validate(row.editor_settings or {}) for row in rows]
+        covers = await editor_media(
+            self.session,
+            self.config,
+            " ".join(
+                f"site://media/{item.cover_media_id}" for item in settings if item.cover_media_id
+            ),
+            EditorSettings(),
+            strict=False,
+        )
+        counts = await ContentRepository(self.session).comment_counts([row.id for row in rows])
         return DraftCatalog(
-            items=[summary(row) for row in rows],
+            items=[
+                DraftListItem(
+                    **summary(row).model_dump(),
+                    cover_url=covers[str(meta.cover_media_id)].original
+                    if str(meta.cover_media_id) in covers
+                    else None,
+                    categories=meta.categories,
+                    tags=meta.tags,
+                    pinned=meta.pinned,
+                    comment_count=counts.get(row.id, 0),
+                )
+                for row, meta in zip(rows, settings, strict=True)
+            ],
             total=total or 0,
             page=query.page,
             page_size=query.page_size,
