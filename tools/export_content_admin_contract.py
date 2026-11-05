@@ -16,7 +16,7 @@ def build_schema() -> dict[str, Any]:
     schema["x-everunfold-operations"] = [
         {
             "name": "readContentLanguages",
-            "path": "/v1/languages",
+            "path": "/v1/admin/content/languages",
             "method": "GET",
             "response": "languages",
         },

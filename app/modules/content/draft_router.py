@@ -24,6 +24,7 @@ from app.modules.content.editor_service import create_category, editor_catalog
 from app.modules.content.publication import ContentPublication
 from app.modules.content.publication_schemas import ContentSyncState
 from app.modules.content.type_registry import content_types
+from app.modules.settings.languages import LanguageCatalog, language_catalog
 from app.modules.settings.router import Authorized
 
 router = APIRouter(
@@ -36,6 +37,11 @@ router = APIRouter(
 @router.get("/types", response_model=PublicResponse[ContentTypeCatalog])
 async def types(ctx: Authorized) -> JSONResponseSuccess:
     return JSONResponseSuccess(data=ContentTypeCatalog(items=list(content_types.all())))
+
+
+@router.get("/languages", response_model=PublicResponse[LanguageCatalog])
+async def languages(ctx: Authorized) -> JSONResponseSuccess:
+    return JSONResponseSuccess(data=await language_catalog(ctx.service.session))
 
 
 @router.get("/editor-options", response_model=PublicResponse[EditorCatalog])
