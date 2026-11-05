@@ -11,7 +11,7 @@ from app.modules.content.type_registry import content_types
 def build_schema() -> dict[str, Any]:
     schema = ContentAdminContract.model_json_schema()
     schema["$schema"] = "http://json-schema.org/draft-07/schema#"
-    schema["x-everunfold-contract-version"] = "1.6.0"
+    schema["x-everunfold-contract-version"] = "1.7.0"
     schema["x-everunfold-content-types"] = [item.model_dump() for item in content_types.all()]
     schema["x-everunfold-operations"] = [
         {
@@ -69,6 +69,38 @@ def build_schema() -> dict[str, Any]:
                 ("withdrawDraft", "withdraw", "mutation", "detail"),
                 ("trashDraft", "trash", "mutation", "detail"),
                 ("restoreDraft", "restore", "mutation", "detail"),
+                ("readTranslations", "translations/query", "lookup", "translation_catalog"),
+                (
+                    "createTranslation",
+                    "translations/create",
+                    "translation_create",
+                    "translation_catalog",
+                ),
+                ("linkTranslation", "translations/link", "translation_link", "translation_catalog"),
+                (
+                    "unlinkTranslation",
+                    "translations/unlink",
+                    "translation_mutation",
+                    "translation_catalog",
+                ),
+                (
+                    "reviewTranslation",
+                    "translations/review",
+                    "translation_mutation",
+                    "translation_catalog",
+                ),
+                (
+                    "trashTranslationGroup",
+                    "translations/trash",
+                    "translation_group_mutation",
+                    "translation_catalog",
+                ),
+                (
+                    "restoreTranslationGroup",
+                    "translations/restore",
+                    "translation_group_mutation",
+                    "translation_catalog",
+                ),
             ]
         ],
     ]

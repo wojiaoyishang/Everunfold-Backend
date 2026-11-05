@@ -7,13 +7,14 @@ from sqlalchemy.dialects.postgresql import JSONPATH
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
-from app.modules.content.draft_models import ContentDraft
+from app.modules.content.draft_models import ContentDraft, TranslationGroup
 from app.modules.content.draft_schemas import (
     DraftCatalog,
     DraftDetail,
     DraftListItem,
     DraftQuery,
     DraftSummary,
+    TranslationMember,
 )
 from app.modules.content.editor_schema import EditorSettings
 from app.modules.content.editor_service import editor_media
@@ -37,6 +38,8 @@ def summary(row: ContentDraft) -> DraftSummary:
         published_at=row.published_at,
         created_at=row.created_at,
         updated_at=row.updated_at,
+        language=row.language,
+        translation_group_id=row.translation_group_id,
     )
 
 
@@ -73,6 +76,8 @@ class DraftRepository:
             filters.append(ContentDraft.published_revision.is_not(None))
         elif query.status == "draft":
             filters.append(ContentDraft.published_revision.is_(None))
+        if query.language:
+            filters.append(ContentDraft.language == query.language)
         if search := query.search.strip():
             filters.append(
                 or_(
@@ -93,18 +98,47 @@ class DraftRepository:
                     ).icontains(search, autoescape=True),
                 )
             )
-        total = await self.session.scalar(
-            select(func.count()).select_from(ContentDraft).where(*filters)
-        )
+        # Match every member first, then page group anchors. A translated search
+        # hit must never turn into a duplicate row or an empty page.
+        if query.grouped:
+            matched = (
+                select(ContentDraft.translation_group_id).where(*filters).distinct().correlate(None)
+            )
+            group_filter = TranslationGroup.id.in_(matched)
+            total = await self.session.scalar(
+                select(func.count()).select_from(TranslationGroup).where(group_filter)
+            )
+            selection = (
+                select(ContentDraft)
+                .join(TranslationGroup, TranslationGroup.source_id == ContentDraft.id)
+                .where(group_filter)
+            )
+        else:
+            total = await self.session.scalar(
+                select(func.count()).select_from(ContentDraft).where(*filters)
+            )
+            selection = select(ContentDraft).where(*filters)
         rows = list(
             await self.session.scalars(
-                select(ContentDraft)
-                .where(*filters)
-                .order_by(ContentDraft.updated_at.desc(), ContentDraft.id)
+                selection.order_by(ContentDraft.updated_at.desc(), ContentDraft.id)
                 .offset((query.page - 1) * query.page_size)
                 .limit(query.page_size)
             )
         )
+        group_ids = [row.translation_group_id for row in rows]
+        groups = {
+            group.id: group
+            for group in await self.session.scalars(
+                select(TranslationGroup).where(TranslationGroup.id.in_(group_ids))
+            )
+        }
+        members: dict[UUID, list[ContentDraft]] = {key: [] for key in group_ids}
+        for member in await self.session.scalars(
+            select(ContentDraft)
+            .where(ContentDraft.translation_group_id.in_(group_ids))
+            .order_by(ContentDraft.created_at, ContentDraft.id)
+        ):
+            members[member.translation_group_id].append(member)
         settings = [EditorSettings.model_validate(row.editor_settings or {}) for row in rows]
         covers = await editor_media(
             self.session,
@@ -127,6 +161,17 @@ class DraftRepository:
                     tags=meta.tags,
                     pinned=meta.pinned,
                     comment_count=counts.get(row.id, 0),
+                    group_revision=groups[row.translation_group_id].revision,
+                    translations=[
+                        TranslationMember(
+                            **summary(member).model_dump(),
+                            is_original=member.id == groups[row.translation_group_id].source_id,
+                            needs_review=member.translated_from_revision is not None
+                            and member.translated_from_revision
+                            < (row.published_revision or row.revision),
+                        )
+                        for member in members[row.translation_group_id]
+                    ],
                 )
                 for row, meta in zip(rows, settings, strict=True)
             ],

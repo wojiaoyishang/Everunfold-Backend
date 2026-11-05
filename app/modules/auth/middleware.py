@@ -18,7 +18,7 @@ class BusinessCORSMiddleware:
             allow_origins=allowed_origins,
             allow_credentials=True,
             allow_methods=["GET", "POST", "PATCH"],
-            allow_headers=["Accept", "Content-Type", "X-CSRF-Token"],
+            allow_headers=["Accept", "Content-Type", "X-CSRF-Token", "X-Site-Locale"],
             expose_headers=["Retry-After"],
         )
         self.public = CORSMiddleware(
@@ -26,7 +26,7 @@ class BusinessCORSMiddleware:
             allow_origins=allowed_origins,
             allow_credentials=False,
             allow_methods=["GET", "PUT"],
-            allow_headers=["Accept", "Content-Type", "X-Everunfold-Visitor"],
+            allow_headers=["Accept", "Content-Type", "X-Everunfold-Visitor", "X-Site-Locale"],
         )
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:

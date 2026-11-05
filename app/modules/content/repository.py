@@ -3,7 +3,7 @@
 import uuid
 from dataclasses import dataclass
 
-from sqlalchemy import Select, func, or_, select
+from sqlalchemy import Select, case, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from sqlalchemy.sql.elements import ColumnElement
@@ -43,6 +43,8 @@ class ContentQuery:
     kind: ContentKind | None = None
     category: str | None = None
     tag: str | None = None
+    language: str | None = None
+    all_languages: bool = False
 
 
 class ContentRepository:
@@ -60,6 +62,8 @@ class ContentRepository:
                     Content.taxonomies.any((Taxonomy.kind == kind) & (Taxonomy.slug == slug))
                 )
         if query.q.strip():
+            if query.language and not query.all_languages:
+                statement = statement.where(Content.language == query.language)
             # Escape LIKE metacharacters so a visitor's search stays literal and bounded.
             term = query.q.strip().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
             pattern = f"%{term}%"
@@ -69,7 +73,23 @@ class ContentRepository:
                     public_conditions()[1] & SearchDocument.body.ilike(pattern, escape="\\"),
                 )
             )
-        return statement
+        ranked = statement.with_only_columns(
+            Content.id,
+            func.row_number()
+            .over(
+                partition_by=func.coalesce(Content.translation_group_id, Content.id),
+                order_by=(
+                    case((Content.language == query.language, 0), else_=1),
+                    case((Content.language == "zh-CN", 0), else_=1),
+                    Content.published_at.desc(),
+                    Content.id,
+                ),
+            )
+            .label("language_rank"),
+        ).subquery()
+        return select(Content).where(
+            Content.id.in_(select(ranked.c.id).where(ranked.c.language_rank == 1))
+        )
 
     async def list_contents(self, query: ContentQuery) -> tuple[list[Content], int]:
         statement = self._content_selection(query)
@@ -169,7 +189,10 @@ class ContentRepository:
 
     async def content_kind_counts(self) -> dict[str, int]:
         rows = await self.session.execute(
-            select(Content.kind, func.count(Content.id))
+            select(
+                Content.kind,
+                func.count(func.distinct(func.coalesce(Content.translation_group_id, Content.id))),
+            )
             .where(*public_conditions())
             .group_by(Content.kind)
         )

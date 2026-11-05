@@ -16,7 +16,12 @@ from app.modules.auth.models import User
 from app.modules.auth.security import hash_password
 from app.modules.auth.service import AuthFailure
 from app.modules.content.content_paths import initial_path
-from app.modules.content.draft_models import ContentDraft, DraftReceipt, DraftRevision
+from app.modules.content.draft_models import (
+    ContentDraft,
+    DraftReceipt,
+    DraftRevision,
+    TranslationGroup,
+)
 from app.modules.content.draft_repository import DraftRepository, detail
 from app.modules.content.draft_schemas import (
     ContentActions,
@@ -129,6 +134,7 @@ class DraftService:
         if isinstance(payload, DraftCreate):
             row = ContentDraft(
                 id=uuid4(),
+                language=payload.language,
                 type_id=payload.type_id,
                 title="",
                 excerpt="",
@@ -140,6 +146,10 @@ class DraftService:
                 is_demo=demo,
                 created_at=now,
                 updated_at=now,
+            )
+            row.translation_group_id = row.id
+            self.session.add(
+                TranslationGroup(id=row.id, source_id=row.id, type_id=row.type_id, revision=1)
             )
             self.session.add(row)
         else:
@@ -169,7 +179,7 @@ class DraftService:
             settings = fields.settings or EditorSettings.model_validate(row.editor_settings or {})
             if not settings.path:
                 settings.path = row.public_path or await initial_path(
-                    self.session, fields.title, row.id
+                    self.session, fields.title, row.id, language=row.language
                 )
             if fields.access_password:
                 row.access_password_hash = await to_thread.run_sync(

@@ -4,11 +4,39 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
+
+
+class TranslationGroup(Base):
+    __tablename__ = "content_translation_groups"
+    __table_args__ = (CheckConstraint("revision >= 1", name="revision"),)
+
+    id: Mapped[UUID] = mapped_column(primary_key=True)
+    source_id: Mapped[UUID] = mapped_column(
+        ForeignKey(
+            "content_drafts.id",
+            name="fk_translation_groups_source",
+            use_alter=True,
+            deferrable=True,
+            initially="DEFERRED",
+        ),
+        unique=True,
+    )
+    type_id: Mapped[str] = mapped_column(String(64))
+    revision: Mapped[int] = mapped_column(Integer, default=1)
 
 
 class ContentDraft(Base):
@@ -16,10 +44,23 @@ class ContentDraft(Base):
     __table_args__ = (
         CheckConstraint("revision >= 1", name="revision"),
         CheckConstraint("jsonb_typeof(body) = 'array'", name="body_blocks"),
+        UniqueConstraint(
+            "translation_group_id", "language", name="uq_content_drafts_group_language"
+        ),
     )
 
     id: Mapped[UUID] = mapped_column(primary_key=True)
     type_id: Mapped[str] = mapped_column(String(64), index=True)
+    language: Mapped[str] = mapped_column(String(32), default="zh-CN")
+    translation_group_id: Mapped[UUID] = mapped_column(
+        ForeignKey(
+            "content_translation_groups.id",
+            name="fk_content_drafts_translation_group",
+            deferrable=True,
+            initially="DEFERRED",
+        )
+    )
+    translated_from_revision: Mapped[int | None] = mapped_column(Integer)
     title: Mapped[str] = mapped_column(String(200))
     excerpt: Mapped[str] = mapped_column(Text)
     author: Mapped[str] = mapped_column(String(100))

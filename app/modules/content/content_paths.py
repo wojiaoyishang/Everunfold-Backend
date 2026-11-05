@@ -12,17 +12,20 @@ from app.modules.content.editor_schema import content_path
 from app.modules.content.models import Content
 
 
-def title_path(title: str, identity: UUID) -> str:
+def title_path(title: str, identity: UUID, *, language: str = "zh-CN") -> str:
     slug = re.sub(
         r"[^\w-]+", "-", unicodedata.normalize("NFC", title).strip(), flags=re.UNICODE
     ).strip("-_")[:160]
     if not slug:
         slug = str(identity)
-    return content_path(f"/{slug}.html")
+    prefix = "/en" if language == "en" else ""
+    return content_path(f"{prefix}/{slug}.html")
 
 
-async def initial_path(session: AsyncSession, title: str, identity: UUID) -> str:
-    candidate = title_path(title, identity)
+async def initial_path(
+    session: AsyncSession, title: str, identity: UUID, *, language: str = "zh-CN"
+) -> str:
+    candidate = title_path(title, identity, language=language)
     root = candidate[:-5]
     counter = 1
     while True:

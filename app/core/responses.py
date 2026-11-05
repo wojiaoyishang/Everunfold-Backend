@@ -6,6 +6,8 @@ from typing import Any
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 
+from app.core.i18n import i18n
+
 
 class _BaseJSONResponse(JSONResponse):
     default_success: bool = False
@@ -24,7 +26,7 @@ class _BaseJSONResponse(JSONResponse):
         http_status = self.default_status_code if status_code is None else status_code
         self.success = self.default_success
         self.code = http_status if code is None else code
-        self.msg = self.default_msg if msg is None else msg
+        self.msg = i18n.message(self.default_msg if msg is None else msg)
         self.data = data
         payload: dict[str, Any] = {
             "success": self.success,

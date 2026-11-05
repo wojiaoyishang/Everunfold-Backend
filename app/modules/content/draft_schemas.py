@@ -7,6 +7,7 @@ from uuid import UUID
 
 from pydantic import Field, model_validator
 
+from app.core.locales import Locale
 from app.core.schemas import PublicModel, PublicResponse
 from app.modules.content.editor_schema import EditorCatalog, EditorSettings, EditorTermCreate
 from app.modules.content.publication_schemas import ContentDelivery, ContentSyncState
@@ -48,6 +49,8 @@ class DraftQuery(PublicModel):
     status: Literal["all", "draft", "published", "trash"] = "all"
     page: int = Field(default=1, ge=1, le=100_000)
     page_size: int = Field(default=15, ge=1, le=50)
+    language: Locale | None = None
+    grouped: bool = True
 
 
 class DraftLookup(PublicModel):
@@ -58,6 +61,7 @@ class DraftCreate(PublicModel):
     operation_id: UUID
     type_id: str = Field(min_length=1, max_length=64)
     fields: DraftFields
+    language: Locale = "zh-CN"
 
 
 class DraftMutation(DraftLookup):
@@ -84,6 +88,8 @@ class DraftSummary(PublicModel):
     published_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
+    language: str = "zh-CN"
+    translation_group_id: UUID | None = None
 
 
 class DraftDetail(DraftSummary):
@@ -93,12 +99,19 @@ class DraftDetail(DraftSummary):
     has_password: bool = False
 
 
+class TranslationMember(DraftSummary):
+    is_original: bool
+    needs_review: bool = False
+
+
 class DraftListItem(DraftSummary):
     cover_url: str | None = None
     categories: list[str] = Field(default_factory=list)
     tags: list[str] = Field(default_factory=list)
     comment_count: int = Field(default=0, ge=0)
     pinned: bool = False
+    translations: list[TranslationMember] = Field(default_factory=list)
+    group_revision: int = 1
 
 
 class DraftCatalog(PublicModel):
@@ -106,6 +119,33 @@ class DraftCatalog(PublicModel):
     total: int
     page: int
     page_size: int
+
+
+class TranslationCatalog(PublicModel):
+    id: UUID
+    source_id: UUID
+    type_id: str
+    revision: int
+    members: list[TranslationMember]
+
+
+class TranslationMutation(PublicModel):
+    id: UUID
+    operation_id: UUID
+    expected_revision: int = Field(ge=1)
+
+
+class TranslationCreate(TranslationMutation):
+    language: Locale
+    copy_source: bool = False
+
+
+class TranslationLink(TranslationMutation):
+    target_id: UUID
+
+
+class TranslationGroupMutation(TranslationMutation):
+    members: dict[UUID, int] = Field(min_length=1, max_length=32)
 
 
 class ContentTypeCatalog(PublicModel):
@@ -135,3 +175,8 @@ class ContentAdminContract(PublicModel):
     types: PublicResponse[ContentTypeCatalog]
     sync_state: PublicResponse[ContentSyncState]
     delivery: ContentDelivery
+    translation_catalog: PublicResponse[TranslationCatalog]
+    translation_create: TranslationCreate
+    translation_link: TranslationLink
+    translation_mutation: TranslationMutation
+    translation_group_mutation: TranslationGroupMutation

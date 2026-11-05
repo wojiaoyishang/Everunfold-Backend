@@ -1,0 +1,5 @@
+{
+  "success": "Request successful",
+  "failure": "Request failed",
+  "error": "Unable to process the request"
+}

@@ -9,7 +9,13 @@ from typing import Literal, Self
 
 from pydantic import Field, model_validator
 
-from app.modules.content.schemas import ContentBlock, MediaURL, PublicModel, TaxonomyDTO
+from app.modules.content.schemas import (
+    ContentBlock,
+    ContentTranslation,
+    MediaURL,
+    PublicModel,
+    TaxonomyDTO,
+)
 
 
 class ContentPresentation(PublicModel):
@@ -19,6 +25,8 @@ class ContentPresentation(PublicModel):
     path: str = Field(pattern="^/")
     excerpt: str
     language: str
+    translation_group_id: str | None = None
+    translations: list[ContentTranslation] = Field(default_factory=list)
     published_at: datetime
     updated_at: datetime
     author: str

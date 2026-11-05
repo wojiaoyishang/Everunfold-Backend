@@ -57,6 +57,14 @@ class SiteDTO(PublicModel):
     stats: SiteStats
 
 
+class ContentTranslation(PublicModel):
+    id: str
+    language: str
+    path: str = Field(pattern="^/")
+    access: Literal["public", "password", "scheduled"] = "public"
+    is_original: bool = False
+
+
 class ContentSummary(PublicEditorSettings):
     access: Literal["public", "password", "scheduled"] = "public"
     opens_at: datetime | None = None
@@ -66,6 +74,8 @@ class ContentSummary(PublicEditorSettings):
     path: str = Field(pattern="^/")
     excerpt: str
     language: str
+    translation_group_id: str | None = None
+    translations: list[ContentTranslation] = Field(default_factory=list)
     published_at: datetime
     updated_at: datetime
     author: str
@@ -126,7 +136,7 @@ class TaxonomyList(PublicModel):
 
 
 class PublicSnapshot(PublicModel):
-    schema_version: Literal["0.1.0", "0.2.0", "0.3.0", "0.4.0", "0.5.0"] = "0.5.0"
+    schema_version: Literal["0.1.0", "0.2.0", "0.3.0", "0.4.0", "0.5.0", "0.6.0"] = "0.6.0"
     source_epoch: str = Field(min_length=1)
     generation: int = Field(ge=1)
     exported_at: datetime

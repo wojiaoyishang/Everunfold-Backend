@@ -11,6 +11,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from starlette.exceptions import HTTPException
 
 from app.core.config import ConfigurationError, Settings, load_settings
+from app.core.i18n import LocaleMiddleware, i18n
 from app.core.modules import (
     register_auth_module,
     register_content_module,
@@ -27,6 +28,7 @@ logger = logging.getLogger(__name__)
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
+    i18n.load()
     resolved = settings
     if resolved is None:
         try:
@@ -61,6 +63,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         BusinessCORSMiddleware,
         allowed_origins=resolved.cors.allowed_origins if resolved else [],
     )
+    application.add_middleware(LocaleMiddleware)
     register_content_module(application)
     register_auth_module(application)
     register_settings_module(application)

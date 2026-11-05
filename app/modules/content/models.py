@@ -37,6 +37,7 @@ class Content(Base):
     path: Mapped[str] = mapped_column(Text, unique=True)
     excerpt: Mapped[str] = mapped_column(Text, default="")
     language: Mapped[str] = mapped_column(String(32), default="zh-CN")
+    translation_group_id: Mapped[uuid.UUID | None] = mapped_column(index=True)
     published_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     author: Mapped[str] = mapped_column(String(200))

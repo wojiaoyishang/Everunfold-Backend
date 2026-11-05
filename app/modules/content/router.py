@@ -7,6 +7,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.locales import Locale, resolve_locale
 from app.core.runtime import Runtime
 from app.modules.content.repository import ContentQuery, ContentRepository
 from app.modules.content.schemas import (
@@ -70,10 +71,24 @@ async def contents(
     kind: ContentKind | None = None,
     category: Annotated[str | None, Query(max_length=200)] = None,
     tag: Annotated[str | None, Query(max_length=200)] = None,
+    language: Locale | None = None,
+    all_languages: bool = False,
 ) -> PublicResponse[Page[ContentSummary]]:
     if page_size > runtime_from_request(request).settings.http.max_page_size:
         raise HTTPException(status_code=422)
-    query = ContentQuery(page, page_size, q, kind, category, tag)
+    query = ContentQuery(
+        page,
+        page_size,
+        q,
+        kind,
+        category,
+        tag,
+        language
+        or resolve_locale(
+            request.headers.get("X-Site-Locale") or request.headers.get("Accept-Language")
+        ),
+        all_languages,
+    )
     return PublicResponse(data=await service.list_contents(query))
 
 

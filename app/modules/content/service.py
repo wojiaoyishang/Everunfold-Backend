@@ -5,15 +5,18 @@ from datetime import UTC, datetime
 from typing import cast
 
 from fastapi import HTTPException
+from sqlalchemy import or_, select
 
 from app.modules.content.access_policy import publicly_readable
+from app.modules.content.draft_models import TranslationGroup
 from app.modules.content.editor_schema import PublicEditorSettings
 from app.modules.content.models import Comment, Content
-from app.modules.content.repository import ContentQuery, ContentRepository
+from app.modules.content.repository import ContentQuery, ContentRepository, presentation_conditions
 from app.modules.content.schemas import (
     ContentDetail,
     ContentKind,
     ContentSummary,
+    ContentTranslation,
     Page,
     PublicComment,
     PublicSnapshot,
@@ -91,6 +94,7 @@ class PublicContentService:
             path=item.path,
             excerpt=item.excerpt if readable else "",
             language=item.language,
+            translation_group_id=str(item.translation_group_id or item.id),
             published_at=item.published_at,
             updated_at=item.updated_at,
             author=item.author,
@@ -108,8 +112,10 @@ class PublicContentService:
         contents, total = await self.repository.list_contents(query)
         taxonomy_map = {item.id: item for item in await self.taxonomies()}
         comment_counts = await self.repository.comment_counts([item.id for item in contents])
+        items = [self._summary(item, taxonomy_map, comment_counts) for item in contents]
+        await self._translations(items)
         return Page(
-            items=[self._summary(item, taxonomy_map, comment_counts) for item in contents],
+            items=items,
             page=query.page,
             page_size=query.page_size,
             total=total,
@@ -141,7 +147,41 @@ class PublicContentService:
             raise HTTPException(status_code=404)
         taxonomy_map = {item.id: item for item in await self.taxonomies()}
         counts = await self.repository.comment_counts([item.id])
-        return self._detail(item, taxonomy_map, counts)
+        result = self._detail(item, taxonomy_map, counts)
+        await self._translations([result])
+        return result
+
+    async def _translations(self, items: list[ContentSummary] | list[ContentDetail]) -> None:
+        if not items:
+            return
+        keys = [uuid.UUID(item.translation_group_id or item.id) for item in items]
+        rows = await self.repository.session.execute(
+            select(Content, TranslationGroup.source_id)
+            .outerjoin(TranslationGroup, TranslationGroup.id == Content.translation_group_id)
+            .where(
+                *presentation_conditions(),
+                or_(Content.translation_group_id.in_(keys), Content.id.in_(keys)),
+            )
+            .order_by(Content.language, Content.id)
+        )
+        grouped: dict[str, list[ContentTranslation]] = {}
+        for content, source_id in rows:
+            key = str(content.translation_group_id or content.id)
+            grouped.setdefault(key, []).append(
+                ContentTranslation(
+                    id=str(content.id),
+                    language=content.language,
+                    path=content.path,
+                    access="public"
+                    if publicly_readable(content)
+                    else "scheduled"
+                    if content.opens_at
+                    else "password",
+                    is_original=source_id is None or content.id == source_id,
+                )
+            )
+        for item in items:
+            item.translations = grouped.get(item.translation_group_id or item.id, [])
 
     @staticmethod
     def _comment_projections(
@@ -193,12 +233,14 @@ class PublicContentService:
         comments = await self.repository.all_comments()
         for row, projection in zip(comments, self._comment_projections(comments), strict=True):
             comment_map[str(row.content_id)].append(projection)
+        details = [self._detail(item, taxonomy_map, counts) for item in contents]
+        await self._translations(details)
         return PublicSnapshot(
             source_epoch=str(stored.source_epoch),
             generation=stored.content_generation,
             exported_at=datetime.now(UTC),
             site=await self.site(),
-            contents=[self._detail(item, taxonomy_map, counts) for item in contents],
+            contents=details,
             comments=comment_map,
             taxonomies=taxonomies,
         )
