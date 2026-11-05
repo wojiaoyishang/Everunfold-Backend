@@ -5,10 +5,10 @@ import base64
 import json
 from collections.abc import Awaitable, Callable
 from typing import Any
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import httpx2 as httpx
-from pycrdt import Doc
+from pycrdt import Doc, Map
 from websockets.asyncio.client import ClientConnection, connect
 from websockets.typing import Origin
 
@@ -26,10 +26,14 @@ async def verify_versions(
     connections: list[ClientConnection],
 ) -> None:
     prefix = "/v1/admin/content/"
-    block_id = str(uuid4())
+    block_id, retired_id = str(uuid4()), str(uuid4())
+    retired_source = '<section class="retired">\n  <p>已移除块原文 &amp; 🌟</p>\n</section>\n'
     fields = {
         "title": "合并并发验收",
-        "body": [{"id": block_id, "type": "markdown", "content": "第一行\n第二行\n第三行\n"}],
+        "body": [
+            {"id": block_id, "type": "markdown", "content": "第一行\n第二行\n第三行\n"},
+            {"id": retired_id, "type": "html", "content": retired_source},
+        ],
     }
     created = client.post(
         prefix + "create",
@@ -73,6 +77,7 @@ async def verify_versions(
     # The offline branch only remembers its old base; an accepted receipt advances
     # that base selectively, preventing its already-saved insertion appearing twice.
     local_fields = project(offline.doc).model_dump(mode="json")
+    local_fields["body"] = [b for b in local_fields["body"] if b["id"] != retired_id]
     local_fields["body"][0]["content"] = local_fields["body"][0]["content"].replace(
         "第一行", "本地第一行"
     )
@@ -164,6 +169,9 @@ async def verify_versions(
     assert (await offline.receive("error"))["code"] == 40970
     fresh = await room(api_b, 2103)
     assert fresh.epoch != base_epoch
+    retired = fresh.doc.get("blocks", type=Map)[retired_id]
+    assert str(retired["content"]) == retired_source and retired["deleted"] is True
+    assert [b.id for b in project(fresh.doc).body] == [UUID(block_id)]
     # Retained old epoch still permits recovery after a deleted history entry.
     post("versions/branch/upload", {**upload, "branch_id": str(uuid4())})
     expired_id = str(uuid4())
@@ -174,4 +182,48 @@ async def verify_versions(
     )
     post("versions/merge/finish", {"merge_id": expired_id}, expected=409)
     assert post("versions/list", {})["lock"] is None
-    assert await fresh.send(fresh.edit(block_id, "租约过期后可继续编辑\n")) > merge["target_seq"]
+    latest_seq = await fresh.send(fresh.edit(block_id, "租约过期后可继续编辑\n"))
+    assert latest_seq > merge["target_seq"]
+    review_fields = project(fresh.doc).model_dump(mode="json")
+    review_fields["body"][0]["content"] += "需要人工确认的源视图\n"
+    review_branch = post(
+        "versions/branch/upload",
+        {
+            "branch_id": str(uuid4()),
+            "base_epoch": fresh.epoch,
+            "base_seq": latest_seq,
+            "fields": review_fields,
+            "review_blocks": [block_id],
+        },
+    )
+    assert review_branch["branch"]["review_blocks"] == [block_id]
+    review_merge = post(
+        "versions/merge/begin",
+        {"branch_id": review_branch["branch"]["id"], "merge_id": str(uuid4())},
+    )
+    assert any(block_id in c["path"] for c in review_merge["conflicts"])
+    invalid = {**review_fields, "body": []}
+    post(
+        "versions/merge/resolve",
+        {"merge_id": review_merge["id"], "resolutions": [], "result": invalid},
+        expected=422,
+    )
+    result = {**review_merge["result"], "title": "合并结果单独自动保存"}
+    saved = post(
+        "versions/merge/resolve",
+        {"merge_id": review_merge["id"], "resolutions": [], "result": result},
+    )
+    assert saved["result"]["title"] == result["title"]
+    assert (
+        post("versions/merge/read", {"merge_id": review_merge["id"]})["result"] == saved["result"]
+    )
+    post("versions/merge/cancel", {"merge_id": review_merge["id"]})
+    derived = post(
+        "versions/branch/upload",
+        {
+            "branch_id": str(uuid4()),
+            "base_branch_id": review_branch["branch"]["id"],
+            "fields": result,
+        },
+    )
+    assert derived["base"] == review_branch["base"]
