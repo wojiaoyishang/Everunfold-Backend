@@ -27,6 +27,15 @@ from app.modules.media.schemas import (
     MediaUpdate,
     MediaUpload,
 )
+from app.modules.shortcodes.schemas import (
+    PreviewShortcode,
+    PublicShortcode,
+    RestoreShortcode,
+    SaveShortcode,
+    ShortcodeAction,
+    ShortcodeCatalog,
+    ShortcodeItem,
+)
 
 
 class SettingsModel(PublicModel):
@@ -149,6 +158,7 @@ class PublicSettings(SettingsModel):
     site: SitePreferences
     theme: ThemePreferences
     icon_urls: dict[str, str] = Field(default_factory=dict)
+    shortcodes: list[PublicShortcode] = Field(default_factory=list, max_length=100)
 
 
 class CachePolicy(SettingsModel):
@@ -225,6 +235,13 @@ class DeliveryReceipt(SettingsModel):
 
 
 class SettingsContract(PublicModel):
+    shortcode_catalog: PublicResponse[ShortcodeCatalog]
+    shortcode_item: PublicResponse[ShortcodeItem]
+    shortcode_preview: PublicResponse[PublicShortcode]
+    save_shortcode: SaveShortcode
+    shortcode_action: ShortcodeAction
+    restore_shortcode: RestoreShortcode
+    preview_shortcode: PreviewShortcode
     fonts: PublicResponse[FontCatalog]
     media_removal_intent: MediaRemovalIntent
     media_removal_preview: PublicResponse[MediaRemovalPreview]

@@ -16,6 +16,7 @@ from app.core.modules import (
     register_content_module,
     register_media_module,
     register_settings_module,
+    register_shortcodes_module,
 )
 from app.core.responses import JSONResponseError, JSONResponseFail, JSONResponseSuccess
 from app.core.runtime import Runtime
@@ -63,6 +64,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     register_content_module(application)
     register_auth_module(application)
     register_settings_module(application)
+    register_shortcodes_module(application)
     register_media_module(application)
 
     @application.exception_handler(AuthFailure)

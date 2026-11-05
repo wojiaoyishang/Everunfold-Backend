@@ -27,7 +27,9 @@ def public_settings(data: dict[str, Any]) -> PublicSettings:
         "background_url": data.get("hero_url") or "",
     }
     return PublicSettings(
-        site=SitePreferences.model_validate(site), theme=ThemePreferences.model_validate(theme)
+        site=SitePreferences.model_validate(site),
+        theme=ThemePreferences.model_validate(theme),
+        shortcodes=data.get("shortcodes", []),
     )
 
 
@@ -40,4 +42,5 @@ def stored_settings(original: dict[str, Any], value: PublicSettings) -> dict[str
         "hero_subtitle": theme.pop("hero_subtitle"),
         "hero_url": theme.pop("background_url") or None,
         "theme": theme,
+        "shortcodes": [item.model_dump() for item in value.shortcodes],
     }

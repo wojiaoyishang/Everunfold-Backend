@@ -11,6 +11,7 @@ from app.modules.content.draft_models import ContentDraft, DraftRevision
 from app.modules.content.models import Comment, Content, SiteSettings
 from app.modules.media.models import MediaAsset
 from app.modules.settings.models import SettingsAudit, SettingsDeliveryEvent
+from app.modules.shortcodes.models import ShortcodeDefinition, ShortcodeVersion
 
 
 async def require_unreferenced(
@@ -24,6 +25,7 @@ async def require_unreferenced(
     # finds IDs embedded in URLs/HTML/Markdown; false positives intentionally block removal.
     token = str(asset.id)
     current = [
+        select(ShortcodeDefinition.id).where(cast(ShortcodeDefinition.data, Text).contains(token)),
         select(CollaborationDocument.draft_id).where(
             cast(CollaborationDocument.media_ids, Text).contains(token)
         ),
@@ -49,6 +51,7 @@ async def require_unreferenced(
             raise AuthFailure(409, 40936, "文件仍被站点设置或内容使用，请先移除引用")
     if history:
         retained = [
+            select(ShortcodeVersion.id).where(cast(ShortcodeVersion.data, Text).contains(token)),
             select(DraftRevision.draft_id).where(
                 cast(DraftRevision.snapshot, Text).contains(token)
             ),

@@ -16,6 +16,7 @@ dependencies = [
     "pycrdt==0.14.10",
     "redis==6.4.0",
     "sqlalchemy[asyncio]==2.1.6",
+    "tinycss2==1.5.1",
     "tzdata==2026.6",
     "uvicorn==0.54.0",
     "websockets==17.4",

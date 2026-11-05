@@ -1,6 +1,7 @@
 """Optimistic writes and reliable intents; one commit per use case, no network I/O."""
 
 import json
+import re
 import uuid
 from datetime import UTC, datetime
 from typing import Literal
@@ -92,6 +93,44 @@ class SettingsService:
         resolved = value.model_copy(
             update={"site": site, "theme": theme, "icon_urls": await service.resolve_icons(icons)}
         )
+        # Template media use the same immutable IDs as content; derived addresses
+        # are refreshed with the settings projection, never written into sources.
+        from app.modules.media.models import MediaAsset
+
+        resolved.shortcodes = []
+        for definition in value.shortcodes:
+            ids = {
+                uuid.UUID(item)
+                for item in re.findall(
+                    r"site://media/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})",
+                    definition.html
+                    + json.dumps([item.model_dump() for item in definition.parameters]),
+                )
+            }
+            assets = (
+                list(
+                    (
+                        await self.session.scalars(
+                            select(MediaAsset).where(
+                                MediaAsset.id.in_(ids),
+                                MediaAsset.status == "ready",
+                                MediaAsset.deleted_at.is_(None),
+                            )
+                        )
+                    ).all()
+                )
+                if ids
+                else []
+            )
+            if len(assets) != len(ids):
+                raise AuthFailure(422, 42234, "短代码引用的媒体不可用")
+            resolved.shortcodes.append(
+                definition.model_copy(
+                    update={
+                        "media_urls": {str(asset.id): service.dto(asset).url for asset in assets}
+                    }
+                )
+            )
         # The receiver accepts 64 KiB including its versioned delivery envelope.
         # Reserve space for that envelope; derived media URLs can exceed input size.
         encoded = json.dumps(
@@ -174,13 +213,17 @@ class SettingsService:
             )
         )
 
-    async def save(self, payload: SaveSettings, actor: uuid.UUID) -> SettingsState:
+    async def save(
+        self, payload: SaveSettings, actor: uuid.UUID, *, shortcode_write: bool = False
+    ) -> SettingsState:
         await lock_references(self.session)
         record = await self.site(locked=True)
         if record.generation != payload.expected_revision:
             raise AuthFailure(409, 40920, "设置已被修改，请重新读取后合并你的更改")
         payload.value = await self.resolve(payload.value)
         before = await self.resolve(public_settings(record.data))
+        if not shortcode_write and before.shortcodes != payload.value.shortcodes:
+            raise AuthFailure(422, 42280, "请在短代码库中应用模板修改")
         if before != payload.value:
             record.data = stored_settings(record.data, payload.value)
             record.generation += 1

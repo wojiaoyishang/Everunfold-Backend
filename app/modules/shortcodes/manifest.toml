@@ -1,0 +1,4 @@
+id = "shortcodes"
+version = "0.1.0"
+router_entrypoint = "app.modules.shortcodes:router_init"
+dependencies = []

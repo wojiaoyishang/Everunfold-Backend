@@ -5,13 +5,56 @@ from pathlib import Path
 from typing import Any
 
 from app.modules.settings.schemas import SettingsContract
+from app.modules.shortcodes.registry import builtin_catalog
 
 
 def build_schema() -> dict[str, Any]:
     schema = SettingsContract.model_json_schema()
     schema["$schema"] = "http://json-schema.org/draft-07/schema#"
-    schema["x-everunfold-contract-version"] = "1.8.0"
+    schema["x-everunfold-contract-version"] = "1.9.0"
+    schema["x-everunfold-shortcodes"] = [item.model_dump() for item in builtin_catalog()]
     schema["x-everunfold-operations"] = [
+        {
+            "name": "readShortcodes",
+            "path": "/v1/admin/shortcodes",
+            "method": "GET",
+            "response": "shortcode_catalog",
+        },
+        {
+            "name": "saveShortcode",
+            "path": "/v1/admin/shortcodes/save",
+            "method": "POST",
+            "input": "save_shortcode",
+            "response": "shortcode_item",
+        },
+        {
+            "name": "previewShortcode",
+            "path": "/v1/admin/shortcodes/preview",
+            "method": "POST",
+            "input": "preview_shortcode",
+            "response": "shortcode_preview",
+        },
+        {
+            "name": "applyShortcode",
+            "path": "/v1/admin/shortcodes/apply",
+            "method": "POST",
+            "input": "shortcode_action",
+            "response": "shortcode_catalog",
+        },
+        {
+            "name": "archiveShortcode",
+            "path": "/v1/admin/shortcodes/archive",
+            "method": "POST",
+            "input": "shortcode_action",
+            "response": "shortcode_catalog",
+        },
+        {
+            "name": "restoreShortcode",
+            "path": "/v1/admin/shortcodes/restore",
+            "method": "POST",
+            "input": "restore_shortcode",
+            "response": "shortcode_item",
+        },
         {
             "name": "queryFonts",
             "path": "/v1/admin/fonts/query",

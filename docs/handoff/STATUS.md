@@ -1,5 +1,11 @@
 # 后端交接状态
 
+## 实现中：原生短代码契约与模板事务（2026-11-05，Asia/Shanghai）
+
+- 用户确认调用使用 `{{< gallery id="123" >}}`、`{{< notice type="warning" >}}…{{< /notice >}}`，并要求源码创建的HTML也允许可视化修改。方括号旧兼容将从前端删除，不批量重写历史正文。
+- 新增shortcodes模块、显式0016迁移、HTML插槽/CSS AST编译、只读后端注册项、自定义草稿/应用/归档/应用历史恢复接口；settings契约1.9.0发布相应类型。模板应用复用public-settings既有持久投递，定义/版本/审计/Outbox同事务。tinycss2 1.5.1用于CSS结构解析（Python3.10+、BSD，官方文档：https://doc.courtbouillon.org/tinycss2/stable/）。
+- 当前45项针对性测试及静态检查通过；本阶段尚未执行0016实际迁移、前端接入或真实多进程P0，不作为完整交付/验收。正在继续实现。
+
 ## 最新设计：原生短代码与后台短代码库（2026-11-05，Asia/Shanghai）
 
 - 用户已明确去掉旧短代码兼容，采用新体系；后台展示全部样式，支持自定义纯HTML/CSS，部分前后端注册项只读。已同步[设计提案](../architecture/shortcodes.md)与ADR0056；本轮是设计，未交付实际短代码模块、目录API或定义存储。
