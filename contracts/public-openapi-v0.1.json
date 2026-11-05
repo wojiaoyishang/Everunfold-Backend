@@ -4134,6 +4134,97 @@
         }
       }
     },
+    "/v1/admin/content/versions/merge/delete": {
+      "post": {
+        "tags": [
+          "content-versions"
+        ],
+        "summary": "Delete Merge",
+        "operationId": "delete_merge_v1_admin_content_versions_merge_delete_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MergeLookup"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicResponse_MergeDetail_"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/auth/session": {
       "get": {
         "tags": [
@@ -10537,7 +10628,8 @@
               "active",
               "cancelled",
               "completed",
-              "expired"
+              "expired",
+              "discarded"
             ],
             "title": "Status"
           },
@@ -10700,6 +10792,16 @@
             "type": "array",
             "maxItems": 1024,
             "title": "Resolutions"
+          },
+          "result": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DraftFields"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "additionalProperties": false,
@@ -10738,7 +10840,8 @@
               "active",
               "cancelled",
               "completed",
-              "expired"
+              "expired",
+              "discarded"
             ],
             "title": "Status"
           },
@@ -13425,6 +13528,14 @@
             },
             "type": "array",
             "title": "Merges"
+          },
+          "merge_total": {
+            "type": "integer",
+            "title": "Merge Total"
+          },
+          "merge_page": {
+            "type": "integer",
+            "title": "Merge Page"
           }
         },
         "additionalProperties": false,
@@ -13437,7 +13548,9 @@
           "page",
           "branch_page",
           "lock",
-          "merges"
+          "merges",
+          "merge_total",
+          "merge_page"
         ],
         "title": "VersionCatalog"
       },
@@ -13584,6 +13697,13 @@
             "maximum": 100000.0,
             "minimum": 1.0,
             "title": "Branch Page",
+            "default": 1
+          },
+          "merge_page": {
+            "type": "integer",
+            "maximum": 100000.0,
+            "minimum": 1.0,
+            "title": "Merge Page",
             "default": 1
           }
         },

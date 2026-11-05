@@ -1000,7 +1000,8 @@
             "active",
             "cancelled",
             "completed",
-            "expired"
+            "expired",
+            "discarded"
           ],
           "title": "Status",
           "type": "string"
@@ -1164,6 +1165,17 @@
           "maxItems": 1024,
           "title": "Resolutions",
           "type": "array"
+        },
+        "result": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DraftFields"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
@@ -1201,7 +1213,8 @@
             "active",
             "cancelled",
             "completed",
-            "expired"
+            "expired",
+            "discarded"
           ],
           "title": "Status",
           "type": "string"
@@ -2121,6 +2134,14 @@
           },
           "title": "Merges",
           "type": "array"
+        },
+        "merge_total": {
+          "title": "Merge Total",
+          "type": "integer"
+        },
+        "merge_page": {
+          "title": "Merge Page",
+          "type": "integer"
         }
       },
       "required": [
@@ -2131,7 +2152,9 @@
         "page",
         "branch_page",
         "lock",
-        "merges"
+        "merges",
+        "merge_total",
+        "merge_page"
       ],
       "title": "VersionCatalog",
       "type": "object"
@@ -2280,6 +2303,13 @@
           "maximum": 100000,
           "minimum": 1,
           "title": "Branch Page",
+          "type": "integer"
+        },
+        "merge_page": {
+          "default": 1,
+          "maximum": 100000,
+          "minimum": 1,
+          "title": "Merge Page",
           "type": "integer"
         }
       },
@@ -2526,6 +2556,13 @@
     {
       "name": "finishDraftMerge",
       "path": "/v1/admin/content/versions/merge/finish",
+      "method": "POST",
+      "input": "merge_lookup",
+      "response": "merge_detail"
+    },
+    {
+      "name": "deleteDraftMerge",
+      "path": "/v1/admin/content/versions/merge/delete",
       "method": "POST",
       "input": "merge_lookup",
       "response": "merge_detail"

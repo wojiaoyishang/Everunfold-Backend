@@ -112,3 +112,12 @@ async def finish(payload: MergeLookup, ctx: Authorized) -> JSONResponseSuccess:
             ctx.service.session, ctx.service.config, ctx.actor, payload, "finish"
         )
     )
+
+
+@router.post("/merge/delete", response_model=PublicResponse[MergeDetail])
+async def delete_merge(payload: MergeLookup, ctx: Authorized) -> JSONResponseSuccess:
+    return JSONResponseSuccess(
+        data=await service.command_merge(
+            ctx.service.session, ctx.service.config, ctx.actor, payload, "delete"
+        )
+    )

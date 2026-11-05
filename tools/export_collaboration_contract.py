@@ -68,6 +68,7 @@ def build_schema() -> dict[str, Any]:
         ("renewDraftMerge", "merge/renew", "merge_lookup", "merge_detail"),
         ("cancelDraftMerge", "merge/cancel", "merge_lookup", "merge_detail"),
         ("finishDraftMerge", "merge/finish", "merge_lookup", "merge_detail"),
+        ("deleteDraftMerge", "merge/delete", "merge_lookup", "merge_detail"),
     ]:
         schema["x-everunfold-operations"].append(
             {

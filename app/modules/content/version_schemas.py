@@ -16,6 +16,7 @@ class TicketRequest(DraftLookup):
 class VersionQuery(DraftLookup):
     page: int = Field(default=1, ge=1, le=100_000)
     branch_page: int = Field(default=1, ge=1, le=100_000)
+    merge_page: int = Field(default=1, ge=1, le=100_000)
 
 
 class VersionLookup(DraftLookup):
@@ -98,7 +99,7 @@ class MergeSummary(PublicModel):
     branch_id: UUID
     owner_id: UUID
     actor: str
-    status: Literal["active", "cancelled", "completed", "expired"]
+    status: Literal["active", "cancelled", "completed", "expired", "discarded"]
     created_at: AwareDatetime
     expires_at: AwareDatetime
     unresolved: int
@@ -115,6 +116,8 @@ class VersionCatalog(PublicModel):
     page_size: int = 20
     lock: MergeLock | None
     merges: list[MergeSummary]
+    merge_total: int
+    merge_page: int
 
 
 class MergeBegin(BranchLookup):
@@ -133,12 +136,13 @@ class ConflictResolution(PublicModel):
 
 class MergeResolve(MergeLookup):
     resolutions: list[ConflictResolution] = Field(max_length=1024)
+    result: DraftFields | None = None
 
 
 class MergeDetail(PublicModel):
     id: UUID
     branch_id: UUID
-    status: Literal["active", "cancelled", "completed", "expired"]
+    status: Literal["active", "cancelled", "completed", "expired", "discarded"]
     owner_id: UUID
     epoch: UUID
     target_seq: int

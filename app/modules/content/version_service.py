@@ -106,6 +106,9 @@ async def catalog(session: AsyncSession, payload: VersionQuery) -> VersionCatalo
     branches = select(DraftBranch).where(
         DraftBranch.draft_id == row.id, DraftBranch.deleted_at.is_(None)
     )
+    merges = select(DraftMerge).where(
+        DraftMerge.draft_id == row.id, DraftMerge.status != "discarded"
+    )
     total = await session.scalar(select(func.count()).select_from(versions.subquery())) or 0
     branch_total = await session.scalar(select(func.count()).select_from(branches.subquery())) or 0
     return VersionCatalog(
@@ -133,12 +136,13 @@ async def catalog(session: AsyncSession, payload: VersionQuery) -> VersionCatalo
         merges=[
             await merge_summary(session, item)
             for item in await session.scalars(
-                select(DraftMerge)
-                .where(DraftMerge.draft_id == row.id)
-                .order_by(DraftMerge.created_at.desc())
+                merges.order_by(DraftMerge.created_at.desc())
+                .offset((payload.merge_page - 1) * 20)
                 .limit(20)
             )
         ],
+        merge_total=await session.scalar(select(func.count()).select_from(merges.subquery())) or 0,
+        merge_page=payload.merge_page,
     )
 
 
@@ -434,7 +438,11 @@ async def owned_merge(
 
 async def resolve_merge(session: AsyncSession, actor: User, payload: MergeResolve) -> MergeDetail:
     item = await owned_merge(session, actor, payload)
-    result = deepcopy(item.result)
+    result = (
+        safe_fields(payload.result).model_dump(mode="json")
+        if payload.result is not None
+        else deepcopy(item.result)
+    )
     conflicts = {conflict["key"]: conflict for conflict in item.conflicts}
     resolved = set(item.resolved)
     for resolution in payload.resolutions:
@@ -462,6 +470,15 @@ async def command_merge(
     if (command == "finish" and item.status == "completed") or (
         command == "cancel" and item.status == "cancelled"
     ):
+        return merge_detail(item)
+    if command == "delete":
+        if item.status == "active" and item.expires_at > datetime.now(UTC):
+            raise AuthFailure(409, 40980, "请先暂停这项合并")
+        row = await draft_row(session, payload.id, lock=True)
+        if item.result_revision == row.revision:
+            raise AuthFailure(409, 40982, "最新版关联的合并记录不能删除")
+        item.status = "discarded"
+        await session.commit()
         return merge_detail(item)
     if item.status != "active" or item.expires_at <= datetime.now(UTC):
         raise AuthFailure(409, 40984, "合并编辑权已过期，结果已保留，请重新比较最新版")
