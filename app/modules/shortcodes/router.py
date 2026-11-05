@@ -7,11 +7,11 @@ from app.core.schemas import PublicResponse
 from app.modules.settings.router import Authorized
 from app.modules.shortcodes.schemas import (
     PreviewShortcode,
-    PublicShortcode,
     RestoreShortcode,
     SaveShortcode,
     ShortcodeAction,
     ShortcodeCatalog,
+    ShortcodeCompilation,
     ShortcodeItem,
 )
 from app.modules.shortcodes.service import ShortcodeService
@@ -33,9 +33,17 @@ async def save(payload: SaveShortcode, ctx: Authorized) -> JSONResponseSuccess:
     return JSONResponseSuccess(data=await service(ctx).save(payload, ctx.actor.id))
 
 
-@router.post("/preview", response_model=PublicResponse[PublicShortcode])
+@router.post("/preview", response_model=PublicResponse[ShortcodeCompilation])
 async def preview(payload: PreviewShortcode, ctx: Authorized) -> JSONResponseSuccess:
-    return JSONResponseSuccess(data=await service(ctx).preview(payload))
+    from app.modules.auth.service import AuthFailure
+
+    try:
+        result = ShortcodeCompilation(compiled=await service(ctx).preview(payload), error="")
+    except AuthFailure as error:
+        if error.status != 422:
+            raise
+        result = ShortcodeCompilation(compiled=None, error=error.message)
+    return JSONResponseSuccess(data=result)
 
 
 @router.post("/apply", response_model=PublicResponse[ShortcodeCatalog])

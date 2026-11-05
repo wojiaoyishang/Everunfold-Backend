@@ -1549,34 +1549,6 @@
       "title": "PublicResponse[PolicyState]",
       "type": "object"
     },
-    "PublicResponse_PublicShortcode_": {
-      "additionalProperties": false,
-      "properties": {
-        "success": {
-          "default": true,
-          "title": "Success",
-          "type": "boolean"
-        },
-        "code": {
-          "default": 200,
-          "title": "Code",
-          "type": "integer"
-        },
-        "msg": {
-          "default": "请求成功",
-          "title": "Msg",
-          "type": "string"
-        },
-        "data": {
-          "$ref": "#/$defs/PublicShortcode"
-        }
-      },
-      "required": [
-        "data"
-      ],
-      "title": "PublicResponse[PublicShortcode]",
-      "type": "object"
-    },
     "PublicResponse_SettingsState_": {
       "additionalProperties": false,
       "properties": {
@@ -1631,6 +1603,34 @@
         "data"
       ],
       "title": "PublicResponse[ShortcodeCatalog]",
+      "type": "object"
+    },
+    "PublicResponse_ShortcodeCompilation_": {
+      "additionalProperties": false,
+      "properties": {
+        "success": {
+          "default": true,
+          "title": "Success",
+          "type": "boolean"
+        },
+        "code": {
+          "default": 200,
+          "title": "Code",
+          "type": "integer"
+        },
+        "msg": {
+          "default": "请求成功",
+          "title": "Msg",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/ShortcodeCompilation"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "title": "PublicResponse[ShortcodeCompilation]",
       "type": "object"
     },
     "PublicResponse_ShortcodeItem_": {
@@ -1988,6 +1988,31 @@
         "settings_revision"
       ],
       "title": "ShortcodeCatalog",
+      "type": "object"
+    },
+    "ShortcodeCompilation": {
+      "additionalProperties": false,
+      "properties": {
+        "compiled": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PublicShortcode"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "error": {
+          "title": "Error",
+          "type": "string"
+        }
+      },
+      "required": [
+        "compiled",
+        "error"
+      ],
+      "title": "ShortcodeCompilation",
       "type": "object"
     },
     "ShortcodeItem": {
@@ -2349,7 +2374,7 @@
       "$ref": "#/$defs/PublicResponse_ShortcodeItem_"
     },
     "shortcode_preview": {
-      "$ref": "#/$defs/PublicResponse_PublicShortcode_"
+      "$ref": "#/$defs/PublicResponse_ShortcodeCompilation_"
     },
     "save_shortcode": {
       "$ref": "#/$defs/SaveShortcode"

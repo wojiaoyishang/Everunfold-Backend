@@ -34,6 +34,7 @@ from app.modules.shortcodes.schemas import (
     SaveShortcode,
     ShortcodeAction,
     ShortcodeCatalog,
+    ShortcodeCompilation,
     ShortcodeItem,
 )
 
@@ -237,7 +238,7 @@ class DeliveryReceipt(SettingsModel):
 class SettingsContract(PublicModel):
     shortcode_catalog: PublicResponse[ShortcodeCatalog]
     shortcode_item: PublicResponse[ShortcodeItem]
-    shortcode_preview: PublicResponse[PublicShortcode]
+    shortcode_preview: PublicResponse[ShortcodeCompilation]
     save_shortcode: SaveShortcode
     shortcode_action: ShortcodeAction
     restore_shortcode: RestoreShortcode

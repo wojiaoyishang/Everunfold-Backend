@@ -111,3 +111,8 @@ class RestoreShortcode(ShortcodeAction):
 class PreviewShortcode(ShortcodeModel):
     id: str | None = None
     value: ShortcodeSource
+
+
+class ShortcodeCompilation(ShortcodeModel):
+    compiled: PublicShortcode | None
+    error: str
