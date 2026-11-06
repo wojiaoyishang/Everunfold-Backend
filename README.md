@@ -4,7 +4,7 @@
 
 当前功能联调仅展示新后台发布的测试文章/说说；旧 WordPress 试导入内容已撤回。开发工具与恢复边界见 [内容管理指南](docs/development/content-management.md)。
 
-Everunfold 博客与轻量 CMS 的独立后端仓库。当前已完成公开阅读基础、真实匿名历史评论点赞，以及基础管理员登录所需的后端能力：PostgreSQL 用户与可撤销 Session、HttpOnly Cookie、CSRF/精确 Origin、管理员身份复核和显式数据库初始化。独立前端已接入登录、站点/主题/节点策略设置、媒体库与注册式文章/说说草稿管理。设置与内容发布共用独立 Worker/Scheduler/Node 接收链路；文章/说说已可发布、撤回和同步到前台。用户管理、协同与完整生产缓存体系尚未完成。
+Everunfold 博客与轻量 CMS 的独立后端仓库。已实现公开阅读、匿名历史评论点赞、Cookie Session/CSRF、账号资料/密码/会话、用户管理/细分授权、独立受限头像库、API Key与应用签名查询/回调。独立前端接入设置、媒体、多语言文章/说说、协同、版本分支/合并及发布/撤回；设置与内容共用独立Worker/Scheduler/Node接收链路。完整生产缓存体系及其余CMS能力仍按阶段推进，账号使用见[指南](docs/development/accounts.md)。
 
 先读 [文档入口](docs/README.md) 和 [当前交接](docs/handoff/STATUS.md)。原始设计基线及工程计划保存在 `docs/baseline/`，后续开发不依赖临时附件或聊天上下文。
 
@@ -32,7 +32,7 @@ uv run --locked python -m uvicorn app.entrypoints.api:app --host 127.0.0.1 --por
 uv run --locked python init.database.py --config config.toml
 ```
 
-该入口在目标库不存在时尝试创建数据库，随后显式运行已有 Alembic 迁移，并只在用户名缺失时创建初始管理员。未提供 `EVERUNFOLD_ADMIN_PASSWORD` 时使用用户指定的默认 `admin` / `123456`；重复执行不会清库、改已有密码、改角色或提升已有账号。默认密码只可用于首次本地开发，部署到可访问环境前必须改用其他初始密码；当前尚未提供改密界面。
+该入口在目标库不存在时尝试创建数据库，显式执行已有Alembic迁移，仅在用户名缺失时创建管理员。未提供`EVERUNFOLD_ADMIN_PASSWORD`时的默认凭据只供首次本地开发；部署应提供其他密码。重复执行不会清库、重置密码或提升账号。账号中心已支持改密，后台支持创建用户与重置临时密码。
 
 只检查或执行已有迁移时仍可显式运行：
 

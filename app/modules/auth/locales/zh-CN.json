@@ -65,5 +65,19 @@
   "account_c67c2a017133": "请至少选择一项可用权限",
   "account_78e5d1dcbf14": "请选择未来十年内的到期时间",
   "account_4eca83c50f58": "密钥名称不能为空",
-  "account_51ab7afa81f8": "密钥不存在"
+  "account_51ab7afa81f8": "密钥不存在",
+  "account_e9a3b4d31eef": "请上传文件原始字节",
+  "account_75c36f2d0ee0": "头像文件超过当前上传限制",
+  "account_6e61c94e199e": "请选择静态 JPG、PNG 或 WebP 图片，像素总量不超过1600万",
+  "account_7244dc4a19b5": "头像上传设置尚未就绪",
+  "account_e4137d1e82c5": "头像上传限制已被修改，请重新读取",
+  "account_715b40cd5e63": "头像资源暂不可用，请重新上传",
+  "account_16cec8c58ce9": "头像不存在",
+  "account_46d3aa17d0d3": "请先更换或清除当前头像，再从图库移除",
+  "account_7fa5f8bac6b5": "该上传标识已经用于其他文件",
+  "account_488fc338aaf3": "头像已从个人图库移除，请重新上传",
+  "account_3afc3658331d": "个人头像图库已满，请先移除不再需要的图片",
+  "account_82d86d45bb1d": "今日头像上传次数已用完，请明天再试",
+  "account_6238509b6f7a": "请选择本人头像图库中可用的图片",
+  "account_373a58ff1575": "请通过个人头像图库设置头像"
 }

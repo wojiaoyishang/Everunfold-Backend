@@ -1,23 +1,15 @@
 # 显式数据库迁移
 
-从项目根执行 `uv run --locked alembic -c migrations/alembic.ini upgrade head`。
-连接从显式配置加载器取得，支持 `CONFIG_FILE` / `DATABASE_URL`；不把凭据写进 Alembic 配置。
-服务启动不调用 Alembic，不执行 `create_all()`。
+项目根执行`uv run --locked alembic -c migrations/alembic.ini upgrade head`。连接来自显式加载器的`CONFIG_FILE`/`DATABASE_URL`，凭据不进Alembic配置；服务启动不调用迁移或`create_all()`。当前head为`0021_private_user_avatars`。
 
-`0001_public_read` 建立公开阅读所需内容、分类标签、评论、搜索派生文档及站点设置。
-`0002_comment_likes` 建立匿名历史评论点赞事实。
-`0003_auth_sessions` 建立用户、可撤销浏览器 Session、登录限流与认证审计事件。
+完整顺序见`versions/`：0001–0018已覆盖公开内容、登录、设置、媒体、草稿/发布、协同、字体、短代码、版本合并和多语言。账号阶段新增：
 
-从空环境创建数据库、迁移到最新版本并首次创建管理员时，优先在项目根运行：
+| 版本 | 范围 |
+| --- | --- |
+| 0019_account_management | 资料、账号版本/授权、会话/密码审计及无凭据操作回执 |
+| 0020_api_keys_and_applications | 用户Key摘要、接入应用和可靠回调Outbox |
+| 0021_private_user_avatars | 本人头像图库、可调整限制和用户当前头像引用 |
 
-```powershell
-uv run --locked python init.database.py --config config.toml
-```
+从空环境建库、迁移并创建首个管理员，可运行`uv run --locked python init.database.py --config config.toml`。只在目标库不存在时尝试创建；已有用户不改密码或提升角色。首次本地缺省凭据仅供初始化，部署通过`EVERUNFOLD_ADMIN_PASSWORD`提供密码。账号中心已支持改密，用户管理支持创建/重置；详见[账号指南](../docs/development/accounts.md)。
 
-脚本仅在目标库不存在时尝试创建，迁移显式执行；管理员只在用户名缺失时创建，重复运行不会清库、改已有密码或提升已有账号。默认 `admin` / `123456` 只用于首次本地开发，部署前必须通过 `EVERUNFOLD_ADMIN_PASSWORD` 提供其他初始密码。当前尚无后台改密界面。
-
-完整修订/审核、细粒度权限、协同、媒体管理、任务与 Outbox 模型仍待后续迁移，当前没有后台业务 CRUD。
-迁移命令通过 PostgreSQL 会话级 advisory lock 串行化；`alembic check` 可检查 ORM 与实际结构漂移。
-
-初次迁移已在独立开发/测试空库验证。集成测试仅允许 `everunfold_test` 与 test scope，不连接 WordPress 原库；常规用例通过事务回滚或受控清理隔离，初始化测试另创建名称受控的临时数据库并在结束时删除。
-`downgrade` 是需要操作者明确执行的破坏性方向，正常应用启动、回退和测试均不自动执行。
+迁移通过PostgreSQL会话级advisory lock串行化；`alembic check`可检查漂移。集成测试只允许专用测试库/命名空间，进程P0另建受控临时库并清理，不连接WordPress原库。`downgrade`是操作者明确执行的破坏性方向，启动、回退和测试不自动执行。

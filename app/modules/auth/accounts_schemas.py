@@ -90,8 +90,8 @@ class UserCreate(PublicModel):
     operation_id: UUID
     username: str = Field(min_length=2, max_length=64, pattern=r"^[A-Za-z0-9_.-]+$")
     display_name: str = Field(min_length=1, max_length=100)
-    password: str = Field(min_length=12, max_length=1024)
-    current_password: str = Field(min_length=1, max_length=1024)
+    password: str = Field(min_length=12, max_length=1024, repr=False)
+    current_password: str = Field(min_length=1, max_length=1024, repr=False)
     role: Literal["admin", "user"] = "user"
     grants: dict[str, dict[str, ResourceScope]] = Field(default_factory=dict)
 
@@ -103,22 +103,22 @@ class UserSave(PublicModel):
     role: Literal["admin", "user"]
     active: bool
     grants: dict[str, dict[str, ResourceScope]] = Field(default_factory=dict)
-    current_password: str = Field(default="", max_length=1024)
+    current_password: str = Field(default="", max_length=1024, repr=False)
 
 
 class PasswordChange(PublicModel):
     operation_id: UUID
     expected_revision: int = Field(ge=1)
-    current_password: str = Field(min_length=1, max_length=1024)
-    new_password: str = Field(min_length=12, max_length=1024)
+    current_password: str = Field(min_length=1, max_length=1024, repr=False)
+    new_password: str = Field(min_length=12, max_length=1024, repr=False)
     revoke_api_keys: bool = True
 
 
 class PasswordReset(PublicModel):
     operation_id: UUID
     expected_revision: int = Field(ge=1)
-    current_password: str = Field(min_length=1, max_length=1024)
-    new_password: str = Field(min_length=12, max_length=1024)
+    current_password: str = Field(min_length=1, max_length=1024, repr=False)
+    new_password: str = Field(min_length=12, max_length=1024, repr=False)
 
 
 class SessionItem(PublicModel):

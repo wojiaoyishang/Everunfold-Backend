@@ -65,5 +65,19 @@
   "account_c67c2a017133": "Select at least one available permission.",
   "account_78e5d1dcbf14": "Choose an expiry within the next ten years.",
   "account_4eca83c50f58": "The key name cannot be blank.",
-  "account_51ab7afa81f8": "API key not found."
+  "account_51ab7afa81f8": "API key not found.",
+  "account_e9a3b4d31eef": "Upload the raw file bytes.",
+  "account_75c36f2d0ee0": "The avatar exceeds the current upload size limit.",
+  "account_6e61c94e199e": "Choose a static JPG, PNG or WebP image with at most 16 million pixels.",
+  "account_7244dc4a19b5": "Avatar upload settings are not ready.",
+  "account_e4137d1e82c5": "Avatar upload limits changed. Reload the settings.",
+  "account_715b40cd5e63": "The avatar image is unavailable. Upload it again.",
+  "account_16cec8c58ce9": "Avatar not found.",
+  "account_46d3aa17d0d3": "Change or clear the current avatar before removing it from your library.",
+  "account_7fa5f8bac6b5": "This upload ID was already used for another file.",
+  "account_488fc338aaf3": "This avatar was removed from your library. Upload it again.",
+  "account_3afc3658331d": "Your avatar library is full. Remove an unused image first.",
+  "account_82d86d45bb1d": "Your daily avatar upload quota has been used. Try after the next reset.",
+  "account_6238509b6f7a": "Choose an available image from this user’s avatar library.",
+  "account_373a58ff1575": "Choose your avatar through your personal avatar library."
 }

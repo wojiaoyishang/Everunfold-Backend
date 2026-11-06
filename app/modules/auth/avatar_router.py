@@ -6,7 +6,7 @@ from uuid import UUID
 from fastapi import APIRouter, Query, Request
 
 from app.core.responses import JSONResponseSuccess
-from app.core.schemas import PublicResponse
+from app.core.schemas import ErrorResponse, PublicResponse
 from app.modules.auth.accounts_router import Authorized, Manager
 from app.modules.auth.avatar_schemas import (
     AvatarCatalog,
@@ -20,7 +20,14 @@ from app.modules.auth.avatar_service import AvatarService
 from app.modules.auth.router import auth_runtime
 from app.modules.auth.service import AuthFailure
 
-router = APIRouter(prefix="/v1", tags=["account-avatars"])
+router = APIRouter(
+    prefix="/v1",
+    tags=["account-avatars"],
+    responses={
+        status: {"model": ErrorResponse}
+        for status in (401, 403, 404, 409, 413, 415, 422, 429, 500, 503)
+    },
+)
 
 
 @router.get("/account/avatars", response_model=PublicResponse[AvatarCatalog])

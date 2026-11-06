@@ -1,20 +1,21 @@
 # 契约发布目录
 
-基础登录使用 `auth-v0.1.schema.json`（0.1.0），由 `uv run --locked python -m tools.export_auth_contract` 导出。`/v1/auth/session` 返回匿名/已登录身份及会话绑定 CSRF token，登录/退出使用 `X-CSRF-Token` 与精确 Origin；所有请求带凭据且响应 no-store。`/v1/admin/session` 另验证管理员权限。操作与错误码在契约扩展字段中；后端实现、实际检查、限制及前端待办见 [认证后端验收](../docs/handoff/authentication-verification.md)。
+后端是API/WS/事件契约的唯一权威发布者，前端从确定提交生成类型/客户端并记录SHA；文件名中的早期版本不等于当前版本，以`x-everunfold-contract-version`为准。
 
-评论点赞使用 `comment-likes-v0.1.schema.json`（0.1.0），由 `uv run python -m tools.export_comment_likes_contract` 导出；GET 批量读取/PUT 明确设置，匿名访客头和操作元数据随契约发布。需要显式应用 `0002_comment_likes`，不依赖演示开关。仅覆盖真实公开历史评论，详见 [ADR 0015](../docs/decisions/0015-reader-feedback-and-comment-likes.md)。
+| 产物 | 当前版本 | 范围 |
+| --- | --- | --- |
+| auth-v0.1.schema.json | 0.2.0 | Cookie Session、CSRF、当前身份/授权、强制改密状态 |
+| accounts-v1.schema.json | 1.3.0 | 私有资料、会话/密码、用户/授权、Key/应用与受限头像库 |
+| api-key-protocol-v1.schema.json | 1.0.0 | 应用签名校验、最小响应、签名回调/ACK与缓存边界 |
+| content-admin-v1.schema.json | 1.9.0 | 草稿、修订/分支/合并、语言关系与拥有者字段 |
+| collaboration-v1.schema.json | 2.0.0 | 持久协同、源码租约、光标和合并暂停 |
+| content-access-v1.schema.json | 1.1.0 | 私有受限正文读取 |
+| settings-v1.schema.json | 1.10.0 | 站点/主题/系统、可扩展语言目录 |
+| public-v0.1.schema.json | 0.6.0 | 可公开的完整快照和多语言投影 |
+| comment-likes-v0.1.schema.json | 0.1.0 | 匿名历史评论点赞 |
 
-前台原型另消费 `presentation-v0.2.schema.json`（`0.2.0-preview.1` 草案），由 `app/modules/content/presentation_schema.py` 维护，使用 `uv run --locked python -m tools.export_presentation_contract` 导出。它统一 article/shuoshuo/page 的顶层 type，预留评论开放、公开互动计数与访问状态；不包含浏览者点赞/身份，也不允许受限记录携带正文、摘要或媒体。它不是新的在线 API、数据库结构或已上线快照版本；当前 0.1.0 仍保持不变，前端使用适配层和明确标注的样例。后续正式升级须另外验收迁移与缓存兼容。
+权威导出入口为`tools/export_*_contract.py`；例如`uv run --locked python -m tools.export_accounts_contract`。协议Schema与独立Node参考对应，见[接入指南](../docs/development/api-key-applications.md)。`presentation-v0.2.schema.json`和`reader-preview-v0.1.schema.json`仍分别标记preview，不把展示草案当作正式写接口。`public-openapi-v0.1.json`由现有FastAPI公开业务路由导出，完整应用另含诊断路由。
 
-后端是公开 API、WS 和内部事件契约的唯一权威发布者，前端从确定版本生成 TypeScript 类型与客户端并锁定版本。
+身份及写请求遵守真实HTTP状态和`success/code/msg/data`外壳；`msg`仅供本地化，客户端按稳定code处理。业务路径`/v1/*`，内部`/internal/v1/*`，前端接收`/internal/cache/v1/*`，协同`/ws/v1/collab/{draft_id}`；开发代理`/api`不进入业务契约。
 
-当前公开阅读契约为 `0.1.0`：
-
-- `public-v0.1.schema.json`：完整公开快照的 JSON Schema（draft-07）。后端导出后由前端验证并读取；前端生成 TypeScript 类型，记录确定来源提交和 SHA256。
-- `public-openapi-v0.1.json`：由当前 FastAPI 公开业务路由导出的 OpenAPI，只包含 `/v1/*`；应用 `/openapi.json` 另包含诊断路由。重导出命令：`uv run --locked python -m tools.export_contracts`。
-
-这不是完整 WS/ICP/写业务契约。公开读取和基础认证已有实现；正式协同、后台业务写接口和可靠缓存回调仍须分别定义和验收。内部快照不通过未受保护的 HTTP 写接口接收；当前开发环境显式导出文件，见开发文档。
-
-路径边界：公开 `/v1/*`，后端内部 `/internal/v1/*`，前端接收 `/internal/cache/v1/*`，协同 `/ws/v1/collab/{draft_id}`。具体端点与消息 Schema 按基线继续设计。开发 `/api` 不进入后端 OpenAPI。
-
-主题代码块外观从 settings 1.8.0 的 `theme.code` 发布：语法配色、行号、折行、折叠阈值和字体参数。字体以稳定媒体 ID 保存，URL/字体表由服务端校验解析；旧设置自动补默认值，保存仍使用原设置端点及 revision。
+资料、Key及账号/应用管理仅Session+精确Origin/CSRF；Bearer用于已明确登记能力的业务API，失败不借用Cookie。私有资料/凭据不进公开快照，接口、迁移与部署顺序见[账号指南](../docs/development/accounts.md)。

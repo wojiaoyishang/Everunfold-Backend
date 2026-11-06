@@ -76,10 +76,14 @@ export class ApiKeyClient {
     // A response started before a callback cannot resurrect the invalidated authorization.
     if (generation !== this.#generation || value.app_version < this.#floor) throw new Error("authorization_changed_retry");
     if (value.app_version > this.#floor) { this.#floor = value.app_version; this.#cache.clear(); }
-    const remaining = Math.min(Date.parse(value.cache_until), Date.parse(value.expires_at)) - Date.now();
-    const deadline = Math.min(start + Math.min(30, Math.max(0, c.cacheSeconds)) * 1000, performance.now() + remaining);
+    const checked = Date.parse(value.checked_at), expiry = Date.parse(value.expires_at);
+    const serverDeadline = Math.min(Date.parse(value.cache_until), expiry);
+    // A clock offset must not extend either the server lease or the key lifetime.
+    const lease = Math.min(Math.min(30, Math.max(0, c.cacheSeconds)) * 1000, serverDeadline - checked);
+    const deadline = Math.min(start + lease, performance.now() + serverDeadline - Date.now());
     if (!Number.isFinite(deadline)) throw new Error("invalid_response");
-    if (Date.parse(value.expires_at) <= Date.now()) return { active: false };
+    if (expiry <= Date.now() || start + expiry - checked <= performance.now()) return { active: false };
+    if (!write && deadline <= performance.now()) throw new Error("authorization_expired_retry");
     if (!write && deadline > performance.now()) {
       if (this.#cache.size >= 1000) this.#cache.delete(this.#cache.keys().next().value);
       this.#cache.set(key, { value: structuredClone(value), deadline });

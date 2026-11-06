@@ -32,7 +32,7 @@ def normalize_avatar(data: bytes, edge: int) -> bytes:
         with Image.open(io.BytesIO(data)) as source:
             if source.format not in {"JPEG", "PNG", "WEBP"} or getattr(source, "n_frames", 1) != 1:
                 raise ValueError("unsupported avatar format")
-            if source.width * source.height > 16777216:
+            if source.width * source.height > 16000000:
                 raise ValueError("avatar dimensions too large")
             image = ImageOps.exif_transpose(source).convert("RGBA")
             image.thumbnail((edge, edge), Image.Resampling.LANCZOS)

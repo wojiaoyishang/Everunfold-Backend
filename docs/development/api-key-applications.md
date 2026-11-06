@@ -1,6 +1,6 @@
 # API Key接入应用
 
-版本：api-key-applications-1，2026-11-06。主项目是唯一签发/授权来源；接口Schema见后端`contracts/api-key-protocol-v1.schema.json`，浏览器管理另见`accounts-v1`。页面及部署进度以STATUS为准。
+版本：api-key-applications-2，2026-11-06。主项目是唯一签发/授权来源；接口Schema见后端`contracts/api-key-protocol-v1.schema.json`，浏览器管理另见`accounts-v1`及[账号指南](accounts.md)。页面及部署见[验收记录](../handoff/accounts-verification.md)。
 
 ## 身份与接口目标
 
@@ -35,7 +35,7 @@
 
 ## 缓存与可靠性
 
-读取缓存默认最多30秒，以服务端`cache_until`、Key到期和本地从请求开始计时的上限取最小值；命中、多层转存、迟到响应不得刷新期限。写入每次查询。事件在权限变更的同一PG事务登记，Worker租约认领后在事务外投递，Scheduler只投递任务。失败退避达到上限后可手动重试，保留event_id，每次换nonce。账号/应用停用会影响现有Key；应用停用后仍投递撤销通知，清空callback_url才停止投递。密码重置/停用使旧Key永久失效，重新启用不会恢复它们；普通降权/恢复则按显式权限交集实时计算。
+读取缓存默认最多30秒，以服务端`cache_until`、Key到期和本地从请求开始计时的上限取最小值；命中、多层转存、迟到响应不得刷新期限。参考客户端同时用`checked_at`到截止时间的服务端区间与本地单调时钟限制租约，避免时钟差延长授权；迟到的过期正响应不能直接放行。写入每次查询。事件在权限变更的同一PG事务登记，Worker租约认领后在事务外投递，Scheduler只投递任务。失败退避达到上限后可手动重试，保留event_id，每次换nonce。账号/应用停用会影响现有Key；应用停用后仍投递撤销通知，清空callback_url才停止投递。密码重置/停用使旧Key永久失效，重新启用不会恢复它们；普通降权/恢复则按显式权限交集实时计算。
 
 接收方须防止较新回调后迟到的旧查询回填，单调app_version和请求开始的本地generation共同守卫。`examples/api-key-client.mjs`给出Node22独立实现，支持验签、绝对短缓存、只读/写入、nonce、重复/乱序回调及迟到响应保护，不依赖主项目Python代码。示例缓存限1000项、nonce限10000项；只供单个子项目服务进程使用。多进程子项目应将版本下界/失效通过共享Redis等原子存储传播到所有进程，或禁用读取缓存；仅通知一个进程不能声称整个集群已应用。示例只清缓存，重复事件无额外业务效果；扩展业务副作用须另做持久event_id幂等。
 

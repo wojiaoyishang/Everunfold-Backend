@@ -160,7 +160,9 @@ class AccountsService:
         if "avatar_id" in value.model_fields_set:
             await lock_references(self.session)
             if value.avatar_id is None:
-                user.avatar_id, user.avatar_url = None, ""
+                # Preserve an unchanged legacy URL while editing other profile fields.
+                if user.avatar_id is not None or value.avatar_url != user.avatar_url:
+                    user.avatar_id, user.avatar_url = None, ""
             else:
                 owned = await self.session.get(UserAvatar, value.avatar_id)
                 asset = (
