@@ -6,6 +6,7 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, Request
+from sqlalchemy import select
 
 from app.core.i18n import i18n
 from app.core.responses import JSONResponseSuccess
@@ -24,6 +25,9 @@ from app.modules.auth.accounts_schemas import (
     UserSave,
 )
 from app.modules.auth.accounts_service import AccountsService, account_mutation_lock, profile
+from app.modules.auth.credential_policy import application_scopes, owner_permissions
+from app.modules.auth.credentials_models import ApiApplication
+from app.modules.auth.credentials_schemas import KeyApplication
 from app.modules.auth.models import User
 from app.modules.auth.permission_schemas import PermissionDefinition
 from app.modules.auth.permissions import CAPABILITIES, user_permissions
@@ -147,6 +151,22 @@ async def reset_password(
 
 @router.get("/account/permissions", response_model=PublicResponse[PermissionCatalog])
 async def permissions(ctx: Authorized) -> JSONResponseSuccess:
+    applications = []
+    for app in await ctx.service.session.scalars(
+        select(ApiApplication).where(ApiApplication.active.is_(True))
+    ):
+        if app.audience == app.id and app.id != "everunfold":
+            available = owner_permissions(ctx.actor, app)
+            if available:
+                applications.append(
+                    KeyApplication(
+                        id=app.id,
+                        name=app.name,
+                        audience=app.audience,
+                        permissions=available,
+                        scopes=application_scopes(app),
+                    )
+                )
     return JSONResponseSuccess(
         data=PermissionCatalog(
             items=[
@@ -154,6 +174,7 @@ async def permissions(ctx: Authorized) -> JSONResponseSuccess:
                     code=code, label=i18n.message(label), api_key=key, owner_scope=owner
                 )
                 for code, (label, key, owner) in CAPABILITIES.items()
-            ]
+            ],
+            applications=applications,
         )
     )

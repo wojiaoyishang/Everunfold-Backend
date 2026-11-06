@@ -16,6 +16,7 @@ from app.modules.auth.credentials_schemas import (
     ApplicationSave,
     ApplicationState,
     CallbackCommand,
+    KeyApplication,
     KeyCreate,
     KeyList,
     KeyMutation,
@@ -143,6 +144,7 @@ class AccountUserQuery(PublicModel):
 
 class PermissionCatalog(PublicModel):
     items: list[PermissionDefinition]
+    applications: list[KeyApplication] = Field(default_factory=list)
 
 
 class AccountContract(PublicModel):
