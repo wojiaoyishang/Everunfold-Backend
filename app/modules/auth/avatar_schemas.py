@@ -24,7 +24,12 @@ class AvatarPolicySave(PublicModel):
     operation_id: UUID
     expected_revision: int = Field(ge=1)
     value: AvatarLimits
-    current_password: str = Field(min_length=1, max_length=1024, repr=False)
+    current_password: str = Field(
+        default="",
+        max_length=1024,
+        repr=False,
+        description="Legacy field; ignored for avatar policy updates.",
+    )
 
 
 class AvatarItem(PublicModel):

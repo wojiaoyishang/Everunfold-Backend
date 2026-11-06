@@ -133,7 +133,8 @@ class ManagedPageItem(PublicModel):
     archived: bool
     has_applied_snapshot: bool = False
     has_unapplied_changes: bool = False
-    enable_requires_password: bool = False
+    enable_requires_password: bool = Field(default=False, description="Legacy field; always false.")
+    applied_javascript_enabled: bool = False
     language: str | None = None
     translation_group_id: UUID | None = None
     is_original: bool = True
@@ -155,7 +156,8 @@ class ManagedPageSummary(PublicModel):
     updated_at: datetime
     has_applied_snapshot: bool = False
     has_unapplied_changes: bool = False
-    enable_requires_password: bool = False
+    enable_requires_password: bool = Field(default=False, description="Legacy field; always false.")
+    applied_javascript_enabled: bool = False
     language: str | None = None
     translation_group_id: UUID | None = None
     is_original: bool = True
@@ -172,7 +174,7 @@ class SaveManagedPage(PublicModel):
     value: PageValue
     apply: bool = False
     operation_id: UUID
-    current_password: str = Field(default="", max_length=1024)
+    current_password: str = Field(default="", max_length=1024, description="Legacy field; ignored.")
     language: LanguageCode | None = None
 
 
@@ -182,7 +184,7 @@ class SetPageEnabled(PublicModel):
     enabled: bool
     apply_draft: bool = False
     operation_id: UUID
-    current_password: str = Field(default="", max_length=1024)
+    current_password: str = Field(default="", max_length=1024, description="Legacy field; ignored.")
 
 
 class PageTranslationLookup(PublicModel):

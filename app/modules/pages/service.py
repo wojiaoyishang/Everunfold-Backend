@@ -81,7 +81,7 @@ class PagesService:
             archived=row.deleted_at is not None,
             has_applied_snapshot=row.applied_snapshot is not None,
             has_unapplied_changes=unapplied(row),
-            enable_requires_password=bool(
+            applied_javascript_enabled=bool(
                 (row.applied_snapshot or row.data).get("javascript_enabled")
             ),
             language=row.language,
@@ -182,10 +182,8 @@ class PagesService:
                 raise AuthFailure(422, 42296, "页面选项格式无效") from error
         elif value.options:
             raise AuthFailure(422, 42296, "自定义页面不接受注册选项")
-        if value.javascript_enabled:
-            if actor.role != "admin":
-                raise AuthFailure(403, 40397, "只有管理员可以启用或修改页面脚本")
-            await self.accounts.confirm_password(actor, payload.current_password)
+        if value.javascript_enabled and actor.role != "admin":
+            raise AuthFailure(403, 40397, "只有管理员可以启用或修改页面脚本")
         if len(value.model_dump_json().encode()) > 512 * 1024:
             raise AuthFailure(422, 42296, "页面内容过大")
         await self.validate_path(value.path, row.id)
@@ -255,10 +253,8 @@ class PagesService:
         if payload.enabled and row.applied_snapshot is None and not payload.apply_draft:
             raise AuthFailure(409, 40993, "此页面尚无已应用内容，请确认应用当前草稿")
         value = source_value(row.applied_snapshot or row.data)
-        if value.javascript_enabled:
-            if actor.role != "admin":
-                raise AuthFailure(403, 40397, "只有管理员可以启用或修改页面脚本")
-            await self.accounts.confirm_password(actor, payload.current_password)
+        if value.javascript_enabled and actor.role != "admin":
+            raise AuthFailure(403, 40397, "只有管理员可以启用或修改页面脚本")
         definition, available = await self.registration(row.implementation_id)
         if payload.enabled:
             if row.source == "registered" and not available:

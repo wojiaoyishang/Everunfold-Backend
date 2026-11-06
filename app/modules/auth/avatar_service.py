@@ -85,7 +85,6 @@ class AvatarService:
         )
         if cached is not None:
             return AvatarPolicyState.model_validate(cached)
-        await self.accounts.confirm_password(actor, payload.current_password)
         row = await self.session.get(AvatarPolicy, 1, with_for_update=True)
         assert row is not None
         if row.revision != payload.expected_revision:

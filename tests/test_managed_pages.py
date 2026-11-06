@@ -141,16 +141,11 @@ def test_page_draft_apply_retry_conflict_disable_and_restore(pages: AccountsTest
     assert restored.json()["data"]["value"]["html"] == "<p>Unpublished change</p>"
 
 
-def test_page_script_password_csrf_and_session_boundaries(pages: AccountsTest) -> None:
+def test_page_script_admin_session_without_password_and_csrf_boundaries(
+    pages: AccountsTest,
+) -> None:
     ctx = pages
     request = body(ctx, javascript='document.body.dataset.ran="yes";', javascript_enabled=True)
-    assert (
-        ctx.root.post("/v1/admin/pages/save", json=request, headers=headers(ctx.root)).json()[
-            "code"
-        ]
-        == 40361
-    )
-    request["current_password"] = PASSWORD
     assert ctx.root.post("/v1/admin/pages/save", json=request).status_code == 403
     assert (
         ctx.root.post(
@@ -163,6 +158,20 @@ def test_page_script_password_csrf_and_session_boundaries(pages: AccountsTest) -
     result = ctx.root.post("/v1/admin/pages/save", json=request, headers=headers(ctx.root))
     assert result.status_code == 200, result.text
     assert not result.json()["data"]["enabled"]
+    assert result.json()["data"]["applied_javascript_enabled"]
+    assert not result.json()["data"]["enable_requires_password"]
+    active = ctx.root.post(
+        "/v1/admin/pages/enabled",
+        json={
+            "id": request["id"],
+            "expected_revision": result.json()["data"]["revision"],
+            "enabled": True,
+            "apply_draft": True,
+            "operation_id": str(uuid4()),
+        },
+        headers=headers(ctx.root),
+    )
+    assert active.status_code == 200, active.text
     for path in ["/admin/captured", "/account", "/search", "//external.example", "/a/../bad"]:
         attempt = body(ctx, path=path)
         assert (

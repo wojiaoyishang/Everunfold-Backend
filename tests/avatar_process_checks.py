@@ -31,6 +31,18 @@ def check_private_avatars(
     assert member.get("/v1/admin/users/avatar-policy").status_code == 403
     policy = admin.get("/v1/admin/users/avatar-policy").json()["data"]
     assert (
+        member.patch(
+            "/v1/admin/users/avatar-policy",
+            headers=csrf,
+            json={
+                "operation_id": str(uuid4()),
+                "expected_revision": policy["revision"],
+                "value": {},
+            },
+        ).status_code
+        == 403
+    )
+    assert (
         policy["max_bytes"],
         policy["max_edge"],
         policy["daily_uploads"],
@@ -105,7 +117,6 @@ def check_private_avatars(
         json={
             "operation_id": str(uuid4()),
             "expected_revision": policy["revision"],
-            "current_password": "123456",
             "value": {"daily_uploads": 2, "retained_images": 2},
         },
     )
