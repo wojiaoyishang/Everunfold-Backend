@@ -192,6 +192,7 @@ def test_code_page_deployment_options_and_node_versions(pages: AccountsTest) -> 
                 "version": "1.0.0",
                 "title": ctx.name + " code",
                 "path": "/" + ctx.name + "-people",
+                "defaults": {"layout": {"columns": [1, 2, {"wide": True}], "optional": None}},
                 "fields": [
                     {
                         "key": "people",
@@ -229,6 +230,7 @@ def test_code_page_deployment_options_and_node_versions(pages: AccountsTest) -> 
     )
     row = ctx.root.get("/v1/admin/pages/" + identifier).json()["data"]
     assert row["available"] and row["source"] == "registered" and not row["enabled"]
+    assert row["value"]["options"]["layout"]["columns"][2] == {"wide": True}
     request: dict[str, Any] = {
         "id": identifier,
         "expected_revision": 1,
@@ -237,7 +239,10 @@ def test_code_page_deployment_options_and_node_versions(pages: AccountsTest) -> 
         "value": {
             **row["value"],
             "enabled": True,
-            "options": {"people": [{"name": "Test person"}]},
+            "options": {
+                "people": [{"name": "Test person", "extra": {"score": 3.5}}],
+                "unknown": {"nested": [False, 0, None, {"路径": "/any", "query": "unchanged"}]},
+            },
         },
     }
     invalid = {
@@ -249,17 +254,13 @@ def test_code_page_deployment_options_and_node_versions(pages: AccountsTest) -> 
         ctx.root.post("/v1/admin/pages/save", json=invalid, headers=headers(ctx.root)).status_code
         == 403
     )
-    invalid = {
-        **request,
-        "operation_id": str(uuid4()),
-        "value": {**request["value"], "options": {"unknown": True}},
-    }
-    assert (
-        ctx.root.post("/v1/admin/pages/save", json=invalid, headers=headers(ctx.root)).status_code
-        == 422
-    )
     result = ctx.root.post("/v1/admin/pages/save", json=request, headers=headers(ctx.root))
     assert result.status_code == 200, result.text
+    assert result.json()["data"]["value"]["options"] == request["value"]["options"]
+    assert (
+        next(p for p in published(ctx) if p["id"] == identifier)["options"]
+        == request["value"]["options"]
+    )
     assert (
         next(p for p in published(ctx) if p["id"] == identifier)["options"]["people"][0]["name"]
         == "Test person"

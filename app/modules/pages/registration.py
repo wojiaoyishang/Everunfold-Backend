@@ -8,7 +8,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import Settings
 from app.modules.media.locking import lock_references
 from app.modules.pages.models import FrontendPageRegistration, ManagedPage
-from app.modules.pages.options import validate_options
 from app.modules.pages.paths import content_path_taken, page_path_taken
 from app.modules.pages.schemas import PageManifest, PageValue
 from app.modules.settings.languages import language_catalog, reserved_language_path
@@ -27,7 +26,7 @@ async def install_manifest(
     )
     languages = await language_catalog(session)
     for page in manifest.pages:
-        defaults = validate_options(page.fields, {})
+        defaults = {field.key: field.default for field in page.fields} | page.defaults
         session.add(
             FrontendPageRegistration(
                 node_id=node, page_id=page.id, definition=page.model_dump(mode="json")

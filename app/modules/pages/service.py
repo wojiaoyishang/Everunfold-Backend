@@ -16,7 +16,6 @@ from app.modules.content.publication import ContentPublication
 from app.modules.media.locking import lock_references
 from app.modules.pages.groups import promote_original, source_value, translations, unapplied
 from app.modules.pages.models import FrontendPageRegistration, ManagedPage, PageTranslationGroup
-from app.modules.pages.options import validate_options
 from app.modules.pages.paths import content_path_taken, page_path_taken
 from app.modules.pages.schemas import (
     ManagedPageCatalog,
@@ -172,16 +171,6 @@ class PagesService:
                 raise AuthFailure(403, 40396, "代码注册页面只允许修改已暴露的选项")
             if payload.apply and value.enabled and not available:
                 raise AuthFailure(409, 40998, "前端页面注册缺失或节点版本不一致")
-            try:
-                value.options = (
-                    validate_options(definition.fields, value.options)
-                    if definition
-                    else value.options
-                )
-            except ValueError as error:
-                raise AuthFailure(422, 42296, "页面选项格式无效") from error
-        elif value.options:
-            raise AuthFailure(422, 42296, "自定义页面不接受注册选项")
         if value.javascript_enabled and actor.role != "admin":
             raise AuthFailure(403, 40397, "只有管理员可以启用或修改页面脚本")
         if len(value.model_dump_json().encode()) > 512 * 1024:

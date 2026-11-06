@@ -9,6 +9,7 @@ from pydantic import Field, JsonValue, field_validator, model_validator
 
 from app.core.schemas import PublicModel, PublicResponse
 from app.modules.content.editor_schema import content_path
+from app.modules.pages.options import bounded_options
 from app.modules.settings.languages import LanguageCode
 
 
@@ -44,6 +45,8 @@ class PageRegistration(PublicModel):
     path: str = Field(min_length=2, max_length=500)
     description: str = Field(default="", max_length=500)
     fields: list[PageOption] = Field(default_factory=list, max_length=30)
+    defaults: dict[str, JsonValue] = Field(default_factory=dict)
+    _defaults = field_validator("defaults")(bounded_options)
     _path = field_validator("path")(content_path)
 
     @model_validator(mode="after")
@@ -77,6 +80,7 @@ class PageValue(PublicModel):
     javascript: str = Field(default="", max_length=100000)
     javascript_enabled: bool = False
     options: dict[str, JsonValue] = Field(default_factory=dict)
+    _options = field_validator("options")(bounded_options)
     _path = field_validator("path")(content_path)
 
     @field_validator("title")

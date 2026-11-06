@@ -44,6 +44,14 @@ def check_pages(
     # Registration is an explicit reviewed deployment step, never a browser-schema endpoint.
     raw = tomllib.loads(backend_config.read_text())
     node_id = next(iter(raw["frontends"]))
+    declaration = subprocess.run(
+        ["node", "--import", "tsx", "tools/export-page-manifest.mts"],
+        cwd=frontend,
+        capture_output=True,
+        text=True,
+        timeout=20,
+        check=True,
+    )
     registered = subprocess.run(
         [
             sys.executable,
@@ -54,9 +62,10 @@ def check_pages(
             "--node-id",
             node_id,
             "--manifest",
-            str(frontend / "registrations/pages-v1.json"),
+            "-",
         ],
         env=os.environ.copy(),
+        input=declaration.stdout,
         capture_output=True,
         text=True,
         timeout=20,
@@ -78,7 +87,8 @@ def check_pages(
             **row["value"],
             "enabled": True,
             "options": {
-                "people": [{"name": "P0 Person", "group": "P0", "message": "Visible message"}]
+                "people": [{"name": "P0 Person", "group": "P0", "message": "Visible message"}],
+                "plugin_config": {"nested": [1, False, None, {"mode": "free"}]},
             },
         },
     }
@@ -90,6 +100,10 @@ def check_pages(
             "message"
         ]
         == "Visible message"
+    )
+    assert (
+        next(p for p in snapshot()["pages"] if p["id"] == row["id"])["options"]["plugin_config"]
+        == code["value"]["options"]["plugin_config"]
     )
 
     identity = str(uuid4())

@@ -2,6 +2,7 @@
 
 import argparse
 import asyncio
+import sys
 from pathlib import Path
 
 from app.core.config import load_settings
@@ -12,9 +13,10 @@ from app.modules.pages.schemas import PageManifest
 
 async def install(config: str, node: str, manifest: Path) -> None:
     settings = load_settings(config)
-    if manifest.stat().st_size > 256 * 1024:
+    data = sys.stdin.buffer.read(256 * 1024 + 1) if str(manifest) == "-" else manifest.read_bytes()
+    if len(data) > 256 * 1024:
         raise ValueError("oversized frontend manifest")
-    value = PageManifest.model_validate_json(manifest.read_bytes())
+    value = PageManifest.model_validate_json(data)
     db = Database(settings.database.url.get_secret_value())
     try:
         async with db.session_factory() as session:
@@ -28,7 +30,9 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", default="config.toml")
     parser.add_argument("--node-id", required=True)
-    parser.add_argument("--manifest", required=True, type=Path)
+    parser.add_argument(
+        "--manifest", required=True, type=Path, help="Reviewed JSON file, or - for stdin"
+    )
     args = parser.parse_args()
     asyncio.run(install(args.config, args.node_id, args.manifest))
 
