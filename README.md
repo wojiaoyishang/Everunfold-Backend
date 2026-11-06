@@ -1,5 +1,7 @@
 # Everunfold Backend
 
+页面源码/可信注册、独立实时预览与私有元数据已接通，见[页面指南](docs/development/pages.md)和[验收](docs/handoff/pages-live-preview-verification.md)。当前数据库head为0024，页面草稿与公开应用分离。
+
 新 Docker 设备已提供[容器开发部署指南](docs/development/container-deployment.md)：当前本地 HTTP 调试入口为 `http://127.0.0.1:3000`，API 8001 与其他服务由独立 Supervisor 管理。下方旧本地环境说明保留供参考，当前状态以最新交接为准。
 
 当前功能联调仅展示新后台发布的测试文章/说说；旧 WordPress 试导入内容已撤回。开发工具与恢复边界见 [内容管理指南](docs/development/content-management.md)。
@@ -21,7 +23,7 @@ uv run --locked python -m uvicorn app.entrypoints.api:app --host 127.0.0.1 --por
 
 - 本机 `config.toml` 已填写并被 Git 忽略；新环境按 `config.example.toml` 建立配置，填写专用数据库/Redis 地址。加载器只读取实例文件，不回退示例、不自动搜索 `.env`，明确覆盖项见配置模块。
 - 活性检查：`http://127.0.0.1:8001/health/live`；就绪检查：`http://127.0.0.1:8001/health/ready`，分别报告数据库、Redis 和迁移版本。
-- 交互文档：`http://127.0.0.1:8001/docs`。公开内容快照契约 `0.4.0`（兼容旧 0.1/0.2/0.3）见 `contracts/`，应用版本为 `0.2.0`，二者分别维护。
+- 交互文档：`http://127.0.0.1:8001/docs`。公开内容快照契约 `0.7.0`（兼容旧 0.1–0.6）见 `contracts/`，应用版本为 `0.2.0`，二者分别维护。
 - 其他项目使用 `8000`，本项目按用户要求统一使用 `8001`。
 
 ## 数据准备与前端联调
