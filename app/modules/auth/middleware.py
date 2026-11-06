@@ -99,6 +99,7 @@ class AuthBoundaryMiddleware:
                     1100000
                     if path
                     in {
+                        "/v1/admin/pages/save",
                         "/v1/admin/content/create",
                         "/v1/admin/content/save",
                         "/v1/admin/content/publish",

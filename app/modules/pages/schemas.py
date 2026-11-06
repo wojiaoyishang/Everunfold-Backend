@@ -1,5 +1,6 @@
 """Authored source is isolated from the trusted frontend registration manifest."""
 
+import json
 from datetime import datetime
 from typing import Literal, Self
 from uuid import UUID
@@ -143,6 +144,25 @@ class RemoveManagedPage(PublicModel):
     operation_id: UUID
 
 
+class PageMetadata(PublicModel):
+    page_id: UUID
+    revision: int = Field(ge=0)
+    value: dict[str, JsonValue] = Field(default_factory=dict)
+
+
+class SavePageMetadata(PublicModel):
+    expected_revision: int = Field(ge=0)
+    operation_id: UUID
+    value: dict[str, JsonValue] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def bounded_metadata(self) -> Self:
+        encoded = json.dumps(self.value, ensure_ascii=False, allow_nan=False)
+        if len(encoded.encode()) > 65536:
+            raise ValueError("private metadata exceeds 64 KiB")
+        return self
+
+
 class PagesContract(PublicModel):
     catalog: PublicResponse[ManagedPageCatalog]
     item: PublicResponse[ManagedPageItem]
@@ -150,3 +170,5 @@ class PagesContract(PublicModel):
     remove: RemoveManagedPage
     manifest: PageManifest
     public_page: PublicManagedPage
+    metadata: PublicResponse[PageMetadata]
+    save_metadata: SavePageMetadata

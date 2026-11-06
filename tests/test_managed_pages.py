@@ -6,15 +6,17 @@ from typing import Any
 from uuid import uuid4
 
 import pytest
-from sqlalchemy import delete, select
+from sqlalchemy import delete, select, update
 
 from app.core.database import Database
+from app.modules.auth.bootstrap import seed_admin
+from app.modules.auth.models import User
 from app.modules.content.repository import ContentRepository
 from app.modules.content.service import PublicContentService
 from app.modules.pages.models import FrontendPageRegistration, ManagedPage
 from app.modules.pages.registration import install_manifest
 from app.modules.pages.schemas import PageManifest
-from tests.test_accounts import PASSWORD, AccountsTest, headers
+from tests.test_accounts import PASSWORD, AccountsTest, headers, signed_in
 from tests.test_accounts import accounts as accounts_fixture
 
 accounts = accounts_fixture
@@ -244,3 +246,247 @@ def test_code_page_deployment_options_and_node_versions(pages: AccountsTest) -> 
         next(p for p in published(ctx) if p["id"] == identifier)["options"]["people"][0]["name"]
         == "Test person"
     )
+
+
+def test_delegated_page_write_does_not_grant_publish_or_script_execution(
+    pages: AccountsTest,
+) -> None:
+    ctx = pages
+    name = ctx.name + "_page_writer"
+    asyncio.run(seed_admin(ctx.settings, name, PASSWORD))
+
+    async def delegate() -> None:
+        db = Database(ctx.settings.database.url.get_secret_value())
+        try:
+            async with db.session_factory() as session:
+                await session.execute(
+                    update(User)
+                    .where(User.username == name)
+                    .values(
+                        role="user",
+                        grants={"everunfold": {"pages:read": "all", "pages:write": "all"}},
+                    )
+                )
+                await session.commit()
+        finally:
+            await db.close()
+
+    asyncio.run(delegate())
+    member = ctx.client()
+    signed_in(member, name)
+    request = body(ctx)
+    saved = member.post("/v1/admin/pages/save", json=request, headers=headers(member))
+    assert saved.status_code == 200, saved.text
+    assert member.get("/v1/admin/pages/" + request["id"]).status_code == 200
+    denied = member.post(
+        "/v1/admin/pages/save",
+        json={
+            **request,
+            "expected_revision": 1,
+            "operation_id": str(uuid4()),
+            "apply": True,
+            "value": {**request["value"], "enabled": True},
+        },
+        headers=headers(member),
+    )
+    assert denied.status_code == 403
+    assert ctx.root.get("/v1/admin/pages/" + request["id"]).json()["data"]["revision"] == 1
+    script = body(
+        ctx, path="/" + ctx.name + "-script", javascript_enabled=True, javascript="alert(1)"
+    )
+    script["current_password"] = PASSWORD
+    assert (
+        member.post("/v1/admin/pages/save", json=script, headers=headers(member)).status_code == 403
+    )
+    assert ctx.root.get("/v1/admin/pages/" + script["id"]).status_code == 404
+
+
+def test_registered_pages_ignore_retired_nodes_and_reserve_a_safe_initial_path(
+    pages: AccountsTest,
+) -> None:
+    ctx = pages
+    existing = body(ctx)
+    assert (
+        ctx.root.post("/v1/admin/pages/save", json=existing, headers=headers(ctx.root)).status_code
+        == 200
+    )
+    manifest = PageManifest.model_validate(
+        {
+            "pages": [
+                {
+                    "id": ctx.name + ".collision",
+                    "version": "1.0.0",
+                    "title": ctx.name + " code collision",
+                    "path": existing["value"]["path"],
+                }
+            ]
+        }
+    )
+
+    async def install() -> str:
+        db = Database(ctx.settings.database.url.get_secret_value())
+        try:
+            async with db.session_factory() as session:
+                for node in ctx.settings.frontends:
+                    await install_manifest(session, ctx.settings, node, manifest)
+                session.add(
+                    FrontendPageRegistration(
+                        node_id="retired-node",
+                        page_id=manifest.pages[0].id,
+                        definition={
+                            **manifest.pages[0].model_dump(mode="json"),
+                            "version": "9.0.0",
+                        },
+                    )
+                )
+                await session.commit()
+                return str(
+                    await session.scalar(
+                        select(ManagedPage.id).where(
+                            ManagedPage.implementation_id == manifest.pages[0].id
+                        )
+                    )
+                )
+        finally:
+            await db.close()
+
+    identity = asyncio.run(install())
+    row = ctx.root.get("/v1/admin/pages/" + identity).json()["data"]
+    assert row["available"] and row["value"]["path"] != existing["value"]["path"]
+    assert row["registration"]["version"] == "1.0.0"
+
+
+def test_private_page_metadata_has_its_own_revision_and_never_enters_public_data(
+    pages: AccountsTest,
+) -> None:
+    ctx = pages
+    request = body(ctx, enabled=True)
+    request["apply"] = True
+    saved = ctx.root.post("/v1/admin/pages/save", json=request, headers=headers(ctx.root)).json()[
+        "data"
+    ]
+    url = "/v1/admin/pages/" + saved["id"] + "/metadata"
+    first = ctx.root.get(url)
+    assert first.status_code == 200 and first.json()["data"]["revision"] == 0
+    assert "no-store" in first.headers["cache-control"]
+    assert ctx.client().get(url).status_code == 401
+    payload = {
+        "expected_revision": 0,
+        "operation_id": str(uuid4()),
+        "value": {"import_cursor": "PRIVATE_METADATA_MARKER", "internal_ids": [1, 2, 3]},
+    }
+    assert ctx.root.patch(url, json=payload).status_code == 403
+    updated = ctx.root.patch(url, json=payload, headers=headers(ctx.root))
+    assert updated.status_code == 200 and updated.json()["data"]["revision"] == 1
+    assert ctx.root.patch(url, json=payload, headers=headers(ctx.root)).json() == updated.json()
+    assert (
+        ctx.root.patch(
+            url, json={**payload, "operation_id": str(uuid4())}, headers=headers(ctx.root)
+        ).status_code
+        == 409
+    )
+    assert (
+        ctx.root.patch(
+            url,
+            json={**payload, "operation_id": str(uuid4()), "value": {"oversized": "x" * 65536}},
+            headers=headers(ctx.root),
+        ).status_code
+        == 413
+    )
+    nonfinite = (
+        '{"expected_revision":1,"operation_id":"' + str(uuid4()) + '","value":{"number":NaN}}'
+    )
+    assert (
+        ctx.root.patch(
+            url,
+            content=nonfinite,
+            headers={**headers(ctx.root), "Content-Type": "application/json"},
+        ).status_code
+        == 422
+    )
+    detail = ctx.root.get("/v1/admin/pages/" + saved["id"])
+    assert detail.json()["data"]["revision"] == saved["revision"]
+    assert "PRIVATE_METADATA_MARKER" not in detail.text
+    assert "PRIVATE_METADATA_MARKER" not in ctx.root.get("/v1/admin/pages").text
+    assert "PRIVATE_METADATA_MARKER" not in str(published(ctx))
+    assert ctx.root.get(url).json()["data"]["value"] == payload["value"]
+
+
+def test_page_contract_matches_published_source() -> None:
+    import json
+    from pathlib import Path
+
+    from tools.export_pages_contract import build_schema
+
+    assert json.loads(Path("contracts/pages-v1.schema.json").read_text()) == build_schema()
+
+
+def test_page_source_can_exceed_small_settings_transport_limit(pages: AccountsTest) -> None:
+    payload = body(pages, html="<p>" + "x" * 70000 + "</p>")
+    response = pages.root.post("/v1/admin/pages/save", json=payload, headers=headers(pages.root))
+    assert response.status_code == 200, response.text
+    assert response.json()["data"]["value"]["html"] == payload["value"]["html"]
+
+
+def test_active_frontend_version_mismatch_blocks_only_application(pages: AccountsTest) -> None:
+    from fastapi.testclient import TestClient
+
+    from app.entrypoints.api import create_app
+
+    ctx = pages
+    first = next(iter(ctx.settings.frontends.values()))
+    config = ctx.settings.model_copy(
+        update={"frontends": {**ctx.settings.frontends, "required-secondary": first.model_copy()}}
+    )
+    manifest = PageManifest.model_validate(
+        {
+            "pages": [
+                {
+                    "id": ctx.name + ".versions",
+                    "version": "1.0.0",
+                    "title": ctx.name + " versions",
+                    "path": "/" + ctx.name + "-versions",
+                }
+            ]
+        }
+    )
+
+    async def install() -> str:
+        db = Database(config.database.url.get_secret_value())
+        try:
+            async with db.session_factory() as session:
+                for node in config.frontends:
+                    await install_manifest(session, config, node, manifest)
+                changed = manifest.model_copy(deep=True)
+                changed.pages[0].version = "2.0.0"
+                await install_manifest(session, config, "required-secondary", changed)
+                return str(
+                    await session.scalar(
+                        select(ManagedPage.id).where(
+                            ManagedPage.implementation_id == manifest.pages[0].id
+                        )
+                    )
+                )
+        finally:
+            await db.close()
+
+    identity = asyncio.run(install())
+    with TestClient(create_app(config)) as client:
+        signed_in(client, ctx.name)
+        row = client.get("/v1/admin/pages/" + identity).json()["data"]
+        assert not row["available"]
+        payload = {
+            "id": identity,
+            "expected_revision": row["revision"],
+            "operation_id": str(uuid4()),
+            "apply": True,
+            "value": {**row["value"], "enabled": True},
+        }
+        rejected = client.post("/v1/admin/pages/save", json=payload, headers=headers(client))
+        assert rejected.status_code == 409 and rejected.json()["code"] == 40998
+        draft = client.post(
+            "/v1/admin/pages/save",
+            json={**payload, "operation_id": str(uuid4()), "apply": False},
+            headers=headers(client),
+        )
+        assert draft.status_code == 200 and not draft.json()["data"]["enabled"]

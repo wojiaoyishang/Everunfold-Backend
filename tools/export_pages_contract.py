@@ -10,8 +10,21 @@ from app.modules.pages.schemas import PagesContract
 def build_schema() -> dict[str, Any]:
     schema = PagesContract.model_json_schema()
     schema["$schema"] = "http://json-schema.org/draft-07/schema#"
-    schema["x-everunfold-contract-version"] = "1.0.0"
+    schema["x-everunfold-contract-version"] = "1.1.0"
     schema["x-everunfold-operations"] = [
+        {
+            "name": "readPageMetadata",
+            "path": "/v1/admin/pages/{page_id}/metadata",
+            "method": "GET",
+            "response": "metadata",
+        },
+        {
+            "name": "savePageMetadata",
+            "path": "/v1/admin/pages/{page_id}/metadata",
+            "method": "PATCH",
+            "input": "save_metadata",
+            "response": "metadata",
+        },
         {
             "name": "readManagedPage",
             "path": "/v1/admin/pages/{page_id}",

@@ -10,5 +10,6 @@
   "自定义页面不接受注册选项": "Custom pages do not accept registered options.",
   "只有管理员可以启用或修改页面脚本": "Only administrators can enable or modify page scripts.",
   "页面内容过大": "The page source is too large.",
-  "代码注册页面可以停用，不能移除代码登记": "Registered pages may be disabled; their code registration cannot be removed here."
+  "代码注册页面可以停用，不能移除代码登记": "Registered pages may be disabled; their code registration cannot be removed here.",
+  "页面内部元数据已被修改，请读取后重新合并": "Page metadata changed elsewhere. Read the latest revision and merge your changes."
 }

@@ -220,6 +220,34 @@
       "title": "PageManifest",
       "type": "object"
     },
+    "PageMetadata": {
+      "additionalProperties": false,
+      "properties": {
+        "page_id": {
+          "format": "uuid",
+          "title": "Page Id",
+          "type": "string"
+        },
+        "revision": {
+          "minimum": 0,
+          "title": "Revision",
+          "type": "integer"
+        },
+        "value": {
+          "additionalProperties": {
+            "$ref": "#/$defs/JsonValue"
+          },
+          "title": "Value",
+          "type": "object"
+        }
+      },
+      "required": [
+        "page_id",
+        "revision"
+      ],
+      "title": "PageMetadata",
+      "type": "object"
+    },
     "PageOption": {
       "additionalProperties": false,
       "properties": {
@@ -591,6 +619,34 @@
       "title": "PublicResponse[ManagedPageItem]",
       "type": "object"
     },
+    "PublicResponse_PageMetadata_": {
+      "additionalProperties": false,
+      "properties": {
+        "success": {
+          "default": true,
+          "title": "Success",
+          "type": "boolean"
+        },
+        "code": {
+          "default": 200,
+          "title": "Code",
+          "type": "integer"
+        },
+        "msg": {
+          "default": "请求成功",
+          "title": "Msg",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/PageMetadata"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "title": "PublicResponse[PageMetadata]",
+      "type": "object"
+    },
     "RemoveManagedPage": {
       "additionalProperties": false,
       "properties": {
@@ -664,6 +720,34 @@
       ],
       "title": "SaveManagedPage",
       "type": "object"
+    },
+    "SavePageMetadata": {
+      "additionalProperties": false,
+      "properties": {
+        "expected_revision": {
+          "minimum": 0,
+          "title": "Expected Revision",
+          "type": "integer"
+        },
+        "operation_id": {
+          "format": "uuid",
+          "title": "Operation Id",
+          "type": "string"
+        },
+        "value": {
+          "additionalProperties": {
+            "$ref": "#/$defs/JsonValue"
+          },
+          "title": "Value",
+          "type": "object"
+        }
+      },
+      "required": [
+        "expected_revision",
+        "operation_id"
+      ],
+      "title": "SavePageMetadata",
+      "type": "object"
     }
   },
   "additionalProperties": false,
@@ -685,6 +769,12 @@
     },
     "public_page": {
       "$ref": "#/$defs/PublicManagedPage"
+    },
+    "metadata": {
+      "$ref": "#/$defs/PublicResponse_PageMetadata_"
+    },
+    "save_metadata": {
+      "$ref": "#/$defs/SavePageMetadata"
     }
   },
   "required": [
@@ -693,13 +783,28 @@
     "save",
     "remove",
     "manifest",
-    "public_page"
+    "public_page",
+    "metadata",
+    "save_metadata"
   ],
   "title": "PagesContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "1.0.0",
+  "x-everunfold-contract-version": "1.1.0",
   "x-everunfold-operations": [
+    {
+      "name": "readPageMetadata",
+      "path": "/v1/admin/pages/{page_id}/metadata",
+      "method": "GET",
+      "response": "metadata"
+    },
+    {
+      "name": "savePageMetadata",
+      "path": "/v1/admin/pages/{page_id}/metadata",
+      "method": "PATCH",
+      "input": "save_metadata",
+      "response": "metadata"
+    },
     {
       "name": "readManagedPage",
       "path": "/v1/admin/pages/{page_id}",

@@ -13,6 +13,7 @@ import httpx2 as httpx
 from tests.content_access_process_checks import check_content_access
 from tests.editor_settings_process_checks import check_editor_settings
 from tests.imported_preview_process_checks import check_imported_preview
+from tests.pages_process_checks import check_pages
 
 
 def check_content_publication(
@@ -202,3 +203,18 @@ def check_content_publication(
     check_imported_preview(client, sql, state, snapshot, wait_for, backend_config, draft["id"])
     check_editor_settings(client, csrf, state, snapshot, wait_for)
     check_content_access(client, csrf, state, snapshot, wait_for, sql, api_b)
+    check_pages(
+        client,
+        csrf,
+        cookies,
+        api_a,
+        api_b,
+        sql,
+        state,
+        snapshot,
+        wait_for,
+        receiver_url,
+        token,
+        frontend,
+        backend_config,
+    )

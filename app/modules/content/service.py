@@ -49,9 +49,18 @@ class PublicContentService:
             raise HTTPException(status_code=503, detail="Public site has not been initialized")
         kind_counts = await self.repository.content_kind_counts()
         taxonomies = await self.taxonomies()
+        from sqlalchemy import func, select
+
+        from app.modules.pages.models import ManagedPage
+
+        managed_count = await self.repository.session.scalar(
+            select(func.count())
+            .select_from(ManagedPage)
+            .where(ManagedPage.deleted_at.is_(None), ManagedPage.published.is_not(None))
+        )
         stats = SiteStats(
             articles=kind_counts.get("article", 0),
-            pages=kind_counts.get("page", 0),
+            pages=kind_counts.get("page", 0) + (managed_count or 0),
             comments=await self.repository.public_comment_count(),
             tags=sum(item.kind == "tag" for item in taxonomies),
             categories=sum(item.kind == "category" for item in taxonomies),

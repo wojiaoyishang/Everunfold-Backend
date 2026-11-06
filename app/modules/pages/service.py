@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 from typing import Literal, cast
 from uuid import UUID
 
-from sqlalchemy import or_, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
@@ -12,12 +12,11 @@ from app.modules.auth.accounts_service import AccountsService
 from app.modules.auth.models import User
 from app.modules.auth.permissions import user_permissions
 from app.modules.auth.service import AuthFailure
-from app.modules.content.draft_models import ContentDraft
-from app.modules.content.models import Content
 from app.modules.content.publication import ContentPublication
 from app.modules.media.locking import lock_references
 from app.modules.pages.models import FrontendPageRegistration, ManagedPage
 from app.modules.pages.options import validate_options
+from app.modules.pages.paths import content_path_taken, page_path_taken
 from app.modules.pages.schemas import (
     ManagedPageCatalog,
     ManagedPageItem,
@@ -49,11 +48,12 @@ class PagesService:
         ).all()
         if not rows:
             return None, False
-        definitions = [PageRegistration.model_validate(row.definition) for row in rows]
         nodes = {key for key, value in self.config.frontends.items() if value.enabled}
+        active = [row for row in rows if row.node_id in nodes]
+        definitions = [PageRegistration.model_validate(row.definition) for row in active or rows]
         available = (
             bool(nodes)
-            and nodes.issubset({row.node_id for row in rows})
+            and nodes.issubset({row.node_id for row in active})
             and all(value == definitions[0] for value in definitions)
         )
         return definitions[0], available
@@ -106,30 +106,8 @@ class PagesService:
     async def validate_path(self, path: str, identity: UUID) -> None:
         if reserved_language_path(path, await language_catalog(self.session)):
             raise AuthFailure(422, 42296, "页面地址与语言入口冲突")
-        if (
-            await self.session.scalar(
-                select(ManagedPage.id)
-                .where(
-                    ManagedPage.id != identity,
-                    ManagedPage.deleted_at.is_(None),
-                    or_(
-                        ManagedPage.data["path"].astext == path,
-                        ManagedPage.published["path"].astext == path,
-                    ),
-                )
-                .limit(1)
-            )
-            or await self.session.scalar(select(Content.id).where(Content.path == path).limit(1))
-            or await self.session.scalar(
-                select(ContentDraft.id)
-                .where(
-                    or_(
-                        ContentDraft.public_path == path,
-                        ContentDraft.editor_settings["path"].astext == path,
-                    )
-                )
-                .limit(1)
-            )
+        if await page_path_taken(self.session, path, identity) or await content_path_taken(
+            self.session, path
         ):
             raise AuthFailure(409, 40997, "该地址已被其他内容或页面使用")
 

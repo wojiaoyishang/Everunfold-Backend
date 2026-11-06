@@ -12,12 +12,15 @@ from app.modules.auth.accounts_router import AccountAccess, Authorized
 from app.modules.auth.permissions import user_permissions
 from app.modules.auth.router import auth_runtime
 from app.modules.auth.service import AuthFailure
+from app.modules.pages.metadata import PageMetadataService
 from app.modules.pages.models import ManagedPage
 from app.modules.pages.schemas import (
     ManagedPageCatalog,
     ManagedPageItem,
+    PageMetadata,
     RemoveManagedPage,
     SaveManagedPage,
+    SavePageMetadata,
 )
 from app.modules.pages.service import PagesService
 
@@ -69,3 +72,19 @@ async def detail(page_id: UUID, ctx: Access, request: Request) -> JSONResponseSu
     if value is None:
         raise AuthFailure(404, 40496, "页面不存在")
     return JSONResponseSuccess(data=await service(ctx, request).item(value))
+
+
+@router.get("/{page_id}/metadata", response_model=PublicResponse[PageMetadata])
+async def read_metadata(page_id: UUID, ctx: Access) -> JSONResponseSuccess:
+    return JSONResponseSuccess(data=await PageMetadataService(ctx.service).read(page_id))
+
+
+@router.patch("/{page_id}/metadata", response_model=PublicResponse[PageMetadata])
+async def save_metadata(
+    page_id: UUID, payload: SavePageMetadata, ctx: Access
+) -> JSONResponseSuccess:
+    if "pages:write" not in user_permissions(ctx.actor):
+        raise AuthFailure(403, 40364, "没有执行此操作的权限")
+    return JSONResponseSuccess(
+        data=await PageMetadataService(ctx.service).save(ctx.actor, page_id, payload)
+    )
