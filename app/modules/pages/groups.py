@@ -71,13 +71,13 @@ async def promote_original(session: AsyncSession, row: ManagedPage) -> None:
     if row.translation_group_id is None:
         return
     group = await session.get(PageTranslationGroup, row.translation_group_id)
-    if group and group.source_id == row.id and row.deleted_at is not None:
+    if group:
+        original = await session.get(ManagedPage, group.source_id)
+    else:
+        original = None
+    if group and original and original.deleted_at is not None:
         replacement = next(
-            (
-                item
-                for item in await members(session, group.id)
-                if item.id != row.id and item.deleted_at is None
-            ),
+            (item for item in await members(session, group.id) if item.deleted_at is None),
             None,
         )
         if replacement:

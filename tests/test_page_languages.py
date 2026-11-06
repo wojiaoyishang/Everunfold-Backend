@@ -1,5 +1,6 @@
 """Authored page language, retained-source toggles and safe navigation resource boundaries."""
 
+from copy import deepcopy
 from typing import Any
 from uuid import uuid4
 
@@ -163,6 +164,28 @@ def test_page_languages_group_list_independent_publish_and_original_removal(
     anchor = next(r for r in directory if r["id"] == english["id"])
     assert anchor["enabled"] and anchor["is_original"]
     assert next(p for p in published(ctx) if p["id"] == active["id"])["is_original"]
+    post(
+        ctx,
+        "remove",
+        {"id": active["id"], "expected_revision": active["revision"], "operation_id": str(uuid4())},
+    )
+    original_trash = ctx.root.get("/v1/admin/pages/" + original["id"]).json()["data"]
+    restored = post(
+        ctx,
+        "remove",
+        {
+            "id": original["id"],
+            "expected_revision": original_trash["revision"],
+            "restore": True,
+            "operation_id": str(uuid4()),
+        },
+    )
+    assert restored["is_original"] and not restored["enabled"]
+    assert original["id"] in {
+        r["id"]
+        for r in ctx.root.get("/v1/admin/pages").json()["data"]["items"]
+        if not r["archived"]
+    }
 
 
 def test_page_language_link_unlink_preserves_addresses_and_rejects_self_language(
@@ -205,10 +228,10 @@ def test_navigation_queries_only_applied_titles_paths_and_tracks_renames(
     ctx = pages
     draft = post(ctx, "save", body(ctx, enabled=True))
 
-    def choices() -> dict[str, Any]:
+    def choices(identity: str | None = None) -> dict[str, Any]:
         response = ctx.root.post(
             "/v1/admin/settings/navigation-resources",
-            json={"kind": "page", "search": ctx.name},
+            json={"kind": "page", "search": ctx.name, "id": identity},
             headers=headers(ctx.root),
         )
         assert response.status_code == 200, response.text
@@ -230,6 +253,8 @@ def test_navigation_queries_only_applied_titles_paths_and_tracks_renames(
         },
     )
     assert choices()["items"][0]["id"] == active["id"]
+    assert choices(active["id"])["total"] == 1
+    assert choices(str(uuid4()))["total"] == 0
     private = post(
         ctx,
         "save",
@@ -253,3 +278,78 @@ def test_navigation_queries_only_applied_titles_paths_and_tracks_renames(
         },
     )
     assert choices()["items"][0]["path"].endswith("-new")
+
+
+def test_bound_menu_persists_uuid_audit_and_follows_primary_public_path(
+    pages: AccountsTest,
+) -> None:
+    ctx = pages
+    original = ctx.root.get("/v1/admin/settings").json()["data"]
+    active = post(ctx, "save", {**body(ctx, enabled=True), "apply": True})
+    value = deepcopy(original["value"])
+    value["site"]["navigation"] = [
+        {
+            "id": "bound-page-proof",
+            "label": "Bound proof",
+            "href": "/stale",
+            "reference": {"kind": "page", "id": active["id"]},
+        }
+    ]
+    try:
+        response = ctx.root.patch(
+            "/v1/admin/settings",
+            json={"expected_revision": original["revision"], "value": value},
+            headers=headers(ctx.root),
+        )
+        assert response.status_code == 200, response.text
+        assert (
+            response.json()["data"]["value"]["site"]["navigation"][0]["reference"]["id"]
+            == active["id"]
+        )
+        public = ctx.root.get("/v1/site").json()["data"]
+        assert public["navigation"][0]["href"] == active["value"]["path"]
+        draft = post(
+            ctx,
+            "save",
+            {
+                "id": active["id"],
+                "expected_revision": active["revision"],
+                "operation_id": str(uuid4()),
+                "value": {**active["value"], "path": active["value"]["path"] + "-changed"},
+            },
+        )
+        assert (
+            ctx.root.get("/v1/site").json()["data"]["navigation"][0]["href"]
+            == active["value"]["path"]
+        )
+        applied = post(
+            ctx,
+            "save",
+            {
+                "id": active["id"],
+                "expected_revision": draft["revision"],
+                "operation_id": str(uuid4()),
+                "value": draft["value"],
+                "apply": True,
+            },
+        )
+        assert ctx.root.get("/v1/site").json()["data"]["navigation"][0]["href"].endswith("-changed")
+        post(
+            ctx,
+            "enabled",
+            {
+                "id": active["id"],
+                "expected_revision": applied["revision"],
+                "operation_id": str(uuid4()),
+                "enabled": False,
+            },
+        )
+        assert ctx.root.get("/v1/site").json()["data"]["navigation"] == []
+    finally:
+        state = ctx.root.get("/v1/admin/settings").json()["data"]
+        restored = ctx.root.patch(
+            "/v1/admin/settings",
+            json={"expected_revision": state["revision"], "value": original["value"]},
+            headers=headers(ctx.root),
+        )
+        assert restored.status_code == 200, restored.text

@@ -273,7 +273,10 @@ class SettingsService:
                     user_id=actor,
                     resource="public-settings",
                     revision=record.generation,
-                    changes={"before": before.model_dump(), "after": payload.value.model_dump()},
+                    changes={
+                        "before": before.model_dump(mode="json"),
+                        "after": payload.value.model_dump(mode="json"),
+                    },
                 )
             )
         for node, config in self.config.frontends.items():

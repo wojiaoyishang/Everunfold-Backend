@@ -11,5 +11,15 @@
   "只有管理员可以启用或修改页面脚本": "Only administrators can enable or modify page scripts.",
   "页面内容过大": "The page source is too large.",
   "代码注册页面可以停用，不能移除代码登记": "Registered pages may be disabled; their code registration cannot be removed here.",
-  "页面内部元数据已被修改，请读取后重新合并": "Page metadata changed elsewhere. Read the latest revision and merge your changes."
+  "页面内部元数据已被修改，请读取后重新合并": "Page metadata changed elsewhere. Read the latest revision and merge your changes.",
+  "前端注册页面的多语言由代码管理": "Languages for registered pages are managed in code.",
+  "页面语言组不存在": "Page language group not found.",
+  "请通过语言关联创建独立译文，不可更改已有页面的语言": "Create a separate translation through language associations. An existing page cannot change language.",
+  "此页面尚无已应用内容，请确认应用当前草稿": "This page has no applied content. Confirm applying its saved draft.",
+  "语言关联已变化，请刷新后重试": "The language association changed. Refresh and try again.",
+  "此语言已有页面，请编辑或恢复已有译文": "A page already exists in this language. Edit or restore it.",
+  "只能关联未回收的自定义页面": "Only custom pages outside the trash can be linked.",
+  "目标页面已关联其他语言，请先解除关联": "The target page already has language associations. Unlink it first.",
+  "此页面没有其他语言关联": "This page has no other language associations.",
+  "原文无需标记译文已核对": "The original does not need translation review."
 }

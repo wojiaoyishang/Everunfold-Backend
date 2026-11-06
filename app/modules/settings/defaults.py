@@ -34,10 +34,10 @@ def public_settings(data: dict[str, Any]) -> PublicSettings:
 
 
 def stored_settings(original: dict[str, Any], value: PublicSettings) -> dict[str, Any]:
-    theme = value.theme.model_dump()
+    theme = value.theme.model_dump(mode="json")
     return {
         **original,
-        **value.site.model_dump(),
+        **value.site.model_dump(mode="json"),
         "hero_title": theme.pop("hero_title"),
         "hero_subtitle": theme.pop("hero_subtitle"),
         "hero_url": theme.pop("background_url") or None,
