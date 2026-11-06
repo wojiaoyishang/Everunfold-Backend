@@ -115,6 +115,25 @@ def check_scheduled_publication(
         ]
         == 1
     )
+    queued_update = post("schedule", command(latest, private))
+    assert (
+        client.get("/v1/contents/resolve", params={"path": fields["settings"]["path"]}).json()[
+            "data"
+        ]["content"]
+        == fields["body"]
+    )
+    invalid = command(queued_update, private, -10)
+    assert client.post(prefix + "schedule", json=invalid, headers=csrf).status_code == 422
+    assert read(row)["revision"] == queued_update["revision"]
+    post(
+        "cancel-schedule",
+        {
+            "id": row["id"],
+            "expected_revision": queued_update["revision"],
+            "operation_id": str(uuid4()),
+        },
+    )
+    assert read(row)["published_revision"] == 2
 
     # Explicit cancellation and trash/restore remove registered runs; no delayed resurrection.
     cancelled, value = create("/scheduled-cancel.html")
@@ -208,13 +227,56 @@ def check_scheduled_publication(
         asyncio.run(sql("UPDATE users SET active=true WHERE id=$1", actor))
     assert read(revoked)["published_revision"] is None
 
+    # A read-only Key cannot arrange publication; a revoked publisher Key cannot execute later.
+    def key(permissions: Any) -> Any:
+        response = client.post(
+            "/v1/account/api-keys",
+            headers=csrf,
+            json={
+                "operation_id": str(uuid4()),
+                "name": "Scheduled publisher test",
+                "permissions": permissions,
+                "expires_at": (datetime.now(UTC) + timedelta(days=1)).isoformat(),
+                "current_password": "123456",
+            },
+        )
+        assert response.status_code == 201, response.text
+        return response.json()["data"]
+
+    keyed, value = create("/scheduled-key-revoked.html")
+    reader = key({"content:read": "own"})
+    response = httpx.post(
+        api_b + prefix + "schedule",
+        json=command(keyed, value),
+        headers={"Authorization": "Bearer " + reader["secret"]},
+        trust_env=False,
+    )
+    assert response.status_code == 403
+    publisher = key({"content:read": "own", "content:publish": "own"})
+    response = httpx.post(
+        api_b + prefix + "schedule",
+        json=command(keyed, value),
+        headers={"Authorization": "Bearer " + publisher["secret"]},
+        trust_env=False,
+    )
+    assert response.status_code == 200, response.text
+    revoked_key = client.post(
+        "/v1/account/api-keys/revoke",
+        headers=csrf,
+        json={"operation_id": str(uuid4()), "key_id": publisher["key"]["id"]},
+    )
+    assert revoked_key.status_code == 200
+    due(keyed)
+    wait_for(lambda: read(keyed)["schedule_error"] == "permission_changed")
+    assert read(keyed)["published_revision"] is None
+
     # Commit failure rolls back Content and Outbox together and leaves the run retryable.
     retry, value = create("/scheduled-transaction.html")
     retry = post("schedule", command(retry, value))
     asyncio.run(
         sql(
             "ALTER TABLE settings_audit ADD CONSTRAINT schedule_commit_failure "
-            "CHECK (resource <> 'content-publication')"
+            "CHECK (resource <> 'content-publication') NOT VALID"
         )
     )
     try:

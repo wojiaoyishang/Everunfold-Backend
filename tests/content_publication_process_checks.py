@@ -55,7 +55,7 @@ def check_content_publication(
     asyncio.run(
         sql(
             "ALTER TABLE content_draft_revisions ADD CONSTRAINT publication_audit_failure "
-            "CHECK (action <> 'publish')"
+            "CHECK (action <> 'publish') NOT VALID"
         )
     )
     rejected = post("publish", payload)

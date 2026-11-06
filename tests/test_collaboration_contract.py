@@ -24,11 +24,15 @@ def test_only_scheduled_commands_accept_timezone_aware_publication_dates() -> No
         id=uuid4(), operation_id=uuid4(), expected_revision=1, epoch=uuid4(), committed_seq=0
     )
     with pytest.raises(ValidationError):
-        CommitDraft(**command, action="schedule")
+        CommitDraft.model_validate({**command, "action": "schedule"})
     with pytest.raises(ValidationError):
-        CommitDraft(**command, action="publish", scheduled_for="2030-01-01T00:00:00Z")
+        CommitDraft.model_validate(
+            {**command, "action": "publish", "scheduled_for": "2030-01-01T00:00:00Z"}
+        )
     with pytest.raises(ValidationError):
-        CommitDraft(**command, action="schedule", scheduled_for="2030-01-01T00:00:00")
-    assert CommitDraft(
-        **command, action="schedule", scheduled_for="2030-01-01T00:00:00Z"
+        CommitDraft.model_validate(
+            {**command, "action": "schedule", "scheduled_for": "2030-01-01T00:00:00"}
+        )
+    assert CommitDraft.model_validate(
+        {**command, "action": "schedule", "scheduled_for": "2030-01-01T00:00:00Z"}
     ).scheduled_for
