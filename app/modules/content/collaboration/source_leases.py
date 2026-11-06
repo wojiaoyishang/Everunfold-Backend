@@ -56,7 +56,7 @@ async def source_states(session: AsyncSession, draft_id: UUID) -> list[SourceSta
 async def acquire_source(
     session: AsyncSession, payload: SourceAcquire, session_hash: str
 ) -> SourceAcquired:
-    await authorize(session, session_hash, lock=True)
+    await authorize(session, session_hash, lock=True, draft_id=payload.id)
     await lock_references(session)
     await draft_row(session, payload.id, lock=True)
     await require_unlocked(session, payload.id)
@@ -100,7 +100,7 @@ async def acquire_source(
 async def command_source(
     session: AsyncSession, payload: SourceCommand, session_hash: str, *, release: bool
 ) -> SourceAcquired | None:
-    await authorize(session, session_hash, lock=True)
+    await authorize(session, session_hash, lock=True, draft_id=payload.id)
     await lock_references(session)
     await draft_row(session, payload.id, lock=True)
     await require_unlocked(session, payload.id)
@@ -131,7 +131,7 @@ async def command_source(
 async def apply_source(
     session: AsyncSession, config: Settings, payload: SourceApply, session_hash: str
 ) -> SourceApplied:
-    actor = await authorize(session, session_hash, lock=True)
+    actor = await authorize(session, session_hash, lock=True, draft_id=payload.id)
     signature = hashlib.sha256(
         json.dumps(
             [str(payload.block_id), str(payload.lease_id), payload.expected_hash, payload.html],

@@ -124,7 +124,7 @@ class AuthService:
         if admin and user is None:
             await self.session.commit()
             raise AuthFailure(401, 40101, "请先登录")
-        if admin and user is not None and user.role != "admin":
+        if admin and user is not None and user.role != "admin" and not user_permissions(user):
             await self.session.commit()
             raise AuthFailure(403, 40301, "当前账号没有后台访问权限")
         if admin and user is not None and user.must_change_password:

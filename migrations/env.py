@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import create_async_engine
 
 from app.core.config import load_settings
 from app.core.database import Base
+from app.modules.auth import credentials_models as credentials_models  # noqa: F401
 from app.modules.auth import models as auth_models  # noqa: F401 - include module metadata
 from app.modules.content import (
     draft_models,  # noqa: F401

@@ -22,6 +22,9 @@ from app.modules.auth.accounts_schemas import (
     UserCreate,
     UserSave,
 )
+from app.modules.auth.callback_events import invalidate_user_keys
+from app.modules.auth.credential_policy import application_scopes
+from app.modules.auth.credentials_models import ApiApplication
 from app.modules.auth.models import AuthAuditEvent, AuthRateLimit, BrowserSession, User
 from app.modules.auth.operations import AccountOperations
 from app.modules.auth.permissions import BUILTIN_APP, CAPABILITIES, ResourceScope, user_permissions
@@ -123,11 +126,25 @@ class AccountsService:
         if len(grants) > 64 or sum(len(items) for items in grants.values()) > 256:
             raise AuthFailure(422, 42260, "授权项目过多")
         for app_id, items in grants.items():
-            if app_id != BUILTIN_APP:
-                raise AuthFailure(422, 42260, "接入应用不存在")
-            available = user_permissions(actor, app_id)
+            if app_id == BUILTIN_APP:
+                definitions = {
+                    name: (label, key, owner) for name, (label, key, owner) in CAPABILITIES.items()
+                }
+            else:
+                app = await self.session.get(ApiApplication, app_id)
+                if app is None or app.audience != app_id:
+                    raise AuthFailure(422, 42260, "接入应用不存在")
+                definitions = {
+                    item.code: (item.label, item.api_key, item.owner_scope)
+                    for item in application_scopes(app)
+                }
+            available = (
+                {name: "all" for name in definitions}
+                if actor.role == "admin"
+                else user_permissions(actor, app_id)
+            )
             for name, scope in items.items():
-                definition = CAPABILITIES.get(name)
+                definition = definitions.get(name)
                 if definition is None or (scope == "own" and not definition[2]):
                     raise AuthFailure(422, 42260, "权限或资源范围不可用")
                 if name not in available or (scope == "all" and available[name] != "all"):
@@ -264,6 +281,8 @@ class AccountsService:
             )
         user.role, user.active = payload.role, payload.active
         user.grants = {app: dict(items) for app, items in payload.grants.items()}
+        if auth_changed:
+            await invalidate_user_keys(self.session, user)
         self.audit(
             actor,
             "user_updated",
@@ -350,6 +369,7 @@ class AccountsService:
             user.key_epoch += 1
         user.updated_at = datetime.now(UTC)
         await self.session.execute(delete(BrowserSession).where(BrowserSession.user_id == user.id))
+        await invalidate_user_keys(self.session, user)
         record, token = self.auth._new(datetime.now(UTC), user)
         result = SessionResult(self.auth._state(record, token, user), token)
         self.audit(user, "password_changed", user, revoke_api_keys=payload.revoke_api_keys)
@@ -390,6 +410,7 @@ class AccountsService:
         user.updated_at = datetime.now(UTC)
         await self.session.execute(delete(BrowserSession).where(BrowserSession.user_id == user.id))
         self.audit(actor, "password_reset", user)
+        await invalidate_user_keys(self.session, user)
         result = profile(user)
         await self.operations.remember(
             payload.operation_id,

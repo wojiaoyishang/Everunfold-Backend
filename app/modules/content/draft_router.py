@@ -65,7 +65,11 @@ async def new_category(payload: EditorTermCreate, ctx: Authorized) -> JSONRespon
 async def query(payload: DraftQuery, ctx: Authorized) -> JSONResponseSuccess:
     require_type(payload.type_id)
     return JSONResponseSuccess(
-        data=await DraftRepository(ctx.service.session, ctx.service.config).catalog(payload)
+        data=await DraftRepository(
+            ctx.service.session,
+            ctx.service.config,
+            owner_id=ctx.actor.id if ctx.actor.permissions.get("content:read") == "own" else None,
+        ).catalog(payload)
     )
 
 

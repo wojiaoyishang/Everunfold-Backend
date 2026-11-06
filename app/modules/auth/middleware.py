@@ -58,14 +58,18 @@ class AuthBoundaryMiddleware:
                 headers = MutableHeaders(scope=message)
                 headers["Cache-Control"] = "private, no-store"
                 headers["Pragma"] = "no-cache"
-                headers.append("Vary", "Cookie, Origin")
+                headers.append("Vary", "Cookie, Origin, Authorization")
                 headers["X-Content-Type-Options"] = "nosniff"
             await send(message)
 
         headers = Headers(scope=scope)
         origin = headers.get("origin")
         write = scope["method"] not in {"GET", "HEAD", "OPTIONS"}
-        if (origin is not None or write) and origin not in self.allowed_origins:
+        machine = path == "/v1/auth/api-keys/introspect" or (
+            path.startswith("/v1/admin/")
+            and headers.get("authorization", "").lower().startswith("bearer efk_")
+        )
+        if (origin is not None or (write and not machine)) and origin not in self.allowed_origins:
             await JSONResponseFail(status_code=403, code=40310, msg="请求来源不被允许")(
                 scope, receive, private_send
             )

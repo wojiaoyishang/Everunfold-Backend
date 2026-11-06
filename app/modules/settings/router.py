@@ -8,9 +8,9 @@ from fastapi import APIRouter, Depends, Request
 
 from app.core.responses import JSONResponseSuccess
 from app.core.schemas import ErrorResponse, PublicResponse
-from app.modules.auth.models import User
-from app.modules.auth.router import auth_runtime, cookie
-from app.modules.auth.service import AuthService
+from app.modules.auth.business_auth import authorize_business
+from app.modules.auth.permissions import Actor
+from app.modules.auth.router import auth_runtime
 from app.modules.settings.schemas import (
     NodeList,
     PolicyState,
@@ -32,22 +32,19 @@ router = APIRouter(
 @dataclass
 class Access:
     service: SettingsService
-    actor: User
+    actor: Actor
 
 
 async def access(request: Request) -> AsyncIterator[Access]:
     runtime = auth_runtime(request)
     async with runtime.database.session_factory() as session:
-        auth = AuthService(session, runtime.settings.auth, runtime.password_limiter)
-        user = await auth.require_admin(
-            cookie(request),
-            request.headers.get("X-CSRF-Token") if request.method != "GET" else None,
-            write=request.method != "GET",
-        )
+        user, readonly = await authorize_business(request, session, runtime)
         yield Access(SettingsService(session, runtime.settings), user)
+        if user.auth_method == "api_key" and readonly and session.in_transaction():
+            await session.commit()
 
 
-Authorized = Annotated[Access, Depends(access)]
+Authorized = Annotated[Access, Depends(access, scope="function")]
 
 
 @router.get("/settings", response_model=PublicResponse[SettingsState])

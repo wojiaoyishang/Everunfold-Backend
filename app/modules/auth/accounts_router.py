@@ -17,7 +17,6 @@ from app.modules.auth.accounts_schemas import (
     PasswordChange,
     PasswordReset,
     PermissionCatalog,
-    PermissionDefinition,
     ProfileSave,
     SessionList,
     SessionRevoke,
@@ -26,10 +25,12 @@ from app.modules.auth.accounts_schemas import (
 )
 from app.modules.auth.accounts_service import AccountsService, account_mutation_lock, profile
 from app.modules.auth.models import User
+from app.modules.auth.permission_schemas import PermissionDefinition
 from app.modules.auth.permissions import CAPABILITIES, user_permissions
 from app.modules.auth.router import auth_runtime, cookie, cookie_response
 from app.modules.auth.schemas import AuthSessionState
 from app.modules.auth.service import AuthFailure, AuthService
+from app.modules.settings.languages import LanguageCatalog, language_catalog
 
 router = APIRouter(
     prefix="/v1",
@@ -49,7 +50,7 @@ class AccountAccess:
 
 async def account_access(request: Request) -> AsyncIterator[AccountAccess]:
     runtime = auth_runtime(request)
-    if request.headers.get("Authorization"):
+    if request.headers.get("Authorization") is not None:
         raise AuthFailure(403, 40362, "此操作需要登录会话")
     async with runtime.database.session_factory() as session:
         write = request.method not in {"GET", "HEAD", "OPTIONS"}
@@ -72,6 +73,11 @@ async def user_manager(ctx: Authorized) -> AccountAccess:
 
 
 Manager = Annotated[AccountAccess, Depends(user_manager)]
+
+
+@router.get("/account/languages", response_model=PublicResponse[LanguageCatalog])
+async def account_languages(ctx: Authorized) -> JSONResponseSuccess:
+    return JSONResponseSuccess(data=await language_catalog(ctx.service.session))
 
 
 @router.get("/account/profile", response_model=PublicResponse[AccountProfile])

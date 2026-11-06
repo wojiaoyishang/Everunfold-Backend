@@ -13,8 +13,11 @@ from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
+from app.modules.auth.key_service import identity_by_digest
 from app.modules.auth.models import BrowserSession, User
+from app.modules.auth.permissions import Actor, AuthSubject
 from app.modules.auth.repository import AuthRepository
+from app.modules.auth.resource_access import require_content_access
 from app.modules.auth.security import new_session_token, token_digest
 from app.modules.auth.service import AuthFailure
 from app.modules.content.collaboration.block_sources import patched_fields, stage_block_sources
@@ -49,10 +52,25 @@ from app.modules.content.merge_lock import require_unlocked
 from app.modules.media.locking import lock_references
 
 
-async def authorize(session: AsyncSession, session_hash: str, *, lock: bool = False) -> User:
-    record = await session.get(
-        BrowserSession, session_hash, populate_existing=True, with_for_update=lock
-    )
+async def authorize(
+    session: AsyncSession,
+    session_hash: str,
+    *,
+    lock: bool = False,
+    draft_id: UUID | None = None,
+    capability: str = "content:write",
+) -> Actor:
+    record = await session.get(BrowserSession, session_hash, populate_existing=True)
+    if record is None:
+        identity = await identity_by_digest(session, session_hash, lock=lock)
+        if identity is None or identity.key.audience != "everunfold":
+            raise AuthFailure(401, 40101, "登录已失效，请保留本地输入后重新登录")
+        actor = identity.actor()
+        if not actor.has(capability):
+            raise AuthFailure(403, 40364, "没有执行此操作的权限")
+        if draft_id:
+            await require_content_access(session, actor, capability, draft_id)
+        return actor
     user = None
     if record and record.user_id:
         statement = (
@@ -63,9 +81,18 @@ async def authorize(session: AsyncSession, session_hash: str, *, lock: bool = Fa
         user = await session.scalar(statement.with_for_update(read=True) if lock else statement)
     if not record or record.expires_at <= datetime.now(UTC) or not user or not user.active:
         raise AuthFailure(401, 40101, "登录已失效，请保留本地输入后重新登录")
-    if user.role != "admin":
+    if lock:
+        record = await session.get(
+            BrowserSession, session_hash, populate_existing=True, with_for_update={"read": True}
+        )
+        if not record or record.expires_at <= datetime.now(UTC):
+            raise AuthFailure(401, 40101, "登录已失效，请保留本地输入后重新登录")
+    actor = Actor.browser(user, session_hash)
+    if not actor.has(capability):
         raise AuthFailure(403, 40301, "当前账号没有编辑权限")
-    return user
+    if draft_id:
+        await require_content_access(session, actor, capability, draft_id)
+    return actor
 
 
 async def draft_row(session: AsyncSession, draft_id: UUID, *, lock: bool = False) -> ContentDraft:
@@ -165,7 +192,7 @@ async def ticket(
     )
 
 
-async def consume_ticket(session: AsyncSession, draft_id: UUID, secret: str) -> tuple[str, User]:
+async def consume_ticket(session: AsyncSession, draft_id: UUID, secret: str) -> tuple[str, Actor]:
     record = await session.scalar(
         select(CollaborationTicket)
         .where(CollaborationTicket.digest == token_digest(secret))
@@ -173,7 +200,7 @@ async def consume_ticket(session: AsyncSession, draft_id: UUID, secret: str) -> 
     )
     if not record or record.draft_id != draft_id or record.expires_at <= datetime.now(UTC):
         raise AuthFailure(401, 40102, "协同连接凭据已失效")
-    actor = await authorize(session, record.session_hash)
+    actor = await authorize(session, record.session_hash, draft_id=draft_id)
     await draft_row(session, draft_id)
     session_hash = record.session_hash
     await session.delete(record)
@@ -201,7 +228,7 @@ def apply_candidate(
 async def accept_update(
     session: AsyncSession, config: Settings, draft_id: UUID, session_hash: str, update: ClientUpdate
 ) -> int:
-    actor = await authorize(session, session_hash, lock=True)
+    actor = await authorize(session, session_hash, lock=True, draft_id=draft_id)
     try:
         payload = base64.b64decode(update.payload, validate=True)
     except ValueError as exc:
@@ -276,7 +303,7 @@ async def accept_update(
 
 
 async def commit_draft(
-    session: AsyncSession, config: Settings, actor: User, payload: CommitDraft
+    session: AsyncSession, config: Settings, actor: AuthSubject, payload: CommitDraft
 ) -> CommittedDraft:
     await lock_references(session)
     row = await draft_row(session, payload.id, lock=True)

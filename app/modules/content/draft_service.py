@@ -12,7 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
-from app.modules.auth.models import User
+from app.modules.auth.permissions import AuthSubject
 from app.modules.auth.security import hash_password
 from app.modules.auth.service import AuthFailure
 from app.modules.content.content_paths import initial_path
@@ -86,7 +86,7 @@ class DraftService:
         self,
         action: Action,
         payload: DraftCreate | DraftSave | DraftMutation,
-        actor: User,
+        actor: AuthSubject,
         *,
         demo: bool = False,
         collaboration_cutoff: tuple[UUID, int] | None = None,

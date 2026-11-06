@@ -7,7 +7,7 @@ from typing import Any
 from pycrdt import Map, Text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.modules.auth.models import User
+from app.modules.auth.permissions import AuthSubject
 from app.modules.auth.service import AuthFailure
 from app.modules.content.collaboration.document import MAX_STATE, decode, project, references
 from app.modules.content.collaboration.models import (
@@ -52,7 +52,7 @@ def patched_fields(fields: DraftFields, patches: list[BlockSourcePatch]) -> Draf
 async def stage_block_sources(
     session: AsyncSession,
     document: CollaborationDocument,
-    actor: User,
+    actor: AuthSubject,
     payload: CommitDraft,
     policy: EditorSettings,
 ) -> int:

@@ -44,7 +44,11 @@ async def source_acquire(
     payload: SourceAcquire, request: Request, ctx: Authorized
 ) -> JSONResponseSuccess:
     return JSONResponseSuccess(
-        data=await acquire_source(ctx.service.session, payload, token_digest(cookie(request) or ""))
+        data=await acquire_source(
+            ctx.service.session,
+            payload,
+            ctx.actor.credential_hash or token_digest(cookie(request) or ""),
+        )
     )
 
 
@@ -56,7 +60,10 @@ async def source_renew(
 ) -> JSONResponseSuccess:
     return JSONResponseSuccess(
         data=await command_source(
-            ctx.service.session, payload, token_digest(cookie(request) or ""), release=False
+            ctx.service.session,
+            payload,
+            ctx.actor.credential_hash or token_digest(cookie(request) or ""),
+            release=False,
         )
     )
 
@@ -68,7 +75,10 @@ async def source_release(
     payload: SourceCommand, request: Request, ctx: Authorized
 ) -> JSONResponseSuccess:
     await command_source(
-        ctx.service.session, payload, token_digest(cookie(request) or ""), release=True
+        ctx.service.session,
+        payload,
+        ctx.actor.credential_hash or token_digest(cookie(request) or ""),
+        release=True,
     )
     return JSONResponseSuccess(data=SourceReleased())
 
@@ -81,7 +91,10 @@ async def source_apply(
 ) -> JSONResponseSuccess:
     return JSONResponseSuccess(
         data=await apply_source(
-            ctx.service.session, ctx.service.config, payload, token_digest(cookie(request) or "")
+            ctx.service.session,
+            ctx.service.config,
+            payload,
+            ctx.actor.credential_hash or token_digest(cookie(request) or ""),
         )
     )
 
@@ -92,7 +105,7 @@ async def issue(payload: TicketRequest, request: Request, ctx: Authorized) -> JS
         data=await ticket(
             ctx.service.session,
             payload.id,
-            token_digest(cookie(request) or ""),
+            ctx.actor.credential_hash or token_digest(cookie(request) or ""),
             source_first=payload.source_first,
         )
     )
@@ -102,7 +115,15 @@ async def issue(payload: TicketRequest, request: Request, ctx: Authorized) -> JS
     "/v1/admin/content/collaboration/commit", response_model=PublicResponse[CommittedDraft]
 )
 async def commit(payload: CommitDraft, request: Request, ctx: Authorized) -> JSONResponseSuccess:
-    actor = await authorize(ctx.service.session, token_digest(cookie(request) or ""), lock=True)
+    actor = await authorize(
+        ctx.service.session,
+        ctx.actor.credential_hash or token_digest(cookie(request) or ""),
+        lock=True,
+        draft_id=payload.id,
+        capability="content:publish"
+        if payload.action in {"publish", "withdraw"}
+        else "content:write",
+    )
     return JSONResponseSuccess(
         data=await commit_draft(ctx.service.session, ctx.service.config, actor, payload)
     )

@@ -34,6 +34,12 @@ login_window_seconds = 900
 login_attempts_per_account = 10
 login_attempts_per_ip = 50
 bootstrap_attempts_per_ip = 60
+# 应用签名主密钥通过部署环境注入（43~128位Base64URL字符），只引用变量名。
+application_master_key_env = "EVERUNFOLD_API_APPLICATION_MASTER_KEY"
+# 回调目标须同时由管理员登记及部署放行；按实际子项目来源填写，不跟随重定向。
+callback_allowed_origins = []
+# 读取校验的最长缓存秒数；写入不缓存；子项目不得滑动延长期限。
+key_cache_seconds = 30
 
 [database]
 url = "postgresql+asyncpg://everunfold:change-me@127.0.0.1:5432/everunfold_dev"

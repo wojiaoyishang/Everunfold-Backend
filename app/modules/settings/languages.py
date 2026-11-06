@@ -116,6 +116,7 @@ class LanguageDefinition(PublicModel):
     def reserved_prefix(cls, value: str) -> str:
         if value and value[1:] in {
             "admin",
+            "account",
             "login",
             "api",
             "v1",

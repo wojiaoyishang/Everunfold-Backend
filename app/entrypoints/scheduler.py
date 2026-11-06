@@ -31,6 +31,7 @@ def main() -> None:
             if not renewed:
                 raise RuntimeError("Scheduler lease was lost")
             celery_app.send_task("everunfold.settings.deliver", expires=interval * 2)
+            celery_app.send_task("everunfold.auth.deliver_callbacks", expires=interval * 2)
             time.sleep(interval)
     finally:
         client.eval(

@@ -98,6 +98,29 @@ def test_settings_atomic_save_restart_delivery_and_crash_replay(tmp_path: Path) 
     token = uuid4().hex + uuid4().hex
     raw = tomllib.loads((ROOT / "config.test.local.toml").read_text(encoding="utf-8"))
     raw["database"]["url"] = url.render_as_string(hide_password=False)
+    # The opt-in preview withdrawal CLI intentionally accepts loopback databases only.
+    # A container service name needs a test-only tunnel; never weaken that CLI guard.
+    database_tunnel: subprocess.Popen[bytes] | None = None
+    if original_url.host not in {"localhost", "127.0.0.1", "::1"}:
+        local_port = free_port()
+        database_tunnel = subprocess.Popen(
+            [
+                "node",
+                "-e",
+                "const n=require('node:net');n.createServer(s=>{"
+                "const t=n.connect(+process.argv[2],process.argv[1]);"
+                "s.pipe(t).pipe(s);s.on('error',()=>t.destroy());"
+                "t.on('error',()=>s.destroy());}).listen(+process.argv[3],'127.0.0.1');",
+                original_url.host or "",
+                str(original_url.port or 5432),
+                str(local_port),
+            ],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        raw["database"]["url"] = url.set(host="127.0.0.1", port=local_port).render_as_string(
+            hide_password=False
+        )
     raw["redis"]["namespace_scope"] = "test-settings-" + uuid4().hex[:10]
     raw["frontends"] = {
         node_id: {
@@ -690,6 +713,9 @@ def test_settings_atomic_save_restart_delivery_and_crash_replay(tmp_path: Path) 
             )
             check_translations(client, csrf, cookies, api_a, api_b)
     finally:
+        if database_tunnel is not None:
+            database_tunnel.terminate()
+            database_tunnel.wait(timeout=5)
         # Only this test's freshly created database is eligible for cleanup.
         assert database_name.startswith("everunfold_settings_test_")
 

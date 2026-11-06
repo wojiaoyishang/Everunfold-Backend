@@ -26,6 +26,7 @@ def content_path(value: str) -> str:
     first = value.split("/")[1].lower()
     if first in {
         "admin",
+        "account",
         "login",
         "api",
         "v1",

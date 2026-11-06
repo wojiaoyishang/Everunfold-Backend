@@ -788,3 +788,13 @@ ADR0069记录用户确认方向与实施顺序，接口细节是待实现设计�
 | --- | --- |
 | `docs/README.md` | `3275505910b445269ec80d233624d7218d4766bfbde27cbcb03ca595069da1d6` |
 | `docs/decisions/0069-accounts-api-keys-and-signed-callbacks.md` | `995a0d5a6cc3ff83ef9f6fead0e7a66dd0b6074040e2bfd20abd361fd33e6413` |
+
+## accounts-runtime-2 同步（2026-11-06）
+
+服务端授权与签名回调阶段；前端仍实施中。
+
+| 公共文件 | SHA256 |
+| --- | --- |
+| `docs/README.md` | `ba8717c6680d608c592a7c3f33348652151852c7d7b1f367abde7c20dcf6b87b` |
+| `docs/decisions/0069-accounts-api-keys-and-signed-callbacks.md` | `c98e94b1a5b2b6ff3de45d41b742230220c1033227d87d8460f7ce825cad4737` |
+| `docs/development/api-key-applications.md` | `3c2343f7589e681dca6c2a5ec03d0c9bffd9cb7a73e0f123f0604c797a380587` |

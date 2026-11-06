@@ -34,7 +34,11 @@ def user_permissions(user: User, app_id: str = BUILTIN_APP) -> dict[str, Resourc
     return {
         name: "all" if scope == "all" else "own"
         for name, scope in (user.grants or {}).get(app_id, {}).items()
-        if app_id != BUILTIN_APP or name in CAPABILITIES
+        if scope in {"own", "all"}
+        and (
+            app_id != BUILTIN_APP
+            or (name in CAPABILITIES and (scope != "own" or CAPABILITIES[name][2]))
+        )
     }
 
 
@@ -57,6 +61,7 @@ class Actor:
     permissions: dict[str, ResourceScope]
     auth_method: Literal["session", "api_key"] = "session"
     key_id: UUID | None = None
+    credential_hash: str | None = None
 
     def allows(self, capability: str, owner_id: UUID | None = None) -> bool:
         scope = self.permissions.get(capability)
@@ -66,5 +71,15 @@ class Actor:
         return capability in self.permissions
 
     @classmethod
-    def browser(cls, user: User) -> "Actor":
-        return cls(user.id, user.username, user.display_name, user.role, user_permissions(user))
+    def browser(cls, user: User, credential_hash: str | None = None) -> "Actor":
+        return cls(
+            user.id,
+            user.username,
+            user.display_name,
+            user.role,
+            user_permissions(user),
+            credential_hash=credential_hash,
+        )
+
+
+type AuthSubject = Actor | User

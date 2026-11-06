@@ -24,6 +24,7 @@ from app.modules.content.text_preview import content_preview
 
 def summary(row: ContentDraft) -> DraftSummary:
     return DraftSummary(
+        owner_id=row.created_by,
         id=row.id,
         type_id=row.type_id,
         title=row.title,
@@ -55,9 +56,12 @@ def detail(row: ContentDraft) -> DraftDetail:
 
 
 class DraftRepository:
-    def __init__(self, session: AsyncSession, config: Settings | None = None) -> None:
+    def __init__(
+        self, session: AsyncSession, config: Settings | None = None, *, owner_id: UUID | None = None
+    ) -> None:
         self.session = session
         self.config = config
+        self.owner_id = owner_id
 
     async def find(self, draft_id: UUID, *, lock: bool = False) -> ContentDraft | None:
         query = select(ContentDraft).where(ContentDraft.id == draft_id)
@@ -67,6 +71,19 @@ class DraftRepository:
 
     async def catalog(self, query: DraftQuery) -> DraftCatalog:
         filters = [ContentDraft.type_id == query.type_id]
+        if self.owner_id is not None:
+            from sqlalchemy.orm import aliased
+
+            ownership_member = aliased(ContentDraft)
+            foreign_member = (
+                select(ownership_member.id)
+                .where(
+                    ownership_member.translation_group_id == ContentDraft.translation_group_id,
+                    ownership_member.created_by != self.owner_id,
+                )
+                .exists()
+            )
+            filters.extend([ContentDraft.created_by == self.owner_id, ~foreign_member])
         filters.append(
             ContentDraft.deleted_at.is_not(None)
             if query.status == "trash"

@@ -194,7 +194,7 @@ async def serve(socket: WebSocket, draft_id: UUID) -> None:
             last_checkpoint = time.monotonic()
             while True:
                 async with runtime.database.session_factory() as session:
-                    await authorize(session, session_hash)
+                    await authorize(session, session_hash, draft_id=draft_id)
                     draft = await draft_row(session, draft_id)
                     head = await session.get(CollaborationDocument, draft_id)
                     assert head is not None

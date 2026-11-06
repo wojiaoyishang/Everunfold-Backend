@@ -190,6 +190,342 @@
       "title": "AccountUserQuery",
       "type": "object"
     },
+    "ApplicationCreate": {
+      "additionalProperties": false,
+      "properties": {
+        "operation_id": {
+          "format": "uuid",
+          "title": "Operation Id",
+          "type": "string"
+        },
+        "app_id": {
+          "maxLength": 64,
+          "minLength": 2,
+          "pattern": "^[a-z0-9][a-z0-9_.-]+$",
+          "title": "App Id",
+          "type": "string"
+        },
+        "audience": {
+          "default": "everunfold",
+          "enum": [
+            "everunfold",
+            "self"
+          ],
+          "title": "Audience",
+          "type": "string"
+        },
+        "value": {
+          "$ref": "#/$defs/ApplicationFields"
+        },
+        "current_password": {
+          "maxLength": 1024,
+          "minLength": 1,
+          "title": "Current Password",
+          "type": "string"
+        }
+      },
+      "required": [
+        "operation_id",
+        "app_id",
+        "value",
+        "current_password"
+      ],
+      "title": "ApplicationCreate",
+      "type": "object"
+    },
+    "ApplicationFields": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "maxLength": 100,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "active": {
+          "default": true,
+          "title": "Active",
+          "type": "boolean"
+        },
+        "callback_url": {
+          "default": "",
+          "maxLength": 2048,
+          "title": "Callback Url",
+          "type": "string"
+        },
+        "scopes": {
+          "items": {
+            "$ref": "#/$defs/ApplicationScope"
+          },
+          "maxItems": 64,
+          "title": "Scopes",
+          "type": "array"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "ApplicationFields",
+      "type": "object"
+    },
+    "ApplicationList": {
+      "additionalProperties": false,
+      "properties": {
+        "items": {
+          "items": {
+            "$ref": "#/$defs/ApplicationState"
+          },
+          "title": "Items",
+          "type": "array"
+        }
+      },
+      "required": [
+        "items"
+      ],
+      "title": "ApplicationList",
+      "type": "object"
+    },
+    "ApplicationMutation": {
+      "additionalProperties": false,
+      "properties": {
+        "application": {
+          "$ref": "#/$defs/ApplicationState"
+        },
+        "query_secret": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Query Secret"
+        },
+        "callback_secret": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Callback Secret"
+        }
+      },
+      "required": [
+        "application"
+      ],
+      "title": "ApplicationMutation",
+      "type": "object"
+    },
+    "ApplicationRotate": {
+      "additionalProperties": false,
+      "properties": {
+        "operation_id": {
+          "format": "uuid",
+          "title": "Operation Id",
+          "type": "string"
+        },
+        "expected_revision": {
+          "minimum": 1,
+          "title": "Expected Revision",
+          "type": "integer"
+        },
+        "direction": {
+          "enum": [
+            "query",
+            "callback",
+            "both"
+          ],
+          "title": "Direction",
+          "type": "string"
+        },
+        "current_password": {
+          "maxLength": 1024,
+          "minLength": 1,
+          "title": "Current Password",
+          "type": "string"
+        }
+      },
+      "required": [
+        "operation_id",
+        "expected_revision",
+        "direction",
+        "current_password"
+      ],
+      "title": "ApplicationRotate",
+      "type": "object"
+    },
+    "ApplicationSave": {
+      "additionalProperties": false,
+      "properties": {
+        "operation_id": {
+          "format": "uuid",
+          "title": "Operation Id",
+          "type": "string"
+        },
+        "expected_revision": {
+          "minimum": 1,
+          "title": "Expected Revision",
+          "type": "integer"
+        },
+        "value": {
+          "$ref": "#/$defs/ApplicationFields"
+        },
+        "current_password": {
+          "maxLength": 1024,
+          "minLength": 1,
+          "title": "Current Password",
+          "type": "string"
+        }
+      },
+      "required": [
+        "operation_id",
+        "expected_revision",
+        "value",
+        "current_password"
+      ],
+      "title": "ApplicationSave",
+      "type": "object"
+    },
+    "ApplicationScope": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "maxLength": 80,
+          "minLength": 3,
+          "pattern": "^[a-z][a-z0-9_.-]*:[a-z][a-z0-9_.:-]*$",
+          "title": "Code",
+          "type": "string"
+        },
+        "label": {
+          "maxLength": 100,
+          "minLength": 1,
+          "title": "Label",
+          "type": "string"
+        },
+        "api_key": {
+          "const": true,
+          "default": true,
+          "title": "Api Key",
+          "type": "boolean"
+        },
+        "owner_scope": {
+          "default": false,
+          "title": "Owner Scope",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "code",
+        "label"
+      ],
+      "title": "ApplicationScope",
+      "type": "object"
+    },
+    "ApplicationState": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "audience": {
+          "title": "Audience",
+          "type": "string"
+        },
+        "active": {
+          "title": "Active",
+          "type": "boolean"
+        },
+        "callback_url": {
+          "title": "Callback Url",
+          "type": "string"
+        },
+        "scopes": {
+          "items": {
+            "$ref": "#/$defs/PermissionDefinition"
+          },
+          "title": "Scopes",
+          "type": "array"
+        },
+        "revision": {
+          "title": "Revision",
+          "type": "integer"
+        },
+        "auth_version": {
+          "title": "Auth Version",
+          "type": "integer"
+        },
+        "query_key_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Query Key Id"
+        },
+        "callback_key_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Callback Key Id"
+        },
+        "query_url": {
+          "title": "Query Url",
+          "type": "string"
+        },
+        "signing_available": {
+          "title": "Signing Available",
+          "type": "boolean"
+        },
+        "builtin": {
+          "title": "Builtin",
+          "type": "boolean"
+        },
+        "callbacks": {
+          "items": {
+            "$ref": "#/$defs/CallbackState"
+          },
+          "title": "Callbacks",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "audience",
+        "active",
+        "callback_url",
+        "scopes",
+        "revision",
+        "auth_version",
+        "query_key_id",
+        "callback_key_id",
+        "query_url",
+        "signing_available",
+        "builtin",
+        "callbacks"
+      ],
+      "title": "ApplicationState",
+      "type": "object"
+    },
     "AuthSessionState": {
       "additionalProperties": false,
       "properties": {
@@ -284,6 +620,508 @@
         "role"
       ],
       "title": "AuthUser",
+      "type": "object"
+    },
+    "CallbackCommand": {
+      "additionalProperties": false,
+      "properties": {
+        "operation_id": {
+          "format": "uuid",
+          "title": "Operation Id",
+          "type": "string"
+        },
+        "action": {
+          "enum": [
+            "test",
+            "resync",
+            "retry"
+          ],
+          "title": "Action",
+          "type": "string"
+        }
+      },
+      "required": [
+        "operation_id",
+        "action"
+      ],
+      "title": "CallbackCommand",
+      "type": "object"
+    },
+    "CallbackState": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "event_type": {
+          "title": "Event Type",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "pending",
+            "delivered",
+            "failed",
+            "skipped"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "attempts": {
+          "title": "Attempts",
+          "type": "integer"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "received_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Received At"
+        },
+        "applied_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Applied At"
+        },
+        "last_error": {
+          "title": "Last Error",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "event_type",
+        "status",
+        "attempts",
+        "created_at",
+        "received_at",
+        "applied_at",
+        "last_error"
+      ],
+      "title": "CallbackState",
+      "type": "object"
+    },
+    "KeyApplication": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "audience": {
+          "title": "Audience",
+          "type": "string"
+        },
+        "permissions": {
+          "additionalProperties": {
+            "enum": [
+              "own",
+              "all"
+            ],
+            "type": "string"
+          },
+          "title": "Permissions",
+          "type": "object"
+        },
+        "scopes": {
+          "items": {
+            "$ref": "#/$defs/PermissionDefinition"
+          },
+          "title": "Scopes",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "audience",
+        "permissions",
+        "scopes"
+      ],
+      "title": "KeyApplication",
+      "type": "object"
+    },
+    "KeyCreate": {
+      "additionalProperties": false,
+      "properties": {
+        "operation_id": {
+          "format": "uuid",
+          "title": "Operation Id",
+          "type": "string"
+        },
+        "app_id": {
+          "default": "everunfold",
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "App Id",
+          "type": "string"
+        },
+        "name": {
+          "maxLength": 100,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "permissions": {
+          "additionalProperties": {
+            "enum": [
+              "own",
+              "all"
+            ],
+            "type": "string"
+          },
+          "title": "Permissions",
+          "type": "object"
+        },
+        "expires_at": {
+          "format": "date-time",
+          "title": "Expires At",
+          "type": "string"
+        },
+        "current_password": {
+          "maxLength": 1024,
+          "minLength": 1,
+          "title": "Current Password",
+          "type": "string"
+        }
+      },
+      "required": [
+        "operation_id",
+        "name",
+        "permissions",
+        "expires_at",
+        "current_password"
+      ],
+      "title": "KeyCreate",
+      "type": "object"
+    },
+    "KeyList": {
+      "additionalProperties": false,
+      "properties": {
+        "items": {
+          "items": {
+            "$ref": "#/$defs/KeyState"
+          },
+          "title": "Items",
+          "type": "array"
+        },
+        "total": {
+          "title": "Total",
+          "type": "integer"
+        },
+        "page": {
+          "default": 1,
+          "title": "Page",
+          "type": "integer"
+        },
+        "page_size": {
+          "default": 20,
+          "title": "Page Size",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "items",
+        "total"
+      ],
+      "title": "KeyList",
+      "type": "object"
+    },
+    "KeyMutation": {
+      "additionalProperties": false,
+      "properties": {
+        "key": {
+          "$ref": "#/$defs/KeyState"
+        },
+        "secret": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Secret"
+        }
+      },
+      "required": [
+        "key"
+      ],
+      "title": "KeyMutation",
+      "type": "object"
+    },
+    "KeyOptions": {
+      "additionalProperties": false,
+      "properties": {
+        "applications": {
+          "items": {
+            "$ref": "#/$defs/KeyApplication"
+          },
+          "title": "Applications",
+          "type": "array"
+        }
+      },
+      "required": [
+        "applications"
+      ],
+      "title": "KeyOptions",
+      "type": "object"
+    },
+    "KeyQuery": {
+      "additionalProperties": false,
+      "properties": {
+        "page": {
+          "default": 1,
+          "minimum": 1,
+          "title": "Page",
+          "type": "integer"
+        },
+        "page_size": {
+          "default": 20,
+          "maximum": 100,
+          "minimum": 1,
+          "title": "Page Size",
+          "type": "integer"
+        }
+      },
+      "title": "KeyQuery",
+      "type": "object"
+    },
+    "KeyRevoke": {
+      "additionalProperties": false,
+      "properties": {
+        "operation_id": {
+          "format": "uuid",
+          "title": "Operation Id",
+          "type": "string"
+        },
+        "key_id": {
+          "format": "uuid",
+          "title": "Key Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "operation_id",
+        "key_id"
+      ],
+      "title": "KeyRevoke",
+      "type": "object"
+    },
+    "KeyState": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "app_id": {
+          "title": "App Id",
+          "type": "string"
+        },
+        "application_name": {
+          "title": "Application Name",
+          "type": "string"
+        },
+        "audience": {
+          "title": "Audience",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "masked": {
+          "title": "Masked",
+          "type": "string"
+        },
+        "permissions": {
+          "additionalProperties": {
+            "enum": [
+              "own",
+              "all"
+            ],
+            "type": "string"
+          },
+          "title": "Permissions",
+          "type": "object"
+        },
+        "effective_permissions": {
+          "additionalProperties": {
+            "enum": [
+              "own",
+              "all"
+            ],
+            "type": "string"
+          },
+          "title": "Effective Permissions",
+          "type": "object"
+        },
+        "status": {
+          "enum": [
+            "active",
+            "revoked",
+            "expired",
+            "unavailable"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "revision": {
+          "title": "Revision",
+          "type": "integer"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "expires_at": {
+          "format": "date-time",
+          "title": "Expires At",
+          "type": "string"
+        },
+        "last_used_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Last Used At"
+        },
+        "revoked_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Revoked At"
+        }
+      },
+      "required": [
+        "id",
+        "app_id",
+        "application_name",
+        "audience",
+        "name",
+        "masked",
+        "permissions",
+        "effective_permissions",
+        "status",
+        "revision",
+        "created_at",
+        "expires_at",
+        "last_used_at",
+        "revoked_at"
+      ],
+      "title": "KeyState",
+      "type": "object"
+    },
+    "LanguageCatalog": {
+      "additionalProperties": false,
+      "properties": {
+        "default_code": {
+          "default": "zh-CN",
+          "maxLength": 32,
+          "minLength": 2,
+          "pattern": "^[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*$",
+          "title": "Default Code",
+          "type": "string"
+        },
+        "languages": {
+          "items": {
+            "$ref": "#/$defs/LanguageDefinition"
+          },
+          "minItems": 1,
+          "title": "Languages",
+          "type": "array"
+        }
+      },
+      "title": "LanguageCatalog",
+      "type": "object"
+    },
+    "LanguageDefinition": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "maxLength": 32,
+          "minLength": 2,
+          "pattern": "^[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*$",
+          "title": "Code",
+          "type": "string"
+        },
+        "name": {
+          "maxLength": 80,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "flag": {
+          "default": "",
+          "maxLength": 16,
+          "title": "Flag",
+          "type": "string"
+        },
+        "prefix": {
+          "default": "",
+          "pattern": "^(?:|/[a-z0-9][a-z0-9-]{0,31})$",
+          "title": "Prefix",
+          "type": "string"
+        },
+        "enabled": {
+          "default": true,
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "ui_locale": {
+          "default": "en",
+          "enum": [
+            "zh-CN",
+            "en"
+          ],
+          "title": "Ui Locale",
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "name"
+      ],
+      "title": "LanguageDefinition",
       "type": "object"
     },
     "PasswordChange": {
@@ -535,6 +1373,90 @@
       "title": "PublicResponse[AccountUserList]",
       "type": "object"
     },
+    "PublicResponse_ApplicationList_": {
+      "additionalProperties": false,
+      "properties": {
+        "success": {
+          "default": true,
+          "title": "Success",
+          "type": "boolean"
+        },
+        "code": {
+          "default": 200,
+          "title": "Code",
+          "type": "integer"
+        },
+        "msg": {
+          "default": "请求成功",
+          "title": "Msg",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/ApplicationList"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "title": "PublicResponse[ApplicationList]",
+      "type": "object"
+    },
+    "PublicResponse_ApplicationMutation_": {
+      "additionalProperties": false,
+      "properties": {
+        "success": {
+          "default": true,
+          "title": "Success",
+          "type": "boolean"
+        },
+        "code": {
+          "default": 200,
+          "title": "Code",
+          "type": "integer"
+        },
+        "msg": {
+          "default": "请求成功",
+          "title": "Msg",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/ApplicationMutation"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "title": "PublicResponse[ApplicationMutation]",
+      "type": "object"
+    },
+    "PublicResponse_ApplicationState_": {
+      "additionalProperties": false,
+      "properties": {
+        "success": {
+          "default": true,
+          "title": "Success",
+          "type": "boolean"
+        },
+        "code": {
+          "default": 200,
+          "title": "Code",
+          "type": "integer"
+        },
+        "msg": {
+          "default": "请求成功",
+          "title": "Msg",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/ApplicationState"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "title": "PublicResponse[ApplicationState]",
+      "type": "object"
+    },
     "PublicResponse_AuthSessionState_": {
       "additionalProperties": false,
       "properties": {
@@ -561,6 +1483,118 @@
         "data"
       ],
       "title": "PublicResponse[AuthSessionState]",
+      "type": "object"
+    },
+    "PublicResponse_KeyList_": {
+      "additionalProperties": false,
+      "properties": {
+        "success": {
+          "default": true,
+          "title": "Success",
+          "type": "boolean"
+        },
+        "code": {
+          "default": 200,
+          "title": "Code",
+          "type": "integer"
+        },
+        "msg": {
+          "default": "请求成功",
+          "title": "Msg",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/KeyList"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "title": "PublicResponse[KeyList]",
+      "type": "object"
+    },
+    "PublicResponse_KeyMutation_": {
+      "additionalProperties": false,
+      "properties": {
+        "success": {
+          "default": true,
+          "title": "Success",
+          "type": "boolean"
+        },
+        "code": {
+          "default": 200,
+          "title": "Code",
+          "type": "integer"
+        },
+        "msg": {
+          "default": "请求成功",
+          "title": "Msg",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/KeyMutation"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "title": "PublicResponse[KeyMutation]",
+      "type": "object"
+    },
+    "PublicResponse_KeyOptions_": {
+      "additionalProperties": false,
+      "properties": {
+        "success": {
+          "default": true,
+          "title": "Success",
+          "type": "boolean"
+        },
+        "code": {
+          "default": 200,
+          "title": "Code",
+          "type": "integer"
+        },
+        "msg": {
+          "default": "请求成功",
+          "title": "Msg",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/KeyOptions"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "title": "PublicResponse[KeyOptions]",
+      "type": "object"
+    },
+    "PublicResponse_LanguageCatalog_": {
+      "additionalProperties": false,
+      "properties": {
+        "success": {
+          "default": true,
+          "title": "Success",
+          "type": "boolean"
+        },
+        "code": {
+          "default": 200,
+          "title": "Code",
+          "type": "integer"
+        },
+        "msg": {
+          "default": "请求成功",
+          "title": "Msg",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/LanguageCatalog"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "title": "PublicResponse[LanguageCatalog]",
       "type": "object"
     },
     "PublicResponse_PermissionCatalog_": {
@@ -817,6 +1851,48 @@
   },
   "additionalProperties": false,
   "properties": {
+    "languages": {
+      "$ref": "#/$defs/PublicResponse_LanguageCatalog_"
+    },
+    "key_query": {
+      "$ref": "#/$defs/KeyQuery"
+    },
+    "key_create": {
+      "$ref": "#/$defs/KeyCreate"
+    },
+    "key_revoke": {
+      "$ref": "#/$defs/KeyRevoke"
+    },
+    "key_list": {
+      "$ref": "#/$defs/PublicResponse_KeyList_"
+    },
+    "key_mutation": {
+      "$ref": "#/$defs/PublicResponse_KeyMutation_"
+    },
+    "key_options": {
+      "$ref": "#/$defs/PublicResponse_KeyOptions_"
+    },
+    "application_create": {
+      "$ref": "#/$defs/ApplicationCreate"
+    },
+    "application_save": {
+      "$ref": "#/$defs/ApplicationSave"
+    },
+    "application_rotate": {
+      "$ref": "#/$defs/ApplicationRotate"
+    },
+    "callback_command": {
+      "$ref": "#/$defs/CallbackCommand"
+    },
+    "applications": {
+      "$ref": "#/$defs/PublicResponse_ApplicationList_"
+    },
+    "application": {
+      "$ref": "#/$defs/PublicResponse_ApplicationState_"
+    },
+    "application_mutation": {
+      "$ref": "#/$defs/PublicResponse_ApplicationMutation_"
+    },
     "user_query": {
       "$ref": "#/$defs/AccountUserQuery"
     },
@@ -855,6 +1931,20 @@
     }
   },
   "required": [
+    "languages",
+    "key_query",
+    "key_create",
+    "key_revoke",
+    "key_list",
+    "key_mutation",
+    "key_options",
+    "application_create",
+    "application_save",
+    "application_rotate",
+    "callback_command",
+    "applications",
+    "application",
+    "application_mutation",
     "user_query",
     "profile_save",
     "user_create",
@@ -871,10 +1961,106 @@
   "title": "AccountContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "1.0.0",
+  "x-everunfold-contract-version": "1.1.0",
   "x-everunfold-csrf-header": "X-CSRF-Token",
   "x-everunfold-credentials": "include",
   "x-everunfold-operations": [
+    {
+      "name": "readAccountLanguages",
+      "path": "/v1/account/languages",
+      "method": "GET",
+      "response": "languages"
+    },
+    {
+      "name": "readApiKeyOptions",
+      "path": "/v1/account/api-keys/options",
+      "method": "GET",
+      "response": "key_options"
+    },
+    {
+      "name": "readApiKeys",
+      "path": "/v1/account/api-keys",
+      "method": "GET",
+      "response": "key_list",
+      "input": "key_query"
+    },
+    {
+      "name": "createApiKey",
+      "path": "/v1/account/api-keys",
+      "method": "POST",
+      "response": "key_mutation",
+      "input": "key_create"
+    },
+    {
+      "name": "revokeApiKey",
+      "path": "/v1/account/api-keys/revoke",
+      "method": "POST",
+      "response": "key_list",
+      "input": "key_revoke"
+    },
+    {
+      "name": "readUserApiKeys",
+      "path": "/v1/admin/users/{user_id}/api-keys",
+      "method": "GET",
+      "response": "key_list",
+      "input": "key_query",
+      "path_params": [
+        "user_id"
+      ]
+    },
+    {
+      "name": "revokeUserApiKey",
+      "path": "/v1/admin/users/{user_id}/api-keys/revoke",
+      "method": "POST",
+      "response": "key_list",
+      "input": "key_revoke",
+      "path_params": [
+        "user_id"
+      ]
+    },
+    {
+      "name": "readApiApplications",
+      "path": "/v1/admin/api-key-applications",
+      "method": "GET",
+      "response": "applications"
+    },
+    {
+      "name": "createApiApplication",
+      "path": "/v1/admin/api-key-applications",
+      "method": "POST",
+      "response": "application_mutation",
+      "input": "application_create"
+    },
+    {
+      "name": "saveApiApplication",
+      "path": "/v1/admin/api-key-applications/{app_id}",
+      "method": "PATCH",
+      "response": "application_mutation",
+      "input": "application_save",
+      "path_params": [
+        "app_id"
+      ]
+    },
+    {
+      "name": "rotateApiApplication",
+      "path": "/v1/admin/api-key-applications/{app_id}/credentials",
+      "method": "POST",
+      "response": "application_mutation",
+      "input": "application_rotate",
+      "path_params": [
+        "app_id"
+      ]
+    },
+    {
+      "name": "commandApiCallback",
+      "path": "/v1/admin/api-key-applications/{app_id}/callback",
+      "method": "POST",
+      "response": "application",
+      "input": "callback_command",
+      "path_params": [
+        "app_id"
+      ]
+    },
     {
       "name": "readAccountProfile",
       "path": "/v1/account/profile",

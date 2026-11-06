@@ -21,6 +21,7 @@ from app.entrypoints.api import create_app
 from app.modules.auth.accounts_schemas import ProfileFields, UserSave
 from app.modules.auth.accounts_service import AccountsService, account_mutation_lock
 from app.modules.auth.bootstrap import seed_admin
+from app.modules.auth.credentials_models import ApiApplication, ApiKey, AuthCallbackEvent
 from app.modules.auth.models import AccountOperation, AuthAuditEvent, BrowserSession, User
 from app.modules.auth.permissions import Actor, intersect_permissions, user_permissions
 from app.modules.auth.service import AuthFailure, AuthService
@@ -106,6 +107,14 @@ def accounts() -> Iterator[AccountsTest]:
                 async with database.session_factory() as session:
                     ids = list(
                         await session.scalars(select(User.id).where(User.username.startswith(name)))
+                    )
+                    apps = select(ApiApplication.id).where(ApiApplication.created_by.in_(ids))
+                    await session.execute(
+                        delete(AuthCallbackEvent).where(AuthCallbackEvent.app_id.in_(apps))
+                    )
+                    await session.execute(delete(ApiKey).where(ApiKey.user_id.in_(ids)))
+                    await session.execute(
+                        delete(ApiApplication).where(ApiApplication.created_by.in_(ids))
                     )
                     await session.execute(
                         delete(AccountOperation).where(AccountOperation.actor_id.in_(ids))

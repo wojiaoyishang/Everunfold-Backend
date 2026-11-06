@@ -9,7 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
-from app.modules.auth.models import User
+from app.modules.auth.permissions import AuthSubject
 from app.modules.auth.service import AuthFailure
 from app.modules.content.content_paths import initial_path
 from app.modules.content.draft_models import (
@@ -74,7 +74,7 @@ class Translations:
         )
 
     async def mutate(
-        self, action: str, payload: TranslationMutation, actor: User
+        self, action: str, payload: TranslationMutation, actor: AuthSubject
     ) -> TranslationCatalog:
         digest = hashlib.sha256(
             json.dumps(

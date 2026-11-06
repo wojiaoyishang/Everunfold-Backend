@@ -29,6 +29,10 @@ def auth_runtime(request: Request) -> Runtime:
 
 
 async def auth_service(request: Request) -> AsyncIterator[AuthService]:
+    if request.headers.get("Authorization") is not None:
+        from app.modules.auth.service import AuthFailure
+
+        raise AuthFailure(403, 40362, "此操作需要登录会话")
     runtime = auth_runtime(request)
     async with runtime.database.session_factory() as session:
         yield AuthService(session, runtime.settings.auth, runtime.password_limiter)

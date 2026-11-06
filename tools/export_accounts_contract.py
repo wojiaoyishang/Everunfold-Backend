@@ -1,6 +1,7 @@
 """Publish private account routes and DTOs from their authoritative backend models."""
 
 import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -10,11 +11,53 @@ from app.modules.auth.accounts_schemas import AccountContract
 def build_schema() -> dict[str, Any]:
     schema = AccountContract.model_json_schema()
     schema["$schema"] = "http://json-schema.org/draft-07/schema#"
-    schema["x-everunfold-contract-version"] = "1.0.0"
+    schema["x-everunfold-contract-version"] = "1.1.0"
     schema["x-everunfold-csrf-header"] = "X-CSRF-Token"
     schema["x-everunfold-credentials"] = "include"
     operations: list[dict[str, Any]] = []
     for name, path, method, response, input_name in (
+        ("readAccountLanguages", "/v1/account/languages", "GET", "languages", None),
+        ("readApiKeyOptions", "/v1/account/api-keys/options", "GET", "key_options", None),
+        ("readApiKeys", "/v1/account/api-keys", "GET", "key_list", "key_query"),
+        ("createApiKey", "/v1/account/api-keys", "POST", "key_mutation", "key_create"),
+        ("revokeApiKey", "/v1/account/api-keys/revoke", "POST", "key_list", "key_revoke"),
+        ("readUserApiKeys", "/v1/admin/users/{user_id}/api-keys", "GET", "key_list", "key_query"),
+        (
+            "revokeUserApiKey",
+            "/v1/admin/users/{user_id}/api-keys/revoke",
+            "POST",
+            "key_list",
+            "key_revoke",
+        ),
+        ("readApiApplications", "/v1/admin/api-key-applications", "GET", "applications", None),
+        (
+            "createApiApplication",
+            "/v1/admin/api-key-applications",
+            "POST",
+            "application_mutation",
+            "application_create",
+        ),
+        (
+            "saveApiApplication",
+            "/v1/admin/api-key-applications/{app_id}",
+            "PATCH",
+            "application_mutation",
+            "application_save",
+        ),
+        (
+            "rotateApiApplication",
+            "/v1/admin/api-key-applications/{app_id}/credentials",
+            "POST",
+            "application_mutation",
+            "application_rotate",
+        ),
+        (
+            "commandApiCallback",
+            "/v1/admin/api-key-applications/{app_id}/callback",
+            "POST",
+            "application",
+            "callback_command",
+        ),
         ("readAccountProfile", "/v1/account/profile", "GET", "profile", None),
         ("saveAccountProfile", "/v1/account/profile", "PATCH", "profile", "profile_save"),
         ("changeAccountPassword", "/v1/account/password", "POST", "session", "password_change"),
@@ -47,8 +90,8 @@ def build_schema() -> dict[str, Any]:
         }
         if input_name:
             operation["input"] = input_name
-        if "{user_id}" in path:
-            operation["path_params"] = ["user_id"]
+        if path_params := re.findall(r"\{([a-z_]+)\}", path):
+            operation["path_params"] = path_params
         operations.append(operation)
     schema["x-everunfold-operations"] = operations
     return schema

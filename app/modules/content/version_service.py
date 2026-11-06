@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
 from app.modules.auth.models import User
+from app.modules.auth.permissions import AuthSubject
 from app.modules.auth.service import AuthFailure
 from app.modules.content.collaboration.document import decode, project, references
 from app.modules.content.collaboration.epochs import replace_epoch, state_at
@@ -183,7 +184,7 @@ async def read_version(
 
 
 async def upload_branch(
-    session: AsyncSession, config: Settings, actor: User, payload: BranchUpload
+    session: AsyncSession, config: Settings, actor: AuthSubject, payload: BranchUpload
 ) -> BranchDetail:
     await lock_references(session)
     row = await draft_row(session, payload.id, lock=True)
@@ -411,7 +412,9 @@ async def auto_checkpoint(session: AsyncSession, draft_id: UUID) -> None:
     await session.commit()
 
 
-async def begin_merge(session: AsyncSession, actor: User, payload: MergeBegin) -> MergeDetail:
+async def begin_merge(
+    session: AsyncSession, actor: AuthSubject, payload: MergeBegin
+) -> MergeDetail:
     await lock_references(session)
     row = await draft_row(session, payload.id, lock=True)
     previous = await session.get(DraftMerge, payload.merge_id)
@@ -487,7 +490,7 @@ async def begin_merge(session: AsyncSession, actor: User, payload: MergeBegin) -
 
 
 async def owned_merge(
-    session: AsyncSession, actor: User, payload: MergeLookup, *, active: bool = True
+    session: AsyncSession, actor: AuthSubject, payload: MergeLookup, *, active: bool = True
 ) -> DraftMerge:
     await lock_references(session)
     await draft_row(session, payload.id, lock=True)
@@ -501,7 +504,9 @@ async def owned_merge(
     return item
 
 
-async def resolve_merge(session: AsyncSession, actor: User, payload: MergeResolve) -> MergeDetail:
+async def resolve_merge(
+    session: AsyncSession, actor: AuthSubject, payload: MergeResolve
+) -> MergeDetail:
     item = await owned_merge(session, actor, payload)
     result = (
         safe_fields(payload.result).model_dump(mode="json")
@@ -532,7 +537,7 @@ async def resolve_merge(session: AsyncSession, actor: User, payload: MergeResolv
 
 
 async def command_merge(
-    session: AsyncSession, config: Settings, actor: User, payload: MergeLookup, command: str
+    session: AsyncSession, config: Settings, actor: AuthSubject, payload: MergeLookup, command: str
 ) -> MergeDetail:
     item = await owned_merge(session, actor, payload, active=False)
     if (command == "finish" and item.status == "completed") or (

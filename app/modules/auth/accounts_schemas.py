@@ -8,8 +8,25 @@ from uuid import UUID
 from pydantic import Field, field_validator
 
 from app.core.schemas import PublicModel, PublicResponse
+from app.modules.auth.credentials_schemas import (
+    ApplicationCreate,
+    ApplicationList,
+    ApplicationMutation,
+    ApplicationRotate,
+    ApplicationSave,
+    ApplicationState,
+    CallbackCommand,
+    KeyCreate,
+    KeyList,
+    KeyMutation,
+    KeyOptions,
+    KeyQuery,
+    KeyRevoke,
+)
+from app.modules.auth.permission_schemas import PermissionDefinition
 from app.modules.auth.permissions import ResourceScope
 from app.modules.auth.schemas import AuthSessionState
+from app.modules.settings.languages import LanguageCatalog
 from app.modules.settings.schemas import safe_url
 
 
@@ -124,18 +141,25 @@ class AccountUserQuery(PublicModel):
     active: bool | None = None
 
 
-class PermissionDefinition(PublicModel):
-    code: str
-    label: str
-    api_key: bool
-    owner_scope: bool
-
-
 class PermissionCatalog(PublicModel):
     items: list[PermissionDefinition]
 
 
 class AccountContract(PublicModel):
+    languages: PublicResponse[LanguageCatalog]
+    key_query: KeyQuery
+    key_create: KeyCreate
+    key_revoke: KeyRevoke
+    key_list: PublicResponse[KeyList]
+    key_mutation: PublicResponse[KeyMutation]
+    key_options: PublicResponse[KeyOptions]
+    application_create: ApplicationCreate
+    application_save: ApplicationSave
+    application_rotate: ApplicationRotate
+    callback_command: CallbackCommand
+    applications: PublicResponse[ApplicationList]
+    application: PublicResponse[ApplicationState]
+    application_mutation: PublicResponse[ApplicationMutation]
     user_query: AccountUserQuery
     profile_save: ProfileSave
     user_create: UserCreate

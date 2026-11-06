@@ -75,6 +75,7 @@ class DraftSave(DraftMutation):
 
 class DraftSummary(PublicModel):
     id: UUID
+    owner_id: UUID | None = None
     type_id: str
     title: str
     excerpt: str

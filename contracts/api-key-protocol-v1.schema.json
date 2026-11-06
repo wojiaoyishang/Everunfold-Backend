@@ -1,0 +1,406 @@
+{
+  "$defs": {
+    "CallbackEnvelope": {
+      "additionalProperties": false,
+      "properties": {
+        "protocol": {
+          "const": "everunfold.api-key.v1",
+          "title": "Protocol",
+          "type": "string"
+        },
+        "event_id": {
+          "format": "uuid",
+          "title": "Event Id",
+          "type": "string"
+        },
+        "app_id": {
+          "title": "App Id",
+          "type": "string"
+        },
+        "audience": {
+          "title": "Audience",
+          "type": "string"
+        },
+        "type": {
+          "enum": [
+            "key.revoked",
+            "user.authorization_changed",
+            "application.authorization_changed",
+            "application.credentials_rotated",
+            "application.test",
+            "application.resync"
+          ],
+          "title": "Type",
+          "type": "string"
+        },
+        "app_version": {
+          "minimum": 1,
+          "title": "App Version",
+          "type": "integer"
+        },
+        "occurred_at": {
+          "format": "date-time",
+          "title": "Occurred At",
+          "type": "string"
+        },
+        "user_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "User Id"
+        },
+        "user_version": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "User Version"
+        },
+        "key_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Key Id"
+        },
+        "key_version": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Key Version"
+        }
+      },
+      "required": [
+        "protocol",
+        "event_id",
+        "app_id",
+        "audience",
+        "type",
+        "app_version",
+        "occurred_at"
+      ],
+      "title": "CallbackEnvelope",
+      "type": "object"
+    },
+    "CallbackReceipt": {
+      "additionalProperties": false,
+      "properties": {
+        "event_id": {
+          "format": "uuid",
+          "title": "Event Id",
+          "type": "string"
+        },
+        "app_id": {
+          "title": "App Id",
+          "type": "string"
+        },
+        "app_version": {
+          "minimum": 1,
+          "title": "App Version",
+          "type": "integer"
+        },
+        "received": {
+          "const": true,
+          "title": "Received",
+          "type": "boolean"
+        },
+        "applied": {
+          "title": "Applied",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "event_id",
+        "app_id",
+        "app_version",
+        "received",
+        "applied"
+      ],
+      "title": "CallbackReceipt",
+      "type": "object"
+    },
+    "IntrospectionInput": {
+      "additionalProperties": false,
+      "properties": {
+        "token": {
+          "maxLength": 160,
+          "minLength": 1,
+          "title": "Token",
+          "type": "string"
+        },
+        "mode": {
+          "default": "read",
+          "enum": [
+            "read",
+            "write"
+          ],
+          "title": "Mode",
+          "type": "string"
+        }
+      },
+      "required": [
+        "token"
+      ],
+      "title": "IntrospectionInput",
+      "type": "object"
+    },
+    "IntrospectionState": {
+      "additionalProperties": false,
+      "properties": {
+        "active": {
+          "title": "Active",
+          "type": "boolean"
+        },
+        "app_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "App Id"
+        },
+        "audience": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Audience"
+        },
+        "key_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Key Id"
+        },
+        "subject": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/KeySubject"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "permissions": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "enum": [
+                  "own",
+                  "all"
+                ],
+                "type": "string"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Permissions"
+        },
+        "app_version": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "App Version"
+        },
+        "user_version": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "User Version"
+        },
+        "key_version": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Key Version"
+        },
+        "checked_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Checked At"
+        },
+        "expires_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Expires At"
+        },
+        "cache_until": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cache Until"
+        }
+      },
+      "required": [
+        "active"
+      ],
+      "title": "IntrospectionState",
+      "type": "object"
+    },
+    "KeySubject": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "display_name": {
+          "title": "Display Name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "display_name"
+      ],
+      "title": "KeySubject",
+      "type": "object"
+    },
+    "PublicResponse_IntrospectionState_": {
+      "additionalProperties": false,
+      "properties": {
+        "success": {
+          "default": true,
+          "title": "Success",
+          "type": "boolean"
+        },
+        "code": {
+          "default": 200,
+          "title": "Code",
+          "type": "integer"
+        },
+        "msg": {
+          "default": "请求成功",
+          "title": "Msg",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/IntrospectionState"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "title": "PublicResponse[IntrospectionState]",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "query": {
+      "$ref": "#/$defs/IntrospectionInput"
+    },
+    "result": {
+      "$ref": "#/$defs/PublicResponse_IntrospectionState_"
+    },
+    "callback": {
+      "$ref": "#/$defs/CallbackEnvelope"
+    },
+    "receipt": {
+      "$ref": "#/$defs/CallbackReceipt"
+    }
+  },
+  "required": [
+    "query",
+    "result",
+    "callback",
+    "receipt"
+  ],
+  "title": "ApiKeyProtocol",
+  "type": "object",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "x-everunfold-contract-version": "1.0.0",
+  "x-everunfold-signature-protocol": "EF-AUTH-HMAC-SHA256-V1",
+  "x-everunfold-signature-window-seconds": 120,
+  "x-everunfold-query-path": "/v1/auth/api-keys/introspect"
+}

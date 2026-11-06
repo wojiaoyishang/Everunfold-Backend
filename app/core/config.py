@@ -238,6 +238,21 @@ class AuthConfig(ConfigModel):
     login_attempts_per_account: int = Field(default=10, ge=1, le=100)
     login_attempts_per_ip: int = Field(default=50, ge=1, le=1000)
     bootstrap_attempts_per_ip: int = Field(default=60, ge=1, le=1000)
+    application_master_key_env: str = "EVERUNFOLD_API_APPLICATION_MASTER_KEY"
+    callback_allowed_origins: list[str] = Field(default_factory=list)
+    key_cache_seconds: int = Field(default=30, ge=0, le=300)
+
+    @field_validator("application_master_key_env")
+    @classmethod
+    def master_reference(cls, value: str) -> str:
+        if not _ENV_REFERENCE.fullmatch(value):
+            raise ValueError("requires an environment variable reference")
+        return value
+
+    @field_validator("callback_allowed_origins")
+    @classmethod
+    def callback_origins(cls, values: list[str]) -> list[str]:
+        return [validate_http_base(value) for value in values]
 
     @field_validator("cookie_name")
     @classmethod
