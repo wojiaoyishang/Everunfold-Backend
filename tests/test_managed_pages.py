@@ -13,7 +13,7 @@ from app.modules.auth.bootstrap import seed_admin
 from app.modules.auth.models import User
 from app.modules.content.repository import ContentRepository
 from app.modules.content.service import PublicContentService
-from app.modules.pages.models import FrontendPageRegistration, ManagedPage
+from app.modules.pages.models import FrontendPageRegistration, ManagedPage, PageTranslationGroup
 from app.modules.pages.registration import install_manifest
 from app.modules.pages.schemas import PageManifest
 from tests.test_accounts import PASSWORD, AccountsTest, headers, signed_in
@@ -30,6 +30,15 @@ def pages(accounts: AccountsTest) -> Iterator[AccountsTest]:
         db = Database(accounts.settings.database.url.get_secret_value())
         try:
             async with db.session_factory() as session:
+                await session.execute(
+                    delete(PageTranslationGroup).where(
+                        PageTranslationGroup.id.in_(
+                            select(ManagedPage.translation_group_id).where(
+                                ManagedPage.data["title"].astext.startswith(accounts.name)
+                            )
+                        )
+                    )
+                )
                 await session.execute(
                     delete(ManagedPage).where(
                         ManagedPage.data["title"].astext.startswith(accounts.name)

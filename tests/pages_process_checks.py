@@ -13,6 +13,8 @@ from uuid import uuid4
 
 import httpx2 as httpx
 
+from tests.page_language_process_checks import check_page_languages
+
 
 def check_pages(
     client: Any,
@@ -227,3 +229,4 @@ def check_pages(
     with ThreadPoolExecutor(max_workers=2) as pool:
         collisions = list(pool.map(collide, [api_a, api_b]))
     assert sorted(r.status_code for r in collisions) == [200, 409]
+    check_page_languages(client, csrf, cookies, api_a, api_b, snapshot, wait_for, delivered)

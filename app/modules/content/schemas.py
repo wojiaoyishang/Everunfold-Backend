@@ -137,7 +137,9 @@ class TaxonomyList(PublicModel):
 
 
 class PublicSnapshot(PublicModel):
-    schema_version: Literal["0.1.0", "0.2.0", "0.3.0", "0.4.0", "0.5.0", "0.6.0", "0.7.0"] = "0.7.0"
+    schema_version: Literal[
+        "0.1.0", "0.2.0", "0.3.0", "0.4.0", "0.5.0", "0.6.0", "0.7.0", "0.8.0"
+    ] = "0.8.0"
     source_epoch: str = Field(min_length=1)
     generation: int = Field(ge=1)
     exported_at: datetime

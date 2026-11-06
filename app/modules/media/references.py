@@ -31,6 +31,7 @@ async def require_unreferenced(
             or_(
                 cast(ManagedPage.data, Text).contains(token),
                 cast(ManagedPage.published, Text).contains(token),
+                cast(ManagedPage.applied_snapshot, Text).contains(token),
             )
         ),
         select(UserAvatar.id).where(

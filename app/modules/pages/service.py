@@ -1,8 +1,8 @@
 """Versioned page drafts and public releases share existing durable content delivery."""
 
 from datetime import UTC, datetime
-from typing import Literal, cast
-from uuid import UUID
+from typing import Any, Literal, cast
+from uuid import UUID, uuid4
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -14,7 +14,8 @@ from app.modules.auth.permissions import user_permissions
 from app.modules.auth.service import AuthFailure
 from app.modules.content.publication import ContentPublication
 from app.modules.media.locking import lock_references
-from app.modules.pages.models import FrontendPageRegistration, ManagedPage
+from app.modules.pages.groups import promote_original, source_value, translations, unapplied
+from app.modules.pages.models import FrontendPageRegistration, ManagedPage, PageTranslationGroup
 from app.modules.pages.options import validate_options
 from app.modules.pages.paths import content_path_taken, page_path_taken
 from app.modules.pages.schemas import (
@@ -26,8 +27,13 @@ from app.modules.pages.schemas import (
     PublicManagedPage,
     RemoveManagedPage,
     SaveManagedPage,
+    SetPageEnabled,
 )
-from app.modules.settings.languages import language_catalog, reserved_language_path
+from app.modules.settings.languages import (
+    language_catalog,
+    require_language,
+    reserved_language_path,
+)
 from app.modules.settings.models import SettingsAudit
 from app.modules.settings.service import SettingsService
 
@@ -60,6 +66,7 @@ class PagesService:
 
     async def item(self, row: ManagedPage) -> ManagedPageItem:
         registration, available = await self.registration(row.implementation_id)
+        group = await translations(self.session, row) if row.source == "custom" else None
         return ManagedPageItem(
             id=row.id,
             source=cast(Literal["custom", "registered"], row.source),
@@ -72,6 +79,15 @@ class PagesService:
             available=available,
             updated_at=row.updated_at,
             archived=row.deleted_at is not None,
+            has_applied_snapshot=row.applied_snapshot is not None,
+            has_unapplied_changes=unapplied(row),
+            enable_requires_password=bool(
+                (row.applied_snapshot or row.data).get("javascript_enabled")
+            ),
+            language=row.language,
+            translation_group_id=row.translation_group_id,
+            is_original=group is None or group.source_id == row.id,
+            translations=group,
         )
 
     async def catalog(self) -> ManagedPageCatalog:
@@ -85,6 +101,8 @@ class PagesService:
         items = []
         for row in rows:
             item = await self.item(row)
+            if not item.is_original:
+                continue
             items.append(
                 ManagedPageSummary(
                     **item.model_dump(exclude={"value", "registration"}),
@@ -114,15 +132,22 @@ class PagesService:
     async def save(self, actor: User, payload: SaveManagedPage) -> ManagedPageItem:
         await lock_references(self.session)
         await SettingsService(self.session, self.config).site(locked=True)
+        fingerprint = payload.model_dump(
+            mode="json", exclude={"language"} if payload.language is None else set()
+        )
         cached = await self.accounts.operations.read(
-            payload.operation_id, actor.id, "page_save", payload
+            payload.operation_id, actor.id, "page_save", fingerprint
         )
         if cached is not None:
             return ManagedPageItem.model_validate(cached)
         row = await self.session.get(ManagedPage, payload.id, populate_existing=True)
+        new_group = None
         if row is None:
             if payload.expected_revision:
                 raise AuthFailure(404, 40496, "页面不存在")
+            language = await require_language(self.session, payload.language)
+            group = PageTranslationGroup(id=uuid4(), source_id=payload.id, revision=1)
+            new_group = group
             row = ManagedPage(
                 id=payload.id,
                 source="custom",
@@ -130,11 +155,15 @@ class PagesService:
                 implementation_id=None,
                 data={},
                 updated_at=datetime.now(UTC),
+                language=language.code,
+                translation_group_id=group.id,
             )
         else:
             row = await self.target(payload.id, payload.expected_revision)
             if row.deleted_at is not None:
                 raise AuthFailure(409, 40996, "请先恢复回收站中的页面")
+            if payload.language is not None and payload.language != row.language:
+                raise AuthFailure(422, 42297, "请通过语言关联创建独立译文，不可更改已有页面的语言")
         next_revision = row.revision + (0 if payload.expected_revision == 0 else 1)
         value = payload.value.model_copy(deep=True)
         definition, available = await self.registration(row.implementation_id)
@@ -161,24 +190,18 @@ class PagesService:
             raise AuthFailure(422, 42296, "页面内容过大")
         await self.validate_path(value.path, row.id)
         row.revision = next_revision
+        if new_group is not None:
+            self.session.add(new_group)
         self.session.add(row)
         row.data, row.updated_at = value.model_dump(mode="json"), datetime.now(UTC)
         if payload.apply:
             if "pages:publish" not in user_permissions(actor):
                 raise AuthFailure(403, 40364, "没有执行此操作的权限")
             row.applied_revision = row.revision
-            row.published = (
-                PublicManagedPage(
-                    **value.model_dump(),
-                    id=row.id,
-                    source=cast(Literal["custom", "registered"], row.source),
-                    revision=row.revision,
-                    implementation_id=row.implementation_id,
-                    implementation_version=definition.version if definition else None,
-                ).model_dump(mode="json")
-                if value.enabled
-                else None
+            row.applied_snapshot = value.model_copy(update={"enabled": True}).model_dump(
+                mode="json"
             )
+            row.published = self.public_value(row, value, definition) if value.enabled else None
             await self.session.flush()
             await ContentPublication(self.session, self.config).stage()
         self.session.add(
@@ -194,6 +217,77 @@ class PagesService:
             payload.operation_id,
             actor.id,
             "page_save",
+            fingerprint,
+            result.model_dump(mode="json"),
+            sensitive=True,
+        )
+        await self.session.commit()
+        return result
+
+    @staticmethod
+    def public_value(
+        row: ManagedPage, value: PageValue, definition: PageRegistration | None
+    ) -> dict[str, Any]:
+        return PublicManagedPage(
+            **{**value.model_dump(), "enabled": True},
+            id=row.id,
+            source=cast(Literal["custom", "registered"], row.source),
+            revision=row.applied_revision or row.revision,
+            implementation_id=row.implementation_id,
+            implementation_version=definition.version if definition else None,
+            language=row.language,
+            translation_group_id=row.translation_group_id,
+        ).model_dump(mode="json")
+
+    async def set_enabled(self, actor: User, payload: SetPageEnabled) -> ManagedPageItem:
+        await lock_references(self.session)
+        await SettingsService(self.session, self.config).site(locked=True)
+        cached = await self.accounts.operations.read(
+            payload.operation_id, actor.id, "page_enabled", payload
+        )
+        if cached is not None:
+            return ManagedPageItem.model_validate(cached)
+        row = await self.target(payload.id, payload.expected_revision)
+        if row.deleted_at is not None:
+            raise AuthFailure(409, 40996, "请先恢复回收站中的页面")
+        if "pages:publish" not in user_permissions(actor):
+            raise AuthFailure(403, 40364, "没有执行此操作的权限")
+        if payload.enabled and row.applied_snapshot is None and not payload.apply_draft:
+            raise AuthFailure(409, 40999, "此页面尚无已应用内容，请确认应用当前草稿")
+        value = source_value(row.applied_snapshot or row.data)
+        if value.javascript_enabled:
+            if actor.role != "admin":
+                raise AuthFailure(403, 40397, "只有管理员可以启用或修改页面脚本")
+            await self.accounts.confirm_password(actor, payload.current_password)
+        definition, available = await self.registration(row.implementation_id)
+        if payload.enabled:
+            if row.source == "registered" and not available:
+                raise AuthFailure(409, 40998, "前端页面注册缺失或节点版本不一致")
+            await self.validate_path(value.path, row.id)
+        row.revision += 1
+        row.updated_at = datetime.now(UTC)
+        row.data = {**row.data, "enabled": payload.enabled}
+        if row.applied_snapshot is None and payload.enabled:
+            row.applied_snapshot = value.model_copy(update={"enabled": True}).model_dump(
+                mode="json"
+            )
+            row.applied_revision = row.revision
+        row.published = self.public_value(row, value, definition) if payload.enabled else None
+        await self.session.flush()
+        await ContentPublication(self.session, self.config).stage()
+        self.session.add(
+            SettingsAudit(
+                user_id=actor.id,
+                resource="page:" + str(row.id),
+                revision=row.revision,
+                changes={"action": "enable" if payload.enabled else "disable"},
+            )
+        )
+        result = await self.item(row)
+        await self.accounts.operations.remember(
+            payload.operation_id,
+            actor.id,
+            "page_enabled",
             payload,
             result.model_dump(mode="json"),
             sensitive=True,
@@ -214,11 +308,14 @@ class PagesService:
             raise AuthFailure(403, 40396, "代码注册页面可以停用，不能移除代码登记")
         if "pages:publish" not in user_permissions(actor):
             raise AuthFailure(403, 40364, "没有执行此操作的权限")
+        if payload.restore:
+            await self.validate_path(row.data["path"], row.id)
         row.deleted_at = None if payload.restore else datetime.now(UTC)
         row.data = {**row.data, "enabled": False}
         row.published = None
         row.revision += 1
         row.updated_at = datetime.now(UTC)
+        await promote_original(self.session, row)
         await self.session.flush()
         await ContentPublication(self.session, self.config).stage()
         self.session.add(
@@ -245,4 +342,23 @@ async def public_pages(session: AsyncSession) -> list[PublicManagedPage]:
             .order_by(ManagedPage.id)
         )
     ).all()
-    return [PublicManagedPage.model_validate(row.published) for row in rows]
+    sources = dict(
+        (
+            await session.execute(select(PageTranslationGroup.id, PageTranslationGroup.source_id))
+        ).all()
+    )
+    return [
+        PublicManagedPage.model_validate(
+            {
+                **(row.published or {}),
+                "language": row.language,
+                "translation_group_id": row.translation_group_id,
+                "is_original": row.source == "registered"
+                or (
+                    row.translation_group_id is not None
+                    and sources.get(row.translation_group_id) == row.id
+                ),
+            }
+        )
+        for row in rows
+    ]

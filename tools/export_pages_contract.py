@@ -10,8 +10,50 @@ from app.modules.pages.schemas import PagesContract
 def build_schema() -> dict[str, Any]:
     schema = PagesContract.model_json_schema()
     schema["$schema"] = "http://json-schema.org/draft-07/schema#"
-    schema["x-everunfold-contract-version"] = "1.1.0"
+    schema["x-everunfold-contract-version"] = "1.2.0"
     schema["x-everunfold-operations"] = [
+        {
+            "name": "setPageEnabled",
+            "path": "/v1/admin/pages/enabled",
+            "method": "POST",
+            "input": "set_enabled",
+            "response": "item",
+        },
+        {
+            "name": "readPageTranslations",
+            "path": "/v1/admin/pages/translations/query",
+            "method": "POST",
+            "input": "translation_lookup",
+            "response": "translations",
+        },
+        {
+            "name": "createPageTranslation",
+            "path": "/v1/admin/pages/translations/create",
+            "method": "POST",
+            "input": "create_translation",
+            "response": "translations",
+        },
+        {
+            "name": "linkPageTranslation",
+            "path": "/v1/admin/pages/translations/link",
+            "method": "POST",
+            "input": "link_translation",
+            "response": "translations",
+        },
+        {
+            "name": "unlinkPageTranslation",
+            "path": "/v1/admin/pages/translations/unlink",
+            "method": "POST",
+            "input": "translation_mutation",
+            "response": "translations",
+        },
+        {
+            "name": "reviewPageTranslation",
+            "path": "/v1/admin/pages/translations/review",
+            "method": "POST",
+            "input": "translation_mutation",
+            "response": "translations",
+        },
         {
             "name": "readPageMetadata",
             "path": "/v1/admin/pages/{page_id}/metadata",

@@ -66,10 +66,11 @@ class PublicContentService:
             categories=sum(item.kind == "category" for item in taxonomies),
         )
         data = {key: value for key, value in stored.data.items() if key in SiteDTO.model_fields}
-        data["navigation"] = [
-            {key: item[key] for key in ("label", "href", "icon") if key in item}
-            for item in data.get("navigation", [])
-        ]
+        from app.modules.settings.navigation import public_navigation
+
+        data["navigation"] = await public_navigation(
+            self.repository.session, data.get("navigation", [])
+        )
         return SiteDTO.model_validate({**data, "stats": stats})
 
     @staticmethod

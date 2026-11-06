@@ -9,6 +9,7 @@ from pydantic import Field, JsonValue, field_validator, model_validator
 
 from app.core.schemas import PublicModel, PublicResponse
 from app.modules.content.editor_schema import content_path
+from app.modules.settings.languages import LanguageCode
 
 
 class PageOption(PublicModel):
@@ -93,6 +94,29 @@ class PublicManagedPage(PageValue):
     implementation_id: str | None = None
     implementation_version: str | None = None
     revision: int = Field(ge=1)
+    language: str | None = None
+    translation_group_id: UUID | None = None
+    is_original: bool = True
+
+
+class PageTranslationMember(PublicModel):
+    id: UUID
+    language: str
+    title: str
+    path: str
+    revision: int
+    applied_revision: int | None
+    enabled: bool
+    archived: bool
+    is_original: bool
+    needs_review: bool
+
+
+class PageTranslationCatalog(PublicModel):
+    id: UUID
+    source_id: UUID
+    revision: int
+    members: list[PageTranslationMember]
 
 
 class ManagedPageItem(PublicModel):
@@ -107,6 +131,13 @@ class ManagedPageItem(PublicModel):
     available: bool
     updated_at: datetime
     archived: bool
+    has_applied_snapshot: bool = False
+    has_unapplied_changes: bool = False
+    enable_requires_password: bool = False
+    language: str | None = None
+    translation_group_id: UUID | None = None
+    is_original: bool = True
+    translations: PageTranslationCatalog | None = None
 
 
 class ManagedPageSummary(PublicModel):
@@ -122,6 +153,13 @@ class ManagedPageSummary(PublicModel):
     available: bool
     archived: bool
     updated_at: datetime
+    has_applied_snapshot: bool = False
+    has_unapplied_changes: bool = False
+    enable_requires_password: bool = False
+    language: str | None = None
+    translation_group_id: UUID | None = None
+    is_original: bool = True
+    translations: PageTranslationCatalog | None = None
 
 
 class ManagedPageCatalog(PublicModel):
@@ -135,6 +173,34 @@ class SaveManagedPage(PublicModel):
     apply: bool = False
     operation_id: UUID
     current_password: str = Field(default="", max_length=1024)
+    language: LanguageCode | None = None
+
+
+class SetPageEnabled(PublicModel):
+    id: UUID
+    expected_revision: int = Field(ge=1)
+    enabled: bool
+    apply_draft: bool = False
+    operation_id: UUID
+    current_password: str = Field(default="", max_length=1024)
+
+
+class PageTranslationLookup(PublicModel):
+    id: UUID
+
+
+class PageTranslationMutation(PageTranslationLookup):
+    expected_revision: int = Field(ge=1)
+    operation_id: UUID
+
+
+class CreatePageTranslation(PageTranslationMutation):
+    language: LanguageCode
+    copy_source: bool = False
+
+
+class LinkPageTranslation(PageTranslationMutation):
+    target_id: UUID
 
 
 class RemoveManagedPage(PublicModel):
@@ -172,3 +238,9 @@ class PagesContract(PublicModel):
     public_page: PublicManagedPage
     metadata: PublicResponse[PageMetadata]
     save_metadata: SavePageMetadata
+    set_enabled: SetPageEnabled
+    translations: PublicResponse[PageTranslationCatalog]
+    translation_lookup: PageTranslationLookup
+    translation_mutation: PageTranslationMutation
+    create_translation: CreatePageTranslation
+    link_translation: LinkPageTranslation

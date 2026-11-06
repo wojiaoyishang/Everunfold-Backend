@@ -895,3 +895,12 @@ ADR0073、content-management-9、pages-runtime-3与bootstrap14记录本轮用户
 | `docs/development/content-management.md` | `097294b86e00912dd14cae591d78e5747ac547f14abdebdf68311ca1f127f7b7` |
 | `docs/development/pages.md` | `582d3daa8beab17bb298273a1c64ab39d246264058f563c9c75f246c0aad7187` |
 | `docs/handoff/scheduled-publication-verification.md` | `a7d5d2da711ae8722d6ceb0f23ef58122a213f36fb9805e957caf505102616b3` |
+
+## 页面语言与预览后续实施（2026-11-06）
+
+新增ADR0074记录本轮明确要求。以下为当前共享文件；阶段进度由各仓库STATUS记录，后续交付更新相应摘要。
+
+| 当前共同文件 | SHA256 |
+| --- | --- |
+| `docs/README.md` | `a761afc522bc3c82c3e1647f9f4c69d1fe50de904f231f8eca9da04318868424` |
+| `docs/decisions/0074-page-languages-linked-navigation-and-live-preview.md` | `179afbfda44cdcd43010f9c5e3faeb2fd0db0993dbcfdcd3656ad9fc6b47b10f` |

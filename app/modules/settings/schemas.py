@@ -3,6 +3,7 @@
 from datetime import datetime
 from typing import Literal, Self
 from urllib.parse import urlsplit
+from uuid import UUID
 
 from pydantic import ConfigDict, Field, field_validator, model_validator
 
@@ -62,6 +63,31 @@ def safe_url(value: str) -> str:
     return value
 
 
+class NavigationReference(SettingsModel):
+    kind: Literal["article", "shuoshuo", "page"]
+    id: UUID = Field(strict=False)
+
+
+class NavigationResource(NavigationReference):
+    title: str
+    path: str
+    language: str | None
+
+
+class NavigationQuery(SettingsModel):
+    kind: Literal["article", "shuoshuo", "page"]
+    search: str = Field(default="", max_length=200)
+    page: int = Field(default=1, ge=1)
+    page_size: int = Field(default=30, ge=1, le=100)
+
+
+class NavigationCatalog(SettingsModel):
+    items: list[NavigationResource]
+    total: int
+    page: int
+    page_size: int
+
+
 class MenuLink(SettingsModel):
     id: str = Field(pattern=r"^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,63}$")
     label: str = Field(min_length=1, max_length=60)
@@ -71,6 +97,7 @@ class MenuLink(SettingsModel):
         pattern=r"^(?:[a-z][a-z-]{0,31}|media:[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})$",
     )
     _url = field_validator("href")(safe_url)
+    reference: NavigationReference | None = None
 
 
 class MenuItem(MenuLink):
@@ -238,6 +265,8 @@ class DeliveryReceipt(SettingsModel):
 
 
 class SettingsContract(PublicModel):
+    navigation_query: NavigationQuery
+    navigation_catalog: PublicResponse[NavigationCatalog]
     shortcode_catalog: PublicResponse[ShortcodeCatalog]
     shortcode_item: PublicResponse[ShortcodeItem]
     shortcode_preview: PublicResponse[ShortcodeCompilation]

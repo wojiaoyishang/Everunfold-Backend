@@ -11,7 +11,10 @@ from app.core.schemas import ErrorResponse, PublicResponse
 from app.modules.auth.business_auth import authorize_business
 from app.modules.auth.permissions import Actor
 from app.modules.auth.router import auth_runtime
+from app.modules.settings.navigation import navigation_resources
 from app.modules.settings.schemas import (
+    NavigationCatalog,
+    NavigationQuery,
     NodeList,
     PolicyState,
     SavePolicy,
@@ -50,6 +53,11 @@ Authorized = Annotated[Access, Depends(access, scope="function")]
 @router.get("/settings", response_model=PublicResponse[SettingsState])
 async def get_settings(ctx: Authorized) -> JSONResponseSuccess:
     return JSONResponseSuccess(data=await ctx.service.state())
+
+
+@router.post("/settings/navigation-resources", response_model=PublicResponse[NavigationCatalog])
+async def query_navigation(payload: NavigationQuery, ctx: Authorized) -> JSONResponseSuccess:
+    return JSONResponseSuccess(data=await navigation_resources(ctx.service.session, payload))
 
 
 @router.patch("/settings", response_model=PublicResponse[SettingsState])
