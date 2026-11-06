@@ -28,6 +28,7 @@ from app.modules.auth.credentials_models import ApiApplication
 from app.modules.auth.models import AuthAuditEvent, AuthRateLimit, BrowserSession, User
 from app.modules.auth.operations import AccountOperations
 from app.modules.auth.permissions import BUILTIN_APP, CAPABILITIES, ResourceScope, user_permissions
+from app.modules.auth.preset_schemas import UserPresetStamp
 from app.modules.auth.security import (
     hash_password,
     normalize_username,
@@ -54,6 +55,11 @@ def profile(user: User) -> AccountProfile:
         auth_version=user.auth_version,
         must_change_password=user.must_change_password,
         grants=cast(dict[str, dict[str, ResourceScope]], user.grants),
+        permission_preset=(
+            UserPresetStamp.model_validate(user.permission_preset)
+            if user.permission_preset
+            else None
+        ),
         display_name=user.display_name,
         email=user.email,
         avatar_url=user.avatar_url,
@@ -239,11 +245,19 @@ class AccountsService:
         )
 
     async def create_user(self, actor: User, payload: UserCreate) -> AccountProfile:
-        cached = await self.operations.read(payload.operation_id, actor.id, "user_create", payload)
+        envelope = payload.model_dump(mode="json")
+        if "preset" not in payload.model_fields_set:
+            envelope.pop("preset", None)
+        cached = await self.operations.read(payload.operation_id, actor.id, "user_create", envelope)
         if cached is not None:
             return AccountProfile.model_validate(cached)
         await self.confirm_password(actor, payload.current_password)
-        await self.validate_grants(actor, payload.grants, payload.role)
+        grants, stamp = payload.grants, None
+        if payload.preset is not None:
+            from app.modules.auth.preset_service import resolve_preset
+
+            grants, stamp = await resolve_preset(self.session, payload.preset, payload.role)
+        await self.validate_grants(actor, grants, payload.role)
         name = normalize_username(payload.username)
         if await self.auth.repo.user_by_name(name) is not None:
             raise AuthFailure(409, 40962, "用户名已存在")
@@ -260,7 +274,8 @@ class AccountsService:
             ),
             role=payload.role,
             active=True,
-            grants=payload.grants,
+            grants=grants,
+            permission_preset=stamp,
             must_change_password=True,
             created_at=now,
             updated_at=now,
@@ -273,7 +288,7 @@ class AccountsService:
             payload.operation_id,
             actor.id,
             "user_create",
-            payload,
+            envelope,
             result.model_dump(mode="json"),
             sensitive=True,
         )
@@ -282,6 +297,8 @@ class AccountsService:
 
     async def save_user(self, actor: User, user_id: UUID, payload: UserSave) -> AccountProfile:
         envelope = {"user_id": str(user_id), **payload.model_dump(mode="json")}
+        if "preset" not in payload.model_fields_set:
+            envelope.pop("preset", None)
         cached = await self.operations.read(payload.operation_id, actor.id, "user_save", envelope)
         if cached is not None:
             return AccountProfile.model_validate(cached)
@@ -289,13 +306,24 @@ class AccountsService:
         self.version(user, payload.expected_revision)
         if user.role == "admin" and actor.role != "admin":
             raise AuthFailure(403, 40360, "不能修改管理员账号")
-        await self.validate_grants(actor, payload.grants, payload.role)
+        grants, stamp = payload.grants, user.permission_preset
+        if payload.preset is not None:
+            from app.modules.auth.preset_service import resolve_preset
+
+            grants, stamp = await resolve_preset(self.session, payload.preset, payload.role)
+        elif (
+            "preset" in payload.model_fields_set
+            or user.role != payload.role
+            or user.grants != grants
+        ):
+            stamp = None
+        await self.validate_grants(actor, grants, payload.role)
         auth_changed = (user.role, user.active, user.grants) != (
             payload.role,
             payload.active,
-            payload.grants,
+            grants,
         )
-        if auth_changed:
+        if auth_changed or "preset" in payload.model_fields_set:
             await self.confirm_password(actor, payload.current_password)
         if user.active and user.role == "admin" and (not payload.active or payload.role != "admin"):
             remaining = await self.session.scalar(
@@ -314,7 +342,8 @@ class AccountsService:
                 delete(BrowserSession).where(BrowserSession.user_id == user.id)
             )
         user.role, user.active = payload.role, payload.active
-        user.grants = {app: dict(items) for app, items in payload.grants.items()}
+        user.grants = {app: dict(items) for app, items in grants.items()}
+        user.permission_preset = stamp
         if auth_changed:
             await invalidate_user_keys(self.session, user)
         self.audit(

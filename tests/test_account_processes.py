@@ -23,6 +23,7 @@ from sqlalchemy.engine import make_url
 from app.core.config import load_settings
 from app.modules.auth.application_signatures import signed_headers, verify_signature
 from tests.account_access_process_checks import check_scoped_accounts
+from tests.preset_process_checks import check_user_presets
 from tests.test_auth_http_processes import free_port, uvicorn_process
 from tests.test_settings_processes import background, toml_text, wait_for
 
@@ -343,6 +344,7 @@ def test_live_account_authority_and_child_callbacks(tmp_path: Path) -> None:
             )
             # Last-administrator protection spans both API processes, including self-disable.
             check_scoped_accounts(admin, csrf, api_b)
+            check_user_presets(admin, csrf, api_b)
             created = admin.post(
                 "/v1/admin/users",
                 headers=csrf,

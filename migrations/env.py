@@ -11,6 +11,7 @@ from app.core.database import Base
 from app.modules.auth import avatar_models as avatar_models  # noqa: F401
 from app.modules.auth import credentials_models as credentials_models  # noqa: F401
 from app.modules.auth import models as auth_models  # noqa: F401 - include module metadata
+from app.modules.auth import preset_models as preset_models  # noqa: F401
 from app.modules.content import (
     draft_models,  # noqa: F401
     models,  # noqa: F401 - include module metadata

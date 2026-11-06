@@ -31,6 +31,8 @@ class User(Base):
     grants: Mapped[dict[str, dict[str, str]]] = mapped_column(
         JSONB, default=dict, server_default="{}"
     )
+    # Provenance only; authorization always uses the user's own role/grants.
+    permission_preset: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
     email: Mapped[str] = mapped_column(String(254), default="", server_default="")
     avatar_url: Mapped[str] = mapped_column(Text, default="", server_default="")
     avatar_id: Mapped[UUID | None] = mapped_column(

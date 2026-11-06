@@ -34,6 +34,15 @@ from app.modules.auth.credentials_schemas import (
 )
 from app.modules.auth.permission_schemas import PermissionDefinition
 from app.modules.auth.permissions import ResourceScope
+from app.modules.auth.preset_schemas import (
+    UserPreset,
+    UserPresetCatalog,
+    UserPresetCreate,
+    UserPresetRemove,
+    UserPresetSave,
+    UserPresetSelection,
+    UserPresetStamp,
+)
 from app.modules.auth.schemas import AuthSessionState
 from app.modules.settings.languages import LanguageCatalog
 from app.modules.settings.schemas import safe_url
@@ -76,6 +85,7 @@ class AccountProfile(ProfileFields):
     must_change_password: bool
     email_verified: Literal[False] = False
     grants: dict[str, dict[str, ResourceScope]]
+    permission_preset: UserPresetStamp | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -94,6 +104,7 @@ class UserCreate(PublicModel):
     current_password: str = Field(min_length=1, max_length=1024, repr=False)
     role: Literal["admin", "user"] = "user"
     grants: dict[str, dict[str, ResourceScope]] = Field(default_factory=dict)
+    preset: UserPresetSelection | None = None
 
 
 class UserSave(PublicModel):
@@ -104,6 +115,7 @@ class UserSave(PublicModel):
     active: bool
     grants: dict[str, dict[str, ResourceScope]] = Field(default_factory=dict)
     current_password: str = Field(default="", max_length=1024, repr=False)
+    preset: UserPresetSelection | None = None
 
 
 class PasswordChange(PublicModel):
@@ -157,6 +169,11 @@ class PermissionCatalog(PublicModel):
 
 
 class AccountContract(PublicModel):
+    user_preset: PublicResponse[UserPreset]
+    user_presets: PublicResponse[UserPresetCatalog]
+    user_preset_create: UserPresetCreate
+    user_preset_save: UserPresetSave
+    user_preset_remove: UserPresetRemove
     avatar_catalog: PublicResponse[AvatarCatalog]
     avatar_item: PublicResponse[AvatarItem]
     avatar_policy: PublicResponse[AvatarPolicyState]

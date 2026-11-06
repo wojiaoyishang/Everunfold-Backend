@@ -11,11 +11,27 @@ from app.modules.auth.accounts_schemas import AccountContract
 def build_schema() -> dict[str, Any]:
     schema = AccountContract.model_json_schema()
     schema["$schema"] = "http://json-schema.org/draft-07/schema#"
-    schema["x-everunfold-contract-version"] = "1.3.0"
+    schema["x-everunfold-contract-version"] = "1.4.0"
     schema["x-everunfold-csrf-header"] = "X-CSRF-Token"
     schema["x-everunfold-credentials"] = "include"
     operations: list[dict[str, Any]] = []
     for name, path, method, response, input_name in (
+        ("readUserPresets", "/v1/admin/user-presets", "GET", "user_presets", None),
+        ("createUserPreset", "/v1/admin/user-presets", "POST", "user_preset", "user_preset_create"),
+        (
+            "saveUserPreset",
+            "/v1/admin/user-presets/{preset_id}",
+            "PATCH",
+            "user_preset",
+            "user_preset_save",
+        ),
+        (
+            "removeUserPreset",
+            "/v1/admin/user-presets/{preset_id}/remove",
+            "POST",
+            "user_presets",
+            "user_preset_remove",
+        ),
         ("readAccountAvatars", "/v1/account/avatars", "GET", "avatar_catalog", None),
         (
             "uploadAccountAvatar",
