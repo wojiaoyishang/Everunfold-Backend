@@ -8,7 +8,7 @@
 | accounts-v1.schema.json | 1.4.0 | 私有资料、会话/密码、用户/授权、身份预设、Key/应用与受限头像库 |
 | api-key-protocol-v1.schema.json | 1.0.0 | 应用签名校验、最小响应、签名回调/ACK与缓存边界 |
 | content-admin-v1.schema.json | 1.10.0 | 草稿、修订/分支/合并、语言关系与拥有者字段 |
-| collaboration-v1.schema.json | 2.0.0 | 持久协同、源码租约、光标和合并暂停 |
+| collaboration-v1.schema.json | 2.1.0 | 持久协同、源码租约、光标/合并暂停及提交回执拥有者字段 |
 | content-access-v1.schema.json | 1.1.0 | 私有受限正文读取 |
 | settings-v1.schema.json | 1.10.0 | 站点/主题/系统、可扩展语言目录 |
 | public-v0.1.schema.json | 0.7.0 | 可公开的完整快照、多语言与已应用页面 |
