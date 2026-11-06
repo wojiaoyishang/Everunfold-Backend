@@ -108,8 +108,23 @@ class ManagedPageItem(PublicModel):
     archived: bool
 
 
+class ManagedPageSummary(PublicModel):
+    id: UUID
+    source: Literal["custom", "registered"]
+    implementation_id: str | None
+    title: str
+    path: str
+    description: str
+    revision: int
+    applied_revision: int | None
+    enabled: bool
+    available: bool
+    archived: bool
+    updated_at: datetime
+
+
 class ManagedPageCatalog(PublicModel):
-    items: list[ManagedPageItem]
+    items: list[ManagedPageSummary]
 
 
 class SaveManagedPage(PublicModel):

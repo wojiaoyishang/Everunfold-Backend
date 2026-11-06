@@ -13,6 +13,12 @@ def build_schema() -> dict[str, Any]:
     schema["x-everunfold-contract-version"] = "1.0.0"
     schema["x-everunfold-operations"] = [
         {
+            "name": "readManagedPage",
+            "path": "/v1/admin/pages/{page_id}",
+            "method": "GET",
+            "response": "item",
+        },
+        {
             "name": "readManagedPages",
             "path": "/v1/admin/pages",
             "method": "GET",

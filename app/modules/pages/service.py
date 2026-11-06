@@ -21,6 +21,7 @@ from app.modules.pages.options import validate_options
 from app.modules.pages.schemas import (
     ManagedPageCatalog,
     ManagedPageItem,
+    ManagedPageSummary,
     PageRegistration,
     PageValue,
     PublicManagedPage,
@@ -81,7 +82,18 @@ class PagesService:
                 )
             )
         ).all()
-        return ManagedPageCatalog(items=[await self.item(row) for row in rows])
+        items = []
+        for row in rows:
+            item = await self.item(row)
+            items.append(
+                ManagedPageSummary(
+                    **item.model_dump(exclude={"value", "registration"}),
+                    title=item.value.title,
+                    path=item.value.path,
+                    description=item.value.description,
+                )
+            )
+        return ManagedPageCatalog(items=items)
 
     async def target(self, identity: UUID, expected: int) -> ManagedPage:
         row = await self.session.get(ManagedPage, identity, populate_existing=True)

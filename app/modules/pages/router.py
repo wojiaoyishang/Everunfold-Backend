@@ -1,8 +1,10 @@
 """Page management requires a live browser session; declaration installation is a deploy action."""
 
 from typing import Annotated
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, Request
+from sqlalchemy import select
 
 from app.core.responses import JSONResponseSuccess
 from app.core.schemas import ErrorResponse, PublicResponse
@@ -10,6 +12,7 @@ from app.modules.auth.accounts_router import AccountAccess, Authorized
 from app.modules.auth.permissions import user_permissions
 from app.modules.auth.router import auth_runtime
 from app.modules.auth.service import AuthFailure
+from app.modules.pages.models import ManagedPage
 from app.modules.pages.schemas import (
     ManagedPageCatalog,
     ManagedPageItem,
@@ -58,3 +61,11 @@ async def remove(payload: RemoveManagedPage, ctx: Access, request: Request) -> J
     if "pages:write" not in user_permissions(ctx.actor):
         raise AuthFailure(403, 40364, "没有执行此操作的权限")
     return JSONResponseSuccess(data=await service(ctx, request).remove(ctx.actor, payload))
+
+
+@router.get("/{page_id}", response_model=PublicResponse[ManagedPageItem])
+async def detail(page_id: UUID, ctx: Access, request: Request) -> JSONResponseSuccess:
+    value = await ctx.service.session.scalar(select(ManagedPage).where(ManagedPage.id == page_id))
+    if value is None:
+        raise AuthFailure(404, 40496, "页面不存在")
+    return JSONResponseSuccess(data=await service(ctx, request).item(value))

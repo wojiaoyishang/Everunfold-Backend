@@ -207,6 +207,7 @@ def test_code_page_deployment_options_and_node_versions(pages: AccountsTest) -> 
     row = next(
         r for r in ctx.root.get("/v1/admin/pages").json()["data"]["items"] if r["id"] == identifier
     )
+    row = ctx.root.get("/v1/admin/pages/" + identifier).json()["data"]
     assert row["available"] and row["source"] == "registered" and not row["enabled"]
     request: dict[str, Any] = {
         "id": identifier,
