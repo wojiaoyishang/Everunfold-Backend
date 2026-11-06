@@ -42,9 +42,12 @@ class AccountsTest:
     name: str
     root: TestClient
     stack: ExitStack
+    peer: str
 
     def client(self) -> TestClient:
-        return self.stack.enter_context(TestClient(create_app(self.settings)))
+        return self.stack.enter_context(
+            TestClient(create_app(self.settings), client=(self.peer, 50000))
+        )
 
 
 def signed_in(client: TestClient, name: str, password: str = PASSWORD) -> dict[str, Any]:
@@ -93,12 +96,13 @@ def accounts() -> Iterator[AccountsTest]:
     assert settings.redis.namespace_scope.startswith("test")
     settings = settings.model_copy(update={"cors": CORSConfig(allowed_origins=[ORIGIN])})
     name = "acct_" + uuid4().hex
+    peer = "account-test-" + uuid4().hex
     asyncio.run(seed_admin(settings, name, PASSWORD))
     try:
         with ExitStack() as stack:
-            client = stack.enter_context(TestClient(create_app(settings)))
+            client = stack.enter_context(TestClient(create_app(settings), client=(peer, 50000)))
             signed_in(client, name)
-            yield AccountsTest(settings, name, client, stack)
+            yield AccountsTest(settings, name, client, stack, peer)
     finally:
 
         async def clean() -> None:

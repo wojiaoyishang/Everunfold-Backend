@@ -1323,6 +1323,19 @@
           "title": "Kind",
           "type": "string"
         },
+        "id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Id"
+        },
         "search": {
           "default": "",
           "maxLength": 200,
@@ -2762,7 +2775,7 @@
   "title": "SettingsContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "1.11.0",
+  "x-everunfold-contract-version": "1.11.1",
   "x-everunfold-language-regions": {
     "zh": "CN",
     "en": "GB",

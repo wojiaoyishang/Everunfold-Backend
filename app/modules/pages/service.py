@@ -253,7 +253,7 @@ class PagesService:
         if "pages:publish" not in user_permissions(actor):
             raise AuthFailure(403, 40364, "没有执行此操作的权限")
         if payload.enabled and row.applied_snapshot is None and not payload.apply_draft:
-            raise AuthFailure(409, 40999, "此页面尚无已应用内容，请确认应用当前草稿")
+            raise AuthFailure(409, 40993, "此页面尚无已应用内容，请确认应用当前草稿")
         value = source_value(row.applied_snapshot or row.data)
         if value.javascript_enabled:
             if actor.role != "admin":

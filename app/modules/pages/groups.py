@@ -52,7 +52,7 @@ async def translations(session: AsyncSession, row: ManagedPage) -> PageTranslati
                 id=item.id,
                 language=item.language or "",
                 title=item.data["title"],
-                path=item.data["path"],
+                path=(item.published or item.data)["path"],
                 revision=item.revision,
                 applied_revision=item.applied_revision,
                 enabled=item.published is not None,

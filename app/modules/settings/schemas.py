@@ -76,6 +76,7 @@ class NavigationResource(NavigationReference):
 
 class NavigationQuery(SettingsModel):
     kind: Literal["article", "shuoshuo", "page"]
+    id: UUID | None = Field(default=None, strict=False)
     search: str = Field(default="", max_length=200)
     page: int = Field(default=1, ge=1)
     page_size: int = Field(default=30, ge=1, le=100)

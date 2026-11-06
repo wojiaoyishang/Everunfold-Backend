@@ -27,6 +27,9 @@ async def navigation_resources(session: AsyncSession, query: NavigationQuery) ->
         statement = statement.where(
             (title.icontains(search, autoescape=True)) | (path.icontains(search, autoescape=True))
         )
+    if query.id is not None:
+        identity = ManagedPage.id if query.kind == "page" else Content.id
+        statement = statement.where(identity == query.id)
     total = await session.scalar(select(func.count()).select_from(statement.subquery())) or 0
     rows = (
         await session.execute(
