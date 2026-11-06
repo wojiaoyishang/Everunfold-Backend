@@ -15,10 +15,24 @@ def test_page_configuration_preserves_nested_values_and_arbitrary_keys() -> None
     value = PageValue(title="Config", path="/config", options=options)
     assert PageValue.model_validate_json(value.model_dump_json()).options == options
     declaration = PageRegistration(
-        id="plugin.config", version="1.0.0", title="Config", path="/config", defaults=options
+        id="plugin.config",
+        version="1.0.0",
+        title="Config",
+        path="/config",
+        defaults=options,
+        settings_schema={
+            "fields": [
+                {
+                    "key": "extra",
+                    "component": "new-plugin.custom-control",
+                    "props": {"nested": [True, None]},
+                }
+            ]
+        },
     )
     assert declaration.fields == []
     assert declaration.defaults == options
+    assert declaration.settings_schema["fields"]
 
 
 def test_page_configuration_rejects_nonfinite_oversized_or_excessively_nested_data() -> None:

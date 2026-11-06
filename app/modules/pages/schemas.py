@@ -47,6 +47,8 @@ class PageRegistration(PublicModel):
     fields: list[PageOption] = Field(default_factory=list, max_length=30)
     defaults: dict[str, JsonValue] = Field(default_factory=dict)
     _defaults = field_validator("defaults")(bounded_options)
+    settings_schema: dict[str, JsonValue] = Field(default_factory=dict)
+    _settings_schema = field_validator("settings_schema")(bounded_options)
     _path = field_validator("path")(content_path)
 
     @model_validator(mode="after")
