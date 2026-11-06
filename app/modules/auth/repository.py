@@ -15,17 +15,19 @@ class AuthRepository:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
 
-    async def browser_session(self, token: str, now: datetime) -> BrowserSession | None:
-        return await self.session.scalar(
-            select(BrowserSession)
-            .where(
-                BrowserSession.token_hash == token_digest(token), BrowserSession.expires_at > now
-            )
-            .with_for_update()
+    async def browser_session(
+        self, token: str, now: datetime, *, lock: bool = True
+    ) -> BrowserSession | None:
+        statement = select(BrowserSession).where(
+            BrowserSession.token_hash == token_digest(token), BrowserSession.expires_at > now
         )
+        return await self.session.scalar(statement.with_for_update() if lock else statement)
 
-    async def user_by_name(self, username: str) -> User | None:
-        return await self.session.scalar(select(User).where(User.username == username))
+    async def user_by_name(self, username: str, *, lock: bool = False) -> User | None:
+        statement = (
+            select(User).where(User.username == username).execution_options(populate_existing=True)
+        )
+        return await self.session.scalar(statement.with_for_update() if lock else statement)
 
     async def consume_limit(self, key: str, limit: int, window: int, now: datetime) -> bool:
         key_hash = hashlib.sha256(key.encode("utf-8")).hexdigest()

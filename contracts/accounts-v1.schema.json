@@ -1,0 +1,961 @@
+{
+  "$defs": {
+    "AccountProfile": {
+      "additionalProperties": false,
+      "properties": {
+        "display_name": {
+          "maxLength": 100,
+          "minLength": 1,
+          "title": "Display Name",
+          "type": "string"
+        },
+        "email": {
+          "default": "",
+          "maxLength": 254,
+          "title": "Email",
+          "type": "string"
+        },
+        "avatar_url": {
+          "default": "",
+          "maxLength": 2048,
+          "title": "Avatar Url",
+          "type": "string"
+        },
+        "bio": {
+          "default": "",
+          "maxLength": 2000,
+          "title": "Bio",
+          "type": "string"
+        },
+        "website": {
+          "default": "",
+          "maxLength": 2048,
+          "title": "Website",
+          "type": "string"
+        },
+        "preferred_locale": {
+          "default": "zh-CN",
+          "maxLength": 32,
+          "minLength": 2,
+          "title": "Preferred Locale",
+          "type": "string"
+        },
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "username": {
+          "title": "Username",
+          "type": "string"
+        },
+        "role": {
+          "enum": [
+            "admin",
+            "user"
+          ],
+          "title": "Role",
+          "type": "string"
+        },
+        "active": {
+          "title": "Active",
+          "type": "boolean"
+        },
+        "revision": {
+          "title": "Revision",
+          "type": "integer"
+        },
+        "auth_version": {
+          "title": "Auth Version",
+          "type": "integer"
+        },
+        "must_change_password": {
+          "title": "Must Change Password",
+          "type": "boolean"
+        },
+        "email_verified": {
+          "const": false,
+          "default": false,
+          "title": "Email Verified",
+          "type": "boolean"
+        },
+        "grants": {
+          "additionalProperties": {
+            "additionalProperties": {
+              "enum": [
+                "own",
+                "all"
+              ],
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "title": "Grants",
+          "type": "object"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "updated_at": {
+          "format": "date-time",
+          "title": "Updated At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "display_name",
+        "id",
+        "username",
+        "role",
+        "active",
+        "revision",
+        "auth_version",
+        "must_change_password",
+        "grants",
+        "created_at",
+        "updated_at"
+      ],
+      "title": "AccountProfile",
+      "type": "object"
+    },
+    "AccountUserList": {
+      "additionalProperties": false,
+      "properties": {
+        "items": {
+          "items": {
+            "$ref": "#/$defs/AccountProfile"
+          },
+          "title": "Items",
+          "type": "array"
+        },
+        "total": {
+          "title": "Total",
+          "type": "integer"
+        },
+        "page": {
+          "title": "Page",
+          "type": "integer"
+        },
+        "page_size": {
+          "title": "Page Size",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "items",
+        "total",
+        "page",
+        "page_size"
+      ],
+      "title": "AccountUserList",
+      "type": "object"
+    },
+    "AccountUserQuery": {
+      "additionalProperties": false,
+      "properties": {
+        "q": {
+          "default": "",
+          "maxLength": 200,
+          "title": "Q",
+          "type": "string"
+        },
+        "page": {
+          "default": 1,
+          "minimum": 1,
+          "title": "Page",
+          "type": "integer"
+        },
+        "page_size": {
+          "default": 20,
+          "maximum": 100,
+          "minimum": 1,
+          "title": "Page Size",
+          "type": "integer"
+        },
+        "active": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Active"
+        }
+      },
+      "title": "AccountUserQuery",
+      "type": "object"
+    },
+    "AuthSessionState": {
+      "additionalProperties": false,
+      "properties": {
+        "authenticated": {
+          "title": "Authenticated",
+          "type": "boolean"
+        },
+        "user": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AuthUser"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "csrf_token": {
+          "title": "Csrf Token",
+          "type": "string"
+        },
+        "expires_at": {
+          "format": "date-time",
+          "title": "Expires At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "authenticated",
+        "user",
+        "csrf_token",
+        "expires_at"
+      ],
+      "title": "AuthSessionState",
+      "type": "object"
+    },
+    "AuthUser": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "username": {
+          "title": "Username",
+          "type": "string"
+        },
+        "display_name": {
+          "title": "Display Name",
+          "type": "string"
+        },
+        "role": {
+          "enum": [
+            "admin",
+            "user"
+          ],
+          "title": "Role",
+          "type": "string"
+        },
+        "permissions": {
+          "additionalProperties": {
+            "enum": [
+              "own",
+              "all"
+            ],
+            "type": "string"
+          },
+          "title": "Permissions",
+          "type": "object"
+        },
+        "avatar_url": {
+          "default": "",
+          "title": "Avatar Url",
+          "type": "string"
+        },
+        "preferred_locale": {
+          "default": "zh-CN",
+          "title": "Preferred Locale",
+          "type": "string"
+        },
+        "must_change_password": {
+          "default": false,
+          "title": "Must Change Password",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "username",
+        "display_name",
+        "role"
+      ],
+      "title": "AuthUser",
+      "type": "object"
+    },
+    "PasswordChange": {
+      "additionalProperties": false,
+      "properties": {
+        "operation_id": {
+          "format": "uuid",
+          "title": "Operation Id",
+          "type": "string"
+        },
+        "expected_revision": {
+          "minimum": 1,
+          "title": "Expected Revision",
+          "type": "integer"
+        },
+        "current_password": {
+          "maxLength": 1024,
+          "minLength": 1,
+          "title": "Current Password",
+          "type": "string"
+        },
+        "new_password": {
+          "maxLength": 1024,
+          "minLength": 12,
+          "title": "New Password",
+          "type": "string"
+        },
+        "revoke_api_keys": {
+          "default": true,
+          "title": "Revoke Api Keys",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "operation_id",
+        "expected_revision",
+        "current_password",
+        "new_password"
+      ],
+      "title": "PasswordChange",
+      "type": "object"
+    },
+    "PasswordReset": {
+      "additionalProperties": false,
+      "properties": {
+        "operation_id": {
+          "format": "uuid",
+          "title": "Operation Id",
+          "type": "string"
+        },
+        "expected_revision": {
+          "minimum": 1,
+          "title": "Expected Revision",
+          "type": "integer"
+        },
+        "current_password": {
+          "maxLength": 1024,
+          "minLength": 1,
+          "title": "Current Password",
+          "type": "string"
+        },
+        "new_password": {
+          "maxLength": 1024,
+          "minLength": 12,
+          "title": "New Password",
+          "type": "string"
+        }
+      },
+      "required": [
+        "operation_id",
+        "expected_revision",
+        "current_password",
+        "new_password"
+      ],
+      "title": "PasswordReset",
+      "type": "object"
+    },
+    "PermissionCatalog": {
+      "additionalProperties": false,
+      "properties": {
+        "items": {
+          "items": {
+            "$ref": "#/$defs/PermissionDefinition"
+          },
+          "title": "Items",
+          "type": "array"
+        }
+      },
+      "required": [
+        "items"
+      ],
+      "title": "PermissionCatalog",
+      "type": "object"
+    },
+    "PermissionDefinition": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "title": "Code",
+          "type": "string"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "api_key": {
+          "title": "Api Key",
+          "type": "boolean"
+        },
+        "owner_scope": {
+          "title": "Owner Scope",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "code",
+        "label",
+        "api_key",
+        "owner_scope"
+      ],
+      "title": "PermissionDefinition",
+      "type": "object"
+    },
+    "ProfileFields": {
+      "additionalProperties": false,
+      "properties": {
+        "display_name": {
+          "maxLength": 100,
+          "minLength": 1,
+          "title": "Display Name",
+          "type": "string"
+        },
+        "email": {
+          "default": "",
+          "maxLength": 254,
+          "title": "Email",
+          "type": "string"
+        },
+        "avatar_url": {
+          "default": "",
+          "maxLength": 2048,
+          "title": "Avatar Url",
+          "type": "string"
+        },
+        "bio": {
+          "default": "",
+          "maxLength": 2000,
+          "title": "Bio",
+          "type": "string"
+        },
+        "website": {
+          "default": "",
+          "maxLength": 2048,
+          "title": "Website",
+          "type": "string"
+        },
+        "preferred_locale": {
+          "default": "zh-CN",
+          "maxLength": 32,
+          "minLength": 2,
+          "title": "Preferred Locale",
+          "type": "string"
+        }
+      },
+      "required": [
+        "display_name"
+      ],
+      "title": "ProfileFields",
+      "type": "object"
+    },
+    "ProfileSave": {
+      "additionalProperties": false,
+      "properties": {
+        "operation_id": {
+          "format": "uuid",
+          "title": "Operation Id",
+          "type": "string"
+        },
+        "expected_revision": {
+          "minimum": 1,
+          "title": "Expected Revision",
+          "type": "integer"
+        },
+        "value": {
+          "$ref": "#/$defs/ProfileFields"
+        }
+      },
+      "required": [
+        "operation_id",
+        "expected_revision",
+        "value"
+      ],
+      "title": "ProfileSave",
+      "type": "object"
+    },
+    "PublicResponse_AccountProfile_": {
+      "additionalProperties": false,
+      "properties": {
+        "success": {
+          "default": true,
+          "title": "Success",
+          "type": "boolean"
+        },
+        "code": {
+          "default": 200,
+          "title": "Code",
+          "type": "integer"
+        },
+        "msg": {
+          "default": "请求成功",
+          "title": "Msg",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/AccountProfile"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "title": "PublicResponse[AccountProfile]",
+      "type": "object"
+    },
+    "PublicResponse_AccountUserList_": {
+      "additionalProperties": false,
+      "properties": {
+        "success": {
+          "default": true,
+          "title": "Success",
+          "type": "boolean"
+        },
+        "code": {
+          "default": 200,
+          "title": "Code",
+          "type": "integer"
+        },
+        "msg": {
+          "default": "请求成功",
+          "title": "Msg",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/AccountUserList"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "title": "PublicResponse[AccountUserList]",
+      "type": "object"
+    },
+    "PublicResponse_AuthSessionState_": {
+      "additionalProperties": false,
+      "properties": {
+        "success": {
+          "default": true,
+          "title": "Success",
+          "type": "boolean"
+        },
+        "code": {
+          "default": 200,
+          "title": "Code",
+          "type": "integer"
+        },
+        "msg": {
+          "default": "请求成功",
+          "title": "Msg",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/AuthSessionState"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "title": "PublicResponse[AuthSessionState]",
+      "type": "object"
+    },
+    "PublicResponse_PermissionCatalog_": {
+      "additionalProperties": false,
+      "properties": {
+        "success": {
+          "default": true,
+          "title": "Success",
+          "type": "boolean"
+        },
+        "code": {
+          "default": 200,
+          "title": "Code",
+          "type": "integer"
+        },
+        "msg": {
+          "default": "请求成功",
+          "title": "Msg",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/PermissionCatalog"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "title": "PublicResponse[PermissionCatalog]",
+      "type": "object"
+    },
+    "PublicResponse_SessionList_": {
+      "additionalProperties": false,
+      "properties": {
+        "success": {
+          "default": true,
+          "title": "Success",
+          "type": "boolean"
+        },
+        "code": {
+          "default": 200,
+          "title": "Code",
+          "type": "integer"
+        },
+        "msg": {
+          "default": "请求成功",
+          "title": "Msg",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/SessionList"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "title": "PublicResponse[SessionList]",
+      "type": "object"
+    },
+    "SessionItem": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "current": {
+          "title": "Current",
+          "type": "boolean"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "expires_at": {
+          "format": "date-time",
+          "title": "Expires At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "current",
+        "created_at",
+        "expires_at"
+      ],
+      "title": "SessionItem",
+      "type": "object"
+    },
+    "SessionList": {
+      "additionalProperties": false,
+      "properties": {
+        "items": {
+          "items": {
+            "$ref": "#/$defs/SessionItem"
+          },
+          "title": "Items",
+          "type": "array"
+        }
+      },
+      "required": [
+        "items"
+      ],
+      "title": "SessionList",
+      "type": "object"
+    },
+    "SessionRevoke": {
+      "additionalProperties": false,
+      "properties": {
+        "operation_id": {
+          "format": "uuid",
+          "title": "Operation Id",
+          "type": "string"
+        },
+        "session_id": {
+          "pattern": "^(?:[a-f0-9]{64}|others)$",
+          "title": "Session Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "operation_id",
+        "session_id"
+      ],
+      "title": "SessionRevoke",
+      "type": "object"
+    },
+    "UserCreate": {
+      "additionalProperties": false,
+      "properties": {
+        "operation_id": {
+          "format": "uuid",
+          "title": "Operation Id",
+          "type": "string"
+        },
+        "username": {
+          "maxLength": 64,
+          "minLength": 2,
+          "pattern": "^[A-Za-z0-9_.-]+$",
+          "title": "Username",
+          "type": "string"
+        },
+        "display_name": {
+          "maxLength": 100,
+          "minLength": 1,
+          "title": "Display Name",
+          "type": "string"
+        },
+        "password": {
+          "maxLength": 1024,
+          "minLength": 12,
+          "title": "Password",
+          "type": "string"
+        },
+        "current_password": {
+          "maxLength": 1024,
+          "minLength": 1,
+          "title": "Current Password",
+          "type": "string"
+        },
+        "role": {
+          "default": "user",
+          "enum": [
+            "admin",
+            "user"
+          ],
+          "title": "Role",
+          "type": "string"
+        },
+        "grants": {
+          "additionalProperties": {
+            "additionalProperties": {
+              "enum": [
+                "own",
+                "all"
+              ],
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "title": "Grants",
+          "type": "object"
+        }
+      },
+      "required": [
+        "operation_id",
+        "username",
+        "display_name",
+        "password",
+        "current_password"
+      ],
+      "title": "UserCreate",
+      "type": "object"
+    },
+    "UserSave": {
+      "additionalProperties": false,
+      "properties": {
+        "operation_id": {
+          "format": "uuid",
+          "title": "Operation Id",
+          "type": "string"
+        },
+        "expected_revision": {
+          "minimum": 1,
+          "title": "Expected Revision",
+          "type": "integer"
+        },
+        "value": {
+          "$ref": "#/$defs/ProfileFields"
+        },
+        "role": {
+          "enum": [
+            "admin",
+            "user"
+          ],
+          "title": "Role",
+          "type": "string"
+        },
+        "active": {
+          "title": "Active",
+          "type": "boolean"
+        },
+        "grants": {
+          "additionalProperties": {
+            "additionalProperties": {
+              "enum": [
+                "own",
+                "all"
+              ],
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "title": "Grants",
+          "type": "object"
+        },
+        "current_password": {
+          "default": "",
+          "maxLength": 1024,
+          "title": "Current Password",
+          "type": "string"
+        }
+      },
+      "required": [
+        "operation_id",
+        "expected_revision",
+        "value",
+        "role",
+        "active"
+      ],
+      "title": "UserSave",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "user_query": {
+      "$ref": "#/$defs/AccountUserQuery"
+    },
+    "profile_save": {
+      "$ref": "#/$defs/ProfileSave"
+    },
+    "user_create": {
+      "$ref": "#/$defs/UserCreate"
+    },
+    "user_save": {
+      "$ref": "#/$defs/UserSave"
+    },
+    "password_change": {
+      "$ref": "#/$defs/PasswordChange"
+    },
+    "password_reset": {
+      "$ref": "#/$defs/PasswordReset"
+    },
+    "session_revoke": {
+      "$ref": "#/$defs/SessionRevoke"
+    },
+    "profile": {
+      "$ref": "#/$defs/PublicResponse_AccountProfile_"
+    },
+    "users": {
+      "$ref": "#/$defs/PublicResponse_AccountUserList_"
+    },
+    "sessions": {
+      "$ref": "#/$defs/PublicResponse_SessionList_"
+    },
+    "permissions": {
+      "$ref": "#/$defs/PublicResponse_PermissionCatalog_"
+    },
+    "session": {
+      "$ref": "#/$defs/PublicResponse_AuthSessionState_"
+    }
+  },
+  "required": [
+    "user_query",
+    "profile_save",
+    "user_create",
+    "user_save",
+    "password_change",
+    "password_reset",
+    "session_revoke",
+    "profile",
+    "users",
+    "sessions",
+    "permissions",
+    "session"
+  ],
+  "title": "AccountContract",
+  "type": "object",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "x-everunfold-contract-version": "1.0.0",
+  "x-everunfold-csrf-header": "X-CSRF-Token",
+  "x-everunfold-credentials": "include",
+  "x-everunfold-operations": [
+    {
+      "name": "readAccountProfile",
+      "path": "/v1/account/profile",
+      "method": "GET",
+      "response": "profile"
+    },
+    {
+      "name": "saveAccountProfile",
+      "path": "/v1/account/profile",
+      "method": "PATCH",
+      "response": "profile",
+      "input": "profile_save"
+    },
+    {
+      "name": "changeAccountPassword",
+      "path": "/v1/account/password",
+      "method": "POST",
+      "response": "session",
+      "input": "password_change"
+    },
+    {
+      "name": "readAccountSessions",
+      "path": "/v1/account/sessions",
+      "method": "GET",
+      "response": "sessions"
+    },
+    {
+      "name": "revokeAccountSession",
+      "path": "/v1/account/sessions/revoke",
+      "method": "POST",
+      "response": "sessions",
+      "input": "session_revoke"
+    },
+    {
+      "name": "readAccountPermissions",
+      "path": "/v1/account/permissions",
+      "method": "GET",
+      "response": "permissions"
+    },
+    {
+      "name": "readAccountUsers",
+      "path": "/v1/admin/users",
+      "method": "GET",
+      "response": "users",
+      "input": "user_query"
+    },
+    {
+      "name": "createAccountUser",
+      "path": "/v1/admin/users",
+      "method": "POST",
+      "response": "profile",
+      "input": "user_create"
+    },
+    {
+      "name": "readAccountUser",
+      "path": "/v1/admin/users/{user_id}",
+      "method": "GET",
+      "response": "profile",
+      "path_params": [
+        "user_id"
+      ]
+    },
+    {
+      "name": "saveAccountUser",
+      "path": "/v1/admin/users/{user_id}",
+      "method": "PATCH",
+      "response": "profile",
+      "input": "user_save",
+      "path_params": [
+        "user_id"
+      ]
+    },
+    {
+      "name": "resetAccountUserPassword",
+      "path": "/v1/admin/users/{user_id}/password",
+      "method": "POST",
+      "response": "profile",
+      "input": "password_reset",
+      "path_params": [
+        "user_id"
+      ]
+    }
+  ]
+}

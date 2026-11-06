@@ -38,7 +38,8 @@ def upgrade() -> None:
         "UPDATE content_drafts d SET language = c.language FROM contents c WHERE c.id = d.id"
     )
     op.execute(
-        "INSERT INTO content_translation_groups (id, source_id, type_id, revision) SELECT id, id, type_id, 1 FROM content_drafts"
+        "INSERT INTO content_translation_groups (id, source_id, type_id, revision) "
+        "SELECT id, id, type_id, 1 FROM content_drafts"
     )
     op.execute("UPDATE content_drafts SET translation_group_id = id")
     op.alter_column("content_drafts", "translation_group_id", nullable=False)
@@ -58,7 +59,8 @@ def upgrade() -> None:
         "contents", sa.Column("translation_group_id", sa.Uuid(), nullable=True, index=True)
     )
     op.execute(
-        "UPDATE contents c SET translation_group_id = d.translation_group_id FROM content_drafts d WHERE d.id = c.id"
+        "UPDATE contents c SET translation_group_id = d.translation_group_id "
+        "FROM content_drafts d WHERE d.id = c.id"
     )
 
 

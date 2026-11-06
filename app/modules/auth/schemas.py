@@ -19,6 +19,10 @@ class AuthUser(PublicModel):
     username: str
     display_name: str
     role: Literal["admin", "user"]
+    permissions: dict[str, Literal["own", "all"]] = Field(default_factory=dict)
+    avatar_url: str = ""
+    preferred_locale: str = "zh-CN"
+    must_change_password: bool = False
 
 
 class AuthSessionState(PublicModel):

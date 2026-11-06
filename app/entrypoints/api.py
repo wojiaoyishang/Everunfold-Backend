@@ -104,7 +104,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         logger.error("Unhandled request error: %s", type(exc).__name__)
         headers = (
             {"Cache-Control": "private, no-store", "Pragma": "no-cache"}
-            if request.url.path.startswith(("/v1/auth/", "/v1/admin/"))
+            if request.url.path.startswith(("/v1/auth/", "/v1/admin/", "/v1/account/"))
             else {}
         )
         locale = getattr(request.state, "locale", "zh-CN")
