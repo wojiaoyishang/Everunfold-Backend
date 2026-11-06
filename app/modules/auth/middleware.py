@@ -74,7 +74,7 @@ class AuthBoundaryMiddleware:
                 scope, receive, private_send
             )
             return
-        if write and path == "/v1/admin/media/upload":
+        if write and path in {"/v1/admin/media/upload", "/v1/account/avatars/upload"}:
             # The authenticated handler bounds the binary stream; do not prebuffer it here.
             await self.app(scope, receive, private_send)
             return

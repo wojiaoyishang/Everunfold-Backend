@@ -4,7 +4,7 @@ from sqlalchemy import MetaData, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
 
-SCHEMA_REVISION = "0020_api_keys_and_applications"
+SCHEMA_REVISION = "0021_private_user_avatars"
 
 
 class Base(DeclarativeBase):

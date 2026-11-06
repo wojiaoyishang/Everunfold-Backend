@@ -11,6 +11,8 @@ import httpx2 as httpx
 from websockets.asyncio.client import connect
 from websockets.typing import Origin
 
+from tests.avatar_process_checks import check_private_avatars
+
 ORIGIN = "http://127.0.0.1:3000"
 
 
@@ -138,6 +140,7 @@ def check_scoped_accounts(admin: httpx.Client, csrf: dict[str, str], api_b: str)
                             break
 
         asyncio.run(socket_revoke())
+        check_private_avatars(admin, csrf, member, member_csrf, api_b)
         # Reset and old-password login race across replicas: no surviving stale session.
         current = admin.get("/v1/admin/users/" + current["id"]).json()["data"]
         racer = httpx.Client(base_url=api_b, headers={"Origin": ORIGIN}, timeout=8, trust_env=False)

@@ -21,6 +21,19 @@
           "title": "Avatar Url",
           "type": "string"
         },
+        "avatar_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Avatar Id"
+        },
         "bio": {
           "default": "",
           "maxLength": 2000,
@@ -620,6 +633,248 @@
         "role"
       ],
       "title": "AuthUser",
+      "type": "object"
+    },
+    "AvatarCatalog": {
+      "additionalProperties": false,
+      "properties": {
+        "items": {
+          "items": {
+            "$ref": "#/$defs/AvatarItem"
+          },
+          "title": "Items",
+          "type": "array"
+        },
+        "policy": {
+          "$ref": "#/$defs/AvatarPolicyState"
+        },
+        "uploaded_today": {
+          "title": "Uploaded Today",
+          "type": "integer"
+        },
+        "retained": {
+          "title": "Retained",
+          "type": "integer"
+        },
+        "resets_at": {
+          "format": "date-time",
+          "title": "Resets At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "items",
+        "policy",
+        "uploaded_today",
+        "retained",
+        "resets_at"
+      ],
+      "title": "AvatarCatalog",
+      "type": "object"
+    },
+    "AvatarItem": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "filename": {
+          "title": "Filename",
+          "type": "string"
+        },
+        "url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Url"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "ready",
+            "pending",
+            "unavailable"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "reused": {
+          "default": false,
+          "title": "Reused",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "filename",
+        "url",
+        "created_at",
+        "status"
+      ],
+      "title": "AvatarItem",
+      "type": "object"
+    },
+    "AvatarLimits": {
+      "additionalProperties": false,
+      "properties": {
+        "max_bytes": {
+          "default": 2097152,
+          "maximum": 20971520,
+          "minimum": 65536,
+          "title": "Max Bytes",
+          "type": "integer"
+        },
+        "max_edge": {
+          "default": 512,
+          "maximum": 2048,
+          "minimum": 64,
+          "title": "Max Edge",
+          "type": "integer"
+        },
+        "daily_uploads": {
+          "default": 10,
+          "maximum": 1000,
+          "minimum": 1,
+          "title": "Daily Uploads",
+          "type": "integer"
+        },
+        "retained_images": {
+          "default": 20,
+          "maximum": 1000,
+          "minimum": 1,
+          "title": "Retained Images",
+          "type": "integer"
+        }
+      },
+      "title": "AvatarLimits",
+      "type": "object"
+    },
+    "AvatarPolicySave": {
+      "additionalProperties": false,
+      "properties": {
+        "operation_id": {
+          "format": "uuid",
+          "title": "Operation Id",
+          "type": "string"
+        },
+        "expected_revision": {
+          "minimum": 1,
+          "title": "Expected Revision",
+          "type": "integer"
+        },
+        "value": {
+          "$ref": "#/$defs/AvatarLimits"
+        },
+        "current_password": {
+          "maxLength": 1024,
+          "minLength": 1,
+          "title": "Current Password",
+          "type": "string"
+        }
+      },
+      "required": [
+        "operation_id",
+        "expected_revision",
+        "value",
+        "current_password"
+      ],
+      "title": "AvatarPolicySave",
+      "type": "object"
+    },
+    "AvatarPolicyState": {
+      "additionalProperties": false,
+      "properties": {
+        "max_bytes": {
+          "default": 2097152,
+          "maximum": 20971520,
+          "minimum": 65536,
+          "title": "Max Bytes",
+          "type": "integer"
+        },
+        "max_edge": {
+          "default": 512,
+          "maximum": 2048,
+          "minimum": 64,
+          "title": "Max Edge",
+          "type": "integer"
+        },
+        "daily_uploads": {
+          "default": 10,
+          "maximum": 1000,
+          "minimum": 1,
+          "title": "Daily Uploads",
+          "type": "integer"
+        },
+        "retained_images": {
+          "default": 20,
+          "maximum": 1000,
+          "minimum": 1,
+          "title": "Retained Images",
+          "type": "integer"
+        },
+        "revision": {
+          "title": "Revision",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "revision"
+      ],
+      "title": "AvatarPolicyState",
+      "type": "object"
+    },
+    "AvatarRemove": {
+      "additionalProperties": false,
+      "properties": {
+        "operation_id": {
+          "format": "uuid",
+          "title": "Operation Id",
+          "type": "string"
+        },
+        "avatar_id": {
+          "format": "uuid",
+          "title": "Avatar Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "operation_id",
+        "avatar_id"
+      ],
+      "title": "AvatarRemove",
+      "type": "object"
+    },
+    "AvatarUpload": {
+      "additionalProperties": false,
+      "properties": {
+        "upload_id": {
+          "format": "uuid",
+          "title": "Upload Id",
+          "type": "string"
+        },
+        "filename": {
+          "maxLength": 160,
+          "minLength": 1,
+          "title": "Filename",
+          "type": "string"
+        }
+      },
+      "required": [
+        "upload_id",
+        "filename"
+      ],
+      "title": "AvatarUpload",
       "type": "object"
     },
     "CallbackCommand": {
@@ -1273,6 +1528,19 @@
           "title": "Avatar Url",
           "type": "string"
         },
+        "avatar_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Avatar Id"
+        },
         "bio": {
           "default": "",
           "maxLength": 2000,
@@ -1490,6 +1758,90 @@
         "data"
       ],
       "title": "PublicResponse[AuthSessionState]",
+      "type": "object"
+    },
+    "PublicResponse_AvatarCatalog_": {
+      "additionalProperties": false,
+      "properties": {
+        "success": {
+          "default": true,
+          "title": "Success",
+          "type": "boolean"
+        },
+        "code": {
+          "default": 200,
+          "title": "Code",
+          "type": "integer"
+        },
+        "msg": {
+          "default": "请求成功",
+          "title": "Msg",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/AvatarCatalog"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "title": "PublicResponse[AvatarCatalog]",
+      "type": "object"
+    },
+    "PublicResponse_AvatarItem_": {
+      "additionalProperties": false,
+      "properties": {
+        "success": {
+          "default": true,
+          "title": "Success",
+          "type": "boolean"
+        },
+        "code": {
+          "default": 200,
+          "title": "Code",
+          "type": "integer"
+        },
+        "msg": {
+          "default": "请求成功",
+          "title": "Msg",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/AvatarItem"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "title": "PublicResponse[AvatarItem]",
+      "type": "object"
+    },
+    "PublicResponse_AvatarPolicyState_": {
+      "additionalProperties": false,
+      "properties": {
+        "success": {
+          "default": true,
+          "title": "Success",
+          "type": "boolean"
+        },
+        "code": {
+          "default": 200,
+          "title": "Code",
+          "type": "integer"
+        },
+        "msg": {
+          "default": "请求成功",
+          "title": "Msg",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/AvatarPolicyState"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "title": "PublicResponse[AvatarPolicyState]",
       "type": "object"
     },
     "PublicResponse_KeyList_": {
@@ -1858,6 +2210,24 @@
   },
   "additionalProperties": false,
   "properties": {
+    "avatar_catalog": {
+      "$ref": "#/$defs/PublicResponse_AvatarCatalog_"
+    },
+    "avatar_item": {
+      "$ref": "#/$defs/PublicResponse_AvatarItem_"
+    },
+    "avatar_policy": {
+      "$ref": "#/$defs/PublicResponse_AvatarPolicyState_"
+    },
+    "avatar_policy_save": {
+      "$ref": "#/$defs/AvatarPolicySave"
+    },
+    "avatar_remove": {
+      "$ref": "#/$defs/AvatarRemove"
+    },
+    "avatar_upload": {
+      "$ref": "#/$defs/AvatarUpload"
+    },
     "languages": {
       "$ref": "#/$defs/PublicResponse_LanguageCatalog_"
     },
@@ -1938,6 +2308,12 @@
     }
   },
   "required": [
+    "avatar_catalog",
+    "avatar_item",
+    "avatar_policy",
+    "avatar_policy_save",
+    "avatar_remove",
+    "avatar_upload",
     "languages",
     "key_query",
     "key_create",
@@ -1968,10 +2344,63 @@
   "title": "AccountContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "1.2.0",
+  "x-everunfold-contract-version": "1.3.0",
   "x-everunfold-csrf-header": "X-CSRF-Token",
   "x-everunfold-credentials": "include",
   "x-everunfold-operations": [
+    {
+      "name": "readAccountAvatars",
+      "path": "/v1/account/avatars",
+      "method": "GET",
+      "response": "avatar_catalog"
+    },
+    {
+      "name": "uploadAccountAvatar",
+      "path": "/v1/account/avatars/upload",
+      "method": "POST",
+      "response": "avatar_item",
+      "input": "avatar_upload",
+      "encoding": "binary"
+    },
+    {
+      "name": "removeAccountAvatar",
+      "path": "/v1/account/avatars/remove",
+      "method": "POST",
+      "response": "avatar_catalog",
+      "input": "avatar_remove"
+    },
+    {
+      "name": "readAvatarPolicy",
+      "path": "/v1/admin/users/avatar-policy",
+      "method": "GET",
+      "response": "avatar_policy"
+    },
+    {
+      "name": "saveAvatarPolicy",
+      "path": "/v1/admin/users/avatar-policy",
+      "method": "PATCH",
+      "response": "avatar_policy",
+      "input": "avatar_policy_save"
+    },
+    {
+      "name": "readUserAvatars",
+      "path": "/v1/admin/users/{user_id}/avatars",
+      "method": "GET",
+      "response": "avatar_catalog",
+      "path_params": [
+        "user_id"
+      ]
+    },
+    {
+      "name": "removeUserAvatar",
+      "path": "/v1/admin/users/{user_id}/avatars/remove",
+      "method": "POST",
+      "response": "avatar_catalog",
+      "input": "avatar_remove",
+      "path_params": [
+        "user_id"
+      ]
+    },
     {
       "name": "readAccountLanguages",
       "path": "/v1/account/languages",

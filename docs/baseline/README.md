@@ -798,3 +798,7 @@ ADR0069记录用户确认方向与实施顺序，接口细节是待实现设计�
 | `docs/README.md` | `ba8717c6680d608c592a7c3f33348652151852c7d7b1f367abde7c20dcf6b87b` |
 | `docs/decisions/0069-accounts-api-keys-and-signed-callbacks.md` | `c98e94b1a5b2b6ff3de45d41b742230220c1033227d87d8460f7ce825cad4737` |
 | `docs/development/api-key-applications.md` | `3c2343f7589e681dca6c2a5ec03d0c9bffd9cb7a73e0f123f0604c797a380587` |
+
+## accounts-runtime-3 同步（2026-11-06）
+
+个人头像补充约定已同步；ADR0069 SHA256：`43f8535a433a3ef100540a1a68aad30f57c826cace0657ce37c11ea7cd09159e`。前端资料美化与头像页仍实施中。

@@ -58,7 +58,7 @@ async def account_access(request: Request) -> AsyncIterator[AccountAccess]:
         raise AuthFailure(403, 40362, "此操作需要登录会话")
     async with runtime.database.session_factory() as session:
         write = request.method not in {"GET", "HEAD", "OPTIONS"}
-        if write:
+        if write and request.url.path != "/v1/account/avatars/upload":
             await account_mutation_lock(session)
         auth = AuthService(session, runtime.settings.auth, runtime.password_limiter)
         actor = await auth.require_user(

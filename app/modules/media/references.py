@@ -5,6 +5,7 @@ import uuid
 from sqlalchemy import Text, cast, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.modules.auth.avatar_models import UserAvatar
 from app.modules.auth.service import AuthFailure
 from app.modules.content.collaboration.models import CollaborationDocument
 from app.modules.content.draft_models import ContentDraft, DraftBranch, DraftMerge, DraftRevision
@@ -25,6 +26,9 @@ async def require_unreferenced(
     # finds IDs embedded in URLs/HTML/Markdown; false positives intentionally block removal.
     token = str(asset.id)
     current = [
+        select(UserAvatar.id).where(
+            UserAvatar.asset_id == asset.id, UserAvatar.removed_at.is_(None)
+        ),
         select(DraftBranch.id).where(
             or_(
                 cast(DraftBranch.base, Text).contains(token),

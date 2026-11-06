@@ -8,6 +8,14 @@ from uuid import UUID
 from pydantic import Field, field_validator
 
 from app.core.schemas import PublicModel, PublicResponse
+from app.modules.auth.avatar_schemas import (
+    AvatarCatalog,
+    AvatarItem,
+    AvatarPolicySave,
+    AvatarPolicyState,
+    AvatarRemove,
+    AvatarUpload,
+)
 from app.modules.auth.credentials_schemas import (
     ApplicationCreate,
     ApplicationList,
@@ -35,6 +43,7 @@ class ProfileFields(PublicModel):
     display_name: str = Field(min_length=1, max_length=100)
     email: str = Field(default="", max_length=254)
     avatar_url: str = Field(default="", max_length=2048)
+    avatar_id: UUID | None = None
     bio: str = Field(default="", max_length=2000)
     website: str = Field(default="", max_length=2048)
     preferred_locale: str = Field(default="zh-CN", min_length=2, max_length=32)
@@ -148,6 +157,12 @@ class PermissionCatalog(PublicModel):
 
 
 class AccountContract(PublicModel):
+    avatar_catalog: PublicResponse[AvatarCatalog]
+    avatar_item: PublicResponse[AvatarItem]
+    avatar_policy: PublicResponse[AvatarPolicyState]
+    avatar_policy_save: AvatarPolicySave
+    avatar_remove: AvatarRemove
+    avatar_upload: AvatarUpload
     languages: PublicResponse[LanguageCatalog]
     key_query: KeyQuery
     key_create: KeyCreate

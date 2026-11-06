@@ -57,6 +57,7 @@ def profile(user: User) -> AccountProfile:
         display_name=user.display_name,
         email=user.email,
         avatar_url=user.avatar_url,
+        avatar_id=user.avatar_id,
         bio=user.bio,
         website=user.website,
         preferred_locale=user.preferred_locale,
@@ -152,8 +153,39 @@ class AccountsService:
 
     async def assign_profile(self, user: User, value: ProfileFields) -> None:
         await require_language(self.session, value.preferred_locale)
+        from app.modules.auth.avatar_models import UserAvatar
+        from app.modules.media.locking import lock_references
+        from app.modules.media.models import MediaAsset
+
+        if "avatar_id" in value.model_fields_set:
+            await lock_references(self.session)
+            if value.avatar_id is None:
+                user.avatar_id, user.avatar_url = None, ""
+            else:
+                owned = await self.session.get(UserAvatar, value.avatar_id)
+                asset = (
+                    await self.session.get(MediaAsset, owned.asset_id)
+                    if owned and owned.asset_id
+                    else None
+                )
+                if (
+                    not owned
+                    or owned.user_id != user.id
+                    or owned.removed_at is not None
+                    or not asset
+                    or asset.status != "ready"
+                    or asset.deleted_at is not None
+                    or asset.purge_pending
+                ):
+                    raise AuthFailure(422, 42265, "请选择本人头像图库中可用的图片")
+                user.avatar_id, user.avatar_url = owned.id, "/media/" + asset.object_key
+        elif value.avatar_url != user.avatar_url:
+            if value.avatar_url:
+                raise AuthFailure(422, 42265, "请通过个人头像图库设置头像")
+            user.avatar_id, user.avatar_url = None, ""
         for key, item in value.model_dump().items():
-            setattr(user, key, item)
+            if key not in {"avatar_id", "avatar_url"}:
+                setattr(user, key, item)
         user.revision += 1
         user.updated_at = datetime.now(UTC)
 

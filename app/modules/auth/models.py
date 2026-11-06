@@ -33,6 +33,9 @@ class User(Base):
     )
     email: Mapped[str] = mapped_column(String(254), default="", server_default="")
     avatar_url: Mapped[str] = mapped_column(Text, default="", server_default="")
+    avatar_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("account_avatars.id", use_alter=True, name="fk_users_avatar_id_account_avatars")
+    )
     bio: Mapped[str] = mapped_column(Text, default="", server_default="")
     website: Mapped[str] = mapped_column(Text, default="", server_default="")
     preferred_locale: Mapped[str] = mapped_column(

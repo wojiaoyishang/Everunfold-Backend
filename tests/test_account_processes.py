@@ -43,6 +43,7 @@ def test_live_account_authority_and_child_callbacks(tmp_path: Path) -> None:
     port_a, port_b, child_port = free_port(), free_port(), free_port()
     api_a, api_b, child = (f"http://127.0.0.1:{p}" for p in (port_a, port_b, child_port))
     raw.update(BACKEND_BASE_URL=api_a, frontends={})
+    raw["media"] = {"uploads_path": str(tmp_path / "uploads")}
     raw["database"]["url"] = url.render_as_string(hide_password=False)
     raw["redis"]["namespace_scope"] = "test-accounts-" + uuid4().hex[:12]
     raw.setdefault("auth", {}).update(callback_allowed_origins=[child])

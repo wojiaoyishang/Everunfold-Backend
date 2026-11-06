@@ -11,11 +11,42 @@ from app.modules.auth.accounts_schemas import AccountContract
 def build_schema() -> dict[str, Any]:
     schema = AccountContract.model_json_schema()
     schema["$schema"] = "http://json-schema.org/draft-07/schema#"
-    schema["x-everunfold-contract-version"] = "1.2.0"
+    schema["x-everunfold-contract-version"] = "1.3.0"
     schema["x-everunfold-csrf-header"] = "X-CSRF-Token"
     schema["x-everunfold-credentials"] = "include"
     operations: list[dict[str, Any]] = []
     for name, path, method, response, input_name in (
+        ("readAccountAvatars", "/v1/account/avatars", "GET", "avatar_catalog", None),
+        (
+            "uploadAccountAvatar",
+            "/v1/account/avatars/upload",
+            "POST",
+            "avatar_item",
+            "avatar_upload",
+        ),
+        (
+            "removeAccountAvatar",
+            "/v1/account/avatars/remove",
+            "POST",
+            "avatar_catalog",
+            "avatar_remove",
+        ),
+        ("readAvatarPolicy", "/v1/admin/users/avatar-policy", "GET", "avatar_policy", None),
+        (
+            "saveAvatarPolicy",
+            "/v1/admin/users/avatar-policy",
+            "PATCH",
+            "avatar_policy",
+            "avatar_policy_save",
+        ),
+        ("readUserAvatars", "/v1/admin/users/{user_id}/avatars", "GET", "avatar_catalog", None),
+        (
+            "removeUserAvatar",
+            "/v1/admin/users/{user_id}/avatars/remove",
+            "POST",
+            "avatar_catalog",
+            "avatar_remove",
+        ),
         ("readAccountLanguages", "/v1/account/languages", "GET", "languages", None),
         ("readApiKeyOptions", "/v1/account/api-keys/options", "GET", "key_options", None),
         ("readApiKeys", "/v1/account/api-keys", "GET", "key_list", "key_query"),
@@ -90,6 +121,8 @@ def build_schema() -> dict[str, Any]:
         }
         if input_name:
             operation["input"] = input_name
+        if name == "uploadAccountAvatar":
+            operation["encoding"] = "binary"
         if path_params := re.findall(r"\{([a-z_]+)\}", path):
             operation["path_params"] = path_params
         operations.append(operation)
