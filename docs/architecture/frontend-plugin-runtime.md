@@ -8,11 +8,11 @@
 
 只保留src/plugins/<插件>/，不另设custom_pages。每个插件的plugin.ts声明稳定id、version和同步setup，目录可包含页面、短代码、schema、组件与样式。setup通过pages.register、shortcodes.register等已实现能力贡献项目，短代码和页面定义不自行注册。组件由本目录components.tsx按稳定名称导出。主题放src/themes/<主题>/，theme.ts声明身份和components.tsx提供具名控件。新增能力只在所属目录维护。
 
-Next.js当前Turbopack支持import.meta.glob，宿主使用固定本地路径自动发现插件/主题及组件表，不生成中央组件文件，不允许配置远程JS地址。Node检查/导出工具采用同一目录规则；纯配置清单不导入组件/CSS。插件身份、页面ID、短代码ID/名称的重复声明是部署错误，明确失败；没有注册的展示组件显示主题占位提示，保留原配置，其余设置继续可用。组件实现发生异常时局部错误边界显示提示，不吞掉网络保存失败。
+Next.js当前Turbopack支持import.meta.glob，宿主使用固定本地路径自动发现插件/主题及组件表（eager元数据使用模块对象，避免生产默认导出差异），不生成中央组件文件，不允许配置远程JS地址。Node检查/导出工具采用同一目录规则；纯配置清单不导入组件/CSS。插件身份、页面ID、短代码ID/名称的重复声明是部署错误，明确失败；没有注册的展示组件显示主题占位提示，保留原配置，其余设置继续可用。组件实现发生异常时局部错误边界显示提示，不吞掉网络保存失败。
 
 ## 配置模型与主题控件
 
-页面设置只声明schema；model字段包含key、component、label、default及可选的props、fields/items。component是开放的有命名空间字符串，主题或插件可提供新组件，不限定项目内枚举。常用text、textarea、number、boolean、select、object/list等由主题实现。表单宿主负责递归值更新、保持未声明键、禁用与错误反馈；控件通过统一props读取value/onChange/schema，不发业务请求或直接存库。useFormComponent(name)按当前主题覆盖、插件提供、主题缺省依次解析，缺失时显示可读占位。JSON高级入口与结构化表单编辑同一配置；无效JSON保留输入、阻止保存并维持最后有效预览。
+页面设置只声明schema；model字段包含key、component、label、default及可选的props、fields。component是开放的有命名空间字符串，主题或插件可提供新组件，不限定项目内枚举。常用text、textarea、number、boolean、select、object/list等由主题实现。表单宿主负责递归值更新、保持未声明键、禁用与错误反馈；控件通过FormFieldProps读取field、value、onChange、disabled与renderFields，不发业务请求或直接存库。useThemeComponent(name, props)按当前主题及基础控件优先、插件补充新名称返回React节点；缺失时显示可读占位。JSON高级入口与结构化表单编辑同一配置；无效JSON保留输入、阻止保存并维持最后有效预览。
 
 页面设置options是公开JSON键值，不是表单白名单。32层/256KiB和整页512KiB是传输/存储上限；前端自行解释语义并安全输出。私有元数据沿独立权限接口，不通过公开options、组件props、SSR或共享快照泄露。
 

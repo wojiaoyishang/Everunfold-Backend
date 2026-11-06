@@ -164,6 +164,8 @@ def check_shortcodes(
                 node_executable,
                 "--import",
                 "tsx",
+                "--import",
+                "./tools/extensions/node.mjs",
                 "tools/fixtures/shortcodes-probe.mts",
                 str(directory),
                 node_id,

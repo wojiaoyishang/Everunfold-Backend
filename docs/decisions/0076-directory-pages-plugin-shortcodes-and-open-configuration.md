@@ -1,5 +1,7 @@
 # ADR0076：目录页面、插件短代码与开放配置
 
+**后续覆盖：**统一插件目录、开放具名控件及生成物不入Git由[ADR0077](0077-unified-plugin-theme-schema-and-artifact-boundaries.md)按用户最新要求实施；下文保留阶段决定。
+
 日期：2026-11-07。来源：用户明确要求页面放入src/custom_pages、短代码通过src/plugins内的插件触发注册，新增实现不再修改多个中央分支；移除registrations目录，配置按JSON键值宽松保存。用户随后明确缓存不用迁移，原var忽略与运行状态保持。
 
 ## 决定
