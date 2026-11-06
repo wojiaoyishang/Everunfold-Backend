@@ -5,7 +5,7 @@
 | 产物 | 当前版本 | 范围 |
 | --- | --- | --- |
 | auth-v0.1.schema.json | 0.2.0 | Cookie Session、CSRF、当前身份/授权、强制改密状态 |
-| accounts-v1.schema.json | 1.3.0 | 私有资料、会话/密码、用户/授权、Key/应用与受限头像库 |
+| accounts-v1.schema.json | 1.4.0 | 私有资料、会话/密码、用户/授权、身份预设、Key/应用与受限头像库 |
 | api-key-protocol-v1.schema.json | 1.0.0 | 应用签名校验、最小响应、签名回调/ACK与缓存边界 |
 | content-admin-v1.schema.json | 1.9.0 | 草稿、修订/分支/合并、语言关系与拥有者字段 |
 | collaboration-v1.schema.json | 2.0.0 | 持久协同、源码租约、光标和合并暂停 |
