@@ -247,8 +247,7 @@
           "type": "string"
         },
         "default": {
-          "$ref": "#/$defs/JsonValue",
-          "default": ""
+          "$ref": "#/$defs/JsonValue"
         },
         "min_length": {
           "default": 0,

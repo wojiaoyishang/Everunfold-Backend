@@ -14,7 +14,7 @@ class PageOption(PublicModel):
     key: str = Field(pattern=r"^[a-z][a-z0-9_]{0,47}$")
     label: str = Field(min_length=1, max_length=80)
     kind: Literal["text", "textarea", "url", "boolean", "select", "list"]
-    default: JsonValue = ""
+    default: JsonValue = Field(default_factory=str)
     min_length: int = Field(default=0, ge=0, le=10000)
     choice_labels: dict[str, str] = Field(default_factory=dict)
     max_length: int = Field(default=200, ge=1, le=10000)
