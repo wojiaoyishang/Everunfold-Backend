@@ -11,6 +11,7 @@ from app.modules.content.collaboration.models import CollaborationDocument
 from app.modules.content.draft_models import ContentDraft, DraftBranch, DraftMerge, DraftRevision
 from app.modules.content.models import Comment, Content, SiteSettings
 from app.modules.media.models import MediaAsset
+from app.modules.pages.models import ManagedPage
 from app.modules.settings.models import SettingsAudit, SettingsDeliveryEvent
 from app.modules.shortcodes.models import ShortcodeDefinition, ShortcodeVersion
 
@@ -26,6 +27,12 @@ async def require_unreferenced(
     # finds IDs embedded in URLs/HTML/Markdown; false positives intentionally block removal.
     token = str(asset.id)
     current = [
+        select(ManagedPage.id).where(
+            or_(
+                cast(ManagedPage.data, Text).contains(token),
+                cast(ManagedPage.published, Text).contains(token),
+            )
+        ),
         select(UserAvatar.id).where(
             UserAvatar.asset_id == asset.id, UserAvatar.removed_at.is_(None)
         ),

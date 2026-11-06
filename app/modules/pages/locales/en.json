@@ -1,0 +1,14 @@
+{
+  "页面不存在": "Page not found",
+  "页面已被修改，请刷新后合并输入": "This page changed. Refresh and merge your input.",
+  "请先恢复回收站中的页面": "Restore this page from the trash first.",
+  "页面地址与语言入口冲突": "The page path conflicts with a language route.",
+  "该地址已被其他内容或页面使用": "This path is already used by another page or content.",
+  "代码注册页面只允许修改已暴露的选项": "Registered pages only allow their declared options to be edited.",
+  "前端页面注册缺失或节点版本不一致": "The frontend page registration is missing or node versions differ.",
+  "页面选项格式无效": "Invalid page options.",
+  "自定义页面不接受注册选项": "Custom pages do not accept registered options.",
+  "只有管理员可以启用或修改页面脚本": "Only administrators can enable or modify page scripts.",
+  "页面内容过大": "The page source is too large.",
+  "代码注册页面可以停用，不能移除代码登记": "Registered pages may be disabled; their code registration cannot be removed here."
+}

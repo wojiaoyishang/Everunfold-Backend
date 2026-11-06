@@ -43,7 +43,9 @@ class ContentPublication:
             or draft.public_path
             or await initial_path(self.session, draft.title, draft.id, language=draft.language)
         )
-        if await self.session.scalar(
+        from app.modules.pages.paths import page_path_taken
+
+        if await page_path_taken(self.session, path) or await self.session.scalar(
             select(Content.id).where(Content.path == path, Content.id != draft.id)
         ):
             raise AuthFailure(409, 40954, "该地址已被其他内容使用，请修改路径")

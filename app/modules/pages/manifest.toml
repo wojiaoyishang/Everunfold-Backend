@@ -1,0 +1,4 @@
+id = "pages"
+version = "0.1.0"
+dependencies = []
+router_entrypoint = "app.modules.pages:router_init"

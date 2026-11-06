@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.modules.content.draft_models import ContentDraft
 from app.modules.content.editor_schema import content_path
 from app.modules.content.models import Content
+from app.modules.pages.paths import page_path_taken
 from app.modules.settings.languages import language_catalog
 
 
@@ -50,7 +51,11 @@ async def initial_path(
             )
             .limit(1)
         )
-        if occupied is None and other_draft is None:
+        if (
+            occupied is None
+            and other_draft is None
+            and not await page_path_taken(session, candidate)
+        ):
             return candidate
         counter += 1
         candidate = f"{root}-{counter}.html"

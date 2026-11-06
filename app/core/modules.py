@@ -24,6 +24,10 @@ def register_settings_module(application: FastAPI) -> None:
     _register_module(application, "settings")
 
 
+def register_pages_module(application: FastAPI) -> None:
+    _register_module(application, "pages")
+
+
 def register_shortcodes_module(application: FastAPI) -> None:
     _register_module(application, "shortcodes")
 

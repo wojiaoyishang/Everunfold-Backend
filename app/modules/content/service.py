@@ -235,6 +235,8 @@ class PublicContentService:
             comment_map[str(row.content_id)].append(projection)
         details = [self._detail(item, taxonomy_map, counts) for item in contents]
         await self._translations(details)
+        from app.modules.pages.service import public_pages
+
         return PublicSnapshot(
             source_epoch=str(stored.source_epoch),
             generation=stored.content_generation,
@@ -243,4 +245,5 @@ class PublicContentService:
             contents=details,
             comments=comment_map,
             taxonomies=taxonomies,
+            pages=await public_pages(self.repository.session),
         )

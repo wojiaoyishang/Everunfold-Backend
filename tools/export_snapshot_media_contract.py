@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 from app.modules.content.schemas import ContentDetail, ContentTranslation, MediaURL, PublicSnapshot
+from app.modules.pages.schemas import PublicManagedPage
 
 
 def main() -> None:
@@ -21,8 +22,16 @@ def main() -> None:
     for field in ("translation_group_id", "translations"):
         schema["definitions"]["ContentDetail"]["properties"][field] = properties[field]
     schema["definitions"]["ContentTranslation"] = ContentTranslation.model_json_schema()
-    schema["x-everunfold-contract-version"] = "0.6.0"
-    schema["description"] = "公开阅读快照 0.6；真实已发布语言关联与字体描述，兼容已有快照。"
+    pages = PublicManagedPage.model_json_schema(ref_template="#/definitions/{model}")
+    schema["definitions"].update(pages.pop("$defs", {}))
+    schema["definitions"]["PublicManagedPage"] = pages
+    schema["properties"]["pages"] = {
+        "type": "array",
+        "items": {"$ref": "#/definitions/PublicManagedPage"},
+        "default": [],
+    }
+    schema["x-everunfold-contract-version"] = "0.7.0"
+    schema["description"] = "公开阅读快照 0.7；加入已应用的独立页面，兼容已有快照。"
     target.write_text(
         json.dumps(schema, ensure_ascii=False, indent=2) + "\n", encoding="utf-8", newline="\n"
     )

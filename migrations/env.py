@@ -19,6 +19,7 @@ from app.modules.content import (
 )
 from app.modules.content.collaboration import models as collaboration_models  # noqa: F401
 from app.modules.media import models as media_models  # noqa: F401
+from app.modules.pages import models as page_models  # noqa: F401
 from app.modules.settings import models as settings_models  # noqa: F401
 from app.modules.shortcodes import models as shortcode_models  # noqa: F401
 

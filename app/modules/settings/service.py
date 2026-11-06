@@ -16,6 +16,7 @@ from app.modules.content.draft_models import ContentDraft
 from app.modules.content.models import Content, SiteSettings
 from app.modules.media.locking import lock_references
 from app.modules.media.service import MediaService
+from app.modules.pages.models import ManagedPage
 from app.modules.settings.defaults import public_settings, stored_settings
 from app.modules.settings.languages import language_route_pattern
 from app.modules.settings.models import NodePolicy, SettingsAudit, SettingsDeliveryEvent
@@ -226,10 +227,23 @@ class SettingsService:
         before = await self.resolve(public_settings(record.data))
         if before.site.language_catalog != payload.value.site.language_catalog:
             pattern = language_route_pattern(payload.value.site.language_catalog)
-            if pattern and await self.session.scalar(
-                select(Content.id)
-                .where(Content.path.op("~")(pattern), Content.publication_status == "published")
-                .limit(1)
+            if pattern and (
+                await self.session.scalar(
+                    select(Content.id)
+                    .where(Content.path.op("~")(pattern), Content.publication_status == "published")
+                    .limit(1)
+                )
+                or await self.session.scalar(
+                    select(ManagedPage.id)
+                    .where(
+                        ManagedPage.deleted_at.is_(None),
+                        or_(
+                            ManagedPage.data["path"].astext.op("~")(pattern),
+                            ManagedPage.published["path"].astext.op("~")(pattern),
+                        ),
+                    )
+                    .limit(1)
+                )
             ):
                 raise AuthFailure(
                     422, 42294, "语言前缀与已有公开地址冲突，请更换前缀或先调整内容地址"
