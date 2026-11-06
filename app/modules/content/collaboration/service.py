@@ -44,7 +44,7 @@ from app.modules.content.collaboration.schemas import (
     TicketState,
 )
 from app.modules.content.draft_models import ContentDraft, DraftReceipt
-from app.modules.content.draft_schemas import DraftFields, DraftSave
+from app.modules.content.draft_schemas import DraftFields, DraftSave, DraftSchedule
 from app.modules.content.draft_service import DraftService
 from app.modules.content.editor_schema import EditorSettings
 from app.modules.content.editor_service import editor_media
@@ -335,8 +335,8 @@ async def commit_draft(
     fields = project(decode(state), policy)
     committed_seq = payload.committed_seq
     if payload.block_sources:
-        if payload.action == "withdraw":
-            raise AuthFailure(422, 42270, "撤回不能提交本地正文修改")
+        if payload.action in {"withdraw", "cancel_schedule"}:
+            raise AuthFailure(422, 42270, "撤回或取消定时发布不能提交本地正文修改")
         fields = patched_fields(fields, payload.block_sources)
         receipt = await session.get(DraftReceipt, payload.operation_id)
         if receipt is None:
@@ -360,6 +360,9 @@ async def commit_draft(
         expected_revision=payload.expected_revision,
         fields=fields,
     )
+    if payload.action == "schedule":
+        assert payload.scheduled_for is not None
+        mutation = DraftSchedule(**mutation.model_dump(), scheduled_for=payload.scheduled_for)
     result = await DraftService(session, config).mutate(
         payload.action,
         mutation,

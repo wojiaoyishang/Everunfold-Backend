@@ -1,9 +1,9 @@
 """Private HTTP and socket protocol version 1; credentials never enter URLs."""
 
-from typing import Literal
+from typing import Literal, Self
 from uuid import UUID
 
-from pydantic import AwareDatetime, Field, field_validator
+from pydantic import AwareDatetime, Field, field_validator, model_validator
 
 from app.core.schemas import PublicModel, PublicResponse
 from app.modules.content.draft_schemas import (
@@ -56,12 +56,19 @@ class BlockSourcePatch(PublicModel):
 class CommitDraft(DraftMutation):
     epoch: UUID
     committed_seq: int = Field(ge=0)
-    action: Literal["save", "publish", "withdraw"] = "save"
+    action: Literal["save", "publish", "withdraw", "schedule", "cancel_schedule"] = "save"
+    scheduled_for: AwareDatetime | None = None
     note: str = Field(default="", max_length=200)
     block_sources: list[BlockSourcePatch] = Field(default_factory=list, max_length=128)
     visibility: Literal["public", "password"] = "public"
     opens_at: AwareDatetime | None = None
     access_password: str | None = Field(default=None, min_length=1, max_length=200, repr=False)
+
+    @model_validator(mode="after")
+    def dated_schedule(self) -> Self:
+        if (self.action == "schedule") != (self.scheduled_for is not None):
+            raise ValueError("定时发布必须指定时间，其他操作不接受发布时间")
+        return self
 
 
 class CommittedDraft(PublicModel):

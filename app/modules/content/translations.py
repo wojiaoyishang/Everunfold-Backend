@@ -225,6 +225,9 @@ class Translations:
                 item.deleted_at = now if action == "trash" else None
                 item.updated_at, item.revision = now, item.revision + 1
                 if action == "trash":
+                    from app.modules.content.scheduled_publication import clear_schedule
+
+                    clear_schedule(item)
                     refresh_public = await publication.withdraw(item) or refresh_public
                 self.session.add(
                     DraftRevision(

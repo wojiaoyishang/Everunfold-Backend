@@ -17,6 +17,7 @@ from app.modules.content.draft_schemas import (
     DraftMutation,
     DraftQuery,
     DraftSave,
+    DraftSchedule,
 )
 from app.modules.content.draft_service import DraftService, require_type
 from app.modules.content.editor_schema import EditorCatalog, EditorTermCreate
@@ -130,6 +131,24 @@ async def withdraw(payload: DraftMutation, ctx: Authorized) -> JSONResponseSucce
     return JSONResponseSuccess(
         data=await DraftService(ctx.service.session, ctx.service.config).mutate(
             "withdraw", payload, ctx.actor
+        )
+    )
+
+
+@router.post("/schedule", response_model=PublicResponse[DraftDetail])
+async def schedule(payload: DraftSchedule, ctx: Authorized) -> JSONResponseSuccess:
+    return JSONResponseSuccess(
+        data=await DraftService(ctx.service.session, ctx.service.config).mutate(
+            "schedule", payload, ctx.actor
+        )
+    )
+
+
+@router.post("/cancel-schedule", response_model=PublicResponse[DraftDetail])
+async def cancel_schedule(payload: DraftMutation, ctx: Authorized) -> JSONResponseSuccess:
+    return JSONResponseSuccess(
+        data=await DraftService(ctx.service.session, ctx.service.config).mutate(
+            "cancel_schedule", payload, ctx.actor
         )
     )
 

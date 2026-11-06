@@ -51,6 +51,7 @@ async def require_unreferenced(
             or_(
                 cast(ContentDraft.body, Text).contains(token),
                 cast(ContentDraft.editor_settings, Text).contains(token),
+                cast(ContentDraft.scheduled_payload, Text).contains(token),
             )
         ),
         select(SiteSettings.id).where(cast(SiteSettings.data, Text).contains(token)),

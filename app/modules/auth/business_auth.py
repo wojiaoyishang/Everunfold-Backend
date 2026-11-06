@@ -57,7 +57,7 @@ CONTENT_WRITE = {
     "translations/trash",
     "translations/restore",
 }
-CONTENT_PUBLISH = {"publish", "withdraw", "sync"}
+CONTENT_PUBLISH = {"publish", "withdraw", "sync", "schedule", "cancel-schedule"}
 MEDIA_READ = {
     "/v1/admin/fonts/query",
     "/v1/admin/icons/query",
@@ -79,7 +79,7 @@ def route_permission(path: str, method: str, body: dict[str, object]) -> tuple[s
         if (
             action == "collaboration/commit"
             and isinstance(body.get("action"), str)
-            and body.get("action") in {"publish", "withdraw"}
+            and body.get("action") in {"publish", "withdraw", "schedule", "cancel_schedule"}
         ):
             return "content:publish", False
         if action in CONTENT_READ:

@@ -103,6 +103,7 @@ class AuthBoundaryMiddleware:
                         "/v1/admin/content/create",
                         "/v1/admin/content/save",
                         "/v1/admin/content/publish",
+                        "/v1/admin/content/schedule",
                     }
                     else 1500000
                     if path == "/v1/admin/icons/upload"

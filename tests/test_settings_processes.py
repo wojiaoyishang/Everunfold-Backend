@@ -27,6 +27,7 @@ from tests.content_draft_process_checks import check_content_drafts
 from tests.content_publication_process_checks import check_content_publication
 from tests.media_library_process_checks import check_media_library
 from tests.media_process_checks import check_media_management
+from tests.scheduled_publication_process_checks import check_scheduled_publication
 from tests.shortcodes_process_checks import check_shortcodes
 from tests.test_auth_http_processes import free_port, uvicorn_process
 from tests.translation_process_checks import check_translations
@@ -326,7 +327,7 @@ def test_settings_atomic_save_restart_delivery_and_crash_replay(tmp_path: Path) 
             receiver.wait(timeout=8)
             restored_receiver = stack.enter_context(background(node_command, node_env, frontend))
             assert json.loads(applied_file.read_text(encoding="utf-8"))["revision"] == revision
-            stack.enter_context(background(worker_command, env, ROOT))
+            worker = stack.enter_context(background(worker_command, env, ROOT))
             wait_for(lambda: status() == "applied", timeout=25)
             assert len(list(applied_file.parent.glob(f"public-settings.{revision}.json"))) == 1
             state = client.get(f"/v1/admin/frontend-nodes/{node_id}/cache-policy").json()["data"]
@@ -648,6 +649,17 @@ def test_settings_atomic_save_restart_delivery_and_crash_replay(tmp_path: Path) 
             check_media_management(client, csrf, cookies, api_a, api_b, sql)
             check_media_library(client, csrf, cookies, api_a, api_b, sql, tmp_path / "uploads")
             check_content_drafts(client, csrf, cookies, api_a, api_b, sql)
+            check_scheduled_publication(
+                client,
+                csrf,
+                cookies,
+                api_a,
+                api_b,
+                sql,
+                wait_for,
+                worker,
+                lambda: stack.enter_context(background(worker_command, env, ROOT)),
+            )
             check_content_publication(
                 client,
                 csrf,

@@ -44,6 +44,14 @@ class ContentDraft(Base):
     __table_args__ = (
         CheckConstraint("revision >= 1", name="revision"),
         CheckConstraint("jsonb_typeof(body) = 'array'", name="body_blocks"),
+        CheckConstraint(
+            "(scheduled_for IS NULL AND scheduled_revision IS NULL "
+            "AND scheduled_payload IS NULL) OR "
+            "(scheduled_for IS NOT NULL AND scheduled_revision IS NOT NULL AND "
+            "scheduled_revision >= 1 AND scheduled_payload IS NOT NULL AND "
+            "jsonb_typeof(scheduled_payload) = 'object')",
+            name="publication_plan",
+        ),
         UniqueConstraint(
             "translation_group_id", "language", name="uq_content_drafts_group_language"
         ),
@@ -76,6 +84,10 @@ class ContentDraft(Base):
     published_revision: Mapped[int | None] = mapped_column(Integer)
     public_path: Mapped[str | None] = mapped_column(Text)
     published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    scheduled_for: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
+    scheduled_revision: Mapped[int | None] = mapped_column(Integer)
+    scheduled_payload: Mapped[dict[str, Any] | None] = mapped_column(JSONB(none_as_null=True))
+    schedule_error: Mapped[str | None] = mapped_column(String(40))
 
 
 class DraftRevision(Base):

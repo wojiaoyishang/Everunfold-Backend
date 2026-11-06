@@ -28,13 +28,14 @@ class ContentPublication:
     def __init__(self, session: AsyncSession, config: Settings) -> None:
         self.session, self.config = session, config
 
-    async def publish(self, draft: ContentDraft) -> None:
+    async def prepare(
+        self, draft: ContentDraft, *, now: datetime | None = None
+    ) -> tuple[EditorSettings, str]:
         if draft.type_id not in {"article", "shuoshuo"}:
             raise AuthFailure(422, 42254, "此类型尚未配置公开展示")
         if not any(str(block["content"]).strip() for block in draft.body):
             raise AuthFailure(422, 42255, "请填写正文后再发布")
-        now = datetime.now(UTC)
-        existing = await self.session.get(Content, draft.id)
+        now = now or datetime.now(UTC)
         settings = EditorSettings.model_validate(draft.editor_settings or {})
         from app.modules.content.content_paths import initial_path
 
@@ -50,13 +51,21 @@ class ContentPublication:
         ):
             raise AuthFailure(409, 40954, "该地址已被其他内容使用，请修改路径")
         if settings.display_published_at and settings.display_published_at > now:
-            raise AuthFailure(422, 42258, "展示时间不能晚于当前时间，定时发布尚未开放")
+            raise AuthFailure(422, 42258, "显示时间不能晚于实际发布时间，请使用定时发布设置")
         from app.modules.settings.languages import language_catalog, reserved_language_path
 
         if reserved_language_path(path, await language_catalog(self.session)):
             raise AuthFailure(422, 42295, "该地址由语言导航使用，请更换内容地址")
+        return settings, path
+
+    async def publish(self, draft: ContentDraft, *, published_at: datetime | None = None) -> None:
+        now = datetime.now(UTC)
+        settings, path = await self.prepare(draft, now=now)
+        existing = await self.session.get(Content, draft.id)
         draft.public_path = path
-        draft.published_at = settings.display_published_at or draft.published_at or now
+        draft.published_at = (
+            settings.display_published_at or draft.published_at or published_at or now
+        )
         draft.published_revision = draft.revision
         body = "\n\n".join(str(block["content"]) for block in draft.body)
         media = await editor_media(self.session, self.config, json.dumps(draft.body), settings)

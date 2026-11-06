@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import Literal, Self
 from uuid import UUID
 
-from pydantic import Field, model_validator
+from pydantic import AwareDatetime, Field, model_validator
 
 from app.core.schemas import PublicModel, PublicResponse
 from app.modules.content.editor_schema import EditorCatalog, EditorSettings, EditorTermCreate
@@ -73,6 +73,10 @@ class DraftSave(DraftMutation):
     fields: DraftFields
 
 
+class DraftSchedule(DraftSave):
+    scheduled_for: AwareDatetime
+
+
 class DraftSummary(PublicModel):
     id: UUID
     owner_id: UUID | None = None
@@ -87,6 +91,9 @@ class DraftSummary(PublicModel):
     published_revision: int | None = None
     public_path: str | None = None
     published_at: datetime | None = None
+    scheduled_for: datetime | None = None
+    scheduled_revision: int | None = None
+    schedule_error: str | None = None
     created_at: datetime
     updated_at: datetime
     language: str = "zh-CN"
@@ -171,6 +178,7 @@ class ContentAdminContract(PublicModel):
     lookup: DraftLookup
     create: DraftCreate
     save: DraftSave
+    schedule: DraftSchedule
     mutation: DraftMutation
     catalog: PublicResponse[DraftCatalog]
     detail: PublicResponse[DraftDetail]

@@ -31,6 +31,7 @@ from app.modules.content.draft_schemas import (
     DraftFields,
     DraftMutation,
     DraftSave,
+    DraftSchedule,
 )
 from app.modules.content.editor_schema import EditorSettings
 from app.modules.content.editor_service import editor_media
@@ -41,7 +42,9 @@ from app.modules.media.locking import lock_references
 from app.modules.media.models import MediaAsset
 from app.modules.settings.languages import require_language
 
-Action = Literal["create", "save", "trash", "restore", "publish", "withdraw"]
+Action = Literal[
+    "create", "save", "trash", "restore", "publish", "withdraw", "schedule", "cancel_schedule"
+]
 
 
 def require_type(type_id: str) -> ContentTypeDefinition:
@@ -167,7 +170,7 @@ class DraftService:
             row.revision += 1
             row.updated_at = now
         definition = require_type(row.type_id)
-        if isinstance(payload, DraftCreate | DraftSave):
+        if isinstance(payload, DraftCreate | DraftSave) and action != "cancel_schedule":
             if row.deleted_at:
                 raise AuthFailure(409, 40952, "请先从回收站恢复，再编辑")
             fields = payload.fields
@@ -208,6 +211,14 @@ class DraftService:
             if not row.deleted_at:
                 raise AuthFailure(409, 40952, "内容已经恢复")
             row.deleted_at = None
+        from app.modules.content.scheduled_publication import clear_schedule, schedule_publication
+
+        if action == "schedule":
+            if not isinstance(payload, DraftSchedule) or self.config is None:
+                raise RuntimeError("Scheduled publication needs a dated command and configuration")
+            await schedule_publication(self.session, self.config, row, payload, actor)
+        elif action in {"cancel_schedule", "publish", "withdraw", "trash"}:
+            clear_schedule(row)
         if action in {"publish", "withdraw"} or (action == "trash" and row.published_revision):
             if self.config is None:
                 raise RuntimeError("Publication requires configured delivery targets")

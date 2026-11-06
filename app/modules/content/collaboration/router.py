@@ -121,7 +121,7 @@ async def commit(payload: CommitDraft, request: Request, ctx: Authorized) -> JSO
         lock=True,
         draft_id=payload.id,
         capability="content:publish"
-        if payload.action in {"publish", "withdraw"}
+        if payload.action in {"publish", "withdraw", "schedule", "cancel_schedule"}
         else "content:write",
     )
     return JSONResponseSuccess(
