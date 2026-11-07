@@ -1,5 +1,15 @@
 # 后端交接状态
 
+## 最新交付：扩展偏好、节点目录与独立插件接入（2026-11-07）
+
+- 后端650a0f0发布settings1.12与节点目录，4dc394b完成显式迁移/错误文档及真实P0；前端d28bd75/aceee88/fd5d52d完成独立插件、动态主题和后台启停，约定ADR0079，实施前已保存archive/runtime-plugins-20261107。
+- PublicSettings.extensions保存主题选择/停用列表，沿原修订、事务、审计及可靠投递；GET /v1/admin/extensions使用settings权限。POST /internal/extensions/{node_id}校验真实socket IP AND节点Token、限制512KiB，只接收清单元数据，首次创建停用稿，后续保留页面数据。
+- 0027_extensions已显式迁移实际及测试库，SCHEMA_REVISION同步；Node目录/激活使用页面引用和站点设置同一锁。主题要求各启用节点登记一致描述，重新启用插件要求相同构建摘要，不符合返回42298且不改修订。
+- 最终完整真实数据库234 passed/197.03秒/退出0，含两API、PG/Redis、Worker/Scheduler、Node原可靠P0及扩展竞争/鉴权/持久投递；Ruff、457格式、mypy231通过。独立扩展P0轮次93.36秒通过。
+- 前端check290、隔离生产34私有入口/源码移除构建/后部署新增及编辑保护、真实中英/窄屏/主题与插件开关验收通过；原人物页指纹一致，最终偏好恢复实例默认及两插件启用，节点applied。自己的浏览器登出200，六服务及四个0.0.0.0端口/HTTP200保留。
+- 根cache并入前端var/cache；原var公开副本和业务数据位置保持。范围、失败修复和未实现能力见[共同验收](independent-plugins-verification.md)及[运行规范](../architecture/frontend-plugin-runtime.md)。没有运行时后端代码安装/自动迁移或万能异步RPC。共享文档与SHA同步，仅本地提交未push，实际设备地址和凭据不入交接。
+
+
 ## 最新交付：默认父主题、子主题与前台钩子（2026-11-07）
 
 - 本仓库仅同步共享规范/验收，没有后端业务代码、契约或迁移变更。 默认Argon，内置可运行的paper子主题；自动发现、多级继承、父组件组合、稳定ID单页模板、插入钩子及CSS父到子作用域输出已接通，见[规范](../architecture/frontend-themes.md)、[指南](../development/child-themes.md)与ADR0078。
