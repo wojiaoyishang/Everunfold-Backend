@@ -85,10 +85,11 @@ def published(ctx: AccountsTest) -> list[dict[str, Any]]:
 
 def test_page_draft_apply_retry_conflict_disable_and_restore(pages: AccountsTest) -> None:
     ctx = pages
-    draft = body(ctx)
+    draft = body(ctx, javascript_position="head")
     first = ctx.root.post("/v1/admin/pages/save", json=draft, headers=headers(ctx.root))
     assert first.status_code == 200, first.text
     row = first.json()["data"]
+    assert row["value"]["javascript_position"] == "head"
     assert not row["enabled"]
     assert all(p["id"] != row["id"] for p in published(ctx))
     assert (
@@ -105,16 +106,23 @@ def test_page_draft_apply_retry_conflict_disable_and_restore(pages: AccountsTest
     result = ctx.root.post("/v1/admin/pages/save", json=active, headers=headers(ctx.root))
     assert result.status_code == 200, result.text
     assert next(p for p in published(ctx) if p["id"] == row["id"])["html"] == draft["value"]["html"]
+    assert next(p for p in published(ctx) if p["id"] == row["id"])["javascript_position"] == "head"
     newer = {
         **active,
         "operation_id": str(uuid4()),
         "expected_revision": 2,
         "apply": False,
-        "value": {**active["value"], "html": "<p>Unpublished change</p>"},
+        "value": {
+            **active["value"],
+            "html": "<p>Unpublished change</p>",
+            "javascript_position": "body_end",
+        },
     }
     result = ctx.root.post("/v1/admin/pages/save", json=newer, headers=headers(ctx.root))
     assert result.status_code == 200
+    assert result.json()["data"]["value"]["javascript_position"] == "body_end"
     assert next(p for p in published(ctx) if p["id"] == row["id"])["html"] == draft["value"]["html"]
+    assert next(p for p in published(ctx) if p["id"] == row["id"])["javascript_position"] == "head"
     assert (
         ctx.root.post(
             "/v1/admin/pages/save",
@@ -139,13 +147,21 @@ def test_page_draft_apply_retry_conflict_disable_and_restore(pages: AccountsTest
     )
     assert restored.status_code == 200 and not restored.json()["data"]["enabled"]
     assert restored.json()["data"]["value"]["html"] == "<p>Unpublished change</p>"
+    assert restored.json()["data"]["value"]["javascript_position"] == "body_end"
 
 
+@pytest.mark.parametrize("position", ["head", "body_end"])
 def test_page_script_admin_session_without_password_and_csrf_boundaries(
     pages: AccountsTest,
+    position: str,
 ) -> None:
     ctx = pages
-    request = body(ctx, javascript='document.body.dataset.ran="yes";', javascript_enabled=True)
+    request = body(
+        ctx,
+        javascript='document.documentElement.dataset.ran="yes";',
+        javascript_enabled=True,
+        javascript_position=position,
+    )
     assert ctx.root.post("/v1/admin/pages/save", json=request).status_code == 403
     assert (
         ctx.root.post(
@@ -172,6 +188,10 @@ def test_page_script_admin_session_without_password_and_csrf_boundaries(
         headers=headers(ctx.root),
     )
     assert active.status_code == 200, active.text
+    assert (
+        next(p for p in published(ctx) if p["id"] == request["id"])["javascript_position"]
+        == position
+    )
     for path in ["/admin/captured", "/account", "/search", "//external.example", "/a/../bad"]:
         attempt = body(ctx, path=path)
         assert (
@@ -252,6 +272,18 @@ def test_code_page_deployment_options_and_node_versions(pages: AccountsTest) -> 
     }
     assert (
         ctx.root.post("/v1/admin/pages/save", json=invalid, headers=headers(ctx.root)).status_code
+        == 403
+    )
+    assert (
+        ctx.root.post(
+            "/v1/admin/pages/save",
+            json={
+                **request,
+                "operation_id": str(uuid4()),
+                "value": {**request["value"], "javascript_position": "head"},
+            },
+            headers=headers(ctx.root),
+        ).status_code
         == 403
     )
     result = ctx.root.post("/v1/admin/pages/save", json=request, headers=headers(ctx.root))

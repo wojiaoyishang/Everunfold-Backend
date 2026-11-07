@@ -787,6 +787,15 @@
           "title": "Javascript Enabled",
           "type": "boolean"
         },
+        "javascript_position": {
+          "default": "body_end",
+          "enum": [
+            "head",
+            "body_end"
+          ],
+          "title": "Javascript Position",
+          "type": "string"
+        },
         "options": {
           "additionalProperties": {
             "$ref": "#/$defs/JsonValue"
@@ -856,6 +865,15 @@
           "default": false,
           "title": "Javascript Enabled",
           "type": "boolean"
+        },
+        "javascript_position": {
+          "default": "body_end",
+          "enum": [
+            "head",
+            "body_end"
+          ],
+          "title": "Javascript Position",
+          "type": "string"
         },
         "options": {
           "additionalProperties": {
@@ -1286,7 +1304,7 @@
   "title": "PagesContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "1.5.0",
+  "x-everunfold-contract-version": "1.6.0",
   "x-everunfold-operations": [
     {
       "name": "setPageEnabled",

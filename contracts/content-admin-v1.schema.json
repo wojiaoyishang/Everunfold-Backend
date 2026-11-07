@@ -1749,6 +1749,15 @@
           "title": "Javascript Enabled",
           "type": "boolean"
         },
+        "javascript_position": {
+          "default": "body_end",
+          "enum": [
+            "head",
+            "body_end"
+          ],
+          "title": "Javascript Position",
+          "type": "string"
+        },
         "options": {
           "additionalProperties": {
             "$ref": "#/$defs/JsonValue"
@@ -2067,7 +2076,7 @@
       "additionalProperties": false,
       "properties": {
         "schema_version": {
-          "default": "0.8.0",
+          "default": "0.9.0",
           "enum": [
             "0.1.0",
             "0.2.0",
@@ -2076,7 +2085,8 @@
             "0.5.0",
             "0.6.0",
             "0.7.0",
-            "0.8.0"
+            "0.8.0",
+            "0.9.0"
           ],
           "title": "Schema Version",
           "type": "string"
@@ -2749,7 +2759,7 @@
   "title": "ContentAdminContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "1.12.0",
+  "x-everunfold-contract-version": "1.13.0",
   "x-everunfold-content-types": [
     {
       "id": "article",

@@ -181,7 +181,13 @@ class PagesService:
         value = payload.value.model_copy(deep=True)
         definition, available = await self.registration(row.implementation_id)
         if row.source == "registered":
-            if value.html or value.css or value.javascript or value.javascript_enabled:
+            if (
+                value.html
+                or value.css
+                or value.javascript
+                or value.javascript_enabled
+                or value.javascript_position != "body_end"
+            ):
                 raise AuthFailure(403, 40396, "代码注册页面只允许修改已暴露的选项")
             if payload.apply and value.enabled and not available:
                 raise AuthFailure(409, 40998, "前端页面注册缺失或节点版本不一致")

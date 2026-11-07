@@ -6,6 +6,16 @@ from pydantic import JsonValue, ValidationError
 from app.modules.pages.schemas import PageRegistration, PageValue
 
 
+def test_page_script_position_defaults_preserve_legacy_and_reject_unknown_values() -> None:
+    legacy = {"title": "Legacy", "path": "/legacy"}
+    assert PageValue.model_validate(legacy).javascript_position == "body_end"
+    head = PageValue.model_validate({**legacy, "javascript_position": "head"})
+    assert PageValue.model_validate_json(head.model_dump_json()).javascript_position == "head"
+    for position in (None, "before", "body", "HEAD", 1):
+        with pytest.raises(ValidationError):
+            PageValue.model_validate({**legacy, "javascript_position": position})
+
+
 def test_page_configuration_preserves_nested_values_and_arbitrary_keys() -> None:
     options: dict[str, JsonValue] = {
         "not-a-form-field": [None, False, 0, 2.5, {"中文": {"deep": [1, "two"]}}],

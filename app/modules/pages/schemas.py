@@ -81,6 +81,7 @@ class PageValue(PublicModel):
     css: str = Field(default="", max_length=100000)
     javascript: str = Field(default="", max_length=100000)
     javascript_enabled: bool = False
+    javascript_position: Literal["head", "body_end"] = "body_end"
     options: dict[str, JsonValue] = Field(default_factory=dict)
     _options = field_validator("options")(bounded_options)
     _path = field_validator("path")(content_path)

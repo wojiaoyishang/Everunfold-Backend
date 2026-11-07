@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://everunfold.local/contracts/public-v0.1.schema.json",
   "title": "PublicSnapshot",
-  "description": "公开阅读快照 0.8；自定义页面支持独立语言关联，兼容已有快照。",
+  "description": "公开阅读快照 0.9；自定义页面支持脚本执行位置，兼容已有快照。",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -17,7 +17,7 @@
   ],
   "properties": {
     "schema_version": {
-      "default": "0.8.0",
+      "default": "0.9.0",
       "enum": [
         "0.1.0",
         "0.2.0",
@@ -26,7 +26,8 @@
         "0.5.0",
         "0.6.0",
         "0.7.0",
-        "0.8.0"
+        "0.8.0",
+        "0.9.0"
       ],
       "title": "Schema Version",
       "type": "string"
@@ -715,6 +716,15 @@
           "title": "Javascript Enabled",
           "type": "boolean"
         },
+        "javascript_position": {
+          "default": "body_end",
+          "enum": [
+            "head",
+            "body_end"
+          ],
+          "title": "Javascript Position",
+          "type": "string"
+        },
         "options": {
           "additionalProperties": {
             "$ref": "#/definitions/JsonValue"
@@ -806,5 +816,5 @@
       "type": "object"
     }
   },
-  "x-everunfold-contract-version": "0.8.0"
+  "x-everunfold-contract-version": "0.9.0"
 }
