@@ -1,5 +1,11 @@
 # 后端交接状态
 
+## 最新交付：自定义页面脚本执行位置（2026-11-07）
+
+- 后端b6fbaf7、前端1b86420；PageValue.javascript_position新增head/body_end，缺字段默认body_end，现有JSONB工作稿/应用/公开快照保存；草稿与应用隔离，注册页拒绝作者位置，原管理员/CSRF及脚本开关保持。见[ADR0081](../decisions/0081-authored-page-script-position.md)。
+- pages1.6/public0.9/content-admin1.13权威契约发布并由前端精确锁定，无迁移或新依赖。主套件235通过/1跳过88.15秒，补齐前端测试目录后，该跨进程设置/可靠投递用例单独通过75.21秒，合计236项；Ruff、460格式、mypy231通过。
+- 前端check291、隔离生产34私有入口及真实Head/Body时序、保存、双栏、应用/撤回、中英/320/深色通过，见[验收](page-script-position-verification.md)。专用临时页已可恢复回收、前台404，自己的会话退出200；接收器/API/Worker已重载，六服务/0.0.0.0/HTTP200保持。共享文档/版本SHA同步，仅本地提交未push。
+
 ## 最新交付：Paper精简主题的共享交接（2026-11-07）
 
 - 本仓库仅同步文档；前端dd515fa将Paper升级为2.0.0，精简为theme.ts与styles.ts两个文件，完整继承Argon的组件、模板和钩子。变更及二次开发方式见[ADR0080](../decisions/0080-minimal-paper-starter-theme.md)和[子主题指南](../development/child-themes.md)。
