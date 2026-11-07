@@ -1,5 +1,12 @@
 # 后端交接状态
 
+## 最新交付：我的荣誉注册页面与本实例定向导入（2026-11-07）
+
+- 前端c74138a新增独立core.honors插件，经原节点清单自动登记/myhonor，未改后端代码/契约或迁移。本仓库仅同步共享[指南](../development/honors-page.md)、[ADR0082](../decisions/0082-honors-registered-page-plugin.md)及[验收](honors-page-verification.md)。
+- 按用户要求只读提取备份中这张页面的24条荣誉和22张不同原图，经现有Session/CSRF媒体/页面API保存与应用。revision/applied3，无待应用修改；来源指纹在私有metadata revision1，公开options不含导入元数据。源SQL与原图SHA保持，未执行整库/旧PHP或写原站。
+- 前端check296、独立包/隔离生产34私有入口及1440/390/320、中英/深色/证书/媒体选择/实时预览通过；实际/myhonor与/en/myhonor200。自己的API/浏览器会话退出200，六服务/0.0.0.0/HTTP200保持。未重跑上轮236项后端套件，不把历史结果作为本轮执行。
+- 当前新页保留启用，其他已有内容/人物页/站点设置未被本轮编辑；用户数据及导入过程不入Git。共享版本SHA同步，仅本地提交未push。
+
 ## 最新交付：自定义页面脚本执行位置（2026-11-07）
 
 - 后端b6fbaf7、前端1b86420；PageValue.javascript_position新增head/body_end，缺字段默认body_end，现有JSONB工作稿/应用/公开快照保存；草稿与应用隔离，注册页拒绝作者位置，原管理员/CSRF及脚本开关保持。见[ADR0081](../decisions/0081-authored-page-script-position.md)。
