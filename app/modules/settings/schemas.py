@@ -28,6 +28,7 @@ from app.modules.media.schemas import (
     MediaUpdate,
     MediaUpload,
 )
+from app.modules.settings.extensions_schemas import ExtensionCatalog, ExtensionPreferences
 from app.modules.settings.languages import LanguageCatalog
 from app.modules.shortcodes.schemas import (
     PreviewShortcode,
@@ -186,6 +187,7 @@ class ThemePreferences(SettingsModel):
 
 
 class PublicSettings(SettingsModel):
+    extensions: ExtensionPreferences = Field(default_factory=ExtensionPreferences)
     site: SitePreferences
     theme: ThemePreferences
     icon_urls: dict[str, str] = Field(default_factory=dict)
@@ -266,6 +268,7 @@ class DeliveryReceipt(SettingsModel):
 
 
 class SettingsContract(PublicModel):
+    extensions: PublicResponse[ExtensionCatalog]
     navigation_query: NavigationQuery
     navigation_catalog: PublicResponse[NavigationCatalog]
     shortcode_catalog: PublicResponse[ShortcodeCatalog]

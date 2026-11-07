@@ -15,7 +15,12 @@ from app.modules.settings.service import SettingsService
 
 
 async def install_manifest(
-    session: AsyncSession, config: Settings, node: str, manifest: PageManifest
+    session: AsyncSession,
+    config: Settings,
+    node: str,
+    manifest: PageManifest,
+    *,
+    commit: bool = True,
 ) -> None:
     if node not in config.frontends:
         raise ValueError("unknown frontend node")
@@ -53,4 +58,5 @@ async def install_manifest(
                 ).model_dump(mode="json"),
             )
             session.add(row)
-    await session.commit()
+    if commit:
+        await session.commit()

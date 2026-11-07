@@ -225,6 +225,12 @@ class SettingsService:
             raise AuthFailure(409, 40920, "设置已被修改，请重新读取后合并你的更改")
         payload.value = await self.resolve(payload.value)
         before = await self.resolve(public_settings(record.data))
+        if before.extensions != payload.value.extensions:
+            from app.modules.settings.extensions_service import validate_activation
+
+            await validate_activation(
+                self.session, self.config, payload.value.extensions, before.extensions
+            )
         if before.site.language_catalog != payload.value.site.language_catalog:
             pattern = language_route_pattern(payload.value.site.language_catalog)
             if pattern and (

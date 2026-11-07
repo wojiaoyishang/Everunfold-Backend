@@ -61,6 +61,20 @@ class PagesService:
             and nodes.issubset({row.node_id for row in active})
             and all(value == definitions[0] for value in definitions)
         )
+        site = await SettingsService(self.session, self.config).site()
+        from app.modules.settings.defaults import public_settings
+        from app.modules.settings.extensions_service import catalog as extension_catalog
+
+        disabled = set(public_settings(site.data).extensions.disabled_plugins)
+        if disabled:
+            inventory = await extension_catalog(self.session, self.config)
+            if any(
+                plugin.id in disabled and identity in plugin.page_ids
+                for node in inventory.nodes
+                if node.inventory
+                for plugin in node.inventory.plugins
+            ):
+                available = False
         return definitions[0], available
 
     async def item(self, row: ManagedPage) -> ManagedPageItem:

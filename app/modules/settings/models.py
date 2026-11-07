@@ -51,3 +51,10 @@ class SettingsDeliveryEvent(Base):
     lease_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
     applied_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     error: Mapped[str | None] = mapped_column(String(80))
+
+
+class FrontendExtensionInventory(Base):
+    __tablename__ = "frontend_extension_inventories"
+    node_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    data: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    reported_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

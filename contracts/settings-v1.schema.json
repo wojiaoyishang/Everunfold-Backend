@@ -275,6 +275,79 @@
       "title": "DeliveryState",
       "type": "object"
     },
+    "ExtensionCatalog": {
+      "additionalProperties": false,
+      "properties": {
+        "nodes": {
+          "items": {
+            "$ref": "#/$defs/NodeExtensionInventory"
+          },
+          "title": "Nodes",
+          "type": "array"
+        }
+      },
+      "required": [
+        "nodes"
+      ],
+      "title": "ExtensionCatalog",
+      "type": "object"
+    },
+    "ExtensionInventory": {
+      "additionalProperties": false,
+      "properties": {
+        "protocol": {
+          "const": "extensions-1",
+          "default": "extensions-1",
+          "title": "Protocol",
+          "type": "string"
+        },
+        "themes": {
+          "items": {
+            "$ref": "#/$defs/InstalledTheme"
+          },
+          "maxItems": 100,
+          "title": "Themes",
+          "type": "array"
+        },
+        "plugins": {
+          "items": {
+            "$ref": "#/$defs/InstalledPlugin"
+          },
+          "maxItems": 100,
+          "title": "Plugins",
+          "type": "array"
+        },
+        "pages": {
+          "$ref": "#/$defs/PageManifest"
+        }
+      },
+      "required": [
+        "pages"
+      ],
+      "title": "ExtensionInventory",
+      "type": "object"
+    },
+    "ExtensionPreferences": {
+      "additionalProperties": false,
+      "properties": {
+        "theme": {
+          "default": "",
+          "pattern": "^(?:[a-z][a-z0-9-]*)?$",
+          "title": "Theme",
+          "type": "string"
+        },
+        "disabled_plugins": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 100,
+          "title": "Disabled Plugins",
+          "type": "array"
+        }
+      },
+      "title": "ExtensionPreferences",
+      "type": "object"
+    },
     "FontAsset": {
       "additionalProperties": false,
       "properties": {
@@ -588,6 +661,106 @@
       "title": "ImageRecipe",
       "type": "object"
     },
+    "InstalledPlugin": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "pattern": "^[a-z][a-z0-9-]*(?:\\.[a-z][a-z0-9-]*)+$",
+          "title": "Id",
+          "type": "string"
+        },
+        "title": {
+          "maxLength": 80,
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        },
+        "description": {
+          "default": "",
+          "maxLength": 500,
+          "title": "Description",
+          "type": "string"
+        },
+        "build": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Build",
+          "type": "string"
+        },
+        "page_ids": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 100,
+          "title": "Page Ids",
+          "type": "array"
+        },
+        "components": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 200,
+          "title": "Components",
+          "type": "array"
+        },
+        "shortcodes": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 100,
+          "title": "Shortcodes",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "build"
+      ],
+      "title": "InstalledPlugin",
+      "type": "object"
+    },
+    "InstalledTheme": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "pattern": "^[a-z][a-z0-9-]*$",
+          "title": "Id",
+          "type": "string"
+        },
+        "title": {
+          "maxLength": 80,
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        },
+        "version": {
+          "default": "1.0.0",
+          "maxLength": 80,
+          "title": "Version",
+          "type": "string"
+        },
+        "parent": {
+          "anyOf": [
+            {
+              "pattern": "^[a-z][a-z0-9-]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Parent"
+        }
+      },
+      "required": [
+        "id",
+        "title"
+      ],
+      "title": "InstalledTheme",
+      "type": "object"
+    },
+    "JsonValue": {},
     "LanguageCatalog": {
       "additionalProperties": false,
       "properties": {
@@ -1434,6 +1607,49 @@
       "title": "NavigationResource",
       "type": "object"
     },
+    "NodeExtensionInventory": {
+      "additionalProperties": false,
+      "properties": {
+        "node_id": {
+          "title": "Node Id",
+          "type": "string"
+        },
+        "enabled": {
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "reported_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Reported At"
+        },
+        "inventory": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ExtensionInventory"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "node_id",
+        "enabled",
+        "reported_at",
+        "inventory"
+      ],
+      "title": "NodeExtensionInventory",
+      "type": "object"
+    },
     "NodeList": {
       "additionalProperties": false,
       "properties": {
@@ -1449,6 +1665,175 @@
         "nodes"
       ],
       "title": "NodeList",
+      "type": "object"
+    },
+    "PageManifest": {
+      "additionalProperties": false,
+      "properties": {
+        "protocol": {
+          "const": "pages-1",
+          "default": "pages-1",
+          "title": "Protocol",
+          "type": "string"
+        },
+        "pages": {
+          "items": {
+            "$ref": "#/$defs/PageRegistration"
+          },
+          "maxItems": 100,
+          "title": "Pages",
+          "type": "array"
+        }
+      },
+      "required": [
+        "pages"
+      ],
+      "title": "PageManifest",
+      "type": "object"
+    },
+    "PageOption": {
+      "additionalProperties": false,
+      "properties": {
+        "key": {
+          "pattern": "^[a-z][a-z0-9_]{0,47}$",
+          "title": "Key",
+          "type": "string"
+        },
+        "label": {
+          "maxLength": 80,
+          "minLength": 1,
+          "title": "Label",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "text",
+            "textarea",
+            "url",
+            "boolean",
+            "select",
+            "list"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "default": {
+          "$ref": "#/$defs/JsonValue"
+        },
+        "min_length": {
+          "default": 0,
+          "maximum": 10000,
+          "minimum": 0,
+          "title": "Min Length",
+          "type": "integer"
+        },
+        "choice_labels": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Choice Labels",
+          "type": "object"
+        },
+        "max_length": {
+          "default": 200,
+          "maximum": 10000,
+          "minimum": 1,
+          "title": "Max Length",
+          "type": "integer"
+        },
+        "max_items": {
+          "default": 100,
+          "maximum": 300,
+          "minimum": 1,
+          "title": "Max Items",
+          "type": "integer"
+        },
+        "choices": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 30,
+          "title": "Choices",
+          "type": "array"
+        },
+        "fields": {
+          "items": {
+            "$ref": "#/$defs/PageOption"
+          },
+          "maxItems": 20,
+          "title": "Fields",
+          "type": "array"
+        }
+      },
+      "required": [
+        "key",
+        "label",
+        "kind"
+      ],
+      "title": "PageOption",
+      "type": "object"
+    },
+    "PageRegistration": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "pattern": "^[a-z][a-z0-9_-]*\\.[a-z][a-z0-9_.-]{0,63}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "version": {
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+          "title": "Version",
+          "type": "string"
+        },
+        "title": {
+          "maxLength": 120,
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        },
+        "path": {
+          "maxLength": 500,
+          "minLength": 2,
+          "title": "Path",
+          "type": "string"
+        },
+        "description": {
+          "default": "",
+          "maxLength": 500,
+          "title": "Description",
+          "type": "string"
+        },
+        "fields": {
+          "items": {
+            "$ref": "#/$defs/PageOption"
+          },
+          "maxItems": 30,
+          "title": "Fields",
+          "type": "array"
+        },
+        "defaults": {
+          "additionalProperties": {
+            "$ref": "#/$defs/JsonValue"
+          },
+          "title": "Defaults",
+          "type": "object"
+        },
+        "settings_schema": {
+          "additionalProperties": {
+            "$ref": "#/$defs/JsonValue"
+          },
+          "title": "Settings Schema",
+          "type": "object"
+        }
+      },
+      "required": [
+        "id",
+        "version",
+        "title",
+        "path"
+      ],
+      "title": "PageRegistration",
       "type": "object"
     },
     "PolicyState": {
@@ -1506,6 +1891,34 @@
         "value"
       ],
       "title": "PreviewShortcode",
+      "type": "object"
+    },
+    "PublicResponse_ExtensionCatalog_": {
+      "additionalProperties": false,
+      "properties": {
+        "success": {
+          "default": true,
+          "title": "Success",
+          "type": "boolean"
+        },
+        "code": {
+          "default": 200,
+          "title": "Code",
+          "type": "integer"
+        },
+        "msg": {
+          "default": "请求成功",
+          "title": "Msg",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/ExtensionCatalog"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "title": "PublicResponse[ExtensionCatalog]",
       "type": "object"
     },
     "PublicResponse_FontCatalog_": {
@@ -1931,6 +2344,9 @@
     "PublicSettings": {
       "additionalProperties": false,
       "properties": {
+        "extensions": {
+          "$ref": "#/$defs/ExtensionPreferences"
+        },
         "site": {
           "$ref": "#/$defs/SitePreferences"
         },
@@ -2637,6 +3053,9 @@
   },
   "additionalProperties": false,
   "properties": {
+    "extensions": {
+      "$ref": "#/$defs/PublicResponse_ExtensionCatalog_"
+    },
     "navigation_query": {
       "$ref": "#/$defs/NavigationQuery"
     },
@@ -2738,6 +3157,7 @@
     }
   },
   "required": [
+    "extensions",
     "navigation_query",
     "navigation_catalog",
     "shortcode_catalog",
@@ -2775,7 +3195,7 @@
   "title": "SettingsContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "1.11.1",
+  "x-everunfold-contract-version": "1.12.0",
   "x-everunfold-language-regions": {
     "zh": "CN",
     "en": "GB",
@@ -2939,6 +3359,12 @@
     }
   ],
   "x-everunfold-operations": [
+    {
+      "name": "readExtensions",
+      "path": "/v1/admin/extensions",
+      "method": "GET",
+      "response": "extensions"
+    },
     {
       "name": "queryNavigationResources",
       "path": "/v1/admin/settings/navigation-resources",
