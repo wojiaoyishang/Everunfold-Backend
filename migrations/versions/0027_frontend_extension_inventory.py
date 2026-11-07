@@ -4,7 +4,7 @@ import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.dialects.postgresql import JSONB
 
-revision = "0027_frontend_extension_inventory"
+revision = "0027_extensions"
 down_revision = "0026_page_languages"
 branch_labels = None
 depends_on = None

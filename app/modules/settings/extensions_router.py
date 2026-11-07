@@ -8,14 +8,19 @@ from fastapi import APIRouter, Request
 from pydantic import ValidationError
 
 from app.core.responses import JSONResponseSuccess
-from app.core.schemas import PublicResponse
+from app.core.schemas import ErrorResponse, PublicResponse
 from app.modules.auth.router import auth_runtime
 from app.modules.auth.service import AuthFailure
 from app.modules.settings.extensions_schemas import ExtensionCatalog, ExtensionInventory
 from app.modules.settings.extensions_service import catalog, install_inventory
 from app.modules.settings.router import Authorized
 
-router = APIRouter()
+router = APIRouter(
+    tags=["extensions"],
+    responses={
+        status: {"model": ErrorResponse} for status in (401, 403, 404, 409, 413, 415, 422, 500, 503)
+    },
+)
 
 
 @router.get("/v1/admin/extensions", response_model=PublicResponse[ExtensionCatalog])

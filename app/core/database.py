@@ -4,7 +4,7 @@ from sqlalchemy import MetaData, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
 
-SCHEMA_REVISION = "0026_page_languages"
+SCHEMA_REVISION = "0027_extensions"
 
 
 class Base(DeclarativeBase):

@@ -42,7 +42,7 @@ def test_activation_defaults_round_trip_and_invalid_identifiers() -> None:
 def test_inventory_ownership_duplicate_and_parent_cycle_validation() -> None:
     value = manifest()
     ExtensionInventory.model_validate(value)
-    for change in [
+    changes: list[dict[str, Any]] = [
         {"themes": [{"id": "paper", "title": "Paper", "parent": "absent"}]},
         {"themes": [{"id": "paper", "title": "Paper", "parent": "paper"}]},
         {"plugins": [value["plugins"][0], value["plugins"][0]]},
@@ -54,7 +54,8 @@ def test_inventory_ownership_duplicate_and_parent_cycle_validation() -> None:
                 ],
             }
         },
-    ]:
+    ]
+    for change in changes:
         with pytest.raises(ValidationError):
             ExtensionInventory.model_validate({**value, **change})
 

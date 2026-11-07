@@ -25,6 +25,7 @@ from sqlalchemy.engine import make_url
 from app.core.config import load_settings
 from tests.content_draft_process_checks import check_content_drafts
 from tests.content_publication_process_checks import check_content_publication
+from tests.extensions_process_checks import check_extensions
 from tests.media_library_process_checks import check_media_library
 from tests.media_process_checks import check_media_management
 from tests.scheduled_publication_process_checks import check_scheduled_publication
@@ -148,6 +149,7 @@ def test_settings_atomic_save_restart_delivery_and_crash_replay(tmp_path: Path) 
         **os.environ,
         "CONFIG_FILE": str(config_file),
         "TEST_SETTINGS_TOKEN": token,
+        "TEST_REVERSE_TOKEN": token,
         "PYTHONIOENCODING": "utf-8",
     }
     env.pop("DATABASE_URL", None)
@@ -724,6 +726,18 @@ def test_settings_atomic_save_restart_delivery_and_crash_replay(tmp_path: Path) 
                 node_env,
             )
             check_translations(client, csrf, cookies, api_a, api_b)
+            check_extensions(
+                client,
+                csrf,
+                cookies,
+                api_a,
+                api_b,
+                wait_for,
+                node_id,
+                epoch,
+                tmp_path / "applied",
+                token,
+            )
     finally:
         if database_tunnel is not None:
             database_tunnel.terminate()
