@@ -28,7 +28,12 @@ from app.modules.media.schemas import (
     MediaUpdate,
     MediaUpload,
 )
-from app.modules.settings.extensions_schemas import ExtensionCatalog, ExtensionPreferences
+from app.modules.settings.extensions_schemas import (
+    ExtensionCatalog,
+    ExtensionPreferences,
+    ExtensionUsage,
+    ExtensionUsageQuery,
+)
 from app.modules.settings.languages import LanguageCatalog
 from app.modules.shortcodes.schemas import (
     PreviewShortcode,
@@ -269,6 +274,8 @@ class DeliveryReceipt(SettingsModel):
 
 class SettingsContract(PublicModel):
     extensions: PublicResponse[ExtensionCatalog]
+    extension_usage_query: ExtensionUsageQuery
+    extension_usage: PublicResponse[ExtensionUsage]
     navigation_query: NavigationQuery
     navigation_catalog: PublicResponse[NavigationCatalog]
     shortcode_catalog: PublicResponse[ShortcodeCatalog]

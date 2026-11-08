@@ -1,7 +1,7 @@
 """Deploy-owned extension inventories and public activation preferences."""
 
 from datetime import datetime
-from typing import Literal, Self
+from typing import Annotated, Literal, Self
 
 from pydantic import Field, model_validator
 
@@ -83,3 +83,21 @@ class NodeExtensionInventory(PublicModel):
 
 class ExtensionCatalog(PublicModel):
     nodes: list[NodeExtensionInventory]
+
+
+class ExtensionUsageQuery(PublicModel):
+    plugin_ids: list[Annotated[str, Field(pattern=PluginId)]] = Field(min_length=1, max_length=100)
+
+
+class PluginUsage(PublicModel):
+    plugin_id: str
+    title: str
+    registered: bool
+    applied_pages: int = Field(default=0, ge=0)
+    published_contents: int = Field(default=0, ge=0)
+    scheduled_contents: int = Field(default=0, ge=0)
+
+
+class ExtensionUsage(PublicModel):
+    scanned_at: datetime
+    plugins: list[PluginUsage]

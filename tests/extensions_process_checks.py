@@ -5,7 +5,7 @@ import json
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any
-from uuid import NAMESPACE_URL, uuid5
+from uuid import NAMESPACE_URL, uuid4, uuid5
 
 import httpx2 as httpx
 
@@ -67,6 +67,34 @@ def check_extensions(
     assert deployed.json()["data"]["nodes"][0]["inventory"]["plugins"][0]["id"] == "extension.p0"
     before = client.get(f"/v1/admin/pages/{identity}").json()["data"]
     assert before["available"] is True
+    applied_page = client.post(
+        "/v1/admin/pages/save",
+        json={
+            "id": identity,
+            "expected_revision": before["revision"],
+            "operation_id": str(uuid4()),
+            "value": {**before["value"], "enabled": True},
+            "apply": True,
+        },
+        headers=csrf,
+    )
+    assert applied_page.status_code == 200, applied_page.text
+    before = applied_page.json()["data"]
+
+    def listed() -> bool:
+        return any(
+            row["id"] == identity for row in client.get("/v1/admin/pages").json()["data"]["items"]
+        )
+
+    def usage() -> None:
+        result = client.post(
+            "/v1/admin/extensions/usage", json={"plugin_ids": ["extension.p0"]}, headers=csrf
+        )
+        assert result.status_code == 200, result.text
+        assert result.json()["data"]["plugins"][0]["applied_pages"] == 1
+
+    assert listed()
+    usage()
     state = client.get("/v1/admin/settings").json()["data"]
     value = copy.deepcopy(state["value"])
     value["extensions"]["theme"] = "missing"
@@ -94,6 +122,8 @@ def check_extensions(
     assert sorted(result.status_code for result in results) == [200, 409]
     after = client.get(f"/v1/admin/pages/{identity}").json()["data"]
     assert after["available"] is False and after["value"] == before["value"]
+    assert not listed()
+    usage()
     revision = state["revision"] + 1
     applied = directory / node_id / epoch / f"public-settings.{revision}.json"
     wait_for(applied.exists)
@@ -109,6 +139,8 @@ def check_extensions(
     restored = client.get(f"/v1/admin/pages/{identity}").json()["data"]
     assert restored["available"] is True
     assert restored["value"] == before["value"] and restored["revision"] == before["revision"]
+    assert listed()
+    usage()
     wait_for(
         lambda: (
             client.get("/v1/admin/settings").json()["data"]["delivery"][0]["status"] == "applied"

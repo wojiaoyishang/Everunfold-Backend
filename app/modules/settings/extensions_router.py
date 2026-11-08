@@ -11,7 +11,13 @@ from app.core.responses import JSONResponseSuccess
 from app.core.schemas import ErrorResponse, PublicResponse
 from app.modules.auth.router import auth_runtime
 from app.modules.auth.service import AuthFailure
-from app.modules.settings.extensions_schemas import ExtensionCatalog, ExtensionInventory
+from app.modules.settings.extension_usage import installed_plugins, scan_usage
+from app.modules.settings.extensions_schemas import (
+    ExtensionCatalog,
+    ExtensionInventory,
+    ExtensionUsage,
+    ExtensionUsageQuery,
+)
 from app.modules.settings.extensions_service import catalog, install_inventory
 from app.modules.settings.router import Authorized
 
@@ -26,6 +32,17 @@ router = APIRouter(
 @router.get("/v1/admin/extensions", response_model=PublicResponse[ExtensionCatalog])
 async def read_extensions(ctx: Authorized) -> JSONResponseSuccess:
     return JSONResponseSuccess(data=await catalog(ctx.service.session, ctx.service.config))
+
+
+@router.post("/v1/admin/extensions/usage", response_model=PublicResponse[ExtensionUsage])
+async def check_extension_usage(
+    payload: ExtensionUsageQuery, ctx: Authorized
+) -> JSONResponseSuccess:
+    return JSONResponseSuccess(
+        data=await scan_usage(
+            ctx.service.session, await installed_plugins(ctx.service.session), payload.plugin_ids
+        )
+    )
 
 
 @router.post("/internal/extensions/{node_id}")

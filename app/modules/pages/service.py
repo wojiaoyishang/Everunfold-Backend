@@ -114,7 +114,7 @@ class PagesService:
         items = []
         for row in rows:
             item = await self.item(row)
-            if not item.is_original:
+            if not item.is_original or (item.source == "registered" and not item.available):
                 continue
             items.append(
                 ManagedPageSummary(

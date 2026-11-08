@@ -92,6 +92,8 @@ def route_permission(path: str, method: str, body: dict[str, object]) -> tuple[s
         return "media:read", True
     if path == "/v1/admin/settings/navigation-resources":
         return "settings:read", True
+    if path == "/v1/admin/extensions/usage":
+        return "settings:write", True
     if path in MEDIA_UPLOAD:
         return "media:upload", False
     if path in MEDIA_WRITE:

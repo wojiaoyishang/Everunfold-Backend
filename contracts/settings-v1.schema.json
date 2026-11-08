@@ -348,6 +348,49 @@
       "title": "ExtensionPreferences",
       "type": "object"
     },
+    "ExtensionUsage": {
+      "additionalProperties": false,
+      "properties": {
+        "scanned_at": {
+          "format": "date-time",
+          "title": "Scanned At",
+          "type": "string"
+        },
+        "plugins": {
+          "items": {
+            "$ref": "#/$defs/PluginUsage"
+          },
+          "title": "Plugins",
+          "type": "array"
+        }
+      },
+      "required": [
+        "scanned_at",
+        "plugins"
+      ],
+      "title": "ExtensionUsage",
+      "type": "object"
+    },
+    "ExtensionUsageQuery": {
+      "additionalProperties": false,
+      "properties": {
+        "plugin_ids": {
+          "items": {
+            "pattern": "^[a-z][a-z0-9-]*(?:\\.[a-z][a-z0-9-]*)+$",
+            "type": "string"
+          },
+          "maxItems": 100,
+          "minItems": 1,
+          "title": "Plugin Ids",
+          "type": "array"
+        }
+      },
+      "required": [
+        "plugin_ids"
+      ],
+      "title": "ExtensionUsageQuery",
+      "type": "object"
+    },
     "FontAsset": {
       "additionalProperties": false,
       "properties": {
@@ -1836,6 +1879,48 @@
       "title": "PageRegistration",
       "type": "object"
     },
+    "PluginUsage": {
+      "additionalProperties": false,
+      "properties": {
+        "plugin_id": {
+          "title": "Plugin Id",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "registered": {
+          "title": "Registered",
+          "type": "boolean"
+        },
+        "applied_pages": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Applied Pages",
+          "type": "integer"
+        },
+        "published_contents": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Published Contents",
+          "type": "integer"
+        },
+        "scheduled_contents": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Scheduled Contents",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "plugin_id",
+        "title",
+        "registered"
+      ],
+      "title": "PluginUsage",
+      "type": "object"
+    },
     "PolicyState": {
       "additionalProperties": false,
       "properties": {
@@ -1919,6 +2004,34 @@
         "data"
       ],
       "title": "PublicResponse[ExtensionCatalog]",
+      "type": "object"
+    },
+    "PublicResponse_ExtensionUsage_": {
+      "additionalProperties": false,
+      "properties": {
+        "success": {
+          "default": true,
+          "title": "Success",
+          "type": "boolean"
+        },
+        "code": {
+          "default": 200,
+          "title": "Code",
+          "type": "integer"
+        },
+        "msg": {
+          "default": "请求成功",
+          "title": "Msg",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/ExtensionUsage"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "title": "PublicResponse[ExtensionUsage]",
       "type": "object"
     },
     "PublicResponse_FontCatalog_": {
@@ -3056,6 +3169,12 @@
     "extensions": {
       "$ref": "#/$defs/PublicResponse_ExtensionCatalog_"
     },
+    "extension_usage_query": {
+      "$ref": "#/$defs/ExtensionUsageQuery"
+    },
+    "extension_usage": {
+      "$ref": "#/$defs/PublicResponse_ExtensionUsage_"
+    },
     "navigation_query": {
       "$ref": "#/$defs/NavigationQuery"
     },
@@ -3158,6 +3277,8 @@
   },
   "required": [
     "extensions",
+    "extension_usage_query",
+    "extension_usage",
     "navigation_query",
     "navigation_catalog",
     "shortcode_catalog",
@@ -3195,7 +3316,7 @@
   "title": "SettingsContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "1.12.0",
+  "x-everunfold-contract-version": "1.13.0",
   "x-everunfold-language-regions": {
     "zh": "CN",
     "en": "GB",
@@ -3359,6 +3480,13 @@
     }
   ],
   "x-everunfold-operations": [
+    {
+      "name": "queryExtensionUsage",
+      "path": "/v1/admin/extensions/usage",
+      "method": "POST",
+      "input": "extension_usage_query",
+      "response": "extension_usage"
+    },
     {
       "name": "readExtensions",
       "path": "/v1/admin/extensions",
