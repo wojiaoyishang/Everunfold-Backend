@@ -50,7 +50,8 @@
           "enum": [
             "public",
             "password",
-            "scheduled"
+            "scheduled",
+            "captcha"
           ],
           "title": "Access",
           "type": "string"
@@ -334,7 +335,8 @@
       "enum": [
         "public",
         "password",
-        "scheduled"
+        "scheduled",
+        "captcha"
       ],
       "title": "Access",
       "type": "string"
@@ -379,6 +381,6 @@
   "title": "ContentPresentation",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "0.2.0-preview.1",
+  "x-everunfold-contract-version": "0.2.0-preview.2",
   "description": "Draft presentation contract. No HTTP endpoint or database migration is installed. Locked records omit body, excerpt and media. Viewer-specific state is separate."
 }

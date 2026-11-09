@@ -43,7 +43,7 @@ class ContentPresentation(PublicModel):
     seo_title: str = ""
     seo_description: str = ""
     reaction_count: int = Field(ge=0)
-    access: Literal["public", "password", "scheduled"]
+    access: Literal["public", "password", "scheduled", "captcha"]
     opens_at: datetime | None
 
     @model_validator(mode="after")
