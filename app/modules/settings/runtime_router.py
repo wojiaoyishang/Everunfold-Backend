@@ -93,6 +93,7 @@ async def overview(ctx: Authorized) -> RuntimeOverview:
                 id=key,
                 restarts=max(0, counts.get(key, 0) - 1),
                 title=spec.title,
+                handler=spec.handler,
                 plugin=plugin,
                 kind=spec.kind,
                 enabled=plans[key].enabled if key in plans else spec.enabled,
@@ -136,7 +137,25 @@ async def control(payload: RuntimeCommand, ctx: Authorized) -> JSONResponseSucce
     )
     if plan is None:
         raise AuthFailure(409, 40998, "请等待 Scheduler 登记任务")
-    if payload.action == "run":
+    audit: dict[str, str | bool] = {"task_id": plan.id, "action": payload.action}
+    if payload.action == "debug_run":
+        if entry[1].kind != "periodic":
+            raise AuthFailure(403, 40364, "开发测试只支持 Worker 有限任务")
+        if not plan.enabled:
+            raise AuthFailure(403, 40364, "任务计划已停用，请先明确启用后测试")
+        active = await session.scalar(
+            select(TaskRun)
+            .where(TaskRun.task_id == plan.id, TaskRun.status.in_(["queued", "running"]))
+            .order_by(TaskRun.planned_at)
+            .limit(1)
+        )
+        reused = active is not None
+        if active is None:
+            active = TaskRun(task_id=plan.id, planned_at=now())
+            session.add(active)
+            await session.flush()
+        audit.update({"run_id": str(active.id), "reused": reused})
+    elif payload.action == "run":
         if not entry[1].manual or not plan.enabled:
             raise AuthFailure(403, 40364, "此任务不允许手动执行")
         plan.next_at = now()
@@ -149,7 +168,7 @@ async def control(payload: RuntimeCommand, ctx: Authorized) -> JSONResponseSucce
             user_id=ctx.actor.id,
             resource="runtime-task",
             revision=1,
-            changes={"task_id": plan.id, "action": payload.action},
+            changes=audit,
         )
     )
     await session.commit()

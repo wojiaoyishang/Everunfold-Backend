@@ -27,6 +27,7 @@ class RuntimePlan(PublicModel):
     restarts: int = 0
     id: str
     title: str
+    handler: str = ""
     plugin: str
     kind: str
     enabled: bool
@@ -59,4 +60,4 @@ class RuntimeOverview(PublicModel):
 
 class RuntimeCommand(PublicModel):
     task_id: str = Field(min_length=1, max_length=128)
-    action: Literal["enable", "disable", "run"]
+    action: Literal["enable", "disable", "run", "debug_run"]

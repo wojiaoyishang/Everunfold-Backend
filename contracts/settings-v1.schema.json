@@ -3111,7 +3111,8 @@
           "enum": [
             "enable",
             "disable",
-            "run"
+            "run",
+            "debug_run"
           ],
           "title": "Action",
           "type": "string"
@@ -3284,6 +3285,11 @@
         },
         "title": {
           "title": "Title",
+          "type": "string"
+        },
+        "handler": {
+          "default": "",
+          "title": "Handler",
           "type": "string"
         },
         "plugin": {
@@ -4562,7 +4568,7 @@
   "title": "SettingsContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "1.21.0",
+  "x-everunfold-contract-version": "1.22.0",
   "x-everunfold-language-regions": {
     "zh": "CN",
     "en": "GB",
