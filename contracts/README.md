@@ -10,7 +10,7 @@
 | content-admin-v1.schema.json | 1.13.0 | 草稿、修订/分支/合并、语言关系及页面预览脚本执行位置 |
 | collaboration-v1.schema.json | 2.1.0 | 持久协同、源码租约、光标/合并暂停及提交回执拥有者字段 |
 | content-access-v1.schema.json | 1.1.0 | 私有受限正文读取 |
-| settings-v1.schema.json | 1.13.0 | 站点/主题/系统、语言目录、插件启停使用检查 |
+| settings-v1.schema.json | 1.14.0 | 站点/主题/系统、语言目录、插件启停检查、主题展示与开发者元数据 |
 | public-v0.1.schema.json | 0.9.0 | 可公开的完整快照、多语言与页面脚本执行位置 |
 | pages-v1.schema.json | 1.6.0 | 页面草稿/应用、可信清单、私有元数据与脚本执行位置 |
 | comment-likes-v0.1.schema.json | 0.1.0 | 匿名历史评论点赞 |

@@ -794,6 +794,47 @@
           ],
           "default": null,
           "title": "Parent"
+        },
+        "description": {
+          "default": "",
+          "maxLength": 500,
+          "title": "Description",
+          "type": "string"
+        },
+        "preview": {
+          "default": "",
+          "maxLength": 2048,
+          "title": "Preview",
+          "type": "string"
+        },
+        "author": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ThemeAuthor"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "homepage": {
+          "default": "",
+          "maxLength": 2048,
+          "title": "Homepage",
+          "type": "string"
+        },
+        "repository": {
+          "default": "",
+          "maxLength": 2048,
+          "title": "Repository",
+          "type": "string"
+        },
+        "license": {
+          "default": "",
+          "maxLength": 100,
+          "title": "License",
+          "type": "string"
         }
       },
       "required": [
@@ -3073,6 +3114,28 @@
       "title": "SitePreferences",
       "type": "object"
     },
+    "ThemeAuthor": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "maxLength": 100,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "url": {
+          "default": "",
+          "maxLength": 2048,
+          "title": "Url",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "ThemeAuthor",
+      "type": "object"
+    },
     "ThemePreferences": {
       "additionalProperties": false,
       "properties": {
@@ -3316,7 +3379,7 @@
   "title": "SettingsContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "1.13.0",
+  "x-everunfold-contract-version": "1.14.0",
   "x-everunfold-language-regions": {
     "zh": "CN",
     "en": "GB",

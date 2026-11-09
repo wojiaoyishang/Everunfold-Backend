@@ -28,7 +28,16 @@ def check_extensions(
         "protocol": "extensions-1",
         "themes": [
             {"id": "argon", "title": "Argon"},
-            {"id": "paper", "title": "Paper", "parent": "argon"},
+            {
+                "id": "paper",
+                "title": "Paper",
+                "parent": "argon",
+                "preview": "/themes/paper.svg",
+                "description": "Minimal theme",
+                "author": {"name": "Everunfold", "url": "https://example.test/author"},
+                "repository": "https://example.test/source",
+                "license": "Test license",
+            },
         ],
         "plugins": [
             {
@@ -65,6 +74,8 @@ def check_extensions(
     deployed = client.get("/v1/admin/extensions")
     assert deployed.status_code == 200 and "no-store" in deployed.headers["cache-control"]
     assert deployed.json()["data"]["nodes"][0]["inventory"]["plugins"][0]["id"] == "extension.p0"
+    paper = deployed.json()["data"]["nodes"][0]["inventory"]["themes"][1]
+    assert paper["preview"] == "/themes/paper.svg" and paper["author"]["name"] == "Everunfold"
     before = client.get(f"/v1/admin/pages/{identity}").json()["data"]
     assert before["available"] is True
     applied_page = client.post(

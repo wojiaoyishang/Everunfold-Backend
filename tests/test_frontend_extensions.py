@@ -9,7 +9,11 @@ from pydantic import ValidationError
 from app.core.config import FrontendConfig, InternalAuthConfig, Settings
 from app.entrypoints.api import create_app
 from app.modules.settings.defaults import public_settings, stored_settings
-from app.modules.settings.extensions_schemas import ExtensionInventory, ExtensionPreferences
+from app.modules.settings.extensions_schemas import (
+    ExtensionInventory,
+    ExtensionPreferences,
+    InstalledTheme,
+)
 
 
 def manifest() -> dict[str, Any]:
@@ -58,6 +62,51 @@ def test_inventory_ownership_duplicate_and_parent_cycle_validation() -> None:
     for change in changes:
         with pytest.raises(ValidationError):
             ExtensionInventory.model_validate({**value, **change})
+
+
+def test_theme_metadata_is_optional_bounded_and_keeps_developer_information() -> None:
+    theme = InstalledTheme.model_validate(
+        {
+            "id": "paper",
+            "title": "Paper",
+            "version": "2.0.0",
+            "parent": "argon",
+            "description": "A minimal child theme",
+            "preview": "/themes/paper.svg",
+            "author": {"name": "A developer", "url": "https://example.test/author"},
+            "homepage": "https://example.test/theme",
+            "repository": "https://example.test/source",
+            "license": "Custom license",
+        }
+    )
+    assert InstalledTheme.model_validate(theme.model_dump()) == theme
+    assert theme.author is not None and theme.author.name == "A developer"
+    legacy = InstalledTheme(id="argon", title="Argon")
+    assert legacy.author is None and legacy.preview == ""
+    for change in ({"description": "x" * 501}, {"author": {"name": " "}}, {"license": "x" * 101}):
+        with pytest.raises(ValidationError):
+            InstalledTheme.model_validate({**theme.model_dump(), **change})
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "javascript:alert(1)",
+        "//example.test/image",
+        "data:image/svg+xml,x",
+        "https://name:secret@example.test",
+        "https://example.test/\nimage",
+        "/\\bad",
+    ],
+)
+def test_theme_metadata_rejects_executable_or_credentialed_urls(url: str) -> None:
+    for field in ("preview", "homepage", "repository"):
+        with pytest.raises(ValidationError):
+            InstalledTheme.model_validate({"id": "argon", "title": "Argon", field: url})
+    with pytest.raises(ValidationError):
+        InstalledTheme.model_validate(
+            {"id": "argon", "title": "Argon", "author": {"name": "A", "url": url}}
+        )
 
 
 def test_internal_registration_requires_real_peer_and_token(

@@ -2,7 +2,6 @@
 
 from datetime import datetime
 from typing import Literal, Self
-from urllib.parse import urlsplit
 from uuid import UUID
 
 from pydantic import ConfigDict, Field, field_validator, model_validator
@@ -35,6 +34,7 @@ from app.modules.settings.extensions_schemas import (
     ExtensionUsageQuery,
 )
 from app.modules.settings.languages import LanguageCatalog
+from app.modules.settings.urls import safe_url as safe_url
 from app.modules.shortcodes.schemas import (
     PreviewShortcode,
     PublicShortcode,
@@ -49,24 +49,6 @@ from app.modules.shortcodes.schemas import (
 
 class SettingsModel(PublicModel):
     model_config = ConfigDict(extra="forbid", strict=True)
-
-
-def safe_url(value: str) -> str:
-    if not value:
-        return value
-    if any(ord(char) < 32 for char in value) or "\\" in value:
-        raise ValueError("invalid URL")
-    parsed = urlsplit(value)
-    if value.startswith("/") and not value.startswith("//"):
-        return value
-    if (
-        parsed.scheme not in {"http", "https"}
-        or not parsed.hostname
-        or parsed.username
-        or parsed.password
-    ):
-        raise ValueError("requires a site path or HTTP(S) URL")
-    return value
 
 
 class NavigationReference(SettingsModel):

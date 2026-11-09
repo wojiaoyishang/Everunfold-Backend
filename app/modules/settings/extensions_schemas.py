@@ -3,10 +3,11 @@
 from datetime import datetime
 from typing import Annotated, Literal, Self
 
-from pydantic import Field, model_validator
+from pydantic import Field, field_validator, model_validator
 
 from app.core.schemas import PublicModel
 from app.modules.pages.schemas import PageManifest
+from app.modules.settings.urls import safe_url
 
 PluginId = r"^[a-z][a-z0-9-]*(?:\.[a-z][a-z0-9-]*)+$"
 ThemeId = r"^[a-z][a-z0-9-]*$"
@@ -28,11 +29,33 @@ class ExtensionPreferences(PublicModel):
         return self
 
 
+class ThemeAuthor(PublicModel):
+    name: str = Field(min_length=1, max_length=100)
+    url: str = Field(default="", max_length=2048)
+
+    @field_validator("name")
+    @classmethod
+    def nonblank(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("author name must not be blank")
+        return value.strip()
+
+    _url = field_validator("url")(safe_url)
+
+
 class InstalledTheme(PublicModel):
     id: str = Field(pattern=ThemeId)
     title: str = Field(min_length=1, max_length=80)
     version: str = Field(default="1.0.0", max_length=80)
     parent: str | None = Field(default=None, pattern=ThemeId)
+    description: str = Field(default="", max_length=500)
+    preview: str = Field(default="", max_length=2048)
+    author: ThemeAuthor | None = None
+    homepage: str = Field(default="", max_length=2048)
+    repository: str = Field(default="", max_length=2048)
+    license: str = Field(default="", max_length=100)
+
+    _urls = field_validator("preview", "homepage", "repository")(safe_url)
 
 
 class InstalledPlugin(PublicModel):
