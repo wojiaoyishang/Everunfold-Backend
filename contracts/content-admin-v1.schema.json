@@ -1829,6 +1829,11 @@
           "title": "Options",
           "type": "object"
         },
+        "read_receipt": {
+          "default": "",
+          "title": "Read Receipt",
+          "type": "string"
+        },
         "access": {
           "default": "public",
           "enum": [
@@ -2832,7 +2837,7 @@
   "title": "ContentAdminContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "1.14.0",
+  "x-everunfold-contract-version": "1.14.1",
   "x-everunfold-content-types": [
     {
       "id": "article",
