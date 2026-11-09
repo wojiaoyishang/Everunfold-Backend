@@ -36,8 +36,11 @@ class TaskDefinition:
             not isinstance(self.parameters, type) or not issubclass(self.parameters, BaseModel)
         ):
             raise ValueError("Task parameters must be a Pydantic model class")
+        from app.core.jobs.parameter_metadata import reject_secret_models
         from app.core.jobs.parameters import normalized_parameters
 
+        if self.parameters is not None:
+            reject_secret_models(self.parameters)
         object.__setattr__(
             self, "default_parameters", normalized_parameters(self, self.default_parameters)
         )

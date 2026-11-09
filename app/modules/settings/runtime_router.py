@@ -10,6 +10,7 @@ from sqlalchemy import func, select
 
 from app.core.jobs.definitions import definitions
 from app.core.jobs.models import TaskPlan, TaskRun
+from app.core.jobs.parameter_metadata import public_parameters
 from app.core.jobs.parameters import checked_json, normalized_parameters, parameters_schema
 from app.core.jobs.schemas import (
     RuntimeCommand,
@@ -85,6 +86,10 @@ async def overview(ctx: Authorized) -> RuntimeOverview:
         telemetry_available = False
     finally:
         await client.aclose()
+    descriptions = {
+        key: public_parameters(parameters_schema(spec), spec.default_parameters)
+        for key, (_, spec) in definitions().items()
+    }
     return RuntimeOverview(
         instances=instances,
         queue_depth=queue_depth,
@@ -96,8 +101,8 @@ async def overview(ctx: Authorized) -> RuntimeOverview:
                 restarts=max(0, counts.get(key, 0) - 1),
                 title=spec.title,
                 handler=spec.handler,
-                parameters_schema=parameters_schema(spec),
-                parameter_defaults=spec.default_parameters,
+                parameters_schema=descriptions[key][0],
+                parameter_defaults=descriptions[key][1],
                 plugin=plugin,
                 kind=spec.kind,
                 enabled=plans[key].enabled if key in plans else spec.enabled,

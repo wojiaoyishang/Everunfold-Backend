@@ -50,6 +50,8 @@ def normalized_parameters(spec: "TaskDefinition", value: dict[str, Any]) -> dict
         if model is not None
         else {}
     )
+    if not isinstance(normalized, dict):
+        raise ValueError("Task parameters must serialize to a JSON object")
     # Also validate model defaults/serializers, not merely the explicitly supplied values.
     validate_parameters(spec, normalized)
     checked_json(normalized)
