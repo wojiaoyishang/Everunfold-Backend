@@ -26,7 +26,9 @@ from app.entrypoints.api import create_app
 from app.modules.auth.bootstrap import seed_admin
 from app.modules.auth.permissions import Actor
 from app.modules.auth.service import AuthFailure
+from app.modules.settings.mail_test_service import MailTestService
 from app.modules.settings.models import MailTestDelivery
+from app.modules.settings.service import SettingsService
 from tests.test_accounts import ORIGIN, PASSWORD, headers, signed_in
 from tests.test_settings_processes import toml_text
 
@@ -94,6 +96,53 @@ def test_ordered_long_poll_permissions_and_stale_reporters(tmp_path):
                         )
                     )
                     await session.commit()
+                # A stopped Worker cannot keep expired mail requests looking active forever.
+                for stale_status, expected_state, expected_error in (
+                    ("queued", "failed", "queue_timeout"),
+                    ("sending", "unknown", "interrupted"),
+                ):
+                    stale_id = uuid4()
+                    async with db.session_factory() as session:
+                        session.add(
+                            MailTestDelivery(
+                                id=stale_id,
+                                user_id=user,
+                                revision=1,
+                                recipient="reader@example.test",
+                                status=stale_status,
+                                created_at=datetime.now(UTC) - timedelta(minutes=11),
+                                lease_until=datetime.now(UTC) - timedelta(seconds=1),
+                            )
+                        )
+                        await session.commit()
+                    started_wait = time.monotonic()
+                    projected = await watch_progress(
+                        config,
+                        actor,
+                        WatchTask(
+                            resource="mail-test",
+                            id=stale_id,
+                            wait_seconds=20,
+                        ),
+                    )
+                    assert projected.state == expected_state and projected.stage == expected_state
+                    assert projected.percent is None and time.monotonic() - started_wait < 2
+                    # The legacy status reader persists the same terminal interpretation.
+                    async with db.session_factory() as session:
+                        persisted = await MailTestService(SettingsService(session, config)).read(
+                            stale_id, user
+                        )
+                    assert persisted.status == expected_state and persisted.error == expected_error
+                    after = await watch_progress(
+                        config,
+                        actor,
+                        WatchTask(
+                            resource="mail-test",
+                            id=stale_id,
+                            wait_seconds=0,
+                        ),
+                    )
+                    assert after.state == projected.state and after.finished_at is not None
                 query = WatchTask(resource="runtime", id=identity, wait_seconds=0)
                 initial = await watch_progress(config, actor, query)
                 assert (

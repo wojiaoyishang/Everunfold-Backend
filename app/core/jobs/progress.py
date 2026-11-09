@@ -7,7 +7,7 @@ import time
 from collections.abc import Iterator
 from contextlib import contextmanager, suppress
 from contextvars import ContextVar
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any, cast
 from uuid import UUID
 
@@ -166,6 +166,12 @@ async def _snapshot(db: Database, actor: Actor, query: WatchTask) -> TaskProgres
             state = "unknown"
         if state == "running" and row.lease_until is not None and row.lease_until <= now:
             state = "unknown"
+        if (
+            isinstance(row, MailTestDelivery)
+            and row.status == "queued"
+            and row.created_at < now - timedelta(minutes=10)
+        ):
+            state = "failed"
         where = (Event.resource == query.resource, Event.resource_id == query.id)
         events = list(
             await session.scalars(
