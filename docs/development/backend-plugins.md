@@ -9,17 +9,23 @@
 ```python
 from app.plugin_sdk import Plugin, PluginRegistry, ShortcodeSource
 
+
 class MyPlugin(Plugin):
     id = "example.note"
     title = "笔记"
     version = "1.0.0"
 
     def setup(self, registry: PluginRegistry) -> None:
-        registry.shortcodes.register(ShortcodeSource(
-            name="example:note", title="笔记", kind="container",
-            html='<aside class="note">{{content}}</aside>',
-            css='.note{padding:1em;border:1px solid currentColor}',
-        ))
+        registry.shortcodes.register(
+            ShortcodeSource(
+                name="example:note",
+                title="笔记",
+                kind="container",
+                html='<aside class="note">{{content}}</aside>',
+                css=".note{padding:1em;border:1px solid currentColor}",
+            )
+        )
+
 
 plugin = MyPlugin()
 ```
@@ -38,7 +44,7 @@ plugin = MyPlugin()
 
 单体kind="leaf"不需结束标记；容器必须有唯一正文插槽。参数用ShortcodeParameter，支持text/url/select/number/boolean。调用名不能使用为用户保留的custom:前缀，所有代码贡献跨插件检查重名。模板遵守[原生短代码](../architecture/shortcodes.md)的转义、HTML/CSS和按需样式边界；数据库用户模板仍可编辑，代码模板在后台只读。
 
-完整示例app/plugins/example_cards/plugin.py同时演示类、容器/单体、参数、样例和文案；basic_shortcodes/plugin.py演示函数式入口和保留UUID。验证码入口可自由import原来的实现文件，宿主不扫描其文件名。
+完整示例app/plugins/example_cards/plugin.py同时演示类、容器/单体、参数、样例和文案；basic_shortcodes/plugin.py演示函数式入口和保留UUID。验证码入口可自由import原来的实现文件，宿主不扫描其文件名；回调参数StoredProvider也从app.plugin_sdk导入。
 
 ```text
 {{< example:card title="阅读笔记" >}}
@@ -64,7 +70,7 @@ uv run --locked python -m tools.register_backend_plugins
 uv run --locked python -m tools.register_backend_plugins --config config.toml --apply
 ```
 
-登记复用站点锁、媒体引用保护、修订、审计和可靠Outbox。重复无变更不会增加修订。SiteSettings.data._backend_plugins保存私有部署快照，公开PublicSettings.shortcodes为启用代码模板与用户已应用模板的投影。浏览器不能覆盖代码模板；保存普通设置只保留用户模板的原存储位置。没有新增数据库表/迁移，服务启动也不写数据库。
+登记复用站点锁、媒体引用保护、修订、审计和可靠Outbox。重复无变更不会增加修订。SiteSettings.data._backend_plugins保存私有部署快照，公开PublicSettings.shortcodes为启用代码模板与用户已应用模板的投影。私有短代码目录另提供applied字段，普通编辑者仅需shortcodes:read即可预览/插入已应用模板，不需读取站点设置。浏览器不能覆盖代码模板；保存普通设置只保留用户模板的原存储位置。没有新增数据库表/迁移，服务启动也不写数据库。
 
 后台“插件管理”展示前后端插件；后端登记与进程目录不一致时提示同步，不能重新启用。依赖冲突要求一同调整。使用检查覆盖已应用页面、已发布/定时正文和当前验证码引用；取消还原开关，停用保留数据。安全提供方失效不静默放行；正在验证的请求在提交前重新检查。
 

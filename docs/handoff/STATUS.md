@@ -1,5 +1,14 @@
 # 后端交接状态
 
+## 最新交付：单入口后端插件与动态短代码目录（2026-11-09）
+
+- 后端4df1fdb/3b85ad2、前端5ad3705。只规定app/plugins/*/plugin.py导出plugin，函数/类两种入口，其他文件自由组织；SDK提供短代码、验证码、具名文案及依赖/lifespan管理。见[ADR0087](../decisions/0087-single-entry-backend-plugins.md)、[开发指南](../development/backend-plugins.md)与[验收](backend-plugins-verification.md)。
+- notice/accordion原身份与样式保留；新增example.cards的卡片/标签完整单文件示例，Google/Turnstile复用同一注册器。显式登记复用站点锁、修订、审计及Outbox，幂等不增修订；没有启动写库、迁移或新依赖。私有部署快照与公开模板投影隔离，原目录只读规则保持。
+- settings1.16.1已精确锁定，前端不再内嵌后端短代码定义；shortcodes:read即可读取applied模板，未应用草稿不影响预览，代码模板媒体引用统一解析。后端插件加入原启停/使用提示/取消还原流程；依赖和部署不一致阻止重新启用，验证码停用/摘要不符拒绝服务并围栏在途请求。
+- 完整真实库262项/183.10秒、Ruff/511格式/mypy265通过，含双API与独立Node动态模板P0；最后SDK补充公共类型导出后插件6项和静态检查通过。前端check316、最终隔离生产35私有入口、插件构建后安装/替换/移除及真实停后端reader矩阵通过；中间失败及未执行边界见验收。
+- 1440/390实页核对后台中英/深色/减少动态、启停并还原、使用确认取消回焦、代码模板只读及工具栏卡片预览。修复延迟加载前端插件的CSS白名单与画廊样例。没有插入或发布测试正文；最终backend_in_sync=true、原开关恢复、验证码保持local/全局关闭，本次会话退出200，浏览器pageerror0/native dialog0。
+- Python代码更新须受控重启后显式register_backend_plugins --apply；纯模板目录下发无需重建前端，React交互仍用独立前端包。六服务、四个0.0.0.0监听和HTTP200保持；文档/版本SHA双仓同步，本地分阶段提交未push。无在线Python安装/热替换、通用任务/路由SDK或多副本部署控制器。
+
 ## 最新交付：验证码提供方、单篇规则与 API Key 策略（2026-11-09）
 
 - 后端核心9d54f9e、Key策略9033616与停用页围栏1bf2161；前端3711671/369196c。后台新增验证码设置，本地图片默认、Google/Turnstile适配器与独立前端插件；登录、阅读、评论全局规则及文章/说说/页面单篇覆盖。见[ADR0086](../decisions/0086-captcha-providers-and-content-policies.md)、[开发/操作指南](../development/captcha.md)与[验收](captcha-verification.md)。

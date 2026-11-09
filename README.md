@@ -8,7 +8,7 @@
 
 Everunfold 博客与轻量 CMS 的独立后端仓库。已实现公开阅读、匿名历史评论点赞、Cookie Session/CSRF、账号资料/密码/会话、用户管理/细分授权、独立受限头像库、API Key与应用签名查询/回调。独立前端接入设置、媒体、多语言文章/说说、协同、版本分支/合并及发布/撤回；设置与内容共用独立Worker/Scheduler/Node接收链路。完整生产缓存体系及其余CMS能力仍按阶段推进，账号使用见[指南](docs/development/accounts.md)。
 
-验证码的配置、全局/单篇规则及扩展接口见[指南](docs/development/captcha.md)。后端可信插件源码统一位于 `app/plugins/`，当前包含 Google 与 Turnstile 校验适配器。
+验证码的配置、全局/单篇规则及扩展接口见[指南](docs/development/captcha.md)。后端可信插件源码统一位于 `app/plugins/`，只规定 `plugin.py` 入口；当前包含基础短代码、卡片/标签示例及 Google/Turnstile 校验适配器。函数/类注册接口及显式部署命令见[后端插件开发](docs/development/backend-plugins.md)。
 
 先读 [文档入口](docs/README.md) 和 [当前交接](docs/handoff/STATUS.md)。原始设计基线及工程计划保存在 `docs/baseline/`，后续开发不依赖临时附件或聊天上下文。
 
