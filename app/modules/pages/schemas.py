@@ -45,6 +45,7 @@ class PageRegistration(PublicModel):
     title: str = Field(min_length=1, max_length=120)
     path: str = Field(min_length=2, max_length=500)
     description: str = Field(default="", max_length=500)
+    comments_open: bool = True
     fields: list[PageOption] = Field(default_factory=list, max_length=30)
     defaults: dict[str, JsonValue] = Field(default_factory=dict)
     _defaults = field_validator("defaults")(bounded_options)
@@ -79,6 +80,7 @@ class PageValue(PublicModel):
     path: str = Field(min_length=2, max_length=500)
     description: str = Field(default="", max_length=500)
     allow_indexing: bool = True
+    comments_open: bool = True
     enabled: bool = False
     html: str = Field(default="", max_length=200000)
     css: str = Field(default="", max_length=100000)

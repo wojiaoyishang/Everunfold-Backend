@@ -13,6 +13,7 @@ from pydantic import Field
 from redis.exceptions import RedisError
 from sqlalchemy import DateTime, String, text
 from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
@@ -94,6 +95,50 @@ async def issue_read_receipt(request: Request, policy: CaptchaContext) -> str:
     return value
 
 
+async def admit_target(
+    session: AsyncSession, request: Request, payload: SubmitComment, permit: CaptchaContext
+) -> Content | None:
+    """Recheck admission even when an operation already has an idempotency receipt."""
+    item = await session.get(Content, payload.content_id)
+    if item:
+        policy = item.editor_settings or {}
+        protected = not publicly_readable(item)
+        target_message = "请先解锁正文再发表评论"
+    else:
+        page = await session.get(ManagedPage, payload.content_id)
+        if not page or page.deleted_at or not page.published:
+            raise AuthFailure(404, 40486, "内容不存在")
+        policy = page.published
+        protected = False
+        target_message = "请先解锁页面再发表评论"
+    if not policy.get("comments_open", True):
+        raise AuthFailure(403, 40388, "此内容已关闭评论")
+    read_policy = replace(
+        await context(session, "read", payload.content_id), credential=permit.credential
+    )
+    if protected or read_policy.required:
+        runtime = auth_runtime(request)
+        try:
+            raw = (
+                await runtime.redis.get(receipt_key(request, payload.read_receipt))
+                if payload.read_receipt
+                else None
+            )
+        except RedisError:
+            raise AuthFailure(503, 50386, "评论服务暂不可用") from None
+        if not raw or json.loads(raw) != receipt_data(request, read_policy):
+            raise AuthFailure(403, 40388, target_message)
+    if payload.parent_id:
+        parent = await session.get(Comment, payload.parent_id)
+        if (
+            not parent
+            or parent.status != "approved"
+            or (parent.content_id if item else parent.page_id) != payload.content_id
+        ):
+            raise AuthFailure(422, 42287, "回复目标不可用")
+    return item
+
+
 @router.post("/v1/reader/comments", response_model=PublicResponse[CommentReceipt])
 async def submit_comment(payload: SubmitComment, request: Request) -> JSONResponseSuccess:
     runtime = auth_runtime(request)
@@ -115,6 +160,7 @@ async def submit_comment(payload: SubmitComment, request: Request) -> JSONRespon
             ):
                 raise AuthFailure(409, 40987, "提交标识已使用，请刷新后重试")
             await guard(session, policy)
+            await admit_target(session, request, payload, policy)
             await session.commit()
             return JSONResponseSuccess(data=CommentReceipt(id=existing.id))
     try:
@@ -125,50 +171,7 @@ async def submit_comment(payload: SubmitComment, request: Request) -> JSONRespon
     permit = await service.enforce("comment", payload.content_id, payload.captcha, policy=policy)
     async with runtime.database.session_factory() as session:
         await guard(session, permit)
-        item = await session.get(Content, payload.content_id)
-        if item:
-            if not item.editor_settings.get("comments_open", True):
-                raise AuthFailure(403, 40388, "此内容已关闭评论")
-            if not publicly_readable(item):
-                policy = await context(session, "read", payload.content_id)
-                policy = replace(policy, credential=permit.credential)
-                try:
-                    raw = (
-                        await runtime.redis.get(receipt_key(request, payload.read_receipt))
-                        if payload.read_receipt
-                        else None
-                    )
-                except RedisError:
-                    raise AuthFailure(503, 50386, "评论服务暂不可用") from None
-                if not raw or json.loads(raw) != receipt_data(request, policy):
-                    raise AuthFailure(403, 40388, "请先解锁正文再发表评论")
-            if payload.parent_id:
-                parent = await session.get(Comment, payload.parent_id)
-                if not parent or parent.content_id != item.id or parent.status != "approved":
-                    raise AuthFailure(422, 42287, "回复目标不可用")
-        else:
-            page = await session.get(ManagedPage, payload.content_id)
-            if not page or page.deleted_at or not page.published:
-                raise AuthFailure(404, 40486, "内容不存在")
-            if payload.parent_id:
-                parent = await session.get(Comment, payload.parent_id)
-                if not parent or parent.page_id != page.id or parent.status != "approved":
-                    raise AuthFailure(422, 42287, "回复目标不可用")
-            from app.modules.captcha.service import required
-
-            policy = await context(session, "read", payload.content_id)
-            policy = replace(policy, credential=permit.credential)
-            if required(policy.config, "read", "page", page.published):
-                try:
-                    raw = (
-                        await runtime.redis.get(receipt_key(request, payload.read_receipt))
-                        if payload.read_receipt
-                        else None
-                    )
-                except RedisError:
-                    raise AuthFailure(503, 50386, "评论服务暂不可用") from None
-                if not raw or json.loads(raw) != receipt_data(request, policy):
-                    raise AuthFailure(403, 40388, "请先解锁页面再发表评论")
+        item = await admit_target(session, request, payload, permit)
         if not payload.author.strip() or not payload.body.strip():
             raise AuthFailure(422, 42287, "请填写称呼和评论内容")
         # Site read lock serializes with withdrawal, policy changes and publication.

@@ -11074,7 +11074,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PublicResponse_PublicManagedPage_"
+                  "$ref": "#/components/schemas/PublicResponse_UnlockedManagedPage_"
                 }
               }
             }
@@ -15734,6 +15734,137 @@
           },
           "422": {
             "description": "Unprocessable Entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/reader/page-comments": {
+      "post": {
+        "tags": [
+          "captcha"
+        ],
+        "summary": "Page Comments",
+        "operationId": "page_comments_v1_reader_page_comments_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PageCommentsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicResponse_Page_PublicComment__"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request Entity Too Large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Unsupported Media Type",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
             "content": {
               "application/json": {
                 "schema": {
@@ -22680,6 +22811,11 @@
             "title": "Description",
             "default": ""
           },
+          "comments_open": {
+            "type": "boolean",
+            "title": "Comments Open",
+            "default": true
+          },
           "fields": {
             "items": {
               "$ref": "#/components/schemas/PageOption"
@@ -22899,6 +23035,11 @@
           "allow_indexing": {
             "type": "boolean",
             "title": "Allow Indexing",
+            "default": true
+          },
+          "comments_open": {
+            "type": "boolean",
+            "title": "Comments Open",
             "default": true
           },
           "enabled": {
@@ -23421,121 +23562,127 @@
         "title": "PublicComment"
       },
       "PublicManagedPage": {
+        "additionalProperties": false,
         "properties": {
           "captcha_read": {
-            "type": "string",
+            "default": "inherit",
             "enum": [
               "inherit",
               "required",
               "off"
             ],
             "title": "Captcha Read",
-            "default": "inherit"
+            "type": "string"
           },
           "captcha_comment": {
-            "type": "string",
+            "default": "inherit",
             "enum": [
               "inherit",
               "required",
               "off"
             ],
             "title": "Captcha Comment",
-            "default": "inherit"
+            "type": "string"
           },
           "title": {
-            "type": "string",
             "maxLength": 120,
             "minLength": 1,
-            "title": "Title"
+            "title": "Title",
+            "type": "string"
           },
           "path": {
-            "type": "string",
             "maxLength": 500,
             "minLength": 2,
-            "title": "Path"
+            "title": "Path",
+            "type": "string"
           },
           "description": {
-            "type": "string",
+            "default": "",
             "maxLength": 500,
             "title": "Description",
-            "default": ""
+            "type": "string"
           },
           "allow_indexing": {
-            "type": "boolean",
+            "default": true,
             "title": "Allow Indexing",
-            "default": true
+            "type": "boolean"
+          },
+          "comments_open": {
+            "default": true,
+            "title": "Comments Open",
+            "type": "boolean"
           },
           "enabled": {
-            "type": "boolean",
             "const": true,
+            "default": true,
             "title": "Enabled",
-            "default": true
+            "type": "boolean"
           },
           "html": {
-            "type": "string",
+            "default": "",
             "maxLength": 200000,
             "title": "Html",
-            "default": ""
+            "type": "string"
           },
           "css": {
-            "type": "string",
+            "default": "",
             "maxLength": 100000,
             "title": "Css",
-            "default": ""
+            "type": "string"
           },
           "javascript": {
-            "type": "string",
+            "default": "",
             "maxLength": 100000,
             "title": "Javascript",
-            "default": ""
+            "type": "string"
           },
           "javascript_enabled": {
-            "type": "boolean",
+            "default": false,
             "title": "Javascript Enabled",
-            "default": false
+            "type": "boolean"
           },
           "javascript_position": {
-            "type": "string",
+            "default": "body_end",
             "enum": [
               "head",
               "body_end"
             ],
             "title": "Javascript Position",
-            "default": "body_end"
+            "type": "string"
           },
           "options": {
             "additionalProperties": {
               "$ref": "#/components/schemas/JsonValue"
             },
-            "type": "object",
-            "title": "Options"
+            "title": "Options",
+            "type": "object"
           },
           "read_receipt": {
-            "type": "string",
+            "default": "",
             "title": "Read Receipt",
-            "default": ""
+            "type": "string"
           },
           "access": {
-            "type": "string",
+            "default": "public",
             "enum": [
               "public",
               "captcha"
             ],
             "title": "Access",
-            "default": "public"
+            "type": "string"
           },
           "id": {
-            "type": "string",
             "format": "uuid",
-            "title": "Id"
+            "title": "Id",
+            "type": "string"
           },
           "source": {
-            "type": "string",
             "enum": [
               "custom",
               "registered"
             ],
-            "title": "Source"
+            "title": "Source",
+            "type": "string"
           },
           "implementation_id": {
             "anyOf": [
@@ -23546,6 +23693,7 @@
                 "type": "null"
               }
             ],
+            "default": null,
             "title": "Implementation Id"
           },
           "implementation_version": {
@@ -23557,12 +23705,13 @@
                 "type": "null"
               }
             ],
+            "default": null,
             "title": "Implementation Version"
           },
           "revision": {
-            "type": "integer",
-            "minimum": 1.0,
-            "title": "Revision"
+            "minimum": 1,
+            "title": "Revision",
+            "type": "integer"
           },
           "language": {
             "anyOf": [
@@ -23573,28 +23722,28 @@
                 "type": "null"
               }
             ],
+            "default": null,
             "title": "Language"
           },
           "translation_group_id": {
             "anyOf": [
               {
-                "type": "string",
-                "format": "uuid"
+                "format": "uuid",
+                "type": "string"
               },
               {
                 "type": "null"
               }
             ],
+            "default": null,
             "title": "Translation Group Id"
           },
           "is_original": {
-            "type": "boolean",
+            "default": true,
             "title": "Is Original",
-            "default": true
+            "type": "boolean"
           }
         },
-        "additionalProperties": false,
-        "type": "object",
         "required": [
           "title",
           "path",
@@ -23602,7 +23751,8 @@
           "source",
           "revision"
         ],
-        "title": "PublicManagedPage"
+        "title": "PublicManagedPage",
+        "type": "object"
       },
       "PublicProviderSettings": {
         "properties": {
@@ -28542,6 +28692,264 @@
         "additionalProperties": false,
         "type": "object",
         "title": "WorkspaceSummary"
+      },
+      "UnlockedManagedPage": {
+        "properties": {
+          "captcha_read": {
+            "type": "string",
+            "enum": [
+              "inherit",
+              "required",
+              "off"
+            ],
+            "title": "Captcha Read",
+            "default": "inherit"
+          },
+          "captcha_comment": {
+            "type": "string",
+            "enum": [
+              "inherit",
+              "required",
+              "off"
+            ],
+            "title": "Captcha Comment",
+            "default": "inherit"
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Title"
+          },
+          "path": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 2,
+            "title": "Path"
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 500,
+            "title": "Description",
+            "default": ""
+          },
+          "allow_indexing": {
+            "type": "boolean",
+            "title": "Allow Indexing",
+            "default": true
+          },
+          "comments_open": {
+            "type": "boolean",
+            "title": "Comments Open",
+            "default": true
+          },
+          "enabled": {
+            "type": "boolean",
+            "const": true,
+            "title": "Enabled",
+            "default": true
+          },
+          "html": {
+            "type": "string",
+            "maxLength": 200000,
+            "title": "Html",
+            "default": ""
+          },
+          "css": {
+            "type": "string",
+            "maxLength": 100000,
+            "title": "Css",
+            "default": ""
+          },
+          "javascript": {
+            "type": "string",
+            "maxLength": 100000,
+            "title": "Javascript",
+            "default": ""
+          },
+          "javascript_enabled": {
+            "type": "boolean",
+            "title": "Javascript Enabled",
+            "default": false
+          },
+          "javascript_position": {
+            "type": "string",
+            "enum": [
+              "head",
+              "body_end"
+            ],
+            "title": "Javascript Position",
+            "default": "body_end"
+          },
+          "options": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
+            "type": "object",
+            "title": "Options"
+          },
+          "read_receipt": {
+            "type": "string",
+            "title": "Read Receipt",
+            "default": ""
+          },
+          "access": {
+            "type": "string",
+            "enum": [
+              "public",
+              "captcha"
+            ],
+            "title": "Access",
+            "default": "public"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "custom",
+              "registered"
+            ],
+            "title": "Source"
+          },
+          "implementation_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Implementation Id"
+          },
+          "implementation_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Implementation Version"
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Revision"
+          },
+          "language": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Language"
+          },
+          "translation_group_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Translation Group Id"
+          },
+          "is_original": {
+            "type": "boolean",
+            "title": "Is Original",
+            "default": true
+          },
+          "unlocked_comments": {
+            "items": {
+              "$ref": "#/components/schemas/PublicComment"
+            },
+            "type": "array",
+            "title": "Unlocked Comments"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "title",
+          "path",
+          "id",
+          "source",
+          "revision"
+        ],
+        "title": "UnlockedManagedPage"
+      },
+      "PageCommentsRequest": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "page": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Page",
+            "default": 1
+          },
+          "page_size": {
+            "type": "integer",
+            "maximum": 100.0,
+            "minimum": 1.0,
+            "title": "Page Size",
+            "default": 50
+          },
+          "read_receipt": {
+            "type": "string",
+            "maxLength": 100,
+            "title": "Read Receipt",
+            "default": ""
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "title": "PageCommentsRequest"
+      },
+      "PublicResponse_UnlockedManagedPage_": {
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "title": "Success",
+            "default": true
+          },
+          "code": {
+            "type": "integer",
+            "title": "Code",
+            "default": 200
+          },
+          "msg": {
+            "type": "string",
+            "title": "Msg",
+            "default": "请求成功"
+          },
+          "data": {
+            "$ref": "#/components/schemas/UnlockedManagedPage"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "title": "PublicResponse[UnlockedManagedPage]"
       }
     }
   },

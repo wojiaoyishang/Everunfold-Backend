@@ -30,8 +30,8 @@ def main() -> None:
         "items": {"$ref": "#/definitions/PublicManagedPage"},
         "default": [],
     }
-    schema["x-everunfold-contract-version"] = "0.11.0"
-    schema["description"] = "公开阅读快照 0.10；验证码受限正文与页面配置剥离，兼容已有快照。"
+    schema["x-everunfold-contract-version"] = "0.12.0"
+    schema["description"] = "公开阅读快照；页面评论开关与验证码受限配置，兼容已有快照。"
     target.write_text(
         json.dumps(schema, ensure_ascii=False, indent=2) + "\n", encoding="utf-8", newline="\n"
     )

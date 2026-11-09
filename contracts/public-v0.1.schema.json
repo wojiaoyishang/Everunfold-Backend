@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://everunfold.local/contracts/public-v0.1.schema.json",
   "title": "PublicSnapshot",
-  "description": "公开阅读快照 0.10；验证码受限正文与页面配置剥离，兼容已有快照。",
+  "description": "公开阅读快照；页面评论开关与验证码受限配置，兼容已有快照。",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -737,6 +737,11 @@
           "title": "Allow Indexing",
           "type": "boolean"
         },
+        "comments_open": {
+          "default": true,
+          "title": "Comments Open",
+          "type": "boolean"
+        },
         "enabled": {
           "const": true,
           "default": true,
@@ -978,5 +983,5 @@
       "type": "object"
     }
   },
-  "x-everunfold-contract-version": "0.11.0"
+  "x-everunfold-contract-version": "0.12.0"
 }

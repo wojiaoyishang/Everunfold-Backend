@@ -558,6 +558,11 @@
           "title": "Description",
           "type": "string"
         },
+        "comments_open": {
+          "default": true,
+          "title": "Comments Open",
+          "type": "boolean"
+        },
         "fields": {
           "items": {
             "$ref": "#/$defs/PageOption"
@@ -779,6 +784,11 @@
           "title": "Allow Indexing",
           "type": "boolean"
         },
+        "comments_open": {
+          "default": true,
+          "title": "Comments Open",
+          "type": "boolean"
+        },
         "enabled": {
           "default": false,
           "title": "Enabled",
@@ -875,6 +885,11 @@
         "allow_indexing": {
           "default": true,
           "title": "Allow Indexing",
+          "type": "boolean"
+        },
+        "comments_open": {
+          "default": true,
+          "title": "Comments Open",
           "type": "boolean"
         },
         "enabled": {
@@ -1358,7 +1373,7 @@
   "title": "PagesContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "1.7.1",
+  "x-everunfold-contract-version": "1.8.0",
   "x-everunfold-operations": [
     {
       "name": "setPageEnabled",

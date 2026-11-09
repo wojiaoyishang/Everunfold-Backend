@@ -261,6 +261,76 @@
       "type": "object"
     },
     "JsonValue": {},
+    "PageCommentsRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "page": {
+          "default": 1,
+          "minimum": 1,
+          "title": "Page",
+          "type": "integer"
+        },
+        "page_size": {
+          "default": 50,
+          "maximum": 100,
+          "minimum": 1,
+          "title": "Page Size",
+          "type": "integer"
+        },
+        "read_receipt": {
+          "default": "",
+          "maxLength": 100,
+          "title": "Read Receipt",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "title": "PageCommentsRequest",
+      "type": "object"
+    },
+    "Page_PublicComment_": {
+      "additionalProperties": false,
+      "properties": {
+        "items": {
+          "items": {
+            "$ref": "#/$defs/PublicComment"
+          },
+          "title": "Items",
+          "type": "array"
+        },
+        "page": {
+          "minimum": 1,
+          "title": "Page",
+          "type": "integer"
+        },
+        "page_size": {
+          "maximum": 100,
+          "minimum": 1,
+          "title": "Page Size",
+          "type": "integer"
+        },
+        "total": {
+          "minimum": 0,
+          "title": "Total",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "items",
+        "page",
+        "page_size",
+        "total"
+      ],
+      "title": "Page[PublicComment]",
+      "type": "object"
+    },
     "ProviderDescription": {
       "additionalProperties": false,
       "properties": {
@@ -450,6 +520,34 @@
         "data"
       ],
       "title": "PublicResponse[CommentReceipt]",
+      "type": "object"
+    },
+    "PublicResponse_Page_PublicComment__": {
+      "additionalProperties": false,
+      "properties": {
+        "success": {
+          "default": true,
+          "title": "Success",
+          "type": "boolean"
+        },
+        "code": {
+          "default": 200,
+          "title": "Code",
+          "type": "integer"
+        },
+        "msg": {
+          "default": "请求成功",
+          "title": "Msg",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/Page_PublicComment_"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "title": "PublicResponse[Page[PublicComment]]",
       "type": "object"
     },
     "PublicResponse_UnlockedManagedPage_": {
@@ -704,6 +802,11 @@
           "title": "Allow Indexing",
           "type": "boolean"
         },
+        "comments_open": {
+          "default": true,
+          "title": "Comments Open",
+          "type": "boolean"
+        },
         "enabled": {
           "const": true,
           "default": true,
@@ -879,6 +982,12 @@
     },
     "comment_response": {
       "$ref": "#/$defs/PublicResponse_CommentReceipt_"
+    },
+    "page_comments_request": {
+      "$ref": "#/$defs/PageCommentsRequest"
+    },
+    "page_comments_response": {
+      "$ref": "#/$defs/PublicResponse_Page_PublicComment__"
     }
   },
   "required": [
@@ -889,12 +998,14 @@
     "page_request",
     "page_response",
     "comment_request",
-    "comment_response"
+    "comment_response",
+    "page_comments_request",
+    "page_comments_response"
   ],
   "title": "CaptchaAPIContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "1.2.0",
+  "x-everunfold-contract-version": "1.3.0",
   "x-everunfold-reader-authorization": {
     "header": "Authorization: Bearer <API Key>",
     "audience": "everunfold",
@@ -938,6 +1049,15 @@
       "method": "POST",
       "input": "page_request",
       "response": "page_response",
+      "csrf": false,
+      "credentials": "omit"
+    },
+    {
+      "name": "readPageComments",
+      "path": "/v1/reader/page-comments",
+      "method": "POST",
+      "input": "page_comments_request",
+      "response": "page_comments_response",
       "csrf": false,
       "credentials": "omit"
     },

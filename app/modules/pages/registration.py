@@ -54,7 +54,11 @@ async def install_manifest(
                 implementation_id=page.id,
                 revision=1,
                 data=PageValue(
-                    title=page.title, path=path, description=page.description, options=defaults
+                    title=page.title,
+                    path=path,
+                    description=page.description,
+                    comments_open=page.comments_open,
+                    options=defaults,
                 ).model_dump(mode="json"),
             )
             session.add(row)

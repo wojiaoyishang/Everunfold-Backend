@@ -98,6 +98,8 @@ async def context(session: AsyncSession, action: str, content_id: UUID | None) -
                 page.published,
                 page.applied_revision or page.revision,
             )
+        if action == "comment" and not policy.get("comments_open", True):
+            raise AuthFailure(403, 40388, "此内容已关闭评论")
     needed = required(config, action, kind, policy)
     from app.core.plugins.state import provider_state
 
