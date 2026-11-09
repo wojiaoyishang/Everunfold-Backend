@@ -81,7 +81,12 @@ async def context(session: AsyncSession, action: str, content_id: UUID | None) -
             kind, policy, generation = item.kind, item.editor_settings or {}, item.public_generation
         else:
             page = await session.get(ManagedPage, content_id)
-            if page is None or page.deleted_at is not None or page.published is None:
+            if (
+                page is None
+                or page.deleted_at is not None
+                or page.published is None
+                or not page.published.get("enabled", False)
+            ):
                 raise AuthFailure(404, 40486, "内容不存在")
             kind, policy, generation = (
                 "page",

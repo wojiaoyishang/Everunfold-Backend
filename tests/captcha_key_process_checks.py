@@ -239,3 +239,24 @@ def check_captcha_keys(
         )
     )
     assert audited
+    page = client.get("/v1/admin/pages/" + page_id).json()["data"]
+    disabled = client.post(
+        "/v1/admin/pages/enabled",
+        json={
+            "id": page_id,
+            "expected_revision": page["revision"],
+            "operation_id": str(uuid4()),
+            "enabled": False,
+        },
+        headers=csrf,
+    )
+    assert disabled.status_code == 200, disabled.text
+    assert post("/v1/reader/access-page", {"id": page_id}, limited["secret"]).status_code == 404
+    assert (
+        post(
+            "/v1/reader/captcha/challenge",
+            {"action": "read", "content_id": page_id, "client_id": str(uuid4())},
+            limited["secret"],
+        ).status_code
+        == 404
+    )
