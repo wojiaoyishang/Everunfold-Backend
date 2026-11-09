@@ -96,6 +96,34 @@
       "title": "AuthUser",
       "type": "object"
     },
+    "CaptchaAnswer": {
+      "additionalProperties": false,
+      "properties": {
+        "challenge_id": {
+          "format": "uuid",
+          "title": "Challenge Id",
+          "type": "string"
+        },
+        "client_id": {
+          "format": "uuid",
+          "title": "Client Id",
+          "type": "string"
+        },
+        "answer": {
+          "maxLength": 4096,
+          "minLength": 1,
+          "title": "Answer",
+          "type": "string"
+        }
+      },
+      "required": [
+        "challenge_id",
+        "client_id",
+        "answer"
+      ],
+      "title": "CaptchaAnswer",
+      "type": "object"
+    },
     "ErrorResponse": {
       "additionalProperties": false,
       "properties": {
@@ -128,6 +156,17 @@
     "LoginInput": {
       "additionalProperties": false,
       "properties": {
+        "captcha": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CaptchaAnswer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "username": {
           "maxLength": 64,
           "minLength": 1,
@@ -197,7 +236,7 @@
   "title": "AuthContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "0.2.0",
+  "x-everunfold-contract-version": "0.3.0",
   "x-everunfold-csrf-header": "X-CSRF-Token",
   "x-everunfold-credentials": "include",
   "x-everunfold-operations": [

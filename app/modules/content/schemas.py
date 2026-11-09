@@ -1,5 +1,7 @@
 """Public DTOs. Fields are deliberately separate from private persistence models."""
 
+from __future__ import annotations
+
 from datetime import datetime
 from typing import Literal, Self
 
@@ -62,12 +64,14 @@ class ContentTranslation(PublicModel):
     id: str
     language: str
     path: str = Field(pattern="^/")
-    access: Literal["public", "password", "scheduled"] = "public"
+    access: Literal["public", "password", "scheduled", "captcha"] = "public"
     is_original: bool = False
 
 
 class ContentSummary(PublicEditorSettings):
-    access: Literal["public", "password", "scheduled"] = "public"
+    access: Literal["public", "password", "scheduled", "captcha"] = "public"
+    captcha_required: bool = False
+    password_required: bool = False
     opens_at: datetime | None = None
     id: str
     kind: ContentKind
@@ -102,6 +106,8 @@ class MediaURL(PublicModel):
 
 
 class ContentDetail(ContentSummary):
+    read_receipt: str = ""
+    unlocked_comments: list[PublicComment] = Field(default_factory=list)
     content: list[ContentBlock]
     media_urls: dict[str, MediaURL]
 

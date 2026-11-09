@@ -33,7 +33,7 @@ class BusinessCORSMiddleware:
         target = (
             self.private
             if str(scope.get("path", "")).startswith(
-                ("/v1/auth/", "/v1/admin/", "/v1/account/", "/v1/reader/access")
+                ("/v1/auth/", "/v1/admin/", "/v1/account/", "/v1/reader/")
             )
             else self.public
         )
@@ -48,7 +48,7 @@ class AuthBoundaryMiddleware:
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         path = str(scope.get("path", ""))
         if scope["type"] != "http" or not path.startswith(
-            ("/v1/auth/", "/v1/admin/", "/v1/account/", "/v1/reader/access")
+            ("/v1/auth/", "/v1/admin/", "/v1/account/", "/v1/reader/")
         ):
             await self.app(scope, receive, send)
             return

@@ -7,7 +7,7 @@ from typing import cast
 from fastapi import HTTPException
 from sqlalchemy import or_, select
 
-from app.modules.content.access_policy import publicly_readable
+from app.modules.content.access_policy import password_readable, publicly_readable
 from app.modules.content.draft_models import TranslationGroup
 from app.modules.content.editor_schema import PublicEditorSettings
 from app.modules.content.models import Comment, Content
@@ -96,7 +96,15 @@ class PublicContentService:
             }
         ).model_dump()
         return ContentSummary(
-            access="public" if readable else "scheduled" if item.opens_at else "password",
+            access="public"
+            if readable
+            else "captcha"
+            if password_readable(item)
+            else "scheduled"
+            if item.opens_at
+            else "password",
+            captcha_required=bool(item.captcha_read_required),
+            password_required=not password_readable(item),
             opens_at=item.opens_at,
             id=str(item.id),
             kind=cast(ContentKind, item.kind),
@@ -184,6 +192,8 @@ class PublicContentService:
                     path=content.path,
                     access="public"
                     if publicly_readable(content)
+                    else "captcha"
+                    if password_readable(content)
                     else "scheduled"
                     if content.opens_at
                     else "password",

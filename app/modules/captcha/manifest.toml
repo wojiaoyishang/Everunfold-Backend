@@ -1,0 +1,4 @@
+id = "captcha"
+version = "0.1.0"
+router_entrypoint = "app.modules.captcha:router_init"
+dependencies = []

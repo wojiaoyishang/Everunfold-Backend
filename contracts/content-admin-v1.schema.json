@@ -113,10 +113,21 @@
           "enum": [
             "public",
             "password",
-            "scheduled"
+            "scheduled",
+            "captcha"
           ],
           "title": "Access",
           "type": "string"
+        },
+        "captcha_required": {
+          "default": false,
+          "title": "Captcha Required",
+          "type": "boolean"
+        },
+        "password_required": {
+          "default": false,
+          "title": "Password Required",
+          "type": "boolean"
         },
         "opens_at": {
           "anyOf": [
@@ -238,6 +249,18 @@
           "title": "Pinned",
           "type": "boolean"
         },
+        "read_receipt": {
+          "default": "",
+          "title": "Read Receipt",
+          "type": "string"
+        },
+        "unlocked_comments": {
+          "items": {
+            "$ref": "#/$defs/PublicComment"
+          },
+          "title": "Unlocked Comments",
+          "type": "array"
+        },
         "content": {
           "items": {
             "$ref": "#/$defs/ContentBlock"
@@ -344,7 +367,8 @@
           "enum": [
             "public",
             "password",
-            "scheduled"
+            "scheduled",
+            "captcha"
           ],
           "title": "Access",
           "type": "string"
@@ -1352,6 +1376,26 @@
           "title": "Comments Open",
           "type": "boolean"
         },
+        "captcha_read": {
+          "default": "inherit",
+          "enum": [
+            "inherit",
+            "required",
+            "off"
+          ],
+          "title": "Captcha Read",
+          "type": "string"
+        },
+        "captcha_comment": {
+          "default": "inherit",
+          "enum": [
+            "inherit",
+            "required",
+            "off"
+          ],
+          "title": "Captcha Comment",
+          "type": "string"
+        },
         "seo_title": {
           "default": "",
           "maxLength": 200,
@@ -1697,6 +1741,26 @@
     "PublicManagedPage": {
       "additionalProperties": false,
       "properties": {
+        "captcha_read": {
+          "default": "inherit",
+          "enum": [
+            "inherit",
+            "required",
+            "off"
+          ],
+          "title": "Captcha Read",
+          "type": "string"
+        },
+        "captcha_comment": {
+          "default": "inherit",
+          "enum": [
+            "inherit",
+            "required",
+            "off"
+          ],
+          "title": "Captcha Comment",
+          "type": "string"
+        },
         "title": {
           "maxLength": 120,
           "minLength": 1,
@@ -1764,6 +1828,15 @@
           },
           "title": "Options",
           "type": "object"
+        },
+        "access": {
+          "default": "public",
+          "enum": [
+            "public",
+            "captcha"
+          ],
+          "title": "Access",
+          "type": "string"
         },
         "id": {
           "format": "uuid",
@@ -2759,7 +2832,7 @@
   "title": "ContentAdminContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "1.13.0",
+  "x-everunfold-contract-version": "1.14.0",
   "x-everunfold-content-types": [
     {
       "id": "article",

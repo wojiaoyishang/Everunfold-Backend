@@ -9,6 +9,7 @@ from uuid import UUID
 from pydantic import AwareDatetime, Field, field_validator
 
 from app.core.schemas import PublicModel
+from app.modules.captcha.schemas import CaptchaOverride
 
 
 def content_path(value: str) -> str:
@@ -59,6 +60,8 @@ class EditorSettings(PublicModel):
     tags: list[str] = Field(default_factory=list, max_length=30)
     pinned: bool = False
     comments_open: bool = True
+    captcha_read: CaptchaOverride = "inherit"
+    captcha_comment: CaptchaOverride = "inherit"
     seo_title: str = Field(default="", max_length=200)
     seo_description: str = Field(default="", max_length=500)
     visibility: Literal["public", "password"] = "public"

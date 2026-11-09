@@ -736,6 +736,26 @@
     "PageValue": {
       "additionalProperties": false,
       "properties": {
+        "captcha_read": {
+          "default": "inherit",
+          "enum": [
+            "inherit",
+            "required",
+            "off"
+          ],
+          "title": "Captcha Read",
+          "type": "string"
+        },
+        "captcha_comment": {
+          "default": "inherit",
+          "enum": [
+            "inherit",
+            "required",
+            "off"
+          ],
+          "title": "Captcha Comment",
+          "type": "string"
+        },
         "title": {
           "maxLength": 120,
           "minLength": 1,
@@ -814,6 +834,26 @@
     "PublicManagedPage": {
       "additionalProperties": false,
       "properties": {
+        "captcha_read": {
+          "default": "inherit",
+          "enum": [
+            "inherit",
+            "required",
+            "off"
+          ],
+          "title": "Captcha Read",
+          "type": "string"
+        },
+        "captcha_comment": {
+          "default": "inherit",
+          "enum": [
+            "inherit",
+            "required",
+            "off"
+          ],
+          "title": "Captcha Comment",
+          "type": "string"
+        },
         "title": {
           "maxLength": 120,
           "minLength": 1,
@@ -881,6 +921,15 @@
           },
           "title": "Options",
           "type": "object"
+        },
+        "access": {
+          "default": "public",
+          "enum": [
+            "public",
+            "captcha"
+          ],
+          "title": "Access",
+          "type": "string"
         },
         "id": {
           "format": "uuid",
@@ -1304,7 +1353,7 @@
   "title": "PagesContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "1.6.0",
+  "x-everunfold-contract-version": "1.7.0",
   "x-everunfold-operations": [
     {
       "name": "setPageEnabled",

@@ -12,6 +12,10 @@ def register_content_module(application: FastAPI) -> None:
     _register_module(application, "content")
 
 
+def register_captcha_module(application: FastAPI) -> None:
+    _register_module(application, "captcha")
+
+
 def register_auth_module(application: FastAPI) -> None:
     _register_module(application, "auth")
 

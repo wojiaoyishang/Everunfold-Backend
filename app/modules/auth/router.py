@@ -74,6 +74,12 @@ async def read_session(request: Request, service: Service) -> JSONResponseSucces
 
 @router.post("/auth/login", response_model=PublicResponse[AuthSessionState])
 async def login(payload: LoginInput, request: Request, service: Service) -> JSONResponseSuccess:
+    from app.modules.captcha.service import CaptchaService, guard
+
+    permit = await CaptchaService(auth_runtime(request), peer(request)).enforce(
+        "login", None, payload.captcha
+    )
+    await guard(service.session, permit)
     result = await service.login(
         cookie(request),
         request.headers.get("X-CSRF-Token"),

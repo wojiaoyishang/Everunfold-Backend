@@ -14,6 +14,7 @@ from app.core.config import ConfigurationError, Settings, load_settings
 from app.core.i18n import LocaleMiddleware, i18n
 from app.core.modules import (
     register_auth_module,
+    register_captcha_module,
     register_content_module,
     register_media_module,
     register_pages_module,
@@ -67,6 +68,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     application.add_middleware(LocaleMiddleware)
     register_content_module(application)
     register_auth_module(application)
+    register_captcha_module(application)
     register_settings_module(application)
     register_shortcodes_module(application)
     register_pages_module(application)

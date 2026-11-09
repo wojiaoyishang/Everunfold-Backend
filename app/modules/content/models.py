@@ -51,6 +51,9 @@ class Content(Base):
     content: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, default=list)
     media_urls: Mapped[dict[str, dict[str, str]]] = mapped_column(JSONB, default=dict)
     editor_settings: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
+    captcha_read_required: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="false"
+    )
     access_password_hash: Mapped[str | None] = mapped_column(Text)
     opens_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
     open_synced_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

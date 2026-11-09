@@ -339,7 +339,12 @@ class PagesService:
         return result
 
 
-async def public_pages(session: AsyncSession) -> list[PublicManagedPage]:
+async def public_pages(
+    session: AsyncSession, *, authorized: bool = False
+) -> list[PublicManagedPage]:
+    from app.modules.captcha.service import current_config, required
+
+    captcha = await current_config(session)
     rows = (
         await session.scalars(
             select(ManagedPage)
@@ -352,7 +357,7 @@ async def public_pages(session: AsyncSession) -> list[PublicManagedPage]:
             await session.execute(select(PageTranslationGroup.id, PageTranslationGroup.source_id))
         ).all()
     )
-    return [
+    pages = [
         PublicManagedPage.model_validate(
             {
                 **(row.published or {}),
@@ -367,3 +372,12 @@ async def public_pages(session: AsyncSession) -> list[PublicManagedPage]:
         )
         for row in rows
     ]
+    if not authorized:
+        for page in pages:
+            if required(captcha, "read", "page", page.model_dump()):
+                page.access = "captcha"
+                page.description = ""
+                page.html, page.css, page.javascript = "", "", ""
+                page.javascript_enabled = False
+                page.options = {}
+    return pages

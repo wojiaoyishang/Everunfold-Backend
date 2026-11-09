@@ -18,9 +18,9 @@ def main() -> None:
     schema["properties"]["schema_version"] = PublicSnapshot.model_json_schema()["properties"][
         "schema_version"
     ]
-    properties = ContentDetail.model_json_schema(ref_template="#/definitions/{model}")["properties"]
-    for field in ("translation_group_id", "translations"):
-        schema["definitions"]["ContentDetail"]["properties"][field] = properties[field]
+    detail = ContentDetail.model_json_schema(ref_template="#/definitions/{model}")
+    schema["definitions"].update(detail.pop("$defs", {}))
+    schema["definitions"]["ContentDetail"] = detail
     schema["definitions"]["ContentTranslation"] = ContentTranslation.model_json_schema()
     pages = PublicManagedPage.model_json_schema(ref_template="#/definitions/{model}")
     schema["definitions"].update(pages.pop("$defs", {}))
@@ -30,8 +30,8 @@ def main() -> None:
         "items": {"$ref": "#/definitions/PublicManagedPage"},
         "default": [],
     }
-    schema["x-everunfold-contract-version"] = "0.9.0"
-    schema["description"] = "公开阅读快照 0.9；自定义页面支持脚本执行位置，兼容已有快照。"
+    schema["x-everunfold-contract-version"] = "0.10.0"
+    schema["description"] = "公开阅读快照 0.10；验证码受限正文与页面配置剥离，兼容已有快照。"
     target.write_text(
         json.dumps(schema, ensure_ascii=False, indent=2) + "\n", encoding="utf-8", newline="\n"
     )

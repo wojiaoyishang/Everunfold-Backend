@@ -1,5 +1,33 @@
 {
   "$defs": {
+    "CaptchaAnswer": {
+      "additionalProperties": false,
+      "properties": {
+        "challenge_id": {
+          "format": "uuid",
+          "title": "Challenge Id",
+          "type": "string"
+        },
+        "client_id": {
+          "format": "uuid",
+          "title": "Client Id",
+          "type": "string"
+        },
+        "answer": {
+          "maxLength": 4096,
+          "minLength": 1,
+          "title": "Answer",
+          "type": "string"
+        }
+      },
+      "required": [
+        "challenge_id",
+        "client_id",
+        "answer"
+      ],
+      "title": "CaptchaAnswer",
+      "type": "object"
+    },
     "ContentAccessInput": {
       "additionalProperties": false,
       "properties": {
@@ -7,6 +35,17 @@
           "format": "uuid",
           "title": "Id",
           "type": "string"
+        },
+        "captcha": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CaptchaAnswer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         },
         "password": {
           "default": "",
@@ -73,10 +112,21 @@
           "enum": [
             "public",
             "password",
-            "scheduled"
+            "scheduled",
+            "captcha"
           ],
           "title": "Access",
           "type": "string"
+        },
+        "captcha_required": {
+          "default": false,
+          "title": "Captcha Required",
+          "type": "boolean"
+        },
+        "password_required": {
+          "default": false,
+          "title": "Password Required",
+          "type": "boolean"
         },
         "opens_at": {
           "anyOf": [
@@ -120,6 +170,25 @@
         "language": {
           "title": "Language",
           "type": "string"
+        },
+        "translation_group_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Translation Group Id"
+        },
+        "translations": {
+          "items": {
+            "$ref": "#/$defs/ContentTranslation"
+          },
+          "title": "Translations",
+          "type": "array"
         },
         "published_at": {
           "format": "date-time",
@@ -179,6 +248,18 @@
           "title": "Pinned",
           "type": "boolean"
         },
+        "read_receipt": {
+          "default": "",
+          "title": "Read Receipt",
+          "type": "string"
+        },
+        "unlocked_comments": {
+          "items": {
+            "$ref": "#/$defs/PublicComment"
+          },
+          "title": "Unlocked Comments",
+          "type": "array"
+        },
         "content": {
           "items": {
             "$ref": "#/$defs/ContentBlock"
@@ -215,6 +296,47 @@
         "media_urls"
       ],
       "title": "ContentDetail",
+      "type": "object"
+    },
+    "ContentTranslation": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "language": {
+          "title": "Language",
+          "type": "string"
+        },
+        "path": {
+          "pattern": "^/",
+          "title": "Path",
+          "type": "string"
+        },
+        "access": {
+          "default": "public",
+          "enum": [
+            "public",
+            "password",
+            "scheduled",
+            "captcha"
+          ],
+          "title": "Access",
+          "type": "string"
+        },
+        "is_original": {
+          "default": false,
+          "title": "Is Original",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "language",
+        "path"
+      ],
+      "title": "ContentTranslation",
       "type": "object"
     },
     "FontInfo": {
@@ -293,6 +415,61 @@
         "original"
       ],
       "title": "MediaURL",
+      "type": "object"
+    },
+    "PublicComment": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "parent_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Parent Id"
+        },
+        "author": {
+          "title": "Author",
+          "type": "string"
+        },
+        "content": {
+          "description": "纯文本，按文本展示，不再作为 HTML 解析",
+          "title": "Content",
+          "type": "string"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "reply_to": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reply To"
+        }
+      },
+      "required": [
+        "id",
+        "parent_id",
+        "author",
+        "content",
+        "created_at"
+      ],
+      "title": "PublicComment",
       "type": "object"
     },
     "PublicResponse_ContentDetail_": {
@@ -379,7 +556,7 @@
   "title": "ContentAccessContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "1.1.0",
+  "x-everunfold-contract-version": "1.2.0",
   "x-everunfold-operations": [
     {
       "name": "readProtectedContent",

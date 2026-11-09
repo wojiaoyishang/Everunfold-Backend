@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://everunfold.local/contracts/public-v0.1.schema.json",
   "title": "PublicSnapshot",
-  "description": "公开阅读快照 0.9；自定义页面支持脚本执行位置，兼容已有快照。",
+  "description": "公开阅读快照 0.10；验证码受限正文与页面配置剥离，兼容已有快照。",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -333,8 +333,191 @@
       }
     },
     "ContentDetail": {
-      "type": "object",
       "additionalProperties": false,
+      "properties": {
+        "comments_open": {
+          "default": true,
+          "title": "Comments Open",
+          "type": "boolean"
+        },
+        "seo_title": {
+          "default": "",
+          "title": "Seo Title",
+          "type": "string"
+        },
+        "seo_description": {
+          "default": "",
+          "title": "Seo Description",
+          "type": "string"
+        },
+        "access": {
+          "default": "public",
+          "enum": [
+            "public",
+            "password",
+            "scheduled",
+            "captcha"
+          ],
+          "title": "Access",
+          "type": "string"
+        },
+        "captcha_required": {
+          "default": false,
+          "title": "Captcha Required",
+          "type": "boolean"
+        },
+        "password_required": {
+          "default": false,
+          "title": "Password Required",
+          "type": "boolean"
+        },
+        "opens_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Opens At"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "article",
+            "shuoshuo",
+            "page"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "path": {
+          "pattern": "^/",
+          "title": "Path",
+          "type": "string"
+        },
+        "excerpt": {
+          "title": "Excerpt",
+          "type": "string"
+        },
+        "language": {
+          "title": "Language",
+          "type": "string"
+        },
+        "translation_group_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Translation Group Id"
+        },
+        "translations": {
+          "items": {
+            "$ref": "#/definitions/ContentTranslation"
+          },
+          "title": "Translations",
+          "type": "array"
+        },
+        "published_at": {
+          "format": "date-time",
+          "title": "Published At",
+          "type": "string"
+        },
+        "updated_at": {
+          "format": "date-time",
+          "title": "Updated At",
+          "type": "string"
+        },
+        "author": {
+          "title": "Author",
+          "type": "string"
+        },
+        "cover_url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Cover Url"
+        },
+        "reading_minutes": {
+          "minimum": 1,
+          "title": "Reading Minutes",
+          "type": "integer"
+        },
+        "word_count": {
+          "minimum": 0,
+          "title": "Word Count",
+          "type": "integer"
+        },
+        "categories": {
+          "items": {
+            "$ref": "#/definitions/TaxonomyDTO"
+          },
+          "title": "Categories",
+          "type": "array"
+        },
+        "tags": {
+          "items": {
+            "$ref": "#/definitions/TaxonomyDTO"
+          },
+          "title": "Tags",
+          "type": "array"
+        },
+        "comment_count": {
+          "minimum": 0,
+          "title": "Comment Count",
+          "type": "integer"
+        },
+        "pinned": {
+          "title": "Pinned",
+          "type": "boolean"
+        },
+        "read_receipt": {
+          "default": "",
+          "title": "Read Receipt",
+          "type": "string"
+        },
+        "unlocked_comments": {
+          "items": {
+            "$ref": "#/definitions/PublicComment"
+          },
+          "title": "Unlocked Comments",
+          "type": "array"
+        },
+        "content": {
+          "items": {
+            "$ref": "#/definitions/ContentBlock"
+          },
+          "title": "Content",
+          "type": "array"
+        },
+        "media_urls": {
+          "additionalProperties": {
+            "$ref": "#/definitions/MediaURL"
+          },
+          "title": "Media Urls",
+          "type": "object"
+        }
+      },
       "required": [
         "id",
         "kind",
@@ -355,164 +538,42 @@
         "content",
         "media_urls"
       ],
+      "title": "ContentDetail",
+      "type": "object"
+    },
+    "PublicComment": {
+      "additionalProperties": false,
       "properties": {
         "id": {
+          "title": "Id",
           "type": "string"
         },
-        "kind": {
-          "enum": [
-            "article",
-            "shuoshuo",
-            "page"
-          ]
-        },
-        "title": {
-          "type": "string"
-        },
-        "path": {
-          "type": "string",
-          "pattern": "^/"
-        },
-        "excerpt": {
-          "type": "string"
-        },
-        "language": {
-          "type": "string"
-        },
-        "published_at": {
-          "type": "string",
-          "format": "date-time"
-        },
-        "updated_at": {
-          "type": "string",
-          "format": "date-time"
+        "parent_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Parent Id"
         },
         "author": {
+          "title": "Author",
           "type": "string"
         },
-        "cover_url": {
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        "reading_minutes": {
-          "type": "integer",
-          "minimum": 1
-        },
-        "word_count": {
-          "type": "integer",
-          "minimum": 0
-        },
-        "categories": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/Taxonomy"
-          }
-        },
-        "tags": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/Taxonomy"
-          }
-        },
-        "comment_count": {
-          "type": "integer",
-          "minimum": 0
-        },
-        "pinned": {
-          "type": "boolean"
-        },
         "content": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "additionalProperties": false,
-            "required": [
-              "id",
-              "type",
-              "content"
-            ],
-            "properties": {
-              "id": {
-                "type": "string",
-                "minLength": 1
-              },
-              "type": {
-                "enum": [
-                  "markdown",
-                  "html"
-                ]
-              },
-              "content": {
-                "type": "string"
-              }
-            }
-          }
+          "description": "纯文本，按文本展示，不再作为 HTML 解析",
+          "title": "Content",
+          "type": "string"
         },
-        "media_urls": {
-          "type": "object",
-          "additionalProperties": {
-            "additionalProperties": false,
-            "properties": {
-              "original": {
-                "title": "Original",
-                "type": "string"
-              },
-              "webp": {
-                "default": "",
-                "title": "Webp",
-                "type": "string"
-              },
-              "font": {
-                "anyOf": [
-                  {
-                    "$ref": "#/definitions/FontInfo"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "default": null
-              }
-            },
-            "required": [
-              "original"
-            ],
-            "title": "MediaURL",
-            "type": "object"
-          }
-        },
-        "comments_open": {
-          "type": "boolean",
-          "default": true
-        },
-        "seo_title": {
-          "type": "string",
-          "default": ""
-        },
-        "seo_description": {
-          "type": "string",
-          "default": ""
-        },
-        "access": {
-          "type": "string",
-          "enum": [
-            "public",
-            "password",
-            "scheduled"
-          ],
-          "default": "public"
-        },
-        "opens_at": {
-          "type": [
-            "string",
-            "null"
-          ],
+        "created_at": {
           "format": "date-time",
-          "default": null
+          "title": "Created At",
+          "type": "string"
         },
-        "translation_group_id": {
+        "reply_to": {
           "anyOf": [
             {
               "type": "string"
@@ -522,20 +583,9 @@
             }
           ],
           "default": null,
-          "title": "Translation Group Id"
-        },
-        "translations": {
-          "items": {
-            "$ref": "#/definitions/ContentTranslation"
-          },
-          "title": "Translations",
-          "type": "array"
+          "title": "Reply To"
         }
-      }
-    },
-    "PublicComment": {
-      "type": "object",
-      "additionalProperties": false,
+      },
       "required": [
         "id",
         "parent_id",
@@ -543,34 +593,8 @@
         "content",
         "created_at"
       ],
-      "properties": {
-        "id": {
-          "type": "string"
-        },
-        "parent_id": {
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        "author": {
-          "type": "string"
-        },
-        "content": {
-          "type": "string",
-          "description": "纯文本，按文本展示，不再作为 HTML 解析"
-        },
-        "created_at": {
-          "type": "string",
-          "format": "date-time"
-        },
-        "reply_to": {
-          "type": [
-            "string",
-            "null"
-          ]
-        }
-      }
+      "title": "PublicComment",
+      "type": "object"
     },
     "FontInfo": {
       "additionalProperties": false,
@@ -641,7 +665,8 @@
           "enum": [
             "public",
             "password",
-            "scheduled"
+            "scheduled",
+            "captcha"
           ],
           "title": "Access",
           "type": "string"
@@ -664,6 +689,26 @@
     "PublicManagedPage": {
       "additionalProperties": false,
       "properties": {
+        "captcha_read": {
+          "default": "inherit",
+          "enum": [
+            "inherit",
+            "required",
+            "off"
+          ],
+          "title": "Captcha Read",
+          "type": "string"
+        },
+        "captcha_comment": {
+          "default": "inherit",
+          "enum": [
+            "inherit",
+            "required",
+            "off"
+          ],
+          "title": "Captcha Comment",
+          "type": "string"
+        },
         "title": {
           "maxLength": 120,
           "minLength": 1,
@@ -731,6 +776,15 @@
           },
           "title": "Options",
           "type": "object"
+        },
+        "access": {
+          "default": "public",
+          "enum": [
+            "public",
+            "captcha"
+          ],
+          "title": "Access",
+          "type": "string"
         },
         "id": {
           "format": "uuid",
@@ -814,7 +868,105 @@
       ],
       "title": "PublicManagedPage",
       "type": "object"
+    },
+    "ContentBlock": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "type": {
+          "enum": [
+            "markdown",
+            "html"
+          ],
+          "title": "Type",
+          "type": "string"
+        },
+        "content": {
+          "title": "Content",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "type",
+        "content"
+      ],
+      "title": "ContentBlock",
+      "type": "object"
+    },
+    "MediaURL": {
+      "additionalProperties": false,
+      "properties": {
+        "original": {
+          "title": "Original",
+          "type": "string"
+        },
+        "webp": {
+          "default": "",
+          "title": "Webp",
+          "type": "string"
+        },
+        "font": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/FontInfo"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "original"
+      ],
+      "title": "MediaURL",
+      "type": "object"
+    },
+    "TaxonomyDTO": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "slug": {
+          "title": "Slug",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "category",
+            "tag"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "count": {
+          "minimum": 0,
+          "title": "Count",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "slug",
+        "name",
+        "kind",
+        "count"
+      ],
+      "title": "TaxonomyDTO",
+      "type": "object"
     }
   },
-  "x-everunfold-contract-version": "0.9.0"
+  "x-everunfold-contract-version": "0.10.0"
 }

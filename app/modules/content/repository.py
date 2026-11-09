@@ -20,7 +20,9 @@ from app.modules.content.schemas import ContentKind, TaxonomyKind
 
 
 def public_conditions() -> tuple[ColumnElement[bool], ColumnElement[bool]]:
-    return Content.publication_status == "published", or_(
+    return Content.publication_status == "published", Content.captcha_read_required.is_(
+        False
+    ) & or_(
         Content.visibility == "public",
         (Content.visibility == "password")
         & Content.access_password_hash.is_not(None)

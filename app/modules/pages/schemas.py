@@ -8,6 +8,7 @@ from uuid import UUID
 from pydantic import Field, JsonValue, field_validator, model_validator
 
 from app.core.schemas import PublicModel, PublicResponse
+from app.modules.captcha.schemas import CaptchaOverride
 from app.modules.content.editor_schema import content_path
 from app.modules.pages.options import bounded_options
 from app.modules.settings.languages import LanguageCode
@@ -72,6 +73,8 @@ class PageManifest(PublicModel):
 
 
 class PageValue(PublicModel):
+    captcha_read: CaptchaOverride = "inherit"
+    captcha_comment: CaptchaOverride = "inherit"
     title: str = Field(min_length=1, max_length=120)
     path: str = Field(min_length=2, max_length=500)
     description: str = Field(default="", max_length=500)
@@ -95,6 +98,7 @@ class PageValue(PublicModel):
 
 
 class PublicManagedPage(PageValue):
+    access: Literal["public", "captcha"] = "public"
     enabled: Literal[True] = True
     id: UUID
     source: Literal["custom", "registered"]

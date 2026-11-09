@@ -110,6 +110,7 @@ def route_permission(path: str, method: str, body: dict[str, object]) -> tuple[s
     }:
         return "shortcodes:write", False
     if path in {
+        "/v1/admin/captcha",
         "/v1/admin/settings",
         "/v1/admin/extensions",
         "/v1/admin/frontend-nodes",

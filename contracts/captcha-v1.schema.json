@@ -1,0 +1,833 @@
+{
+  "$defs": {
+    "CaptchaAnswer": {
+      "additionalProperties": false,
+      "properties": {
+        "challenge_id": {
+          "format": "uuid",
+          "title": "Challenge Id",
+          "type": "string"
+        },
+        "client_id": {
+          "format": "uuid",
+          "title": "Client Id",
+          "type": "string"
+        },
+        "answer": {
+          "maxLength": 4096,
+          "minLength": 1,
+          "title": "Answer",
+          "type": "string"
+        }
+      },
+      "required": [
+        "challenge_id",
+        "client_id",
+        "answer"
+      ],
+      "title": "CaptchaAnswer",
+      "type": "object"
+    },
+    "CaptchaChallenge": {
+      "additionalProperties": false,
+      "properties": {
+        "required": {
+          "title": "Required",
+          "type": "boolean"
+        },
+        "provider": {
+          "default": "local",
+          "title": "Provider",
+          "type": "string"
+        },
+        "widget": {
+          "default": "",
+          "title": "Widget",
+          "type": "string"
+        },
+        "site_key": {
+          "default": "",
+          "title": "Site Key",
+          "type": "string"
+        },
+        "challenge_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Challenge Id"
+        },
+        "expires_in": {
+          "default": 180,
+          "title": "Expires In",
+          "type": "integer"
+        },
+        "image": {
+          "default": "",
+          "title": "Image",
+          "type": "string"
+        }
+      },
+      "required": [
+        "required"
+      ],
+      "title": "CaptchaChallenge",
+      "type": "object"
+    },
+    "CaptchaRules": {
+      "additionalProperties": false,
+      "properties": {
+        "login": {
+          "default": false,
+          "title": "Login",
+          "type": "boolean"
+        },
+        "read": {
+          "$ref": "#/$defs/ContentRules"
+        },
+        "comment": {
+          "$ref": "#/$defs/ContentRules"
+        }
+      },
+      "title": "CaptchaRules",
+      "type": "object"
+    },
+    "CaptchaSettingsState": {
+      "additionalProperties": false,
+      "properties": {
+        "revision": {
+          "title": "Revision",
+          "type": "integer"
+        },
+        "provider": {
+          "title": "Provider",
+          "type": "string"
+        },
+        "rules": {
+          "$ref": "#/$defs/CaptchaRules"
+        },
+        "providers": {
+          "additionalProperties": {
+            "$ref": "#/$defs/PublicProviderSettings"
+          },
+          "title": "Providers",
+          "type": "object"
+        },
+        "catalog": {
+          "items": {
+            "$ref": "#/$defs/ProviderDescription"
+          },
+          "title": "Catalog",
+          "type": "array"
+        }
+      },
+      "required": [
+        "revision",
+        "provider",
+        "rules",
+        "providers",
+        "catalog"
+      ],
+      "title": "CaptchaSettingsState",
+      "type": "object"
+    },
+    "ChallengeRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "action": {
+          "enum": [
+            "login",
+            "read",
+            "comment"
+          ],
+          "title": "Action",
+          "type": "string"
+        },
+        "content_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Content Id"
+        },
+        "client_id": {
+          "format": "uuid",
+          "title": "Client Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "action",
+        "client_id"
+      ],
+      "title": "ChallengeRequest",
+      "type": "object"
+    },
+    "CommentReceipt": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "status": {
+          "const": "pending",
+          "default": "pending",
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "title": "CommentReceipt",
+      "type": "object"
+    },
+    "ContentAccessInput": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "captcha": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CaptchaAnswer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "password": {
+          "default": "",
+          "maxLength": 200,
+          "title": "Password",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "title": "ContentAccessInput",
+      "type": "object"
+    },
+    "ContentRules": {
+      "additionalProperties": false,
+      "properties": {
+        "article": {
+          "default": false,
+          "title": "Article",
+          "type": "boolean"
+        },
+        "shuoshuo": {
+          "default": false,
+          "title": "Shuoshuo",
+          "type": "boolean"
+        },
+        "page": {
+          "default": false,
+          "title": "Page",
+          "type": "boolean"
+        }
+      },
+      "title": "ContentRules",
+      "type": "object"
+    },
+    "JsonValue": {},
+    "ProviderDescription": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "widget": {
+          "title": "Widget",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "widget"
+      ],
+      "title": "ProviderDescription",
+      "type": "object"
+    },
+    "PublicManagedPage": {
+      "additionalProperties": false,
+      "properties": {
+        "captcha_read": {
+          "default": "inherit",
+          "enum": [
+            "inherit",
+            "required",
+            "off"
+          ],
+          "title": "Captcha Read",
+          "type": "string"
+        },
+        "captcha_comment": {
+          "default": "inherit",
+          "enum": [
+            "inherit",
+            "required",
+            "off"
+          ],
+          "title": "Captcha Comment",
+          "type": "string"
+        },
+        "title": {
+          "maxLength": 120,
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        },
+        "path": {
+          "maxLength": 500,
+          "minLength": 2,
+          "title": "Path",
+          "type": "string"
+        },
+        "description": {
+          "default": "",
+          "maxLength": 500,
+          "title": "Description",
+          "type": "string"
+        },
+        "allow_indexing": {
+          "default": true,
+          "title": "Allow Indexing",
+          "type": "boolean"
+        },
+        "enabled": {
+          "const": true,
+          "default": true,
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "html": {
+          "default": "",
+          "maxLength": 200000,
+          "title": "Html",
+          "type": "string"
+        },
+        "css": {
+          "default": "",
+          "maxLength": 100000,
+          "title": "Css",
+          "type": "string"
+        },
+        "javascript": {
+          "default": "",
+          "maxLength": 100000,
+          "title": "Javascript",
+          "type": "string"
+        },
+        "javascript_enabled": {
+          "default": false,
+          "title": "Javascript Enabled",
+          "type": "boolean"
+        },
+        "javascript_position": {
+          "default": "body_end",
+          "enum": [
+            "head",
+            "body_end"
+          ],
+          "title": "Javascript Position",
+          "type": "string"
+        },
+        "options": {
+          "additionalProperties": {
+            "$ref": "#/$defs/JsonValue"
+          },
+          "title": "Options",
+          "type": "object"
+        },
+        "access": {
+          "default": "public",
+          "enum": [
+            "public",
+            "captcha"
+          ],
+          "title": "Access",
+          "type": "string"
+        },
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "source": {
+          "enum": [
+            "custom",
+            "registered"
+          ],
+          "title": "Source",
+          "type": "string"
+        },
+        "implementation_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Implementation Id"
+        },
+        "implementation_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Implementation Version"
+        },
+        "revision": {
+          "minimum": 1,
+          "title": "Revision",
+          "type": "integer"
+        },
+        "language": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Language"
+        },
+        "translation_group_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Translation Group Id"
+        },
+        "is_original": {
+          "default": true,
+          "title": "Is Original",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "title",
+        "path",
+        "id",
+        "source",
+        "revision"
+      ],
+      "title": "PublicManagedPage",
+      "type": "object"
+    },
+    "PublicProviderSettings": {
+      "additionalProperties": false,
+      "properties": {
+        "site_key": {
+          "default": "",
+          "maxLength": 300,
+          "title": "Site Key",
+          "type": "string"
+        },
+        "hostnames": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 30,
+          "title": "Hostnames",
+          "type": "array"
+        },
+        "secret_configured": {
+          "title": "Secret Configured",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "secret_configured"
+      ],
+      "title": "PublicProviderSettings",
+      "type": "object"
+    },
+    "PublicResponse_CaptchaChallenge_": {
+      "additionalProperties": false,
+      "properties": {
+        "success": {
+          "default": true,
+          "title": "Success",
+          "type": "boolean"
+        },
+        "code": {
+          "default": 200,
+          "title": "Code",
+          "type": "integer"
+        },
+        "msg": {
+          "default": "请求成功",
+          "title": "Msg",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/CaptchaChallenge"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "title": "PublicResponse[CaptchaChallenge]",
+      "type": "object"
+    },
+    "PublicResponse_CaptchaSettingsState_": {
+      "additionalProperties": false,
+      "properties": {
+        "success": {
+          "default": true,
+          "title": "Success",
+          "type": "boolean"
+        },
+        "code": {
+          "default": 200,
+          "title": "Code",
+          "type": "integer"
+        },
+        "msg": {
+          "default": "请求成功",
+          "title": "Msg",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/CaptchaSettingsState"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "title": "PublicResponse[CaptchaSettingsState]",
+      "type": "object"
+    },
+    "PublicResponse_CommentReceipt_": {
+      "additionalProperties": false,
+      "properties": {
+        "success": {
+          "default": true,
+          "title": "Success",
+          "type": "boolean"
+        },
+        "code": {
+          "default": 200,
+          "title": "Code",
+          "type": "integer"
+        },
+        "msg": {
+          "default": "请求成功",
+          "title": "Msg",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/CommentReceipt"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "title": "PublicResponse[CommentReceipt]",
+      "type": "object"
+    },
+    "PublicResponse_PublicManagedPage_": {
+      "additionalProperties": false,
+      "properties": {
+        "success": {
+          "default": true,
+          "title": "Success",
+          "type": "boolean"
+        },
+        "code": {
+          "default": 200,
+          "title": "Code",
+          "type": "integer"
+        },
+        "msg": {
+          "default": "请求成功",
+          "title": "Msg",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/PublicManagedPage"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "title": "PublicResponse[PublicManagedPage]",
+      "type": "object"
+    },
+    "SaveCaptchaSettings": {
+      "additionalProperties": false,
+      "properties": {
+        "expected_revision": {
+          "minimum": 1,
+          "title": "Expected Revision",
+          "type": "integer"
+        },
+        "provider": {
+          "maxLength": 100,
+          "title": "Provider",
+          "type": "string"
+        },
+        "rules": {
+          "$ref": "#/$defs/CaptchaRules"
+        },
+        "providers": {
+          "additionalProperties": {
+            "$ref": "#/$defs/SaveProvider"
+          },
+          "maxProperties": 30,
+          "title": "Providers",
+          "type": "object"
+        }
+      },
+      "required": [
+        "expected_revision",
+        "provider",
+        "rules",
+        "providers"
+      ],
+      "title": "SaveCaptchaSettings",
+      "type": "object"
+    },
+    "SaveProvider": {
+      "additionalProperties": false,
+      "properties": {
+        "site_key": {
+          "default": "",
+          "maxLength": 300,
+          "title": "Site Key",
+          "type": "string"
+        },
+        "hostnames": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 30,
+          "title": "Hostnames",
+          "type": "array"
+        },
+        "secret": {
+          "anyOf": [
+            {
+              "maxLength": 2048,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Secret"
+        },
+        "clear_secret": {
+          "default": false,
+          "title": "Clear Secret",
+          "type": "boolean"
+        }
+      },
+      "title": "SaveProvider",
+      "type": "object"
+    },
+    "SubmitComment": {
+      "additionalProperties": false,
+      "properties": {
+        "operation_id": {
+          "format": "uuid",
+          "title": "Operation Id",
+          "type": "string"
+        },
+        "content_id": {
+          "format": "uuid",
+          "title": "Content Id",
+          "type": "string"
+        },
+        "client_id": {
+          "format": "uuid",
+          "title": "Client Id",
+          "type": "string"
+        },
+        "parent_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Parent Id"
+        },
+        "author": {
+          "maxLength": 80,
+          "minLength": 1,
+          "title": "Author",
+          "type": "string"
+        },
+        "body": {
+          "maxLength": 5000,
+          "minLength": 1,
+          "title": "Body",
+          "type": "string"
+        },
+        "captcha": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CaptchaAnswer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "read_receipt": {
+          "default": "",
+          "maxLength": 100,
+          "title": "Read Receipt",
+          "type": "string"
+        }
+      },
+      "required": [
+        "operation_id",
+        "content_id",
+        "client_id",
+        "author",
+        "body"
+      ],
+      "title": "SubmitComment",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "challenge_request": {
+      "$ref": "#/$defs/ChallengeRequest"
+    },
+    "challenge_response": {
+      "$ref": "#/$defs/PublicResponse_CaptchaChallenge_"
+    },
+    "settings_response": {
+      "$ref": "#/$defs/PublicResponse_CaptchaSettingsState_"
+    },
+    "save_settings": {
+      "$ref": "#/$defs/SaveCaptchaSettings"
+    },
+    "page_request": {
+      "$ref": "#/$defs/ContentAccessInput"
+    },
+    "page_response": {
+      "$ref": "#/$defs/PublicResponse_PublicManagedPage_"
+    },
+    "comment_request": {
+      "$ref": "#/$defs/SubmitComment"
+    },
+    "comment_response": {
+      "$ref": "#/$defs/PublicResponse_CommentReceipt_"
+    }
+  },
+  "required": [
+    "challenge_request",
+    "challenge_response",
+    "settings_response",
+    "save_settings",
+    "page_request",
+    "page_response",
+    "comment_request",
+    "comment_response"
+  ],
+  "title": "CaptchaAPIContract",
+  "type": "object",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "x-everunfold-contract-version": "1.0.0",
+  "x-everunfold-operations": [
+    {
+      "name": "readCaptchaSettings",
+      "path": "/v1/admin/captcha",
+      "method": "GET",
+      "response": "settings_response",
+      "csrf": false,
+      "credentials": "include"
+    },
+    {
+      "name": "saveCaptchaSettings",
+      "path": "/v1/admin/captcha",
+      "method": "PATCH",
+      "input": "save_settings",
+      "response": "settings_response",
+      "csrf": true,
+      "credentials": "include"
+    },
+    {
+      "name": "createCaptchaChallenge",
+      "path": "/v1/reader/captcha/challenge",
+      "method": "POST",
+      "input": "challenge_request",
+      "response": "challenge_response",
+      "csrf": false,
+      "credentials": "omit"
+    },
+    {
+      "name": "readProtectedPage",
+      "path": "/v1/reader/access-page",
+      "method": "POST",
+      "input": "page_request",
+      "response": "page_response",
+      "csrf": false,
+      "credentials": "omit"
+    },
+    {
+      "name": "submitReaderComment",
+      "path": "/v1/reader/comments",
+      "method": "POST",
+      "input": "comment_request",
+      "response": "comment_response",
+      "csrf": false,
+      "credentials": "omit"
+    }
+  ]
+}

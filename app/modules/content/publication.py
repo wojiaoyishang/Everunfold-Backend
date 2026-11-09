@@ -70,6 +70,11 @@ class ContentPublication:
         body = "\n\n".join(str(block["content"]) for block in draft.body)
         media = await editor_media(self.session, self.config, json.dumps(draft.body), settings)
         excerpt = draft.excerpt or content_preview(draft.body)
+        from app.modules.captcha.service import current_config, required
+
+        captcha_required = required(
+            await current_config(self.session), "read", draft.type_id, settings.model_dump()
+        )
         fields = dict(
             kind=draft.type_id,
             title=draft.title,
@@ -89,6 +94,7 @@ class ContentPublication:
             else None,
             pinned=settings.pinned,
             editor_settings=settings.model_dump(mode="json"),
+            captcha_read_required=captcha_required,
             publication_status="published",
             visibility=settings.visibility,
             access_password_hash=draft.access_password_hash
