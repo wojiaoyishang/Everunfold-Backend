@@ -11,9 +11,23 @@ from app.modules.settings.schemas import SettingsContract
 def build_schema() -> dict[str, Any]:
     schema = SettingsContract.model_json_schema()
     schema["$schema"] = "http://json-schema.org/draft-07/schema#"
-    schema["x-everunfold-contract-version"] = "1.19.0"
+    schema["x-everunfold-contract-version"] = "1.20.0"
     schema["x-everunfold-language-regions"] = LANGUAGE_REGIONS
     schema["x-everunfold-operations"] = [
+        {
+            "name": "sendTestMail",
+            "path": "/v1/admin/settings/mail/test",
+            "method": "POST",
+            "input": "test_mail",
+            "response": "test_mail_state",
+        },
+        {
+            "name": "readTestMail",
+            "path": "/v1/admin/settings/mail/test/status",
+            "method": "POST",
+            "input": "test_mail_lookup",
+            "response": "test_mail_state",
+        },
         {
             "name": "readMailSettings",
             "path": "/v1/admin/settings/mail",

@@ -35,7 +35,13 @@ from app.modules.settings.extensions_schemas import (
     ExtensionUsageQuery,
 )
 from app.modules.settings.languages import LanguageCatalog
-from app.modules.settings.mail_schemas import MailSettingsState, SaveMailSettings
+from app.modules.settings.mail_schemas import (
+    MailSettingsState,
+    MailTestLookup,
+    MailTestState,
+    SaveMailSettings,
+    SendTestMail,
+)
 from app.modules.settings.urls import safe_url as safe_url
 from app.modules.shortcodes.schemas import (
     PreviewShortcode,
@@ -270,6 +276,9 @@ class DeliveryReceipt(SettingsModel):
 
 class SettingsContract(PublicModel):
     mail: PublicResponse[MailSettingsState]
+    test_mail: SendTestMail
+    test_mail_lookup: MailTestLookup
+    test_mail_state: PublicResponse[MailTestState]
     save_mail: SaveMailSettings
     runtime: PublicResponse[RuntimeOverview]
     runtime_command: RuntimeCommand

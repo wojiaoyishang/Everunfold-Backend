@@ -1183,6 +1183,84 @@
       "title": "MailSettingsState",
       "type": "object"
     },
+    "MailTestLookup": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "title": "MailTestLookup",
+      "type": "object"
+    },
+    "MailTestState": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "recipient": {
+          "title": "Recipient",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "queued",
+            "sending",
+            "sent",
+            "failed",
+            "unknown"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "error": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Error"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "finished_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Finished At"
+        }
+      },
+      "required": [
+        "id",
+        "recipient",
+        "status",
+        "created_at"
+      ],
+      "title": "MailTestState",
+      "type": "object"
+    },
     "MediaCatalog": {
       "additionalProperties": false,
       "properties": {
@@ -2464,6 +2542,34 @@
       "title": "PublicResponse[MailSettingsState]",
       "type": "object"
     },
+    "PublicResponse_MailTestState_": {
+      "additionalProperties": false,
+      "properties": {
+        "success": {
+          "default": true,
+          "title": "Success",
+          "type": "boolean"
+        },
+        "code": {
+          "default": 200,
+          "title": "Code",
+          "type": "integer"
+        },
+        "msg": {
+          "default": "请求成功",
+          "title": "Msg",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/MailTestState"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "title": "PublicResponse[MailTestState]",
+      "type": "object"
+    },
     "PublicResponse_MediaCatalog_": {
       "additionalProperties": false,
       "properties": {
@@ -3452,6 +3558,34 @@
       "title": "SearchDiscovery",
       "type": "object"
     },
+    "SendTestMail": {
+      "additionalProperties": false,
+      "properties": {
+        "request_id": {
+          "format": "uuid",
+          "title": "Request Id",
+          "type": "string"
+        },
+        "expected_revision": {
+          "minimum": 0,
+          "title": "Expected Revision",
+          "type": "integer"
+        },
+        "recipient": {
+          "maxLength": 254,
+          "minLength": 3,
+          "title": "Recipient",
+          "type": "string"
+        }
+      },
+      "required": [
+        "request_id",
+        "expected_revision",
+        "recipient"
+      ],
+      "title": "SendTestMail",
+      "type": "object"
+    },
     "SettingsDelivery": {
       "additionalProperties": false,
       "properties": {
@@ -3994,6 +4128,15 @@
     "mail": {
       "$ref": "#/$defs/PublicResponse_MailSettingsState_"
     },
+    "test_mail": {
+      "$ref": "#/$defs/SendTestMail"
+    },
+    "test_mail_lookup": {
+      "$ref": "#/$defs/MailTestLookup"
+    },
+    "test_mail_state": {
+      "$ref": "#/$defs/PublicResponse_MailTestState_"
+    },
     "save_mail": {
       "$ref": "#/$defs/SaveMailSettings"
     },
@@ -4114,6 +4257,9 @@
   },
   "required": [
     "mail",
+    "test_mail",
+    "test_mail_lookup",
+    "test_mail_state",
     "save_mail",
     "runtime",
     "runtime_command",
@@ -4157,7 +4303,7 @@
   "title": "SettingsContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "1.19.0",
+  "x-everunfold-contract-version": "1.20.0",
   "x-everunfold-language-regions": {
     "zh": "CN",
     "en": "GB",
@@ -4193,6 +4339,20 @@
     "sw": "TZ"
   },
   "x-everunfold-operations": [
+    {
+      "name": "sendTestMail",
+      "path": "/v1/admin/settings/mail/test",
+      "method": "POST",
+      "input": "test_mail",
+      "response": "test_mail_state"
+    },
+    {
+      "name": "readTestMail",
+      "path": "/v1/admin/settings/mail/test/status",
+      "method": "POST",
+      "input": "test_mail_lookup",
+      "response": "test_mail_state"
+    },
     {
       "name": "readMailSettings",
       "path": "/v1/admin/settings/mail",

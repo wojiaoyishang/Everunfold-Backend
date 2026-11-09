@@ -2,7 +2,9 @@
 
 import ipaddress
 import re
-from typing import Self
+from datetime import datetime
+from typing import Literal, Self
+from uuid import UUID
 
 from pydantic import Field, SecretStr, field_validator, model_validator
 
@@ -76,3 +78,27 @@ class SaveMailSettings(PublicModel):
         if self.clear_password and self.password and self.password.get_secret_value():
             raise ValueError("Cannot replace and clear password together")
         return self
+
+
+class SendTestMail(PublicModel):
+    request_id: UUID
+    expected_revision: int = Field(ge=0)
+    recipient: str = Field(min_length=3, max_length=254)
+
+    @field_validator("recipient")
+    @classmethod
+    def address(cls, value: str) -> str:
+        return MailPreferences.email(MailPreferences.single_line(value))
+
+
+class MailTestLookup(PublicModel):
+    id: UUID
+
+
+class MailTestState(PublicModel):
+    id: UUID
+    recipient: str
+    status: Literal["queued", "sending", "sent", "failed", "unknown"]
+    error: str | None = None
+    created_at: datetime
+    finished_at: datetime | None = None
