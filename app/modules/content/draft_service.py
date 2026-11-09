@@ -80,6 +80,10 @@ class DraftService:
         if row is None:
             raise AuthFailure(404, 40450, "找不到这份草稿")
         result = detail(row)
+        from app.modules.content.collaboration.models import CollaborationDocument
+
+        head = await self.session.get(CollaborationDocument, row.id)
+        result.collaboration_seq = head.committed_seq if head else None
         result.media_urls = await editor_media(
             self.session, self.config, json.dumps(row.body), result.settings, strict=False
         )
@@ -95,6 +99,7 @@ class DraftService:
         collaboration_cutoff: tuple[UUID, int] | None = None,
         note: str = "",
         live_fields: DraftFields | None = None,
+        commit: bool = True,
     ) -> DraftDetail:
         serialized = payload.model_dump(mode="json")
         if isinstance(payload, DraftCreate | DraftSave) and payload.fields.access_password:
@@ -182,6 +187,9 @@ class DraftService:
                 json.dumps([block.model_dump(mode="json") for block in fields.body])
             )
             settings = fields.settings or EditorSettings.model_validate(row.editor_settings or {})
+            from app.modules.content.taxonomy_names import TermDirectory
+
+            settings = (await TermDirectory.load(self.session)).normalize(settings)
             if not settings.path:
                 settings.path = row.public_path or await initial_path(
                     self.session, fields.title, row.id, language=row.language
@@ -264,14 +272,19 @@ class DraftService:
                 # must still include edits accepted after that cutoff.
                 row.title, row.excerpt = live_fields.title, live_fields.excerpt
                 row.body = [block.model_dump(mode="json") for block in live_fields.body]
-                live_settings = live_fields.settings or EditorSettings()
+                live_settings = (await TermDirectory.load(self.session)).normalize(
+                    live_fields.settings or EditorSettings()
+                )
                 saved_settings = EditorSettings.model_validate(row.editor_settings)
                 live_settings.visibility, live_settings.opens_at = (
                     saved_settings.visibility,
                     saved_settings.opens_at,
                 )
                 row.editor_settings = live_settings.model_dump(mode="json")
-            await self.session.commit()
+            if commit:
+                await self.session.commit()
+            else:
+                await self.session.flush()
         except Exception:
             await self.session.rollback()
             raise

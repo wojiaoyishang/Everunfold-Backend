@@ -76,9 +76,20 @@ class Taxonomy(Base):
     slug: Mapped[str] = mapped_column(Text)
     name: Mapped[str] = mapped_column(Text)
     parent_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("taxonomies.id"))
+    revision: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
+    retired: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     contents: Mapped[list[Content]] = relationship(
         secondary="content_taxonomies", lazy="raise", back_populates="taxonomies"
     )
+
+
+class TaxonomyName(Base):
+    """Historical names resolve to a stable term or a removal tombstone, never a URL alias."""
+
+    __tablename__ = "taxonomy_names"
+    kind: Mapped[str] = mapped_column(String(16), primary_key=True)
+    name_key: Mapped[str] = mapped_column(String(200), primary_key=True)
+    taxonomy_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("taxonomies.id"))
 
 
 class ContentTaxonomy(Base):

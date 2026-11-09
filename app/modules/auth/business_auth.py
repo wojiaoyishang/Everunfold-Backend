@@ -16,6 +16,7 @@ from app.modules.auth.security import token_digest
 from app.modules.auth.service import AuthFailure, AuthService
 
 CONTENT_READ = {
+    "taxonomy/query",
     "types",
     "languages",
     "editor-options",
@@ -30,6 +31,9 @@ CONTENT_READ = {
     "translations/query",
 }
 CONTENT_WRITE = {
+    "batch",
+    "taxonomy/preview",
+    "taxonomy/save",
     "categories",
     "create",
     "save",
@@ -173,11 +177,14 @@ async def authorize_business(
             "/v1/admin/content/categories",
             "/v1/admin/content/publication",
             "/v1/admin/content/sync",
+            "/v1/admin/content/taxonomy/query",
+            "/v1/admin/content/taxonomy/preview",
+            "/v1/admin/content/taxonomy/save",
         }
         and actor.permissions[capability] != "all"
     ):
         raise AuthFailure(403, 40364, "此操作需要全部内容的授权范围")
-    if capability.startswith("content:"):
+    if capability.startswith("content:") and not route.startswith("/v1/admin/content/taxonomy/"):
         ids = [body.get("id"), body.get("target_id"), request.query_params.get("id")]
         members = body.get("members")
         if isinstance(members, dict):

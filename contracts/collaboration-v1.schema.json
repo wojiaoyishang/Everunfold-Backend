@@ -587,6 +587,18 @@
     "DraftDetail": {
       "additionalProperties": false,
       "properties": {
+        "collaboration_seq": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Collaboration Seq"
+        },
         "id": {
           "format": "uuid",
           "title": "Id",
@@ -2591,7 +2603,7 @@
   "title": "CollaborationContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "2.4.0",
+  "x-everunfold-contract-version": "2.5.0",
   "x-everunfold-operations": [
     {
       "name": "acquireHtmlSource",

@@ -37,6 +37,9 @@ class ContentPublication:
             raise AuthFailure(422, 42255, "请填写正文后再发布")
         now = now or datetime.now(UTC)
         settings = EditorSettings.model_validate(draft.editor_settings or {})
+        from app.modules.content.taxonomy_names import TermDirectory
+
+        settings = (await TermDirectory.load(self.session)).normalize(settings)
         from app.modules.content.content_paths import initial_path
 
         path = (

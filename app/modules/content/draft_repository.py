@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import Settings
 from app.modules.content.draft_models import ContentDraft, TranslationGroup
 from app.modules.content.draft_schemas import (
+    DraftAuthor,
     DraftCatalog,
     DraftDetail,
     DraftListItem,
@@ -96,6 +97,20 @@ class DraftRepository:
             filters.append(ContentDraft.published_revision.is_not(None))
         elif query.status == "draft":
             filters.append(ContentDraft.published_revision.is_(None))
+        elif query.status == "scheduled":
+            filters.append(ContentDraft.scheduled_for.is_not(None))
+        elif query.status == "failed":
+            filters.append(ContentDraft.schedule_error.is_not(None))
+        if query.author_id:
+            filters.append(ContentDraft.created_by == query.author_id)
+        if query.category:
+            filters.append(ContentDraft.editor_settings["categories"].contains([query.category]))
+        if query.tag:
+            filters.append(ContentDraft.editor_settings["tags"].contains([query.tag]))
+        if query.updated_from:
+            filters.append(ContentDraft.updated_at >= query.updated_from)
+        if query.updated_to:
+            filters.append(ContentDraft.updated_at <= query.updated_to)
         if query.language:
             filters.append(ContentDraft.language == query.language)
         if search := query.search.strip():
@@ -143,9 +158,11 @@ class DraftRepository:
                 select(func.count()).select_from(ContentDraft).where(*filters)
             )
             selection = select(ContentDraft).where(*filters)
+        order_column = getattr(ContentDraft, query.order_by)
+        order = order_column.asc() if query.direction == "asc" else order_column.desc()
         rows = list(
             await self.session.scalars(
-                selection.order_by(ContentDraft.updated_at.desc(), ContentDraft.id)
+                selection.order_by(order.nulls_last(), ContentDraft.id)
                 .offset((query.page - 1) * query.page_size)
                 .limit(query.page_size)
             )
@@ -165,6 +182,34 @@ class DraftRepository:
         ):
             members[member.translation_group_id].append(member)
         settings = [EditorSettings.model_validate(row.editor_settings or {}) for row in rows]
+        from app.modules.content.collaboration.models import CollaborationDocument
+
+        sequences = dict(
+            (
+                await self.session.execute(
+                    select(
+                        CollaborationDocument.draft_id, CollaborationDocument.committed_seq
+                    ).where(
+                        CollaborationDocument.draft_id.in_(
+                            [item.id for group in members.values() for item in group]
+                        )
+                    )
+                )
+            ).all()
+        )
+        author_query = (
+            select(ContentDraft.created_by, ContentDraft.author)
+            .where(
+                ContentDraft.type_id == query.type_id,
+            )
+            .distinct()
+            .order_by(ContentDraft.author)
+        )
+        if self.owner_id:
+            author_query = author_query.where(ContentDraft.created_by == self.owner_id)
+        authors = {
+            identity: name for identity, name in (await self.session.execute(author_query)).all()
+        }
         covers = await editor_media(
             self.session,
             self.config,
@@ -178,18 +223,22 @@ class DraftRepository:
         return DraftCatalog(
             items=[
                 DraftListItem(
-                    **summary(row).model_dump(),
+                    **{**summary(row).model_dump(), "collaboration_seq": sequences.get(row.id)},
                     cover_url=covers[str(meta.cover_media_id)].original
                     if str(meta.cover_media_id) in covers
                     else None,
                     categories=meta.categories,
                     tags=meta.tags,
                     pinned=meta.pinned,
+                    comments_open=meta.comments_open,
                     comment_count=counts.get(row.id, 0),
                     group_revision=groups[row.translation_group_id].revision,
                     translations=[
                         TranslationMember(
-                            **summary(member).model_dump(),
+                            **{
+                                **summary(member).model_dump(),
+                                "collaboration_seq": sequences.get(member.id),
+                            },
                             is_original=member.id == groups[row.translation_group_id].source_id,
                             needs_review=member.translated_from_revision is not None
                             and member.translated_from_revision
@@ -203,4 +252,5 @@ class DraftRepository:
             total=total or 0,
             page=query.page,
             page_size=query.page_size,
+            authors=[DraftAuthor(id=identity, name=name) for identity, name in authors.items()],
         )

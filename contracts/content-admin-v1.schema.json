@@ -543,6 +543,89 @@
       "title": "DeliveryState",
       "type": "object"
     },
+    "DraftAuthor": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "name"
+      ],
+      "title": "DraftAuthor",
+      "type": "object"
+    },
+    "DraftBatch": {
+      "additionalProperties": false,
+      "properties": {
+        "operation_id": {
+          "format": "uuid",
+          "title": "Operation Id",
+          "type": "string"
+        },
+        "items": {
+          "items": {
+            "$ref": "#/$defs/DraftVersion"
+          },
+          "maxItems": 50,
+          "minItems": 1,
+          "title": "Items",
+          "type": "array"
+        },
+        "action": {
+          "enum": [
+            "edit",
+            "trash",
+            "restore"
+          ],
+          "title": "Action",
+          "type": "string"
+        },
+        "patch": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MetadataPatch"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "operation_id",
+        "items",
+        "action"
+      ],
+      "title": "DraftBatch",
+      "type": "object"
+    },
+    "DraftBatchResult": {
+      "additionalProperties": false,
+      "properties": {
+        "items": {
+          "items": {
+            "$ref": "#/$defs/DraftDetail"
+          },
+          "title": "Items",
+          "type": "array"
+        }
+      },
+      "required": [
+        "items"
+      ],
+      "title": "DraftBatchResult",
+      "type": "object"
+    },
     "DraftBlock": {
       "additionalProperties": false,
       "properties": {
@@ -594,6 +677,13 @@
         "page_size": {
           "title": "Page Size",
           "type": "integer"
+        },
+        "authors": {
+          "items": {
+            "$ref": "#/$defs/DraftAuthor"
+          },
+          "title": "Authors",
+          "type": "array"
         }
       },
       "required": [
@@ -649,6 +739,18 @@
     "DraftDetail": {
       "additionalProperties": false,
       "properties": {
+        "collaboration_seq": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Collaboration Seq"
+        },
         "id": {
           "format": "uuid",
           "title": "Id",
@@ -904,6 +1006,18 @@
     "DraftListItem": {
       "additionalProperties": false,
       "properties": {
+        "collaboration_seq": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Collaboration Seq"
+        },
         "id": {
           "format": "uuid",
           "title": "Id",
@@ -1097,6 +1211,11 @@
           "title": "Pinned",
           "type": "boolean"
         },
+        "comments_open": {
+          "default": true,
+          "title": "Comments Open",
+          "type": "boolean"
+        },
         "translations": {
           "items": {
             "$ref": "#/$defs/TranslationMember"
@@ -1189,6 +1308,8 @@
             "all",
             "draft",
             "published",
+            "scheduled",
+            "failed",
             "trash"
           ],
           "title": "Status",
@@ -1227,6 +1348,91 @@
           "default": true,
           "title": "Grouped",
           "type": "boolean"
+        },
+        "author_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Author Id"
+        },
+        "category": {
+          "anyOf": [
+            {
+              "maxLength": 60,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Category"
+        },
+        "tag": {
+          "anyOf": [
+            {
+              "maxLength": 60,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tag"
+        },
+        "updated_from": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Updated From"
+        },
+        "updated_to": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Updated To"
+        },
+        "order_by": {
+          "default": "updated_at",
+          "enum": [
+            "updated_at",
+            "created_at",
+            "published_at",
+            "title"
+          ],
+          "title": "Order By",
+          "type": "string"
+        },
+        "direction": {
+          "default": "desc",
+          "enum": [
+            "asc",
+            "desc"
+          ],
+          "title": "Direction",
+          "type": "string"
         }
       },
       "required": [
@@ -1301,6 +1507,40 @@
         "scheduled_for"
       ],
       "title": "DraftSchedule",
+      "type": "object"
+    },
+    "DraftVersion": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "expected_revision": {
+          "minimum": 1,
+          "title": "Expected Revision",
+          "type": "integer"
+        },
+        "expected_seq": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Expected Seq"
+        }
+      },
+      "required": [
+        "id",
+        "expected_revision"
+      ],
+      "title": "DraftVersion",
       "type": "object"
     },
     "EditorCatalog": {
@@ -1669,6 +1909,85 @@
       "title": "MediaURL",
       "type": "object"
     },
+    "MetadataPatch": {
+      "additionalProperties": false,
+      "properties": {
+        "title": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Title"
+        },
+        "excerpt": {
+          "anyOf": [
+            {
+              "maxLength": 1000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Excerpt"
+        },
+        "categories": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TermChange"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "tags": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TermChange"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "pinned": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Pinned"
+        },
+        "comments_open": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Comments Open"
+        }
+      },
+      "title": "MetadataPatch",
+      "type": "object"
+    },
     "NavigationItem": {
       "additionalProperties": false,
       "properties": {
@@ -2020,6 +2339,34 @@
       "title": "PublicResponse[ContentTypeCatalog]",
       "type": "object"
     },
+    "PublicResponse_DraftBatchResult_": {
+      "additionalProperties": false,
+      "properties": {
+        "success": {
+          "default": true,
+          "title": "Success",
+          "type": "boolean"
+        },
+        "code": {
+          "default": 200,
+          "title": "Code",
+          "type": "integer"
+        },
+        "msg": {
+          "default": "请求成功",
+          "title": "Msg",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/DraftBatchResult"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "title": "PublicResponse[DraftBatchResult]",
+      "type": "object"
+    },
     "PublicResponse_DraftCatalog_": {
       "additionalProperties": false,
       "properties": {
@@ -2130,6 +2477,90 @@
         "data"
       ],
       "title": "PublicResponse[LanguageCatalog]",
+      "type": "object"
+    },
+    "PublicResponse_TaxonomyCatalog_": {
+      "additionalProperties": false,
+      "properties": {
+        "success": {
+          "default": true,
+          "title": "Success",
+          "type": "boolean"
+        },
+        "code": {
+          "default": 200,
+          "title": "Code",
+          "type": "integer"
+        },
+        "msg": {
+          "default": "请求成功",
+          "title": "Msg",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/TaxonomyCatalog"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "title": "PublicResponse[TaxonomyCatalog]",
+      "type": "object"
+    },
+    "PublicResponse_TaxonomyImpact_": {
+      "additionalProperties": false,
+      "properties": {
+        "success": {
+          "default": true,
+          "title": "Success",
+          "type": "boolean"
+        },
+        "code": {
+          "default": 200,
+          "title": "Code",
+          "type": "integer"
+        },
+        "msg": {
+          "default": "请求成功",
+          "title": "Msg",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/TaxonomyImpact"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "title": "PublicResponse[TaxonomyImpact]",
+      "type": "object"
+    },
+    "PublicResponse_TaxonomyResult_": {
+      "additionalProperties": false,
+      "properties": {
+        "success": {
+          "default": true,
+          "title": "Success",
+          "type": "boolean"
+        },
+        "code": {
+          "default": 200,
+          "title": "Code",
+          "type": "integer"
+        },
+        "msg": {
+          "default": "请求成功",
+          "title": "Msg",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/TaxonomyResult"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "title": "PublicResponse[TaxonomyResult]",
       "type": "object"
     },
     "PublicResponse_TranslationCatalog_": {
@@ -2355,6 +2786,165 @@
       "title": "SiteStats",
       "type": "object"
     },
+    "TaxonomyCatalog": {
+      "additionalProperties": false,
+      "properties": {
+        "items": {
+          "items": {
+            "$ref": "#/$defs/TaxonomyItem"
+          },
+          "title": "Items",
+          "type": "array"
+        },
+        "parents": {
+          "items": {
+            "$ref": "#/$defs/TaxonomyItem"
+          },
+          "title": "Parents",
+          "type": "array"
+        },
+        "total": {
+          "title": "Total",
+          "type": "integer"
+        },
+        "page": {
+          "title": "Page",
+          "type": "integer"
+        },
+        "page_size": {
+          "title": "Page Size",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "items",
+        "parents",
+        "total",
+        "page",
+        "page_size"
+      ],
+      "title": "TaxonomyCatalog",
+      "type": "object"
+    },
+    "TaxonomyCommand": {
+      "additionalProperties": false,
+      "properties": {
+        "operation_id": {
+          "format": "uuid",
+          "title": "Operation Id",
+          "type": "string"
+        },
+        "action": {
+          "enum": [
+            "create",
+            "update",
+            "merge",
+            "remove"
+          ],
+          "title": "Action",
+          "type": "string"
+        },
+        "kind": {
+          "default": "category",
+          "enum": [
+            "category",
+            "tag"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Id"
+        },
+        "expected_revision": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Expected Revision"
+        },
+        "name": {
+          "default": "",
+          "maxLength": 60,
+          "title": "Name",
+          "type": "string"
+        },
+        "parent_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Parent Id"
+        },
+        "target_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Target Id"
+        },
+        "expected_target_revision": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Expected Target Revision"
+        },
+        "impact_token": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Impact Token"
+        }
+      },
+      "required": [
+        "operation_id",
+        "action"
+      ],
+      "title": "TaxonomyCommand",
+      "type": "object"
+    },
     "TaxonomyDTO": {
       "additionalProperties": false,
       "properties": {
@@ -2392,6 +2982,188 @@
         "count"
       ],
       "title": "TaxonomyDTO",
+      "type": "object"
+    },
+    "TaxonomyImpact": {
+      "additionalProperties": false,
+      "properties": {
+        "token": {
+          "title": "Token",
+          "type": "string"
+        },
+        "drafts": {
+          "title": "Drafts",
+          "type": "integer"
+        },
+        "published": {
+          "title": "Published",
+          "type": "integer"
+        },
+        "scheduled": {
+          "title": "Scheduled",
+          "type": "integer"
+        },
+        "children": {
+          "title": "Children",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "token",
+        "drafts",
+        "published",
+        "scheduled",
+        "children"
+      ],
+      "title": "TaxonomyImpact",
+      "type": "object"
+    },
+    "TaxonomyItem": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "category",
+            "tag"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "slug": {
+          "title": "Slug",
+          "type": "string"
+        },
+        "parent_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Parent Id"
+        },
+        "revision": {
+          "title": "Revision",
+          "type": "integer"
+        },
+        "published_count": {
+          "title": "Published Count",
+          "type": "integer"
+        },
+        "draft_count": {
+          "title": "Draft Count",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "name",
+        "slug",
+        "parent_id",
+        "revision",
+        "published_count",
+        "draft_count"
+      ],
+      "title": "TaxonomyItem",
+      "type": "object"
+    },
+    "TaxonomyQuery": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "default": "category",
+          "enum": [
+            "category",
+            "tag"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "search": {
+          "default": "",
+          "maxLength": 200,
+          "title": "Search",
+          "type": "string"
+        },
+        "page": {
+          "default": 1,
+          "minimum": 1,
+          "title": "Page",
+          "type": "integer"
+        },
+        "page_size": {
+          "default": 20,
+          "maximum": 100,
+          "minimum": 1,
+          "title": "Page Size",
+          "type": "integer"
+        }
+      },
+      "title": "TaxonomyQuery",
+      "type": "object"
+    },
+    "TaxonomyResult": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "action": {
+          "title": "Action",
+          "type": "string"
+        },
+        "updated_at": {
+          "format": "date-time",
+          "title": "Updated At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "action",
+        "updated_at"
+      ],
+      "title": "TaxonomyResult",
+      "type": "object"
+    },
+    "TermChange": {
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "default": "replace",
+          "enum": [
+            "add",
+            "remove",
+            "replace"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "values": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 30,
+          "title": "Values",
+          "type": "array"
+        }
+      },
+      "title": "TermChange",
       "type": "object"
     },
     "TranslationCatalog": {
@@ -2548,6 +3320,18 @@
     "TranslationMember": {
       "additionalProperties": false,
       "properties": {
+        "collaboration_seq": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Collaboration Seq"
+        },
         "id": {
           "format": "uuid",
           "title": "Id",
@@ -2761,6 +3545,27 @@
   },
   "additionalProperties": false,
   "properties": {
+    "batch": {
+      "$ref": "#/$defs/DraftBatch"
+    },
+    "batch_result": {
+      "$ref": "#/$defs/PublicResponse_DraftBatchResult_"
+    },
+    "taxonomy_query": {
+      "$ref": "#/$defs/TaxonomyQuery"
+    },
+    "taxonomy_catalog": {
+      "$ref": "#/$defs/PublicResponse_TaxonomyCatalog_"
+    },
+    "taxonomy_command": {
+      "$ref": "#/$defs/TaxonomyCommand"
+    },
+    "taxonomy_impact": {
+      "$ref": "#/$defs/PublicResponse_TaxonomyImpact_"
+    },
+    "taxonomy_result": {
+      "$ref": "#/$defs/PublicResponse_TaxonomyResult_"
+    },
     "languages": {
       "$ref": "#/$defs/PublicResponse_LanguageCatalog_"
     },
@@ -2823,6 +3628,13 @@
     }
   },
   "required": [
+    "batch",
+    "batch_result",
+    "taxonomy_query",
+    "taxonomy_catalog",
+    "taxonomy_command",
+    "taxonomy_impact",
+    "taxonomy_result",
     "languages",
     "actions",
     "create_category",
@@ -2847,7 +3659,7 @@
   "title": "ContentAdminContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "1.15.0",
+  "x-everunfold-contract-version": "1.16.0",
   "x-everunfold-content-types": [
     {
       "id": "article",
@@ -2930,6 +3742,34 @@
       "path": "/v1/admin/content/sync",
       "method": "POST",
       "response": "sync_state"
+    },
+    {
+      "name": "mutateDraftBatch",
+      "path": "/v1/admin/content/batch",
+      "method": "POST",
+      "input": "batch",
+      "response": "batch_result"
+    },
+    {
+      "name": "queryTaxonomies",
+      "path": "/v1/admin/content/taxonomy/query",
+      "method": "POST",
+      "input": "taxonomy_query",
+      "response": "taxonomy_catalog"
+    },
+    {
+      "name": "previewTaxonomyChange",
+      "path": "/v1/admin/content/taxonomy/preview",
+      "method": "POST",
+      "input": "taxonomy_command",
+      "response": "taxonomy_impact"
+    },
+    {
+      "name": "saveTaxonomyChange",
+      "path": "/v1/admin/content/taxonomy/save",
+      "method": "POST",
+      "input": "taxonomy_command",
+      "response": "taxonomy_result"
     },
     {
       "name": "queryDrafts",

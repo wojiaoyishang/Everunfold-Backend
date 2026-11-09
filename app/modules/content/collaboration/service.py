@@ -274,6 +274,20 @@ async def accept_update(
     from app.modules.content.collaboration.source_leases import verify_rich_update
 
     await verify_rich_update(session, draft_id, document.state, state, update.rich_versions)
+    from app.modules.content.taxonomy_names import TermDirectory
+
+    normalized = (await TermDirectory.load(session)).normalize(fields.settings or EditorSettings())
+    if fields.settings != normalized:
+        # Keep the original client digest for retries; broadcast both its update
+        # and the canonical term adjustment as one durable, integrated delta.
+        candidate = decode(state)
+        with candidate.transaction():
+            meta = candidate.get("meta", type=Map)["settings"]
+            for key in ("categories", "tags"):
+                meta[key] = getattr(normalized, key)
+        payload = candidate.get_update(decode(document.state).get_state())
+        state = candidate.get_update()
+        fields = project(candidate, EditorSettings.model_validate(draft.editor_settings))
     await editor_media(
         session, config, fields.model_dump_json(), fields.settings or EditorSettings()
     )

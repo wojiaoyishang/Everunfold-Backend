@@ -9,6 +9,14 @@ from pydantic import AwareDatetime, Field, model_validator
 
 from app.core.schemas import PublicModel, PublicResponse
 from app.modules.content.editor_schema import EditorCatalog, EditorSettings, EditorTermCreate
+from app.modules.content.management_schemas import (
+    DraftBatch,
+    TaxonomyCatalog,
+    TaxonomyCommand,
+    TaxonomyImpact,
+    TaxonomyQuery,
+    TaxonomyResult,
+)
 from app.modules.content.publication_schemas import ContentDelivery, ContentSyncState
 from app.modules.content.schemas import MediaURL
 from app.modules.content.type_registry import ContentTypeDefinition
@@ -46,11 +54,24 @@ class DraftFields(PublicModel):
 class DraftQuery(PublicModel):
     type_id: str = Field(min_length=1, max_length=64)
     search: str = Field(default="", max_length=200)
-    status: Literal["all", "draft", "published", "trash"] = "all"
+    status: Literal["all", "draft", "published", "scheduled", "failed", "trash"] = "all"
     page: int = Field(default=1, ge=1, le=100_000)
     page_size: int = Field(default=15, ge=1, le=50)
     language: LanguageCode | None = None
     grouped: bool = True
+    author_id: UUID | None = None
+    category: str | None = Field(default=None, max_length=60)
+    tag: str | None = Field(default=None, max_length=60)
+    updated_from: AwareDatetime | None = None
+    updated_to: AwareDatetime | None = None
+    order_by: Literal["updated_at", "created_at", "published_at", "title"] = "updated_at"
+    direction: Literal["asc", "desc"] = "desc"
+
+    @model_validator(mode="after")
+    def date_range(self) -> Self:
+        if self.updated_from and self.updated_to and self.updated_from > self.updated_to:
+            raise ValueError("结束时间不能早于开始时间")
+        return self
 
 
 class DraftLookup(PublicModel):
@@ -78,6 +99,7 @@ class DraftSchedule(DraftSave):
 
 
 class DraftSummary(PublicModel):
+    collaboration_seq: int | None = None
     id: UUID
     owner_id: UUID | None = None
     type_id: str
@@ -118,8 +140,14 @@ class DraftListItem(DraftSummary):
     tags: list[str] = Field(default_factory=list)
     comment_count: int = Field(default=0, ge=0)
     pinned: bool = False
+    comments_open: bool = True
     translations: list[TranslationMember] = Field(default_factory=list)
     group_revision: int = 1
+
+
+class DraftAuthor(PublicModel):
+    id: UUID
+    name: str
 
 
 class DraftCatalog(PublicModel):
@@ -127,6 +155,11 @@ class DraftCatalog(PublicModel):
     total: int
     page: int
     page_size: int
+    authors: list[DraftAuthor] = Field(default_factory=list)
+
+
+class DraftBatchResult(PublicModel):
+    items: list[DraftDetail]
 
 
 class TranslationCatalog(PublicModel):
@@ -170,6 +203,13 @@ class ContentActions(PublicModel):
 
 
 class ContentAdminContract(PublicModel):
+    batch: DraftBatch
+    batch_result: PublicResponse[DraftBatchResult]
+    taxonomy_query: TaxonomyQuery
+    taxonomy_catalog: PublicResponse[TaxonomyCatalog]
+    taxonomy_command: TaxonomyCommand
+    taxonomy_impact: PublicResponse[TaxonomyImpact]
+    taxonomy_result: PublicResponse[TaxonomyResult]
     languages: PublicResponse[LanguageCatalog]
     actions: PublicResponse[ContentActions]
     create_category: EditorTermCreate

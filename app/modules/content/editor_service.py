@@ -1,7 +1,7 @@
 """Shared editor validation, media resolution and taxonomy publication."""
 
 import re
-from uuid import NAMESPACE_URL, UUID, uuid5
+from uuid import UUID
 
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -71,7 +71,10 @@ async def editor_media(
 
 async def editor_catalog(session: AsyncSession) -> EditorCatalog:
     rows = await session.scalars(
-        select(Taxonomy).where(Taxonomy.source_id.is_(None)).order_by(Taxonomy.name).limit(500)
+        select(Taxonomy)
+        .where(Taxonomy.source_id.is_(None), Taxonomy.retired.is_(False))
+        .order_by(Taxonomy.name)
+        .limit(500)
     )
     counts = dict(
         (
@@ -107,30 +110,23 @@ async def create_category(
     name = EditorSettings(categories=[payload.name]).categories[0]
     parent = await session.get(Taxonomy, payload.parent_id) if payload.parent_id else None
     if payload.parent_id and (
-        parent is None or parent.kind != "category" or parent.source_id is not None
+        parent is None
+        or parent.kind != "category"
+        or parent.source_id is not None
+        or parent.retired
     ):
         raise AuthFailure(422, 42260, "父分类不存在")
-    identity = uuid5(NAMESPACE_URL, f"everunfold:category:{name.casefold()}")
-    existing = await session.get(Taxonomy, identity)
-    if existing is not None:
-        if existing.parent_id != payload.parent_id:
-            raise AuthFailure(409, 40955, "同名分类已存在于其他层级")
-    else:
-        slug = re.sub(r"[^\w-]+", "-", name.casefold()).strip("-") or "term"
-        if await session.scalar(
-            select(Taxonomy.id).where(Taxonomy.kind == "category", Taxonomy.slug == slug)
-        ):
-            slug += "-" + identity.hex[:8]
-        session.add(
-            Taxonomy(
-                id=identity,
-                kind="category",
-                name=name,
-                slug=slug,
-                source_id=None,
-                parent_id=payload.parent_id,
-            )
-        )
+    from app.modules.content.taxonomy_names import TermDirectory, ensure_term
+
+    directory = await TermDirectory.load(session)
+    existed = ("category", name.casefold()) in directory.names
+    row = await ensure_term(session, "category", name)
+    if row is None:
+        raise AuthFailure(409, 40955, "该名称已移除，请选择其他名称")
+    if existed and row.parent_id != payload.parent_id:
+        raise AuthFailure(409, 40955, "同名分类已存在于其他层级")
+    if not existed:
+        row.parent_id = payload.parent_id
         session.add(
             SettingsAudit(
                 user_id=actor_id,
@@ -138,7 +134,7 @@ async def create_category(
                 revision=1,
                 changes={
                     "action": "create",
-                    "id": str(identity),
+                    "id": str(row.id),
                     "name": name,
                     "parent_id": str(payload.parent_id) if payload.parent_id else None,
                 },
@@ -153,19 +149,12 @@ async def publish_taxonomies(
     session: AsyncSession, content_id: UUID, settings: EditorSettings
 ) -> None:
     await session.execute(delete(ContentTaxonomy).where(ContentTaxonomy.content_id == content_id))
-    for kind, names in (("category", settings.categories), ("tag", settings.tags)):
+    from app.modules.content.taxonomy_names import TermDirectory, ensure_term
+
+    normalized = (await TermDirectory.load(session)).normalize(settings)
+    for kind, names in (("category", normalized.categories), ("tag", normalized.tags)):
         for name in names:
-            identity = uuid5(NAMESPACE_URL, f"everunfold:{kind}:{name.casefold()}")
-            row = await session.get(Taxonomy, identity)
-            if row is None:
-                slug = re.sub(r"[^\w-]+", "-", name.casefold()).strip("-") or "term"
-                # Existing imported terms keep their own identity and URL.
-                if await session.scalar(
-                    select(Taxonomy.id).where(Taxonomy.kind == kind, Taxonomy.slug == slug)
-                ):
-                    slug += "-" + identity.hex[:8]
-                row = Taxonomy(id=identity, kind=kind, name=name, slug=slug, source_id=None)
-                session.add(row)
-                await session.flush()
-            session.add(ContentTaxonomy(content_id=content_id, taxonomy_id=row.id))
+            row = await ensure_term(session, kind, name)
+            if row:
+                session.add(ContentTaxonomy(content_id=content_id, taxonomy_id=row.id))
     await session.flush()
