@@ -41,7 +41,8 @@ router = APIRouter(
     prefix="/v1/reader",
     tags=["content-access"],
     responses={
-        status: {"model": ErrorResponse} for status in (403, 404, 413, 415, 422, 429, 500, 503)
+        status: {"model": ErrorResponse}
+        for status in (401, 403, 404, 409, 413, 415, 422, 429, 500, 503)
     },
 )
 
@@ -54,16 +55,18 @@ async def access(
 ) -> JSONResponseSuccess:
     runtime = runtime_from_request(request)
     ip = request.client.host if request.client else "unknown"
-    permit = await CaptchaService(runtime, ip).enforce("read", payload.id, payload.captcha)
-    now = datetime.now(UTC)
-    ip = request.client.host if request.client else "unknown"
-    allowed = await AuthRepository(session).consume_limit(f"content-access:{ip}", 30, 300, now)
-    per_content = await AuthRepository(session).consume_limit(
-        f"content-access:{ip}:{payload.id}", 10, 300, now
+    permit = await CaptchaService(runtime, ip, request.headers.get("Authorization")).enforce(
+        "read", payload.id, payload.captcha
     )
-    await session.commit()
-    if not allowed or not per_content:
-        raise AuthFailure(429, 42950, "尝试较多，请稍后重试")
+    if permit.credential is None:
+        now = datetime.now(UTC)
+        allowed = await AuthRepository(session).consume_limit(f"content-access:{ip}", 30, 300, now)
+        per_content = await AuthRepository(session).consume_limit(
+            f"content-access:{ip}:{payload.id}", 10, 300, now
+        )
+        await session.commit()
+        if not allowed or not per_content:
+            raise AuthFailure(429, 42950, "尝试较多，请稍后重试")
     await guard(session, permit)
     item = await session.scalar(
         select(Content)
@@ -88,7 +91,8 @@ async def access(
     result = service._detail(item, taxonomy_map, counts, authorized=True)
     from app.modules.captcha.comments import issue_read_receipt
 
-    result.read_receipt = await issue_read_receipt(request, item.id)
+    result.read_receipt = await issue_read_receipt(request, permit)
     rows, parents, _ = await service.repository.comments(item.id, page=1, page_size=100)
     result.unlocked_comments = service._comment_projections(rows, parents)
+    await session.commit()
     return JSONResponseSuccess(data=result)

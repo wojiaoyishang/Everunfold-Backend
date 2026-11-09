@@ -125,6 +125,14 @@
           },
           "title": "Catalog",
           "type": "array"
+        },
+        "api_key_bypass": {
+          "title": "Api Key Bypass",
+          "type": "boolean"
+        },
+        "api_key_rate_limit": {
+          "title": "Api Key Rate Limit",
+          "type": "integer"
         }
       },
       "required": [
@@ -132,7 +140,9 @@
         "provider",
         "rules",
         "providers",
-        "catalog"
+        "catalog",
+        "api_key_bypass",
+        "api_key_rate_limit"
       ],
       "title": "CaptchaSettingsState",
       "type": "object"
@@ -634,6 +644,32 @@
           "maxProperties": 30,
           "title": "Providers",
           "type": "object"
+        },
+        "api_key_bypass": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Api Key Bypass"
+        },
+        "api_key_rate_limit": {
+          "anyOf": [
+            {
+              "maximum": 1000,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Api Key Rate Limit"
         }
       },
       "required": [
@@ -796,7 +832,17 @@
   "title": "CaptchaAPIContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "1.0.1",
+  "x-everunfold-contract-version": "1.1.0",
+  "x-everunfold-reader-authorization": {
+    "header": "Authorization: Bearer <API Key>",
+    "audience": "everunfold",
+    "bypass_permissions": {
+      "read": "captcha:read_bypass",
+      "comment": "captcha:comment_bypass"
+    },
+    "login_bypass": false,
+    "invalid_key_anonymous_fallback": false
+  },
   "x-everunfold-operations": [
     {
       "name": "readCaptchaSettings",

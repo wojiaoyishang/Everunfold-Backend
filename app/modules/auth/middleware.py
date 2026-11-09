@@ -18,7 +18,13 @@ class BusinessCORSMiddleware:
             allow_origins=allowed_origins,
             allow_credentials=True,
             allow_methods=["GET", "POST", "PATCH"],
-            allow_headers=["Accept", "Content-Type", "X-CSRF-Token", "X-Site-Locale"],
+            allow_headers=[
+                "Accept",
+                "Content-Type",
+                "Authorization",
+                "X-CSRF-Token",
+                "X-Site-Locale",
+            ],
             expose_headers=["Retry-After"],
         )
         self.public = CORSMiddleware(
@@ -66,7 +72,16 @@ class AuthBoundaryMiddleware:
         origin = headers.get("origin")
         write = scope["method"] not in {"GET", "HEAD", "OPTIONS"}
         machine = path == "/v1/auth/api-keys/introspect" or (
-            path.startswith("/v1/admin/")
+            (
+                path.startswith("/v1/admin/")
+                or path
+                in {
+                    "/v1/reader/access",
+                    "/v1/reader/access-page",
+                    "/v1/reader/comments",
+                    "/v1/reader/captcha/challenge",
+                }
+            )
             and headers.get("authorization", "").lower().startswith("bearer efk_")
         )
         if (origin is not None or (write and not machine)) and origin not in self.allowed_origins:

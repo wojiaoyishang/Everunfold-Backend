@@ -10,7 +10,7 @@
   "provider_unknown": "验证码提供方未注册",
   "provider_remove": "不能移除当前选中的验证码提供方配置",
   "credentials": "请填写 Site Key、Secret 和允许的主机名",
-  "rate": "验证码请求较多，请稍后重试",
+  "rate": "安全验证请求较多，请稍后重试",
   "policy_changed": "验证期间内容或规则已更新，请刷新验证码",
   "settings_changed": "验证码设置已更新，请重新读取后再保存",
   "comment_closed": "此内容已关闭评论",
@@ -21,5 +21,6 @@
   "comment_target": "回复目标不可用",
   "comment_empty": "请填写称呼和评论内容",
   "operation_used": "提交标识已使用，请刷新后重试",
-  "operation_conflict": "提交标识已使用"
+  "operation_conflict": "提交标识已使用",
+  "api_key_login": "API Key不能用于浏览器登录"
 }

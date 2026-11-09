@@ -31,7 +31,9 @@ router = APIRouter(
 @router.post("/v1/reader/captcha/challenge", response_model=PublicResponse[CaptchaChallenge])
 async def challenge(payload: ChallengeRequest, request: Request) -> JSONResponseSuccess:
     return JSONResponseSuccess(
-        data=await CaptchaService(auth_runtime(request), peer(request)).challenge(payload)
+        data=await CaptchaService(
+            auth_runtime(request), peer(request), request.headers.get("Authorization")
+        ).challenge(payload)
     )
 
 

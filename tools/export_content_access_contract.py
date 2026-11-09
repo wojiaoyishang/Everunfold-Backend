@@ -8,7 +8,13 @@ from app.modules.content.access_router import ContentAccessContract
 if __name__ == "__main__":
     schema = ContentAccessContract.model_json_schema()
     schema["$schema"] = "http://json-schema.org/draft-07/schema#"
-    schema["x-everunfold-contract-version"] = "1.2.0"
+    schema["x-everunfold-contract-version"] = "1.3.0"
+    schema["x-everunfold-reader-authorization"] = {
+        "optional_api_key": True,
+        "audience": "everunfold",
+        "bypass_permission": "captcha:read_bypass",
+        "password_bypass": False,
+    }
     schema["x-everunfold-operations"] = [
         {
             "name": "readProtectedContent",

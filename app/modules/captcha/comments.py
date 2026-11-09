@@ -3,6 +3,7 @@
 import hashlib
 import hmac
 import json
+from dataclasses import replace
 from datetime import UTC, datetime
 from typing import Any, Literal
 from uuid import UUID
@@ -22,7 +23,7 @@ from app.modules.auth.router import auth_runtime, peer
 from app.modules.auth.service import AuthFailure
 from app.modules.captcha.router import router
 from app.modules.captcha.schemas import CaptchaAnswer
-from app.modules.captcha.service import CaptchaService, context, guard
+from app.modules.captcha.service import CaptchaContext, CaptchaService, context, guard
 from app.modules.content.access_policy import publicly_readable
 from app.modules.content.models import Comment, Content
 from app.modules.pages.models import ManagedPage
@@ -69,16 +70,23 @@ def receipt_key(request: Request, value: str) -> str:
     )
 
 
-async def issue_read_receipt(request: Request, content_id: UUID) -> str:
+def receipt_data(request: Request, policy: CaptchaContext) -> dict[str, str | None]:
+    return {
+        "stamp": policy.stamp,
+        "peer": peer(request),
+        "credential": policy.credential.digest if policy.credential else None,
+    }
+
+
+async def issue_read_receipt(request: Request, policy: CaptchaContext) -> str:
     import secrets
 
     runtime = auth_runtime(request)
     value = secrets.token_urlsafe(32)
-    policy = await CaptchaService(runtime, peer(request)).policy("read", content_id)
     try:
         await runtime.redis.set(
             receipt_key(request, value),
-            json.dumps({"stamp": policy.stamp, "peer": peer(request)}),
+            json.dumps(receipt_data(request, policy)),
             ex=1800,
         )
     except RedisError:
@@ -89,11 +97,15 @@ async def issue_read_receipt(request: Request, content_id: UUID) -> str:
 @router.post("/v1/reader/comments", response_model=PublicResponse[CommentReceipt])
 async def submit_comment(payload: SubmitComment, request: Request) -> JSONResponseSuccess:
     runtime = auth_runtime(request)
-    service = CaptchaService(runtime, peer(request))
+    service = CaptchaService(runtime, peer(request), request.headers.get("Authorization"))
+    policy = await service.policy("comment", payload.content_id)
     fingerprint = hashlib.sha256(
         payload.model_dump_json(exclude={"captcha", "read_receipt"}).encode()
     ).hexdigest()
-    client_hash = hashlib.sha256(f"{payload.client_id}:{peer(request)}".encode()).hexdigest()
+    client_identity = f"{payload.client_id}:{peer(request)}"
+    if policy.credential:
+        client_identity += ":" + policy.credential.digest
+    client_hash = hashlib.sha256(client_identity.encode()).hexdigest()
     async with runtime.database.session_factory() as session:
         existing = await session.get(CommentSubmission, payload.operation_id)
         if existing:
@@ -102,12 +114,15 @@ async def submit_comment(payload: SubmitComment, request: Request) -> JSONRespon
                 or existing.request_hash != fingerprint
             ):
                 raise AuthFailure(409, 40987, "提交标识已使用，请刷新后重试")
+            await guard(session, policy)
+            await session.commit()
             return JSONResponseSuccess(data=CommentReceipt(id=existing.id))
     try:
-        await service._limit("comment", 10)
+        if policy.credential is None:
+            await service._limit("comment", 10)
     except RedisError:
         raise AuthFailure(503, 50386, "评论服务暂不可用，请重试") from None
-    permit = await service.enforce("comment", payload.content_id, payload.captcha)
+    permit = await service.enforce("comment", payload.content_id, payload.captcha, policy=policy)
     async with runtime.database.session_factory() as session:
         await guard(session, permit)
         item = await session.get(Content, payload.content_id)
@@ -116,6 +131,7 @@ async def submit_comment(payload: SubmitComment, request: Request) -> JSONRespon
                 raise AuthFailure(403, 40388, "此内容已关闭评论")
             if not publicly_readable(item):
                 policy = await context(session, "read", payload.content_id)
+                policy = replace(policy, credential=permit.credential)
                 try:
                     raw = (
                         await runtime.redis.get(receipt_key(request, payload.read_receipt))
@@ -124,7 +140,7 @@ async def submit_comment(payload: SubmitComment, request: Request) -> JSONRespon
                     )
                 except RedisError:
                     raise AuthFailure(503, 50386, "评论服务暂不可用") from None
-                if not raw or json.loads(raw) != {"stamp": policy.stamp, "peer": peer(request)}:
+                if not raw or json.loads(raw) != receipt_data(request, policy):
                     raise AuthFailure(403, 40388, "请先解锁正文再发表评论")
             if payload.parent_id:
                 parent = await session.get(Comment, payload.parent_id)
@@ -137,6 +153,7 @@ async def submit_comment(payload: SubmitComment, request: Request) -> JSONRespon
             from app.modules.captcha.service import required
 
             policy = await context(session, "read", payload.content_id)
+            policy = replace(policy, credential=permit.credential)
             if required(policy.config, "read", "page", page.published):
                 try:
                     raw = (
@@ -146,7 +163,7 @@ async def submit_comment(payload: SubmitComment, request: Request) -> JSONRespon
                     )
                 except RedisError:
                     raise AuthFailure(503, 50386, "评论服务暂不可用") from None
-                if not raw or json.loads(raw) != {"stamp": policy.stamp, "peer": peer(request)}:
+                if not raw or json.loads(raw) != receipt_data(request, policy):
                     raise AuthFailure(403, 40388, "请先解锁页面再发表评论")
         if not payload.author.strip() or not payload.body.strip():
             raise AuthFailure(422, 42287, "请填写称呼和评论内容")

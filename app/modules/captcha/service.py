@@ -17,6 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.redis_keys import redis_key
 from app.core.runtime import Runtime
 from app.modules.auth.service import AuthFailure
+from app.modules.captcha.credentials import ReaderCredential, authenticate, fence
 from app.modules.captcha.image import generate_image
 from app.modules.captcha.providers import provider_catalog
 from app.modules.captcha.schemas import (
@@ -64,6 +65,7 @@ class CaptchaContext:
     stamp: str
     action: str
     content_id: UUID | None
+    credential: ReaderCredential | None = None
 
 
 async def context(session: AsyncSession, action: str, content_id: UUID | None) -> CaptchaContext:
@@ -94,16 +96,16 @@ async def context(session: AsyncSession, action: str, content_id: UUID | None) -
 
 
 class CaptchaService:
-    def __init__(self, runtime: Runtime, peer: str) -> None:
-        self.runtime, self.peer = runtime, peer
+    def __init__(self, runtime: Runtime, peer: str, authorization: str | None = None) -> None:
+        self.runtime, self.peer, self.authorization = runtime, peer, authorization
 
-    async def _limit(self, action: str, limit: int) -> None:
+    async def _limit(self, action: str, limit: int, *, subject: str | None = None) -> None:
         key = redis_key(
             self.runtime.settings,
             "captcha",
             "limit",
             action,
-            hashlib.sha256(self.peer.encode()).hexdigest(),
+            hashlib.sha256((subject if subject is not None else self.peer).encode()).hexdigest(),
         )
         command = self.runtime.redis.eval(
             "local n=redis.call('INCR',KEYS[1]); "
@@ -113,11 +115,41 @@ class CaptchaService:
         )
         count = await cast(Awaitable[int], command)
         if int(count) > limit:
-            raise AuthFailure(429, 42986, "验证码请求较多，请稍后重试", 60)
+            raise AuthFailure(429, 42986, "安全验证请求较多，请稍后重试", 60)
 
     async def policy(self, action: str, content_id: UUID | None) -> CaptchaContext:
-        async with self.runtime.database.session_factory() as session:
-            return await context(session, action, content_id)
+        from dataclasses import replace
+
+        try:
+            async with self.runtime.database.session_factory() as session:
+                identity = None
+                if self.authorization is not None:
+                    if action == "login":
+                        raise AuthFailure(403, 40364, "API Key不能用于浏览器登录")
+                    try:
+                        identity = await authenticate(session, self.authorization)
+                    except AuthFailure:
+                        await self._limit("invalid-key", 30)
+                        raise
+                policy = await context(session, action, content_id)
+                if identity is None:
+                    return policy
+                await self._limit(
+                    "api-key", policy.config.api_key_rate_limit, subject=identity.key.token_hash
+                )
+                return replace(
+                    policy,
+                    credential=ReaderCredential(
+                        identity.key.token_hash,
+                        identity.key.id,
+                        identity.user.id,
+                        policy.required
+                        and policy.config.api_key_bypass
+                        and f"captcha:{action}_bypass" in identity.permissions,
+                    ),
+                )
+        except RedisError:
+            raise AuthFailure(503, 50386, "验证码服务暂不可用，请稍后重试") from None
 
     def _key(self, challenge_id: UUID) -> str:
         return redis_key(self.runtime.settings, "captcha", "challenge", str(challenge_id))
@@ -125,7 +157,7 @@ class CaptchaService:
     async def challenge(self, payload: ChallengeRequest) -> CaptchaChallenge:
         try:
             policy = await self.policy(payload.action, payload.content_id)
-            if not policy.required:
+            if not policy.required or (policy.credential and policy.credential.exempt):
                 return CaptchaChallenge(required=False)
             await self._limit("challenge", 40)
             provider = policy.config.provider
@@ -135,6 +167,7 @@ class CaptchaService:
                 "stamp": policy.stamp,
                 "client": str(payload.client_id),
                 "peer": hashlib.sha256(self.peer.encode()).hexdigest(),
+                "credential": policy.credential.digest if policy.credential else None,
             }
             image, widget, salt, digest = "", "", "", ""
             if provider == "local":
@@ -166,10 +199,15 @@ class CaptchaService:
             raise AuthFailure(503, 50386, "验证码服务暂不可用，请稍后重试") from None
 
     async def enforce(
-        self, action: str, content_id: UUID | None, answer: CaptchaAnswer | None
+        self,
+        action: str,
+        content_id: UUID | None,
+        answer: CaptchaAnswer | None,
+        *,
+        policy: CaptchaContext | None = None,
     ) -> CaptchaContext:
-        policy = await self.policy(action, content_id)
-        if not policy.required:
+        policy = policy or await self.policy(action, content_id)
+        if not policy.required or (policy.credential and policy.credential.exempt):
             return policy
         if answer is None:
             raise AuthFailure(403, 40386, "请先完成验证码")
@@ -185,6 +223,7 @@ class CaptchaService:
             stored.get("stamp") != policy.stamp
             or stored.get("client") != str(answer.client_id)
             or stored.get("peer") != hashlib.sha256(self.peer.encode()).hexdigest()
+            or stored.get("credential") != (policy.credential.digest if policy.credential else None)
         ):
             raise AuthFailure(403, 40387, "验证码已失效，请刷新")
         if policy.config.provider == "local":
@@ -203,6 +242,8 @@ class CaptchaService:
 
 
 async def guard(session: AsyncSession, permit: CaptchaContext) -> None:
+    if permit.credential:
+        await fence(session, permit.credential, permit.action)
     # Site-before-content order matches publication. External HTTP has already finished.
     await session.scalar(
         select(SiteSettings).where(SiteSettings.id == 1).with_for_update(read=True)
@@ -229,6 +270,8 @@ def settings_state(config: CaptchaConfig) -> CaptchaSettingsState:
             ProviderDescription(id="local", title="本地图片验证码", widget=""),
             *[item.description() for item in provider_catalog().values()],
         ],
+        api_key_bypass=config.api_key_bypass,
+        api_key_rate_limit=config.api_key_rate_limit,
     )
 
 
@@ -272,6 +315,14 @@ async def save_settings(
         provider=payload.provider,
         providers=providers,
         rules=payload.rules,
+        api_key_bypass=(
+            payload.api_key_bypass if payload.api_key_bypass is not None else before.api_key_bypass
+        ),
+        api_key_rate_limit=(
+            payload.api_key_rate_limit
+            if payload.api_key_rate_limit is not None
+            else before.api_key_rate_limit
+        ),
     )
     site.data = {**site.data, CONFIG_KEY: updated.model_dump(mode="json")}
     for item in await session.scalars(select(Content)):

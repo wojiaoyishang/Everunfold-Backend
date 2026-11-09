@@ -10,7 +10,7 @@
   "provider_unknown": "The CAPTCHA provider is not registered.",
   "provider_remove": "Select another provider before removing this configuration.",
   "credentials": "Enter the site key, secret and allowed hostnames.",
-  "rate": "Too many CAPTCHA requests. Please try again later.",
+  "rate": "Too many security verification requests. Please try again later.",
   "policy_changed": "Content or rules changed during verification. Refresh the CAPTCHA.",
   "settings_changed": "CAPTCHA settings changed. Reload before saving.",
   "comment_closed": "Comments are closed for this content.",
@@ -21,5 +21,6 @@
   "comment_target": "The reply target is unavailable.",
   "comment_empty": "Enter your name and comment.",
   "operation_used": "The submission ID was already used. Refresh and retry.",
-  "operation_conflict": "The submission ID was already used."
+  "operation_conflict": "The submission ID was already used.",
+  "api_key_login": "API keys cannot be used for browser login."
 }

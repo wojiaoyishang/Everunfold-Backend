@@ -16,6 +16,8 @@ CAPABILITIES: dict[str, tuple[str, bool, bool]] = {
     "content:read": ("读取内容", True, True),
     "content:write": ("编辑内容", True, True),
     "content:publish": ("直接发布与撤回", True, True),
+    "captcha:read_bypass": ("阅读免验证码", True, False),
+    "captcha:comment_bypass": ("评论免验证码", True, False),
     "media:read": ("读取媒体库", True, False),
     "media:upload": ("上传媒体", True, False),
     "media:write": ("编辑媒体资料", True, False),

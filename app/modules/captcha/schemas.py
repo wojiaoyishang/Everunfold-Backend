@@ -47,6 +47,8 @@ class CaptchaConfig(PublicModel):
     provider: str = Field(default="local", max_length=100)
     rules: CaptchaRules = Field(default_factory=CaptchaRules)
     providers: dict[str, StoredProvider] = Field(default_factory=dict)
+    api_key_bypass: bool = True
+    api_key_rate_limit: int = Field(default=60, ge=1, le=1000)
 
 
 class ProviderDescription(PublicModel):
@@ -65,6 +67,8 @@ class CaptchaSettingsState(PublicModel):
     rules: CaptchaRules
     providers: dict[str, PublicProviderSettings]
     catalog: list[ProviderDescription]
+    api_key_bypass: bool
+    api_key_rate_limit: int
 
 
 class SaveProvider(ProviderSettings):
@@ -78,6 +82,8 @@ class SaveCaptchaSettings(PublicModel):
     provider: str = Field(max_length=100)
     rules: CaptchaRules
     providers: dict[str, SaveProvider] = Field(max_length=30)
+    api_key_bypass: bool | None = None
+    api_key_rate_limit: int | None = Field(default=None, ge=1, le=1000)
 
 
 class CaptchaAnswer(PublicModel):

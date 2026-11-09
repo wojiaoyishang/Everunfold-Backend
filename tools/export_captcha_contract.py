@@ -9,7 +9,14 @@ from app.modules.captcha.contract import CaptchaAPIContract
 def main() -> None:
     schema = CaptchaAPIContract.model_json_schema()
     schema["$schema"] = "http://json-schema.org/draft-07/schema#"
-    schema["x-everunfold-contract-version"] = "1.0.1"
+    schema["x-everunfold-contract-version"] = "1.1.0"
+    schema["x-everunfold-reader-authorization"] = {
+        "header": "Authorization: Bearer <API Key>",
+        "audience": "everunfold",
+        "bypass_permissions": {"read": "captcha:read_bypass", "comment": "captcha:comment_bypass"},
+        "login_bypass": False,
+        "invalid_key_anonymous_fallback": False,
+    }
     schema["x-everunfold-operations"] = [
         {
             "name": "readCaptchaSettings",

@@ -14,6 +14,7 @@ from redis.asyncio import Redis
 
 from app.core.config import load_settings
 from app.core.redis_keys import redis_key
+from tests.captcha_key_process_checks import check_captcha_keys
 from tests.test_auth_http_processes import free_port, uvicorn_process
 
 
@@ -38,7 +39,7 @@ def check_captcha(
     origin = client.headers["Origin"]
     cid = str(uuid4())
 
-    def patch(value: Any) -> Any:
+    def patch(value: Any, **options: Any) -> Any:
         revision = client.get("/v1/admin/captcha").json()["data"]["revision"]
         response = client.patch(
             "/v1/admin/captcha",
@@ -47,6 +48,7 @@ def check_captcha(
                 "provider": "local",
                 "rules": value,
                 "providers": {},
+                **options,
             },
             headers=csrf,
         )
@@ -272,6 +274,9 @@ def check_captcha(
             headers={"Origin": origin},
         )
         assert page_read.status_code == 200 and "PAGE-PRIVATE-" + cid in page_read.text
+        check_captcha_keys(
+            client, csrf, api_b, sql, patch, rules, article, page_id, settings, answer
+        )
         with httpx.Client(base_url=api_b, timeout=10) as anonymous:
             auth = anonymous.get("/v1/auth/session", headers={"Origin": origin}).json()["data"]
             missing = anonymous.post(
@@ -319,5 +324,9 @@ def check_captcha(
             )
             assert failed.status_code == 503 and failed.json()["code"] == 50386
     finally:
-        patch(original["rules"])
+        patch(
+            original["rules"],
+            api_key_bypass=original["api_key_bypass"],
+            api_key_rate_limit=original["api_key_rate_limit"],
+        )
         wait_for(lambda: state()["delivery"][0]["status"] == "applied")

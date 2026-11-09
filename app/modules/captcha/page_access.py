@@ -23,9 +23,9 @@ class PageAccessContract(PublicModel):
 @router.post("/v1/reader/access-page", response_model=PublicResponse[PublicManagedPage])
 async def access_page(payload: ContentAccessInput, request: Request) -> JSONResponseSuccess:
     runtime = auth_runtime(request)
-    permit = await CaptchaService(runtime, peer(request)).enforce(
-        "read", payload.id, payload.captcha
-    )
+    permit = await CaptchaService(
+        runtime, peer(request), request.headers.get("Authorization")
+    ).enforce("read", payload.id, payload.captcha)
     async with runtime.database.session_factory() as session:
         await guard(session, permit)
         pages = await public_pages(session, authorized=True)
@@ -34,5 +34,6 @@ async def access_page(payload: ContentAccessInput, request: Request) -> JSONResp
             raise AuthFailure(404, 40486, "内容不存在")
         from app.modules.captcha.comments import issue_read_receipt
 
-        page.read_receipt = await issue_read_receipt(request, page.id)
+        page.read_receipt = await issue_read_receipt(request, permit)
+        await session.commit()
         return JSONResponseSuccess(data=page)
