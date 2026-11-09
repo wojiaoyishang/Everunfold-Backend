@@ -3,7 +3,9 @@
 import asyncio
 import base64
 import io
+import json
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
@@ -22,6 +24,27 @@ from app.modules.captcha.schemas import (
 from app.modules.captcha.service import required, settings_state
 from app.modules.content.models import Content
 from app.modules.content.service import PublicContentService
+
+
+def test_nested_contract_graphs_include_the_same_captcha_and_private_read_fields() -> None:
+    from app.modules.content.editor_schema import EditorSettings
+    from app.modules.pages.schemas import PublicManagedPage
+
+    root = Path(__file__).resolve().parents[1] / "contracts"
+    expected_page = PublicManagedPage.model_json_schema()
+    expected_page.pop("$defs", None)
+    expected_editor = EditorSettings.model_json_schema()
+    expected_editor.pop("$defs", None)
+    for filename in (
+        "content-admin-v1.schema.json",
+        "captcha-v1.schema.json",
+        "pages-v1.schema.json",
+    ):
+        artifact = json.loads((root / filename).read_text())
+        assert artifact["$defs"]["PublicManagedPage"] == expected_page
+    for filename in ("content-admin-v1.schema.json", "collaboration-v1.schema.json"):
+        artifact = json.loads((root / filename).read_text())
+        assert artifact["$defs"]["EditorSettings"] == expected_editor
 
 
 def test_default_rules_explicit_overrides_and_unlimited_provider_ids() -> None:

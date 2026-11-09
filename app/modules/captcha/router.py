@@ -3,7 +3,7 @@
 from fastapi import APIRouter, Request
 
 from app.core.responses import JSONResponseSuccess
-from app.core.schemas import PublicResponse
+from app.core.schemas import ErrorResponse, PublicResponse
 from app.modules.auth.business_auth import authorize_business
 from app.modules.auth.router import auth_runtime, peer
 from app.modules.captcha.schemas import (
@@ -19,7 +19,13 @@ from app.modules.captcha.service import (
     settings_state,
 )
 
-router = APIRouter(tags=["captcha"])
+router = APIRouter(
+    tags=["captcha"],
+    responses={
+        status: {"model": ErrorResponse}
+        for status in (401, 403, 404, 409, 413, 415, 422, 429, 500, 503)
+    },
+)
 
 
 @router.post("/v1/reader/captcha/challenge", response_model=PublicResponse[CaptchaChallenge])

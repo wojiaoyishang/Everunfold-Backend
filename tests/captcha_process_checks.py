@@ -3,6 +3,7 @@
 import asyncio
 import hashlib
 import json
+import os
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any
@@ -13,6 +14,7 @@ from redis.asyncio import Redis
 
 from app.core.config import load_settings
 from app.core.redis_keys import redis_key
+from tests.test_auth_http_processes import free_port, uvicorn_process
 
 
 def check_captcha(
@@ -208,6 +210,27 @@ def check_captcha(
             ).status_code
             == 403
         )
+        expired = answer("read", article["id"])
+
+        async def expire_challenge() -> None:
+            redis = Redis.from_url(settings.redis.url.get_secret_value())
+            try:
+                await redis.expire(
+                    redis_key(settings, "captcha", "challenge", expired["challenge_id"]), 1
+                )
+                await asyncio.sleep(1.1)
+            finally:
+                await redis.aclose()
+
+        asyncio.run(expire_challenge())
+        assert (
+            client.post(
+                "/v1/reader/access",
+                json={"id": article["id"], "captcha": expired},
+                headers={"Origin": origin},
+            ).status_code
+            == 403
+        )
         fresh = answer("read", article["id"])
         unlocked = client.post(
             "/v1/reader/access",
@@ -271,6 +294,30 @@ def check_captcha(
             ).status_code
             == 403
         )
+        port = free_port()
+        environment = {
+            **os.environ,
+            "CONFIG_FILE": str(backend_config),
+            "REDIS_URL": f"redis://127.0.0.1:{free_port()}/0",
+        }
+        environment.pop("DATABASE_URL", None)
+        with uvicorn_process(port, environment):
+            unavailable = f"http://127.0.0.1:{port}/v1/reader/captcha/challenge"
+            patch(original["rules"])
+            no_requirement = httpx.post(
+                unavailable, json={"action": "login", "client_id": cid}, headers={"Origin": origin}
+            )
+            assert (
+                no_requirement.status_code == 200 and not no_requirement.json()["data"]["required"]
+            )
+            patch(rules)
+            failed = httpx.post(
+                unavailable,
+                json={"action": "login", "client_id": cid},
+                headers={"Origin": origin},
+                timeout=10,
+            )
+            assert failed.status_code == 503 and failed.json()["code"] == 50386
     finally:
         patch(original["rules"])
         wait_for(lambda: state()["delivery"][0]["status"] == "applied")
