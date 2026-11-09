@@ -24,6 +24,7 @@ class RuntimeInstance(PublicModel):
 
 
 class RuntimePlan(PublicModel):
+    restarts: int = 0
     id: str
     title: str
     plugin: str
@@ -48,6 +49,7 @@ class RuntimeRun(PublicModel):
 
 
 class RuntimeOverview(PublicModel):
+    queue_depth: int | None = None
     instances: list[RuntimeInstance]
     plans: list[RuntimePlan]
     runs: list[RuntimeRun]

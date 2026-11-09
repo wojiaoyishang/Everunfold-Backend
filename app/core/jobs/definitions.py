@@ -33,17 +33,17 @@ BUILTINS = (
         "core.settings",
         "设置与内容同步",
         "app.core.jobs.handlers:settings",
-        interval=5,
+        interval=1,
         enabled=True,
     ),
     TaskDefinition(
-        "core.callbacks", "应用回调", "app.core.jobs.handlers:callbacks", interval=5, enabled=True
+        "core.callbacks", "应用回调", "app.core.jobs.handlers:callbacks", interval=1, enabled=True
     ),
     TaskDefinition(
         "core.publication",
         "定时发布",
         "app.core.jobs.handlers:publication",
-        interval=5,
+        interval=1,
         enabled=True,
     ),
 )

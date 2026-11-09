@@ -3,7 +3,7 @@
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -64,6 +64,18 @@ async def reconcile(session: AsyncSession) -> None:
         if not any(run.status in {"queued", "running"} for run in active):
             session.add(TaskRun(task_id=identity, planned_at=now()))
         plan.next_at = now() + timedelta(seconds=spec.interval)
+    # Compact routine no-op polling records; executions that changed data remain durable.
+    expired = (
+        select(TaskRun.id)
+        .where(
+            TaskRun.task_id.in_(["core.settings", "core.callbacks", "core.publication"]),
+            TaskRun.status == "succeeded",
+            TaskRun.planned_at < now() - timedelta(hours=1),
+            TaskRun.result["completed"].as_integer() == 0,
+        )
+        .limit(100)
+    )
+    await session.execute(delete(TaskRun).where(TaskRun.id.in_(expired)))
     await session.commit()
 
 

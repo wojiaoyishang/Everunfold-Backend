@@ -2965,6 +2965,18 @@
     "RuntimeOverview": {
       "additionalProperties": false,
       "properties": {
+        "queue_depth": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Queue Depth"
+        },
         "instances": {
           "items": {
             "$ref": "#/$defs/RuntimeInstance"
@@ -3009,6 +3021,11 @@
     "RuntimePlan": {
       "additionalProperties": false,
       "properties": {
+        "restarts": {
+          "default": 0,
+          "title": "Restarts",
+          "type": "integer"
+        },
         "id": {
           "title": "Id",
           "type": "string"
@@ -3975,7 +3992,7 @@
   "title": "SettingsContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "1.18.0",
+  "x-everunfold-contract-version": "1.18.1",
   "x-everunfold-language-regions": {
     "zh": "CN",
     "en": "GB",

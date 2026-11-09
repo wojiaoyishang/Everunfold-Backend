@@ -38,6 +38,9 @@ class ResidentContext:
 
     async def checkpoint(self, value: dict[str, Any] | None = None) -> dict[str, Any]:
         async with self.database.session_factory() as session:
+            await session.scalar(
+                select(TaskPlan).where(TaskPlan.id == self.run.task_id).with_for_update()
+            )
             row = await session.scalar(
                 select(TaskRun).where(TaskRun.id == self.run.id).with_for_update()
             )
@@ -141,6 +144,9 @@ async def execute(
     finally:
         if run:
             async with db.session_factory() as session:
+                await session.scalar(
+                    select(TaskPlan).where(TaskPlan.id == run.task_id).with_for_update()
+                )
                 row = await session.scalar(
                     select(TaskRun).where(TaskRun.id == run.id).with_for_update()
                 )
@@ -157,6 +163,27 @@ async def execute(
                         now(),
                         result,
                     )
+                    if resident and status == "failed":
+                        history = list(
+                            await session.scalars(
+                                select(TaskRun.status)
+                                .where(TaskRun.task_id == run.task_id, TaskRun.id != run.id)
+                                .order_by(TaskRun.planned_at.desc())
+                                .limit(7)
+                            )
+                        )
+                        failures = 1
+                        for previous in history:
+                            if previous not in {"failed", "unknown"}:
+                                break
+                            failures += 1
+                        plan = await session.get(TaskPlan, run.task_id)
+                        if plan:
+                            plan.next_at = now() + timedelta(
+                                seconds=min(300, 15 * 2 ** (failures - 1))
+                            )
+                            if failures >= 8:
+                                plan.enabled = False
                     await session.commit()
         await db.close()
 

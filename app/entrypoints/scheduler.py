@@ -124,7 +124,7 @@ async def run() -> None:
             except Exception as exc:
                 reporter.pulse(state="degraded", error=type(exc).__name__)
             with contextlib.suppress(TimeoutError):
-                await asyncio.wait_for(stopping.wait(), timeout=2)
+                await asyncio.wait_for(stopping.wait(), timeout=1)
     finally:
         for _, stop in children.values():
             stop.set()

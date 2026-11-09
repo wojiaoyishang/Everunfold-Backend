@@ -5,7 +5,7 @@ import time
 
 from fastapi import APIRouter
 from redis.asyncio import Redis
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from app.core.jobs.definitions import definitions
 from app.core.jobs.models import TaskPlan, TaskRun
@@ -18,12 +18,16 @@ from app.core.jobs.schemas import (
 )
 from app.core.jobs.service import available, now
 from app.core.responses import JSONResponseSuccess
-from app.core.schemas import PublicResponse
+from app.core.schemas import ErrorResponse, PublicResponse
 from app.modules.auth.service import AuthFailure
 from app.modules.settings.models import SettingsAudit
 from app.modules.settings.router import Authorized
 
-router = APIRouter(prefix="/v1/admin/runtime", tags=["settings"])
+router = APIRouter(
+    prefix="/v1/admin/runtime",
+    tags=["settings"],
+    responses={status: {"model": ErrorResponse} for status in (401, 403, 404, 409, 422, 500, 503)},
+)
 
 
 async def overview(ctx: Authorized) -> RuntimeOverview:
@@ -31,14 +35,41 @@ async def overview(ctx: Authorized) -> RuntimeOverview:
     allowed = await available(session)
     plans = {row.id: row for row in await session.scalars(select(TaskPlan))}
     runs = list(
-        await session.scalars(select(TaskRun).order_by(TaskRun.planned_at.desc()).limit(100))
+        await session.scalars(
+            select(TaskRun)
+            .order_by(TaskRun.status.in_(["queued", "running"]).desc(), TaskRun.planned_at.desc())
+            .limit(100)
+        )
     )
     client = Redis.from_url(
         ctx.service.config.redis.url.get_secret_value(), socket_timeout=2, socket_connect_timeout=2
     )
+    resident_ids = [key for key, (_, spec) in definitions().items() if spec.kind == "resident"]
+    counts = dict(
+        (
+            await session.execute(
+                select(TaskRun.task_id, func.count())
+                .where(TaskRun.task_id.in_(resident_ids))
+                .group_by(TaskRun.task_id)
+            )
+        ).all()
+    )
+    queue_depth = None
     instances = []
     telemetry_available = True
     try:
+        queue = (
+            ctx.service.config.redis_prefix
+            + "celery:"
+            + ctx.service.config.redis_prefix
+            + "settings"
+        )
+        queue_depth = sum(
+            [
+                await client.llen(queue + suffix)
+                for suffix in ("", "\x06\x163", "\x06\x166", "\x06\x169")
+            ]
+        )
         async for key in client.scan_iter(
             ctx.service.config.redis_prefix + "runtime:instance:*", count=100
         ):
@@ -54,11 +85,13 @@ async def overview(ctx: Authorized) -> RuntimeOverview:
         await client.aclose()
     return RuntimeOverview(
         instances=instances,
+        queue_depth=queue_depth,
         sampled_at=now(),
         telemetry_available=telemetry_available,
         plans=[
             RuntimePlan(
                 id=key,
+                restarts=max(0, counts.get(key, 0) - 1),
                 title=spec.title,
                 plugin=plugin,
                 kind=spec.kind,
