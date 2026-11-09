@@ -340,6 +340,11 @@
           "title": "Comments Open",
           "type": "boolean"
         },
+        "allow_indexing": {
+          "default": true,
+          "title": "Allow Indexing",
+          "type": "boolean"
+        },
         "seo_title": {
           "default": "",
           "title": "Seo Title",
@@ -973,5 +978,5 @@
       "type": "object"
     }
   },
-  "x-everunfold-contract-version": "0.10.1"
+  "x-everunfold-contract-version": "0.11.0"
 }

@@ -74,6 +74,16 @@ MEDIA_DELETE = {
 
 
 def route_permission(path: str, method: str, body: dict[str, object]) -> tuple[str, bool]:
+    if path == "/v1/admin/workspace":
+        return "workspace:read", True
+    if path == "/v1/admin/comments/query":
+        return "comments:read", True
+    if path in {
+        "/v1/admin/comments/moderate",
+        "/v1/admin/comments/edit",
+        "/v1/admin/comments/reply",
+    }:
+        return "comments:moderate", False
     if path.startswith("/v1/admin/content/"):
         action = path.removeprefix("/v1/admin/content/")
         if (
@@ -152,7 +162,10 @@ async def authorize_business(
         if user.must_change_password:
             raise AuthFailure(403, 40363, "请先在账号中心修改初始密码")
         actor = Actor.browser(user, token_digest(cookie(request) or ""))
-    if not actor.has(capability):
+    if capability == "workspace:read":
+        if actor.auth_method != "session" or not actor.permissions:
+            raise AuthFailure(403, 40364, "没有执行此操作的权限")
+    elif not actor.has(capability):
         raise AuthFailure(403, 40364, "没有执行此操作的权限")
     if (
         route

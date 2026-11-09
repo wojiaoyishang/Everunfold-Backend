@@ -343,7 +343,9 @@ async def public_pages(
     session: AsyncSession, *, authorized: bool = False
 ) -> list[PublicManagedPage]:
     from app.modules.captcha.service import current_config, required
+    from app.modules.pages.availability import disabled_page_ids
 
+    disabled = await disabled_page_ids(session)
     captcha = await current_config(session)
     rows = (
         await session.scalars(
@@ -371,6 +373,7 @@ async def public_pages(
             }
         )
         for row in rows
+        if row.implementation_id not in disabled
     ]
     if not authorized:
         for page in pages:

@@ -2813,6 +2813,55 @@
       "title": "SaveShortcode",
       "type": "object"
     },
+    "SearchDiscovery": {
+      "additionalProperties": false,
+      "properties": {
+        "sitemap_enabled": {
+          "default": true,
+          "title": "Sitemap Enabled",
+          "type": "boolean"
+        },
+        "feeds_enabled": {
+          "default": true,
+          "title": "Feeds Enabled",
+          "type": "boolean"
+        },
+        "feed_limit": {
+          "default": 30,
+          "maximum": 100,
+          "minimum": 1,
+          "title": "Feed Limit",
+          "type": "integer"
+        },
+        "structured_data": {
+          "default": true,
+          "title": "Structured Data",
+          "type": "boolean"
+        },
+        "share_image": {
+          "default": "",
+          "maxLength": 2048,
+          "title": "Share Image",
+          "type": "string"
+        },
+        "google_verification": {
+          "default": "",
+          "maxLength": 200,
+          "pattern": "^[A-Za-z0-9_-]*$",
+          "title": "Google Verification",
+          "type": "string"
+        },
+        "bing_verification": {
+          "default": "",
+          "maxLength": 200,
+          "pattern": "^[A-Za-z0-9_-]*$",
+          "title": "Bing Verification",
+          "type": "string"
+        }
+      },
+      "title": "SearchDiscovery",
+      "type": "object"
+    },
     "SettingsDelivery": {
       "additionalProperties": false,
       "properties": {
@@ -3157,6 +3206,9 @@
     "SitePreferences": {
       "additionalProperties": false,
       "properties": {
+        "discovery": {
+          "$ref": "#/$defs/SearchDiscovery"
+        },
         "language_catalog": {
           "$ref": "#/$defs/LanguageCatalog"
         },
@@ -3499,7 +3551,7 @@
   "title": "SettingsContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "1.16.1",
+  "x-everunfold-contract-version": "1.17.0",
   "x-everunfold-language-regions": {
     "zh": "CN",
     "en": "GB",

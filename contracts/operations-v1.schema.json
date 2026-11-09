@@ -1,0 +1,635 @@
+{
+  "$defs": {
+    "CommentQuery": {
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "anyOf": [
+            {
+              "enum": [
+                "pending",
+                "approved",
+                "rejected",
+                "spam",
+                "trash",
+                "hidden"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Status"
+        },
+        "search": {
+          "default": "",
+          "maxLength": 200,
+          "title": "Search",
+          "type": "string"
+        },
+        "content_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Content Id"
+        },
+        "page": {
+          "default": 1,
+          "minimum": 1,
+          "title": "Page",
+          "type": "integer"
+        },
+        "page_size": {
+          "default": 20,
+          "maximum": 100,
+          "minimum": 1,
+          "title": "Page Size",
+          "type": "integer"
+        }
+      },
+      "title": "CommentQuery",
+      "type": "object"
+    },
+    "CommentResult": {
+      "additionalProperties": false,
+      "properties": {
+        "items": {
+          "items": {
+            "$ref": "#/$defs/ModerationItem"
+          },
+          "title": "Items",
+          "type": "array"
+        }
+      },
+      "required": [
+        "items"
+      ],
+      "title": "CommentResult",
+      "type": "object"
+    },
+    "CommentVersion": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "revision": {
+          "minimum": 1,
+          "title": "Revision",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "revision"
+      ],
+      "title": "CommentVersion",
+      "type": "object"
+    },
+    "EditComment": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "revision": {
+          "minimum": 1,
+          "title": "Revision",
+          "type": "integer"
+        },
+        "operation_id": {
+          "format": "uuid",
+          "title": "Operation Id",
+          "type": "string"
+        },
+        "body": {
+          "maxLength": 5000,
+          "minLength": 1,
+          "title": "Body",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "revision",
+        "operation_id",
+        "body"
+      ],
+      "title": "EditComment",
+      "type": "object"
+    },
+    "ModerateComments": {
+      "additionalProperties": false,
+      "properties": {
+        "operation_id": {
+          "format": "uuid",
+          "title": "Operation Id",
+          "type": "string"
+        },
+        "items": {
+          "items": {
+            "$ref": "#/$defs/CommentVersion"
+          },
+          "maxItems": 100,
+          "minItems": 1,
+          "title": "Items",
+          "type": "array"
+        },
+        "action": {
+          "enum": [
+            "approve",
+            "pending",
+            "reject",
+            "spam",
+            "trash",
+            "restore"
+          ],
+          "title": "Action",
+          "type": "string"
+        }
+      },
+      "required": [
+        "operation_id",
+        "items",
+        "action"
+      ],
+      "title": "ModerateComments",
+      "type": "object"
+    },
+    "ModerationCatalog": {
+      "additionalProperties": false,
+      "properties": {
+        "items": {
+          "items": {
+            "$ref": "#/$defs/ModerationItem"
+          },
+          "title": "Items",
+          "type": "array"
+        },
+        "total": {
+          "title": "Total",
+          "type": "integer"
+        },
+        "counts": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "title": "Counts",
+          "type": "object"
+        },
+        "page": {
+          "title": "Page",
+          "type": "integer"
+        },
+        "page_size": {
+          "title": "Page Size",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "items",
+        "total",
+        "counts",
+        "page",
+        "page_size"
+      ],
+      "title": "ModerationCatalog",
+      "type": "object"
+    },
+    "ModerationItem": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "revision": {
+          "title": "Revision",
+          "type": "integer"
+        },
+        "author": {
+          "title": "Author",
+          "type": "string"
+        },
+        "body": {
+          "title": "Body",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "pending",
+            "approved",
+            "rejected",
+            "spam",
+            "trash",
+            "hidden"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "updated_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Updated At"
+        },
+        "parent_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Parent Id"
+        },
+        "reply_to": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Reply To"
+        },
+        "content_id": {
+          "format": "uuid",
+          "title": "Content Id",
+          "type": "string"
+        },
+        "content_type": {
+          "enum": [
+            "article",
+            "shuoshuo",
+            "page"
+          ],
+          "title": "Content Type",
+          "type": "string"
+        },
+        "content_title": {
+          "title": "Content Title",
+          "type": "string"
+        },
+        "content_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Content Path"
+        }
+      },
+      "required": [
+        "id",
+        "revision",
+        "author",
+        "body",
+        "status",
+        "created_at",
+        "updated_at",
+        "parent_id",
+        "reply_to",
+        "content_id",
+        "content_type",
+        "content_title",
+        "content_path"
+      ],
+      "title": "ModerationItem",
+      "type": "object"
+    },
+    "PublicResponse_CommentResult_": {
+      "additionalProperties": false,
+      "properties": {
+        "success": {
+          "default": true,
+          "title": "Success",
+          "type": "boolean"
+        },
+        "code": {
+          "default": 200,
+          "title": "Code",
+          "type": "integer"
+        },
+        "msg": {
+          "default": "请求成功",
+          "title": "Msg",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/CommentResult"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "title": "PublicResponse[CommentResult]",
+      "type": "object"
+    },
+    "PublicResponse_ModerationCatalog_": {
+      "additionalProperties": false,
+      "properties": {
+        "success": {
+          "default": true,
+          "title": "Success",
+          "type": "boolean"
+        },
+        "code": {
+          "default": 200,
+          "title": "Code",
+          "type": "integer"
+        },
+        "msg": {
+          "default": "请求成功",
+          "title": "Msg",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/ModerationCatalog"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "title": "PublicResponse[ModerationCatalog]",
+      "type": "object"
+    },
+    "PublicResponse_WorkspaceSummary_": {
+      "additionalProperties": false,
+      "properties": {
+        "success": {
+          "default": true,
+          "title": "Success",
+          "type": "boolean"
+        },
+        "code": {
+          "default": 200,
+          "title": "Code",
+          "type": "integer"
+        },
+        "msg": {
+          "default": "请求成功",
+          "title": "Msg",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/WorkspaceSummary"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "title": "PublicResponse[WorkspaceSummary]",
+      "type": "object"
+    },
+    "WorkspaceItem": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "href": {
+          "title": "Href",
+          "type": "string"
+        },
+        "updated_at": {
+          "format": "date-time",
+          "title": "Updated At",
+          "type": "string"
+        },
+        "scheduled_for": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Scheduled For"
+        },
+        "error": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Error"
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "href",
+        "updated_at"
+      ],
+      "title": "WorkspaceItem",
+      "type": "object"
+    },
+    "WorkspaceSummary": {
+      "additionalProperties": false,
+      "properties": {
+        "pending_comments": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Pending Comments"
+        },
+        "drafts": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Drafts"
+        },
+        "scheduled": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Scheduled"
+        },
+        "failed_schedules": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Failed Schedules"
+        },
+        "translations_to_review": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Translations To Review"
+        },
+        "failed_deliveries": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Failed Deliveries"
+        },
+        "recent": {
+          "items": {
+            "$ref": "#/$defs/WorkspaceItem"
+          },
+          "title": "Recent",
+          "type": "array"
+        },
+        "upcoming": {
+          "items": {
+            "$ref": "#/$defs/WorkspaceItem"
+          },
+          "title": "Upcoming",
+          "type": "array"
+        }
+      },
+      "title": "WorkspaceSummary",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "query": {
+      "$ref": "#/$defs/CommentQuery"
+    },
+    "moderate": {
+      "$ref": "#/$defs/ModerateComments"
+    },
+    "edit": {
+      "$ref": "#/$defs/EditComment"
+    },
+    "catalog": {
+      "$ref": "#/$defs/PublicResponse_ModerationCatalog_"
+    },
+    "result": {
+      "$ref": "#/$defs/PublicResponse_CommentResult_"
+    },
+    "workspace": {
+      "$ref": "#/$defs/PublicResponse_WorkspaceSummary_"
+    }
+  },
+  "required": [
+    "query",
+    "moderate",
+    "edit",
+    "catalog",
+    "result",
+    "workspace"
+  ],
+  "title": "OperationsContract",
+  "type": "object",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "x-everunfold-contract-version": "1.0.0",
+  "x-everunfold-operations": [
+    {
+      "name": "readWorkspace",
+      "path": "/v1/admin/workspace",
+      "method": "GET",
+      "response": "workspace"
+    },
+    {
+      "name": "queryComments",
+      "path": "/v1/admin/comments/query",
+      "method": "POST",
+      "input": "query",
+      "response": "catalog"
+    },
+    {
+      "name": "moderateComments",
+      "path": "/v1/admin/comments/moderate",
+      "method": "POST",
+      "input": "moderate",
+      "response": "result"
+    },
+    {
+      "name": "editComment",
+      "path": "/v1/admin/comments/edit",
+      "method": "POST",
+      "input": "edit",
+      "response": "result"
+    },
+    {
+      "name": "replyToComment",
+      "path": "/v1/admin/comments/reply",
+      "method": "POST",
+      "input": "edit",
+      "response": "result"
+    }
+  ]
+}

@@ -45,6 +45,8 @@ def content_path(value: str) -> str:
         "ss",
         "favicon.ico",
         "robots.txt",
+        "feed.xml",
+        "atom.xml",
         "sitemap.xml",
         "manifest.webmanifest",
     } or first.startswith("."):
@@ -62,6 +64,7 @@ class EditorSettings(PublicModel):
     comments_open: bool = True
     captcha_read: CaptchaOverride = "inherit"
     captcha_comment: CaptchaOverride = "inherit"
+    allow_indexing: bool = True
     seo_title: str = Field(default="", max_length=200)
     seo_description: str = Field(default="", max_length=500)
     visibility: Literal["public", "password"] = "public"
@@ -103,5 +106,6 @@ class EditorCatalog(PublicModel):
 
 class PublicEditorSettings(PublicModel):
     comments_open: bool = True
+    allow_indexing: bool = True
     seo_title: str = ""
     seo_description: str = ""

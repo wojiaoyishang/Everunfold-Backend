@@ -10,7 +10,7 @@ from app.modules.content.collaboration.schemas import CollaborationContract
 def build_schema() -> dict[str, Any]:
     schema = CollaborationContract.model_json_schema()
     schema["$schema"] = "http://json-schema.org/draft-07/schema#"
-    schema["x-everunfold-contract-version"] = "2.3.0"
+    schema["x-everunfold-contract-version"] = "2.4.0"
     schema["x-everunfold-operations"] = [
         {
             "name": "acquireHtmlSource",

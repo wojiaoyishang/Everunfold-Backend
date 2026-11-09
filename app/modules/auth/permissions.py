@@ -10,6 +10,8 @@ ResourceScope = Literal["own", "all"]
 BUILTIN_APP = "everunfold"
 CAPABILITIES: dict[str, tuple[str, bool, bool]] = {
     # label, API-key eligible, supports an owner scope
+    "comments:read": ("读取评论", True, False),
+    "comments:moderate": ("审核与回复评论", True, False),
     "pages:read": ("读取页面设置", False, False),
     "pages:write": ("编辑页面草稿", False, False),
     "pages:publish": ("应用与停用页面", False, False),

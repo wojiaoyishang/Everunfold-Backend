@@ -92,7 +92,7 @@ class PublicContentService:
                 for key, value in (
                     (item.editor_settings or {}) if readable else {"comments_open": False}
                 ).items()
-                if key in {"comments_open", "seo_title", "seo_description"}
+                if key in PublicEditorSettings.model_fields
             }
         ).model_dump()
         return ContentSummary(
@@ -211,7 +211,10 @@ class PublicContentService:
         results = []
         for item in comments:
             parent = public_by_id.get(item.parent_id) if item.parent_id else None
-            if parent is not None and parent.content_id != item.content_id:
+            if parent is not None and (parent.content_id, parent.page_id) != (
+                item.content_id,
+                item.page_id,
+            ):
                 parent = None
             results.append(
                 PublicComment(
@@ -252,7 +255,7 @@ class PublicContentService:
         comment_map: dict[str, list[PublicComment]] = {str(item.id): [] for item in contents}
         comments = await self.repository.all_comments()
         for row, projection in zip(comments, self._comment_projections(comments), strict=True):
-            comment_map[str(row.content_id)].append(projection)
+            comment_map.setdefault(str(row.content_id or row.page_id), []).append(projection)
         details = [self._detail(item, taxonomy_map, counts) for item in contents]
         await self._translations(details)
         from app.modules.pages.service import public_pages

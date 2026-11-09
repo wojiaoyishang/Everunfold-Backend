@@ -220,3 +220,6 @@ def check_content_publication(
         backend_config,
     )
     check_captcha(client, csrf, api_b, sql, state, snapshot, wait_for, backend_config)
+    from tests.comment_moderation_process_checks import check_comments
+
+    check_comments(client, csrf, api_b, snapshot, wait_for)

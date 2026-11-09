@@ -81,9 +81,13 @@ async def context(session: AsyncSession, action: str, content_id: UUID | None) -
         if item:
             kind, policy, generation = item.kind, item.editor_settings or {}, item.public_generation
         else:
+            from app.modules.pages.availability import disabled_page_ids
+
+            disabled = await disabled_page_ids(session)
             page = await session.get(ManagedPage, content_id)
             if (
                 page is None
+                or page.implementation_id in disabled
                 or page.deleted_at is not None
                 or page.published is None
                 or not page.published.get("enabled", False)

@@ -7,10 +7,11 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, Response
 from pydantic import UUID4
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, or_, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.modules.comments.visibility import public_page_ids
 from app.modules.content.comment_likes_schema import (
     CommentLikeInput,
     CommentLikes,
@@ -44,6 +45,7 @@ class CommentLikeService:
         self.session = session
 
     async def read(self, ids: list[UUID], visitor: UUID) -> list[CommentLikeState]:
+        page_ids = await public_page_ids(self.session)
         visitor_hash = hashlib.sha256(str(visitor).encode()).hexdigest()
         statement = (
             select(
@@ -51,9 +53,13 @@ class CommentLikeService:
                 func.count(CommentLike.comment_id),
                 func.coalesce(func.bool_or(CommentLike.visitor_hash == visitor_hash), False),
             )
-            .join(Content, Content.id == Comment.content_id)
+            .outerjoin(Content, Content.id == Comment.content_id)
             .outerjoin(CommentLike, CommentLike.comment_id == Comment.id)
-            .where(Comment.id.in_(ids), Comment.status == "approved", *public_conditions())
+            .where(
+                Comment.id.in_(ids),
+                Comment.status == "approved",
+                or_(public_conditions()[0] & public_conditions()[1], Comment.page_id.in_(page_ids)),
+            )
             .group_by(Comment.id)
         )
         rows = await self.session.execute(statement)
@@ -64,11 +70,19 @@ class CommentLikeService:
 
     async def set(self, comment_id: UUID, visitor: UUID, liked: bool) -> CommentLikeState:
         try:
+            page_ids = await public_page_ids(self.session)
             # Serialize changes per comment, including retries from independent API workers.
             visible = await self.session.scalar(
                 select(Comment.id)
-                .join(Content, Content.id == Comment.content_id)
-                .where(Comment.id == comment_id, Comment.status == "approved", *public_conditions())
+                .outerjoin(Content, Content.id == Comment.content_id)
+                .where(
+                    Comment.id == comment_id,
+                    Comment.status == "approved",
+                    or_(
+                        public_conditions()[0] & public_conditions()[1],
+                        Comment.page_id.in_(page_ids),
+                    ),
+                )
                 .with_for_update(of=Comment)
             )
             if visible is None:

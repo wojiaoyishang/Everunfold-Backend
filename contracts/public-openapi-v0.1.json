@@ -6,6 +6,501 @@
     "version": "0.2.0"
   },
   "paths": {
+    "/v1/admin/comments/query": {
+      "post": {
+        "tags": [
+          "operations"
+        ],
+        "summary": "Query",
+        "operationId": "query_v1_admin_comments_query_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CommentQuery"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicResponse_ModerationCatalog_"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/admin/comments/moderate": {
+      "post": {
+        "tags": [
+          "operations"
+        ],
+        "summary": "Moderate",
+        "operationId": "moderate_v1_admin_comments_moderate_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ModerateComments"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicResponse_CommentResult_"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/admin/comments/edit": {
+      "post": {
+        "tags": [
+          "operations"
+        ],
+        "summary": "Edit",
+        "operationId": "edit_v1_admin_comments_edit_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EditComment"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicResponse_CommentResult_"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/admin/comments/reply": {
+      "post": {
+        "tags": [
+          "operations"
+        ],
+        "summary": "Reply",
+        "operationId": "reply_v1_admin_comments_reply_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EditComment"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicResponse_CommentResult_"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/admin/workspace": {
+      "get": {
+        "tags": [
+          "operations"
+        ],
+        "summary": "Overview",
+        "operationId": "overview_v1_admin_workspace_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicResponse_WorkspaceSummary_"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/languages": {
       "get": {
         "tags": [
@@ -2616,6 +3111,16 @@
               }
             }
           },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "403": {
             "description": "Forbidden",
             "content": {
@@ -2628,6 +3133,16 @@
           },
           "404": {
             "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
             "content": {
               "application/json": {
                 "schema": {
@@ -16077,6 +16592,101 @@
         ],
         "title": "AvatarRemove"
       },
+      "BackendPluginInfo": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]*(?:\\.[a-z][a-z0-9-]*)+$",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Title"
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 500,
+            "title": "Description",
+            "default": ""
+          },
+          "build": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Build"
+          },
+          "page_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 100,
+            "title": "Page Ids"
+          },
+          "components": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 200,
+            "title": "Components"
+          },
+          "shortcodes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 100,
+            "title": "Shortcodes"
+          },
+          "version": {
+            "type": "string",
+            "pattern": "^\\d+\\.\\d+\\.\\d+(?:-[a-zA-Z0-9.-]+)?$",
+            "title": "Version"
+          },
+          "author": {
+            "type": "string",
+            "maxLength": 100,
+            "title": "Author",
+            "default": ""
+          },
+          "requires": {
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9-]*(?:\\.[a-z][a-z0-9-]*)+$"
+            },
+            "type": "array",
+            "maxItems": 100,
+            "title": "Requires"
+          },
+          "captcha_providers": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 100,
+            "title": "Captcha Providers"
+          },
+          "widgets": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 100,
+            "title": "Widgets"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "build",
+          "version"
+        ],
+        "title": "BackendPluginInfo"
+      },
       "BlockSourcePatch": {
         "properties": {
           "id": {
@@ -16624,6 +17234,14 @@
             },
             "type": "array",
             "title": "Catalog"
+          },
+          "api_key_bypass": {
+            "type": "boolean",
+            "title": "Api Key Bypass"
+          },
+          "api_key_rate_limit": {
+            "type": "integer",
+            "title": "Api Key Rate Limit"
           }
         },
         "additionalProperties": false,
@@ -16633,7 +17251,9 @@
           "provider",
           "rules",
           "providers",
-          "catalog"
+          "catalog",
+          "api_key_bypass",
+          "api_key_rate_limit"
         ],
         "title": "CaptchaSettingsState"
       },
@@ -16816,6 +17436,63 @@
         ],
         "title": "CommentLikes"
       },
+      "CommentQuery": {
+        "properties": {
+          "status": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "pending",
+                  "approved",
+                  "rejected",
+                  "spam",
+                  "trash",
+                  "hidden"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "search": {
+            "type": "string",
+            "maxLength": 200,
+            "title": "Search",
+            "default": ""
+          },
+          "content_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content Id"
+          },
+          "page": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Page",
+            "default": 1
+          },
+          "page_size": {
+            "type": "integer",
+            "maximum": 100.0,
+            "minimum": 1.0,
+            "title": "Page Size",
+            "default": 20
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "CommentQuery"
+      },
       "CommentReceipt": {
         "properties": {
           "id": {
@@ -16836,6 +17513,44 @@
           "id"
         ],
         "title": "CommentReceipt"
+      },
+      "CommentResult": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ModerationItem"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "title": "CommentResult"
+      },
+      "CommentVersion": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Revision"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "revision"
+        ],
+        "title": "CommentVersion"
       },
       "CommitDraft": {
         "properties": {
@@ -17076,6 +17791,11 @@
           "comments_open": {
             "type": "boolean",
             "title": "Comments Open",
+            "default": true
+          },
+          "allow_indexing": {
+            "type": "boolean",
+            "title": "Allow Indexing",
             "default": true
           },
           "seo_title": {
@@ -17325,6 +18045,11 @@
           "comments_open": {
             "type": "boolean",
             "title": "Comments Open",
+            "default": true
+          },
+          "allow_indexing": {
+            "type": "boolean",
+            "title": "Allow Indexing",
             "default": true
           },
           "seo_title": {
@@ -18534,6 +19259,40 @@
         ],
         "title": "DraftSchedule"
       },
+      "EditComment": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Revision"
+          },
+          "operation_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Operation Id"
+          },
+          "body": {
+            "type": "string",
+            "maxLength": 5000,
+            "minLength": 1,
+            "title": "Body"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "revision",
+          "operation_id",
+          "body"
+        ],
+        "title": "EditComment"
+      },
       "EditorCatalog": {
         "properties": {
           "terms": {
@@ -18628,6 +19387,11 @@
             ],
             "title": "Captcha Comment",
             "default": "inherit"
+          },
+          "allow_indexing": {
+            "type": "boolean",
+            "title": "Allow Indexing",
+            "default": true
           },
           "seo_title": {
             "type": "string",
@@ -18774,6 +19538,18 @@
             },
             "type": "array",
             "title": "Nodes"
+          },
+          "backend_plugins": {
+            "items": {
+              "$ref": "#/components/schemas/BackendPluginInfo"
+            },
+            "type": "array",
+            "title": "Backend Plugins"
+          },
+          "backend_in_sync": {
+            "type": "boolean",
+            "title": "Backend In Sync",
+            "default": true
           }
         },
         "additionalProperties": false,
@@ -21304,6 +22080,204 @@
         ],
         "title": "MergeSummary"
       },
+      "ModerateComments": {
+        "properties": {
+          "operation_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Operation Id"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/CommentVersion"
+            },
+            "type": "array",
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Items"
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "approve",
+              "pending",
+              "reject",
+              "spam",
+              "trash",
+              "restore"
+            ],
+            "title": "Action"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "operation_id",
+          "items",
+          "action"
+        ],
+        "title": "ModerateComments"
+      },
+      "ModerationCatalog": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ModerationItem"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Counts"
+          },
+          "page": {
+            "type": "integer",
+            "title": "Page"
+          },
+          "page_size": {
+            "type": "integer",
+            "title": "Page Size"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "counts",
+          "page",
+          "page_size"
+        ],
+        "title": "ModerationCatalog"
+      },
+      "ModerationItem": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "revision": {
+            "type": "integer",
+            "title": "Revision"
+          },
+          "author": {
+            "type": "string",
+            "title": "Author"
+          },
+          "body": {
+            "type": "string",
+            "title": "Body"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "approved",
+              "rejected",
+              "spam",
+              "trash",
+              "hidden"
+            ],
+            "title": "Status"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          },
+          "parent_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Id"
+          },
+          "reply_to": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reply To"
+          },
+          "content_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Content Id"
+          },
+          "content_type": {
+            "type": "string",
+            "enum": [
+              "article",
+              "shuoshuo",
+              "page"
+            ],
+            "title": "Content Type"
+          },
+          "content_title": {
+            "type": "string",
+            "title": "Content Title"
+          },
+          "content_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content Path"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "revision",
+          "author",
+          "body",
+          "status",
+          "created_at",
+          "updated_at",
+          "parent_id",
+          "reply_to",
+          "content_id",
+          "content_type",
+          "content_title",
+          "content_path"
+        ],
+        "title": "ModerationItem"
+      },
       "NavigationCatalog": {
         "properties": {
           "items": {
@@ -23078,6 +24052,34 @@
         ],
         "title": "PublicResponse[CommentReceipt]"
       },
+      "PublicResponse_CommentResult_": {
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "title": "Success",
+            "default": true
+          },
+          "code": {
+            "type": "integer",
+            "title": "Code",
+            "default": 200
+          },
+          "msg": {
+            "type": "string",
+            "title": "Msg",
+            "default": "请求成功"
+          },
+          "data": {
+            "$ref": "#/components/schemas/CommentResult"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "title": "PublicResponse[CommentResult]"
+      },
       "PublicResponse_CommittedDraft_": {
         "properties": {
           "success": {
@@ -23805,6 +24807,34 @@
           "data"
         ],
         "title": "PublicResponse[MergeDetail]"
+      },
+      "PublicResponse_ModerationCatalog_": {
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "title": "Success",
+            "default": true
+          },
+          "code": {
+            "type": "integer",
+            "title": "Code",
+            "default": 200
+          },
+          "msg": {
+            "type": "string",
+            "title": "Msg",
+            "default": "请求成功"
+          },
+          "data": {
+            "$ref": "#/components/schemas/ModerationCatalog"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "title": "PublicResponse[ModerationCatalog]"
       },
       "PublicResponse_NavigationCatalog_": {
         "properties": {
@@ -24590,6 +25620,34 @@
         ],
         "title": "PublicResponse[VersionDetail]"
       },
+      "PublicResponse_WorkspaceSummary_": {
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "title": "Success",
+            "default": true
+          },
+          "code": {
+            "type": "integer",
+            "title": "Code",
+            "default": 200
+          },
+          "msg": {
+            "type": "string",
+            "title": "Msg",
+            "default": "请求成功"
+          },
+          "data": {
+            "$ref": "#/components/schemas/WorkspaceSummary"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "title": "PublicResponse[WorkspaceSummary]"
+      },
       "PublicSettings-Input": {
         "properties": {
           "extensions": {
@@ -24909,6 +25967,30 @@
             "type": "object",
             "maxProperties": 30,
             "title": "Providers"
+          },
+          "api_key_bypass": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Api Key Bypass"
+          },
+          "api_key_rate_limit": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 1000.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Api Key Rate Limit"
           }
         },
         "additionalProperties": false,
@@ -25112,6 +26194,55 @@
         ],
         "title": "SaveShortcode"
       },
+      "SearchDiscovery": {
+        "properties": {
+          "sitemap_enabled": {
+            "type": "boolean",
+            "title": "Sitemap Enabled",
+            "default": true
+          },
+          "feeds_enabled": {
+            "type": "boolean",
+            "title": "Feeds Enabled",
+            "default": true
+          },
+          "feed_limit": {
+            "type": "integer",
+            "maximum": 100.0,
+            "minimum": 1.0,
+            "title": "Feed Limit",
+            "default": 30
+          },
+          "structured_data": {
+            "type": "boolean",
+            "title": "Structured Data",
+            "default": true
+          },
+          "share_image": {
+            "type": "string",
+            "maxLength": 2048,
+            "title": "Share Image",
+            "default": ""
+          },
+          "google_verification": {
+            "type": "string",
+            "maxLength": 200,
+            "pattern": "^[A-Za-z0-9_-]*$",
+            "title": "Google Verification",
+            "default": ""
+          },
+          "bing_verification": {
+            "type": "string",
+            "maxLength": 200,
+            "pattern": "^[A-Za-z0-9_-]*$",
+            "title": "Bing Verification",
+            "default": ""
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "SearchDiscovery"
+      },
       "SessionItem": {
         "properties": {
           "id": {
@@ -25284,6 +26415,13 @@
             },
             "type": "array",
             "title": "Items"
+          },
+          "applied": {
+            "items": {
+              "$ref": "#/components/schemas/PublicShortcode"
+            },
+            "type": "array",
+            "title": "Applied"
           },
           "settings_revision": {
             "type": "integer",
@@ -25582,6 +26720,9 @@
       },
       "SitePreferences-Input": {
         "properties": {
+          "discovery": {
+            "$ref": "#/components/schemas/SearchDiscovery"
+          },
           "language_catalog": {
             "$ref": "#/components/schemas/LanguageCatalog"
           },
@@ -25662,6 +26803,9 @@
       },
       "SitePreferences-Output": {
         "properties": {
+          "discovery": {
+            "$ref": "#/components/schemas/SearchDiscovery"
+          },
           "language_catalog": {
             "$ref": "#/components/schemas/LanguageCatalog"
           },
@@ -27257,6 +28401,147 @@
           "id"
         ],
         "title": "VersionQuery"
+      },
+      "WorkspaceItem": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "href": {
+            "type": "string",
+            "title": "Href"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          },
+          "scheduled_for": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scheduled For"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "href",
+          "updated_at"
+        ],
+        "title": "WorkspaceItem"
+      },
+      "WorkspaceSummary": {
+        "properties": {
+          "pending_comments": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pending Comments"
+          },
+          "drafts": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Drafts"
+          },
+          "scheduled": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scheduled"
+          },
+          "failed_schedules": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Failed Schedules"
+          },
+          "translations_to_review": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Translations To Review"
+          },
+          "failed_deliveries": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Failed Deliveries"
+          },
+          "recent": {
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceItem"
+            },
+            "type": "array",
+            "title": "Recent"
+          },
+          "upcoming": {
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceItem"
+            },
+            "type": "array",
+            "title": "Upcoming"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "WorkspaceSummary"
       }
     }
   },

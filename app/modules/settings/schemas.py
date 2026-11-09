@@ -96,7 +96,19 @@ class MenuItem(MenuLink):
 MediaReference = r"^(?:|media:[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})$"
 
 
+class SearchDiscovery(SettingsModel):
+    sitemap_enabled: bool = True
+    feeds_enabled: bool = True
+    feed_limit: int = Field(default=30, ge=1, le=100)
+    structured_data: bool = True
+    share_image: str = Field(default="", max_length=2048)
+    google_verification: str = Field(default="", max_length=200, pattern=r"^[A-Za-z0-9_-]*$")
+    bing_verification: str = Field(default="", max_length=200, pattern=r"^[A-Za-z0-9_-]*$")
+    _image = field_validator("share_image")(safe_url)
+
+
 class SitePreferences(SettingsModel):
+    discovery: SearchDiscovery = Field(default_factory=SearchDiscovery)
     language_catalog: LanguageCatalog = Field(default_factory=LanguageCatalog)
     name: str = Field(min_length=1, max_length=120)
     description: str = Field(max_length=300)

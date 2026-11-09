@@ -40,6 +40,7 @@ class ContentPresentation(PublicModel):
     content: list[ContentBlock]
     media_urls: dict[str, MediaURL]
     comments_open: bool
+    allow_indexing: bool = True
     seo_title: str = ""
     seo_description: str = ""
     reaction_count: int = Field(ge=0)

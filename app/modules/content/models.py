@@ -96,14 +96,27 @@ class Comment(Base):
     __tablename__ = "comments"
     __table_args__ = (
         Unique("source_id"),
-        CheckConstraint("status IN ('approved', 'pending', 'hidden')", name="status"),
+        CheckConstraint(
+            "status IN ('approved', 'pending', 'hidden', 'rejected', 'spam', 'trash')",
+            name="status",
+        ),
+        CheckConstraint("(content_id IS NULL) <> (page_id IS NULL)", name="target"),
+        CheckConstraint("revision >= 1", name="revision"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     source_id: Mapped[int | None] = mapped_column(Integer)
-    content_id: Mapped[uuid.UUID] = mapped_column(
+    content_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("contents.id", ondelete="CASCADE"), index=True
     )
+    page_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("managed_pages.id", ondelete="CASCADE"), index=True
+    )
+    revision: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
+    previous_status: Mapped[str] = mapped_column(
+        String(16), default="pending", server_default="pending"
+    )
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     parent_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("comments.id"))
     author: Mapped[str] = mapped_column(String(200))
     content: Mapped[str] = mapped_column(Text)

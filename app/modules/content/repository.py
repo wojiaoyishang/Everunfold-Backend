@@ -118,7 +118,11 @@ class ContentRepository:
         result = await self.session.scalar(
             select(Content.id).where(Content.id == content_id, *public_conditions())
         )
-        return result is not None
+        if result is not None:
+            return True
+        from app.modules.comments.visibility import public_page_ids
+
+        return content_id in await public_page_ids(self.session)
 
     async def all_contents(self) -> list[Content]:
         statement = (
@@ -158,12 +162,15 @@ class ContentRepository:
             .where(Comment.content_id.in_(content_ids), Comment.status == "approved")
             .group_by(Comment.content_id)
         )
-        return {row[0]: int(row[1]) for row in rows}
+        return {row[0]: int(row[1]) for row in rows if row[0] is not None}
 
     async def comments(
         self, content_id: uuid.UUID, *, page: int, page_size: int
     ) -> tuple[list[Comment], dict[uuid.UUID, Comment], int]:
-        filters = Comment.content_id == content_id, Comment.status == "approved"
+        filters = (
+            or_(Comment.content_id == content_id, Comment.page_id == content_id),
+            Comment.status == "approved",
+        )
         total = int(await self.session.scalar(select(func.count(Comment.id)).where(*filters)) or 0)
         rows = list(
             await self.session.scalars(
@@ -181,11 +188,20 @@ class ContentRepository:
         return rows, {item.id: item for item in parents}, total
 
     async def all_comments(self) -> list[Comment]:
+        from app.modules.comments.visibility import public_page_ids
+
+        page_ids = await public_page_ids(self.session)
         return list(
             await self.session.scalars(
                 select(Comment)
-                .join(Content, Content.id == Comment.content_id)
-                .where(Comment.status == "approved", *public_conditions())
+                .outerjoin(Content, Content.id == Comment.content_id)
+                .where(
+                    Comment.status == "approved",
+                    or_(
+                        public_conditions()[0] & public_conditions()[1],
+                        Comment.page_id.in_(page_ids),
+                    ),
+                )
                 .order_by(Comment.created_at, Comment.id)
             )
         )
@@ -202,12 +218,18 @@ class ContentRepository:
             .where(*public_conditions())
             .group_by(Content.kind)
         )
-        return {row[0]: int(row[1]) for row in rows}
+        return {row[0]: int(row[1]) for row in rows if row[0] is not None}
 
     async def public_comment_count(self) -> int:
+        from app.modules.comments.visibility import public_page_ids
+
+        page_ids = await public_page_ids(self.session)
         result = await self.session.scalar(
             select(func.count(Comment.id))
-            .join(Content, Content.id == Comment.content_id)
-            .where(Comment.status == "approved", *public_conditions())
+            .outerjoin(Content, Content.id == Comment.content_id)
+            .where(
+                Comment.status == "approved",
+                or_(public_conditions()[0] & public_conditions()[1], Comment.page_id.in_(page_ids)),
+            )
         )
         return int(result or 0)

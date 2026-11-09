@@ -148,8 +148,12 @@ async def submit_comment(payload: SubmitComment, request: Request) -> JSONRespon
                     raise AuthFailure(422, 42287, "回复目标不可用")
         else:
             page = await session.get(ManagedPage, payload.content_id)
-            if not page or page.deleted_at or not page.published or payload.parent_id:
+            if not page or page.deleted_at or not page.published:
                 raise AuthFailure(404, 40486, "内容不存在")
+            if payload.parent_id:
+                parent = await session.get(Comment, payload.parent_id)
+                if not parent or parent.page_id != page.id or parent.status != "approved":
+                    raise AuthFailure(422, 42287, "回复目标不可用")
             from app.modules.captcha.service import required
 
             policy = await context(session, "read", payload.content_id)
@@ -185,6 +189,18 @@ async def submit_comment(payload: SubmitComment, request: Request) -> JSONRespon
                         "parent_id": str(payload.parent_id) if payload.parent_id else None,
                     },
                     created_at=datetime.now(UTC),
+                )
+            )
+            session.add(
+                Comment(
+                    id=payload.operation_id,
+                    content_id=item.id if item else None,
+                    page_id=None if item else payload.content_id,
+                    parent_id=payload.parent_id,
+                    author=payload.author.strip(),
+                    content=payload.body.strip(),
+                    created_at=datetime.now(UTC),
+                    status="pending",
                 )
             )
             from app.modules.auth.models import AuthAuditEvent
