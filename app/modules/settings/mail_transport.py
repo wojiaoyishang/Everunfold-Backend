@@ -99,6 +99,12 @@ class Transcript:
 class LoggedSMTP(smtplib.SMTP):
     trace: Transcript
 
+    def __init__(self, host: str, port: int, *, timeout: float, trace: Transcript) -> None:
+        # smtplib retains this host for STARTTLS SNI and certificate hostname checks.
+        # Install tracing before the constructor reads the server greeting.
+        self.trace = trace
+        super().__init__(host, port, timeout=timeout)
+
     def putcmd(self, cmd: str, args: str = "") -> None:
         self.trace.command(cmd, args)
         super().putcmd(cmd, args)
@@ -115,6 +121,12 @@ class LoggedSMTP(smtplib.SMTP):
 
 class LoggedSMTPSSL(smtplib.SMTP_SSL):
     trace: Transcript
+
+    def __init__(
+        self, host: str, port: int, *, timeout: float, context: ssl.SSLContext, trace: Transcript
+    ) -> None:
+        self.trace = trace
+        super().__init__(host, port, timeout=timeout, context=context)
 
     def putcmd(self, cmd: str, args: str = "") -> None:
         self.trace.command(cmd, args)
@@ -167,13 +179,11 @@ def send_test(
         trace.phase("connecting", f"Connecting to {value.host}:{value.port} ({value.encryption}).")
         context = ssl.create_default_context()
         if value.encryption == "tls":
-            client = LoggedSMTPSSL(timeout=remaining(), context=context)
+            client = LoggedSMTPSSL(
+                value.host, value.port, timeout=remaining(), context=context, trace=trace
+            )
         else:
-            client = LoggedSMTP(timeout=remaining())
-        client.trace = trace
-        code, _ = client.connect(value.host, value.port)
-        if code != 220:
-            return result("failed", "connection")
+            client = LoggedSMTP(value.host, value.port, timeout=remaining(), trace=trace)
         if value.encryption == "tls":
             trace.emit("message", "TLS connection established; certificate verification enabled.")
         remaining()
@@ -227,15 +237,26 @@ def send_test(
         return result("sent", None) if code == 250 else result("failed", "message_rejected")
     except smtplib.SMTPAuthenticationError:
         return result("failed", "authentication")
-    except ssl.SSLError:
+    except ssl.SSLCertVerificationError as error:
+        trace.emit(
+            "message", f"TLS certificate verification failed (code {error.verify_code}).", "error"
+        )
+        return result("failed", "tls")
+    except ssl.SSLError as error:
+        trace.emit("message", f"TLS handshake exception: {type(error).__name__}", "error")
         return result("failed", "tls")
     except smtplib.SMTPNotSupportedError:
         return result("failed", "unsupported")
     except smtplib.SMTPDataError:
         return result("failed", "message_rejected")
+    except TimeoutError:
+        trace.emit("message", "SMTP operation timed out.", "warning" if in_data else "error")
+        return result("unknown", "delivery_unknown") if in_data else result("failed", "timeout")
     except (OSError, smtplib.SMTPException):
         return result("unknown", "delivery_unknown") if in_data else result("failed", "connection")
-    except Exception:
+    except Exception as error:
+        # The type identifies local transport bugs without exposing exception text or secrets.
+        trace.emit("message", f"Transport exception: {type(error).__name__}", "error")
         return result("unknown", "delivery_unknown") if in_data else result("failed", "transport")
     finally:
         if client:
