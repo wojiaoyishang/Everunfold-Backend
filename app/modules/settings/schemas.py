@@ -6,6 +6,7 @@ from uuid import UUID
 
 from pydantic import ConfigDict, Field, field_validator, model_validator
 
+from app.core.jobs.progress_schemas import TaskProgress, WatchTask
 from app.core.jobs.schemas import RuntimeCommand, RuntimeOverview
 from app.core.schemas import PublicModel, PublicResponse
 from app.modules.media.fonts import FontCatalog
@@ -275,6 +276,8 @@ class DeliveryReceipt(SettingsModel):
 
 
 class SettingsContract(PublicModel):
+    watch_task: WatchTask
+    task_progress: PublicResponse[TaskProgress]
     mail: PublicResponse[MailSettingsState]
     test_mail: SendTestMail
     test_mail_lookup: MailTestLookup

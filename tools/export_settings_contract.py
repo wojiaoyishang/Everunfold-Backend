@@ -11,9 +11,16 @@ from app.modules.settings.schemas import SettingsContract
 def build_schema() -> dict[str, Any]:
     schema = SettingsContract.model_json_schema()
     schema["$schema"] = "http://json-schema.org/draft-07/schema#"
-    schema["x-everunfold-contract-version"] = "1.20.0"
+    schema["x-everunfold-contract-version"] = "1.21.0"
     schema["x-everunfold-language-regions"] = LANGUAGE_REGIONS
     schema["x-everunfold-operations"] = [
+        {
+            "name": "watchTaskProgress",
+            "path": "/v1/admin/tasks/watch",
+            "method": "POST",
+            "input": "watch_task",
+            "response": "task_progress",
+        },
         {
             "name": "sendTestMail",
             "path": "/v1/admin/settings/mail/test",

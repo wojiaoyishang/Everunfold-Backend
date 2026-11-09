@@ -2934,6 +2934,34 @@
       "title": "PublicResponse[ShortcodeItem]",
       "type": "object"
     },
+    "PublicResponse_TaskProgress_": {
+      "additionalProperties": false,
+      "properties": {
+        "success": {
+          "default": true,
+          "title": "Success",
+          "type": "boolean"
+        },
+        "code": {
+          "default": 200,
+          "title": "Code",
+          "type": "integer"
+        },
+        "msg": {
+          "default": "请求成功",
+          "title": "Msg",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/TaskProgress"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "title": "PublicResponse[TaskProgress]",
+      "type": "object"
+    },
     "PublicSettings": {
       "additionalProperties": false,
       "properties": {
@@ -4010,6 +4038,192 @@
       "title": "SitePreferences",
       "type": "object"
     },
+    "TaskProgress": {
+      "additionalProperties": false,
+      "properties": {
+        "resource": {
+          "enum": [
+            "runtime",
+            "mail-test"
+          ],
+          "title": "Resource",
+          "type": "string"
+        },
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "state": {
+          "enum": [
+            "queued",
+            "running",
+            "succeeded",
+            "failed",
+            "unknown",
+            "cancelled"
+          ],
+          "title": "State",
+          "type": "string"
+        },
+        "stage": {
+          "title": "Stage",
+          "type": "string"
+        },
+        "completed": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Completed"
+        },
+        "total": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Total"
+        },
+        "unit": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Unit"
+        },
+        "percent": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Percent"
+        },
+        "updated_at": {
+          "format": "date-time",
+          "title": "Updated At",
+          "type": "string"
+        },
+        "started_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Started At"
+        },
+        "finished_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Finished At"
+        },
+        "cursor": {
+          "title": "Cursor",
+          "type": "integer"
+        },
+        "has_more": {
+          "title": "Has More",
+          "type": "boolean"
+        },
+        "events": {
+          "items": {
+            "$ref": "#/$defs/TaskProgressEvent"
+          },
+          "title": "Events",
+          "type": "array"
+        }
+      },
+      "required": [
+        "resource",
+        "id",
+        "state",
+        "stage",
+        "completed",
+        "total",
+        "unit",
+        "percent",
+        "updated_at",
+        "started_at",
+        "finished_at",
+        "cursor",
+        "has_more",
+        "events"
+      ],
+      "title": "TaskProgress",
+      "type": "object"
+    },
+    "TaskProgressEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "sequence": {
+          "title": "Sequence",
+          "type": "integer"
+        },
+        "at": {
+          "format": "date-time",
+          "title": "At",
+          "type": "string"
+        },
+        "level": {
+          "enum": [
+            "info",
+            "warning",
+            "error"
+          ],
+          "title": "Level",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "stage",
+            "request",
+            "response",
+            "message"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        }
+      },
+      "required": [
+        "sequence",
+        "at",
+        "level",
+        "kind",
+        "message"
+      ],
+      "title": "TaskProgressEvent",
+      "type": "object"
+    },
     "ThemeAuthor": {
       "additionalProperties": false,
       "properties": {
@@ -4121,10 +4335,53 @@
       },
       "title": "ThemePreferences",
       "type": "object"
+    },
+    "WatchTask": {
+      "additionalProperties": false,
+      "properties": {
+        "resource": {
+          "enum": [
+            "runtime",
+            "mail-test"
+          ],
+          "title": "Resource",
+          "type": "string"
+        },
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "after_sequence": {
+          "default": 0,
+          "minimum": 0,
+          "title": "After Sequence",
+          "type": "integer"
+        },
+        "wait_seconds": {
+          "default": 15,
+          "maximum": 20,
+          "minimum": 0,
+          "title": "Wait Seconds",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "resource",
+        "id"
+      ],
+      "title": "WatchTask",
+      "type": "object"
     }
   },
   "additionalProperties": false,
   "properties": {
+    "watch_task": {
+      "$ref": "#/$defs/WatchTask"
+    },
+    "task_progress": {
+      "$ref": "#/$defs/PublicResponse_TaskProgress_"
+    },
     "mail": {
       "$ref": "#/$defs/PublicResponse_MailSettingsState_"
     },
@@ -4256,6 +4513,8 @@
     }
   },
   "required": [
+    "watch_task",
+    "task_progress",
     "mail",
     "test_mail",
     "test_mail_lookup",
@@ -4303,7 +4562,7 @@
   "title": "SettingsContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "1.20.0",
+  "x-everunfold-contract-version": "1.21.0",
   "x-everunfold-language-regions": {
     "zh": "CN",
     "en": "GB",
@@ -4339,6 +4598,13 @@
     "sw": "TZ"
   },
   "x-everunfold-operations": [
+    {
+      "name": "watchTaskProgress",
+      "path": "/v1/admin/tasks/watch",
+      "method": "POST",
+      "input": "watch_task",
+      "response": "task_progress"
+    },
     {
       "name": "sendTestMail",
       "path": "/v1/admin/settings/mail/test",

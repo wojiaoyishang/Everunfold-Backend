@@ -3,6 +3,7 @@
 import asyncio
 import importlib
 import os
+from contextlib import suppress
 from datetime import timedelta
 from typing import Any
 from uuid import UUID, uuid4
@@ -13,6 +14,7 @@ from app.core.config import Settings, load_settings
 from app.core.database import Database
 from app.core.jobs.definitions import definitions
 from app.core.jobs.models import TaskPlan, TaskRun
+from app.core.jobs.progress import progress_scope, report_progress, task_progress
 from app.core.jobs.service import available, claim, now
 
 
@@ -81,61 +83,64 @@ async def execute(
         spec = definitions()[run.task_id][1]
         if (spec.kind == "resident") != resident:
             raise RuntimeError("Wrong execution role")
-        if not resident:
-            result = await asyncio.wait_for(handler(spec.handler)(config), spec.timeout)
-        else:
-            ctx = ResidentContext(config, db, run)
-            job = asyncio.create_task(handler(spec.handler)(ctx))
-            try:
-                while not job.done():
-                    async with db.session_factory() as session:
-                        row = await session.scalar(
-                            select(TaskRun).where(TaskRun.id == run.id).with_for_update()
-                        )
-                        plan = await session.get(TaskPlan, run.task_id)
-                        owned = bool(
-                            row
-                            and row.status == "running"
-                            and row.owner == owner
-                            and row.lease_until
-                            and row.lease_until > now()
-                        )
-                        enabled = bool(
-                            plan
-                            and plan.enabled
-                            and definitions()[run.task_id][0] in await available(session)
-                        )
-                        if (
-                            (stop and stop.is_set())
-                            or os.getppid() != parent_pid
-                            or not owned
-                            or not enabled
-                        ):
-                            status = "stopped"
-                            ctx.stopping.set()
-                            break
-                        assert row
-                        row.lease_until = now() + timedelta(seconds=20)
-                        row.result = {
-                            "connection": ctx.state,
-                            "last_message_at": ctx.last_message_at,
-                            "pid": os.getpid(),
-                            "parent_pid": parent_pid,
-                        }
-                        await session.commit()
-                    await asyncio.wait({job}, timeout=3)
-                if ctx.stopping.is_set():
-                    try:
-                        await asyncio.wait_for(asyncio.shield(job), 5)
-                    except TimeoutError:
+        with progress_scope(config, run.id, owner):
+            with suppress(Exception):
+                await task_progress(stage="running", message="Task execution started")
+            if not resident:
+                result = await asyncio.wait_for(handler(spec.handler)(config), spec.timeout)
+            else:
+                ctx = ResidentContext(config, db, run)
+                job = asyncio.create_task(handler(spec.handler)(ctx))
+                try:
+                    while not job.done():
+                        async with db.session_factory() as session:
+                            row = await session.scalar(
+                                select(TaskRun).where(TaskRun.id == run.id).with_for_update()
+                            )
+                            plan = await session.get(TaskPlan, run.task_id)
+                            owned = bool(
+                                row
+                                and row.status == "running"
+                                and row.owner == owner
+                                and row.lease_until
+                                and row.lease_until > now()
+                            )
+                            enabled = bool(
+                                plan
+                                and plan.enabled
+                                and definitions()[run.task_id][0] in await available(session)
+                            )
+                            if (
+                                (stop and stop.is_set())
+                                or os.getppid() != parent_pid
+                                or not owned
+                                or not enabled
+                            ):
+                                status = "stopped"
+                                ctx.stopping.set()
+                                break
+                            assert row
+                            row.lease_until = now() + timedelta(seconds=20)
+                            row.result = {
+                                "connection": ctx.state,
+                                "last_message_at": ctx.last_message_at,
+                                "pid": os.getpid(),
+                                "parent_pid": parent_pid,
+                            }
+                            await session.commit()
+                        await asyncio.wait({job}, timeout=3)
+                    if ctx.stopping.is_set():
+                        try:
+                            await asyncio.wait_for(asyncio.shield(job), 5)
+                        except TimeoutError:
+                            job.cancel()
+                    else:
+                        await job
+                    result = {"connection": "stopped", "last_message_at": ctx.last_message_at}
+                finally:
+                    if not job.done():
                         job.cancel()
-                else:
-                    await job
-                result = {"connection": "stopped", "last_message_at": ctx.last_message_at}
-            finally:
-                if not job.done():
-                    job.cancel()
-                await asyncio.gather(job, return_exceptions=True)
+                    await asyncio.gather(job, return_exceptions=True)
     except Exception as exc:
         status, error = (
             "failed",
@@ -143,6 +148,16 @@ async def execute(
         )  # Never expose exception messages or credentials.
     finally:
         if run:
+            with suppress(Exception):
+                await report_progress(
+                    "runtime",
+                    run.id,
+                    config,
+                    owner=owner,
+                    stage=status,
+                    level="error" if status == "failed" else "info",
+                    message="Task execution " + status,
+                )
             async with db.session_factory() as session:
                 await session.scalar(
                     select(TaskPlan).where(TaskPlan.id == run.task_id).with_for_update()

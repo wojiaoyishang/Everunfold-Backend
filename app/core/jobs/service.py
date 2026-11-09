@@ -3,12 +3,13 @@
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, or_, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.jobs.definitions import definitions
 from app.core.jobs.models import TaskPlan, TaskRun
+from app.core.jobs.progress_models import TaskProgressEventRecord
 from app.core.plugins.state import enabled_ids, installed_info
 from app.modules.content.models import SiteSettings
 
@@ -88,14 +89,26 @@ async def reconcile(session: AsyncSession) -> None:
     expired = (
         select(TaskRun.id)
         .where(
-            TaskRun.task_id.in_(["core.settings", "core.callbacks", "core.publication"]),
+            TaskRun.task_id.in_(
+                ["core.settings", "core.callbacks", "core.publication", "core.mail-test"]
+            ),
             TaskRun.status == "succeeded",
             TaskRun.planned_at < now() - timedelta(hours=1),
-            TaskRun.result["completed"].as_integer() == 0,
+            or_(
+                TaskRun.result["completed"].as_integer() == 0,
+                TaskRun.result["processed"].as_integer() == 0,
+            ),
         )
         .limit(100)
     )
-    await session.execute(delete(TaskRun).where(TaskRun.id.in_(expired)))
+    expired_ids = list(await session.scalars(expired))
+    await session.execute(
+        delete(TaskProgressEventRecord).where(
+            TaskProgressEventRecord.resource == "runtime",
+            TaskProgressEventRecord.resource_id.in_(expired_ids),
+        )
+    )
+    await session.execute(delete(TaskRun).where(TaskRun.id.in_(expired_ids)))
     await session.commit()
 
 
