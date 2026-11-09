@@ -2570,6 +2570,34 @@
       "title": "PublicResponse[PolicyState]",
       "type": "object"
     },
+    "PublicResponse_RuntimeOverview_": {
+      "additionalProperties": false,
+      "properties": {
+        "success": {
+          "default": true,
+          "title": "Success",
+          "type": "boolean"
+        },
+        "code": {
+          "default": 200,
+          "title": "Code",
+          "type": "integer"
+        },
+        "msg": {
+          "default": "请求成功",
+          "title": "Msg",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/RuntimeOverview"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "title": "PublicResponse[RuntimeOverview]",
+      "type": "object"
+    },
     "PublicResponse_SettingsState_": {
       "additionalProperties": false,
       "properties": {
@@ -3790,7 +3818,7 @@
   "additionalProperties": false,
   "properties": {
     "runtime": {
-      "$ref": "#/$defs/RuntimeOverview"
+      "$ref": "#/$defs/PublicResponse_RuntimeOverview_"
     },
     "runtime_command": {
       "$ref": "#/$defs/RuntimeCommand"

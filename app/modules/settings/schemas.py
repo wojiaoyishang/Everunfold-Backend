@@ -268,7 +268,7 @@ class DeliveryReceipt(SettingsModel):
 
 
 class SettingsContract(PublicModel):
-    runtime: RuntimeOverview
+    runtime: PublicResponse[RuntimeOverview]
     runtime_command: RuntimeCommand
     extensions: PublicResponse[ExtensionCatalog]
     extension_usage_query: ExtensionUsageQuery
