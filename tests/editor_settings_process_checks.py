@@ -38,6 +38,7 @@ def check_editor_settings(client: Any, csrf: Any, state: Any, snapshot: Any, wai
             "tags": ["测试标签"],
             "pinned": True,
             "comments_open": False,
+            "allow_indexing": False,
             "seo_title": "SEO proof",
             "seo_description": "SEO description",
         },
@@ -74,6 +75,7 @@ def check_editor_settings(client: Any, csrf: Any, state: Any, snapshot: Any, wai
     visible = next(item for item in snapshot()["contents"] if item["id"] == draft["id"])
     assert visible["cover_url"] == media["url"] and not visible["comments_open"]
     assert visible["seo_title"] == "SEO proof" and visible["pinned"]
+    assert visible["allow_indexing"] is False
     assert visible["categories"][0]["name"] == "测试分类"
     assert visible["tags"][0]["name"] == "测试标签"
     assert visible["content"] == fields["body"] and visible["media_urls"] == draft["media_urls"]

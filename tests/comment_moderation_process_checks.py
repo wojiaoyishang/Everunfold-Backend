@@ -100,3 +100,64 @@ def check_comments(client: Any, csrf: Any, api_b: str, snapshot: Any, wait_for: 
     assert comments[0]["id"] == reply_item["id"] and comments[0]["parent_id"] is None
     assert httpx.post(api_b + "/v1/admin/comments/query", json={}).status_code in {401, 403}
     assert client.get("/v1/admin/workspace").status_code == 200
+    page_id = str(uuid4())
+    page = client.post(
+        "/v1/admin/pages/save",
+        json={
+            "id": page_id,
+            "expected_revision": 0,
+            "operation_id": str(uuid4()),
+            "apply": True,
+            "value": {
+                "title": "Moderation page",
+                "path": "/moderated-" + uuid4().hex,
+                "enabled": True,
+                "html": "<p>Page</p>",
+                "captcha_comment": "off",
+            },
+        },
+        headers=csrf,
+    )
+    assert page.status_code == 200, page.text
+    submit = {**submit, "content_id": page_id, "operation_id": str(uuid4()), "body": "Page comment"}
+    assert client.post("/v1/reader/comments", json=submit).status_code == 200
+    comment_id = submit["operation_id"]
+    decision = {
+        "operation_id": str(uuid4()),
+        "items": [{"id": comment_id, "revision": 1}],
+        "action": "approve",
+    }
+    assert (
+        client.post("/v1/admin/comments/moderate", json=decision, headers=csrf).status_code == 200
+    )
+    wait_for(lambda: bool(snapshot()["comments"].get(page_id)))
+    assert (
+        client.get(f"/v1/contents/{page_id}/comments").json()["data"]["items"][0]["id"]
+        == comment_id
+    )
+    liked = client.put(
+        f"/v1/comments/{comment_id}/like",
+        json={"liked": True},
+        headers={"X-Everunfold-Visitor": str(uuid4())},
+    )
+    assert liked.status_code == 200 and liked.json()["data"]["count"] == 1, liked.text
+    edit = {
+        "id": comment_id,
+        "revision": 2,
+        "body": "Edited page comment",
+        "operation_id": str(uuid4()),
+    }
+    assert client.post("/v1/admin/comments/edit", json=edit, headers=csrf).status_code == 200
+    for version, action in [(3, "spam"), (4, "trash"), (5, "restore")]:
+        result = client.post(
+            "/v1/admin/comments/moderate",
+            json={
+                "operation_id": str(uuid4()),
+                "items": [{"id": comment_id, "revision": version}],
+                "action": action,
+            },
+            headers=csrf,
+        )
+        assert result.status_code == 200, result.text
+    assert result.json()["data"]["items"][0]["status"] == "spam"
+    wait_for(lambda: not snapshot()["comments"].get(page_id))

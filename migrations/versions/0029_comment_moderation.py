@@ -68,7 +68,9 @@ def downgrade() -> None:
     op.drop_constraint(op.f("ck_comments_target"), "comments", type_="check")
     op.drop_constraint(op.f("ck_comments_revision"), "comments", type_="check")
     op.drop_constraint(op.f("ck_comments_status"), "comments", type_="check")
-    op.create_check_constraint("status", "comments", "status IN ('approved', 'pending', 'hidden')")
+    op.create_check_constraint(
+        "ck_comments_status", "comments", "status IN ('approved', 'pending', 'hidden')"
+    )
     op.drop_index("ix_comments_page_id", "comments")
     for name in ("page_id", "revision", "previous_status", "updated_at"):
         op.drop_column("comments", name)
