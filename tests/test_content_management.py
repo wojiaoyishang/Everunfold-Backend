@@ -263,3 +263,20 @@ def test_taxonomy_commands_do_not_bypass_impact_by_claiming_create() -> None:
         )
     with pytest.raises(ValidationError):
         TaxonomyCommand(operation_id=uuid4(), action="create", name=" ")
+
+
+async def test_trash_catalog_retains_original_anchor_for_a_trashed_translation(
+    database_session: AsyncSession,
+) -> None:
+    session = database_session
+    _, original, translated = await setup(session)
+    translated.translation_group_id = original.translation_group_id
+    translated.language = "en"
+    translated.deleted_at = datetime.now(UTC)
+    await session.flush()
+    catalog = await DraftRepository(session, config()).catalog(
+        DraftQuery(type_id="article", status="trash", search=translated.title)
+    )
+    group = next(item for item in catalog.items if item.id == original.id)
+    assert group.status == "draft"
+    assert next(item for item in group.translations if item.id == translated.id).status == "trash"

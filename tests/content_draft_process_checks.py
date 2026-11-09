@@ -128,11 +128,27 @@ def check_content_drafts(
         )[0]["n"]
         == 5
     )
+    from tests.content_management_process_checks import check_content_management
+
+    check_content_management(client, csrf, cookies, api_a, api_b)
     # Permission is checked on every request, including reads with an existing valid cookie.
     _check_media_history(client, csrf, post)
     asyncio.run(sql("UPDATE users SET role='user' WHERE username='admin'"))
     try:
         assert client.get(prefix + "types").status_code == 403
+        assert post("taxonomy/query", {"kind": "tag"}).status_code == 403
+        assert (
+            post(
+                "batch",
+                {
+                    "operation_id": str(uuid4()),
+                    "action": "edit",
+                    "items": [{"id": identity, "expected_revision": 5}],
+                    "patch": {"pinned": True},
+                },
+            ).status_code
+            == 403
+        )
         assert post("detail", {"id": identity}).status_code == 403
     finally:
         asyncio.run(sql("UPDATE users SET role='admin' WHERE username='admin'"))

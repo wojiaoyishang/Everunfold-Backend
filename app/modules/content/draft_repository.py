@@ -2,7 +2,7 @@
 
 from uuid import UUID
 
-from sqlalchemy import Text, cast, func, or_, select
+from sqlalchemy import Text, cast, func, or_, select, true
 from sqlalchemy.dialects.postgresql import JSONPATH
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -145,7 +145,7 @@ class DraftRepository:
                 .join(TranslationGroup, TranslationGroup.source_id == ContentDraft.id)
                 .where(group_filter)
                 .where(
-                    ContentDraft.deleted_at.is_not(None)
+                    true()  # Keep the group anchor when only a translation was trashed.
                     if query.status == "trash"
                     else ContentDraft.deleted_at.is_(None)
                 )

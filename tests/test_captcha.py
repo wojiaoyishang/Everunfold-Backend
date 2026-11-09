@@ -37,11 +37,21 @@ def test_nested_contract_graphs_include_the_same_captcha_and_private_read_fields
     expected_editor.pop("$defs", None)
     for filename in (
         "content-admin-v1.schema.json",
-        "captcha-v1.schema.json",
         "pages-v1.schema.json",
     ):
         artifact = json.loads((root / filename).read_text())
         assert artifact["$defs"]["PublicManagedPage"] == expected_page
+    # Only the private unlock response carries protected-page comments. The
+    # public page schema must remain free of these authorized-only fields.
+    from app.modules.captcha.page_access import UnlockedManagedPage
+
+    expected_unlocked = UnlockedManagedPage.model_json_schema()
+    expected_unlocked.pop("$defs", None)
+    captcha = json.loads((root / "captcha-v1.schema.json").read_text())
+    assert captcha["$defs"]["UnlockedManagedPage"] == expected_unlocked
+    for name, schema in expected_page["properties"].items():
+        assert expected_unlocked["properties"][name] == schema
+    assert "unlocked_comments" not in expected_page["properties"]
     for filename in ("content-admin-v1.schema.json", "collaboration-v1.schema.json"):
         artifact = json.loads((root / filename).read_text())
         assert artifact["$defs"]["EditorSettings"] == expected_editor

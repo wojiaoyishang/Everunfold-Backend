@@ -274,9 +274,6 @@ def check_captcha(
             headers={"Origin": origin},
         )
         assert page_read.status_code == 200 and "PAGE-PRIVATE-" + cid in page_read.text
-        check_captcha_keys(
-            client, csrf, api_b, sql, patch, rules, article, page_id, settings, answer
-        )
         # Approved protected-page comments are returned only after unlock. The same
         # receipt enables reactions on the other API replica, scoped to this page.
         comment_id = uuid4()
@@ -348,6 +345,11 @@ def check_captcha(
                 f"/v1/comments/{comment_id}/like", json={"liked": False}, headers=grant_headers
             ).status_code
             == 403
+        )
+        # This matrix ends by disabling the page; run it after the unlocked
+        # comment checks, which require the page to remain published.
+        check_captcha_keys(
+            client, csrf, api_b, sql, patch, rules, article, page_id, settings, answer
         )
         with httpx.Client(base_url=api_b, timeout=10) as anonymous:
             auth = anonymous.get("/v1/auth/session", headers={"Origin": origin}).json()["data"]
