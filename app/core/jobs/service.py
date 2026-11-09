@@ -54,7 +54,27 @@ async def reconcile(session: AsyncSession) -> None:
         for run in active:
             if run.status == "running" and run.lease_until and run.lease_until < now():
                 run.status, run.error, run.finished_at = "unknown", "execution_lease_expired", now()
-                plan.next_at = max(plan.next_at, now() + timedelta(seconds=10))
+                if spec.kind == "resident":
+                    history = list(
+                        await session.scalars(
+                            select(TaskRun.status)
+                            .where(TaskRun.task_id == identity, TaskRun.id != run.id)
+                            .order_by(TaskRun.planned_at.desc())
+                            .limit(7)
+                        )
+                    )
+                    failures = 1
+                    for previous in history:
+                        if previous not in {"failed", "unknown"}:
+                            break
+                        failures += 1
+                    plan.next_at = now() + timedelta(seconds=min(300, 15 * 2 ** (failures - 1)))
+                    if failures >= 8:
+                        plan.enabled = False
+                elif plugin != "core":
+                    plan.enabled = False
+                else:
+                    plan.next_at = max(plan.next_at, now() + timedelta(seconds=10))
             elif plugin not in allowed or not plan.enabled:
                 if run.status == "queued":
                     run.status, run.finished_at = "cancelled", now()

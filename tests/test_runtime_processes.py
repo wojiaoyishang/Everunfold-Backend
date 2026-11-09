@@ -156,6 +156,28 @@ def test_scheduler_owns_residents_and_recovers(tmp_path: Path) -> None:
                     "WHERE id='example.runtime.subscription'"
                 )
                 wait_for(connected)
+                # Losing ownership stops the parent and its connection; it must not renew
+                # or delete the new owner's token while shutting down.
+                lease_key = local.redis_prefix + "scheduler:settings"
+                redis.set(lease_key, "replacement-owner", px=30000)
+                scheduler.wait(timeout=20)
+                assert scheduler.returncode != 0
+                assert redis.get(lease_key) == b"replacement-owner"
+                wait_for(lambda: not connected(), timeout=10)
+                redis.delete(lease_key)
+                scheduler = stack.enter_context(background(command, env, ROOT))
+                wait_for(connected)
+                # Plugin activation is a separate gate from the per-task switch.
+                rows(
+                    "UPDATE site_settings SET data=jsonb_set(data, '{extensions}', "
+                    '\'{"disabled_plugins":["example.runtime"]}\'::jsonb) WHERE id=1'
+                )
+                wait_for(lambda: not connected(), timeout=15)
+                rows(
+                    "UPDATE site_settings SET data=jsonb_set(data, '{extensions}', "
+                    "'{\"disabled_plugins\":[]}'::jsonb) WHERE id=1"
+                )
+                wait_for(connected)
                 scheduler.terminate()
                 scheduler.wait(timeout=20)
                 wait_for(lambda: not connected(), timeout=10)
