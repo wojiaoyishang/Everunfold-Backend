@@ -1,9 +1,9 @@
 """Private runtime management contract; no job payloads or connection secrets."""
 
 from datetime import datetime
-from typing import Literal
+from typing import Any, Literal
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from app.core.schemas import PublicModel
 
@@ -28,6 +28,8 @@ class RuntimePlan(PublicModel):
     id: str
     title: str
     handler: str = ""
+    parameters_schema: dict[str, Any] = Field(default_factory=dict)
+    parameter_defaults: dict[str, Any] = Field(default_factory=dict)
     plugin: str
     kind: str
     enabled: bool
@@ -61,3 +63,13 @@ class RuntimeOverview(PublicModel):
 class RuntimeCommand(PublicModel):
     task_id: str = Field(min_length=1, max_length=128)
     action: Literal["enable", "disable", "run", "debug_run"]
+    parameters: dict[str, Any] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def check_parameters(self) -> "RuntimeCommand":
+        from app.core.jobs.parameters import checked_json
+
+        checked_json(self.parameters)
+        if self.action != "debug_run" and self.parameters:
+            raise ValueError("Parameters are only supported for developer triggers")
+        return self

@@ -1,8 +1,10 @@
 """Pure declarations: handlers are imported only by their execution process."""
 
 import re
-from dataclasses import dataclass
-from typing import Literal
+from dataclasses import dataclass, field
+from typing import Any, Literal
+
+from pydantic import BaseModel
 
 
 @dataclass(frozen=True)
@@ -15,6 +17,8 @@ class TaskDefinition:
     timeout: int = 120
     manual: bool = False
     enabled: bool = False
+    parameters: type[BaseModel] | None = None
+    default_parameters: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         if (
@@ -26,6 +30,17 @@ class TaskDefinition:
             or not 5 <= self.timeout <= 3600
         ):
             raise ValueError("Invalid task definition")
+        if self.kind == "resident" and (self.parameters is not None or self.default_parameters):
+            raise ValueError("Resident tasks do not accept invocation parameters")
+        if self.parameters is not None and (
+            not isinstance(self.parameters, type) or not issubclass(self.parameters, BaseModel)
+        ):
+            raise ValueError("Task parameters must be a Pydantic model class")
+        from app.core.jobs.parameters import normalized_parameters
+
+        object.__setattr__(
+            self, "default_parameters", normalized_parameters(self, self.default_parameters)
+        )
 
 
 BUILTINS = (

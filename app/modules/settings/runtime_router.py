@@ -2,6 +2,7 @@
 
 import json
 import time
+from typing import Any
 
 from fastapi import APIRouter
 from redis.asyncio import Redis
@@ -9,6 +10,7 @@ from sqlalchemy import func, select
 
 from app.core.jobs.definitions import definitions
 from app.core.jobs.models import TaskPlan, TaskRun
+from app.core.jobs.parameters import checked_json, normalized_parameters, parameters_schema
 from app.core.jobs.schemas import (
     RuntimeCommand,
     RuntimeInstance,
@@ -94,6 +96,8 @@ async def overview(ctx: Authorized) -> RuntimeOverview:
                 restarts=max(0, counts.get(key, 0) - 1),
                 title=spec.title,
                 handler=spec.handler,
+                parameters_schema=parameters_schema(spec),
+                parameter_defaults=spec.default_parameters,
                 plugin=plugin,
                 kind=spec.kind,
                 enabled=plans[key].enabled if key in plans else spec.enabled,
@@ -137,12 +141,18 @@ async def control(payload: RuntimeCommand, ctx: Authorized) -> JSONResponseSucce
     )
     if plan is None:
         raise AuthFailure(409, 40998, "请等待 Scheduler 登记任务")
-    audit: dict[str, str | bool] = {"task_id": plan.id, "action": payload.action}
+    audit: dict[str, Any] = {"task_id": plan.id, "action": payload.action}
     if payload.action == "debug_run":
         if entry[1].kind != "periodic":
             raise AuthFailure(403, 40364, "开发测试只支持 Worker 有限任务")
         if not plan.enabled:
             raise AuthFailure(403, 40364, "任务计划已停用，请先明确启用后测试")
+        try:
+            parameters = normalized_parameters(entry[1], payload.parameters)
+        except ValueError:
+            raise AuthFailure(
+                422, 42299, "任务参数不符合声明，请检查类型、必填字段和范围"
+            ) from None
         active = await session.scalar(
             select(TaskRun)
             .where(TaskRun.task_id == plan.id, TaskRun.status.in_(["queued", "running"]))
@@ -150,11 +160,15 @@ async def control(payload: RuntimeCommand, ctx: Authorized) -> JSONResponseSucce
             .limit(1)
         )
         reused = active is not None
+        if active is not None and checked_json(active.parameters) != checked_json(parameters):
+            raise AuthFailure(409, 40998, "已有使用不同参数的排队或运行任务，请等待完成后再触发")
         if active is None:
-            active = TaskRun(task_id=plan.id, planned_at=now())
+            active = TaskRun(task_id=plan.id, planned_at=now(), parameters=parameters)
             session.add(active)
             await session.flush()
-        audit.update({"run_id": str(active.id), "reused": reused})
+        audit.update(
+            {"run_id": str(active.id), "reused": reused, "parameter_keys": sorted(parameters)}
+        )
     elif payload.action == "run":
         if not entry[1].manual or not plan.enabled:
             raise AuthFailure(403, 40364, "此任务不允许手动执行")

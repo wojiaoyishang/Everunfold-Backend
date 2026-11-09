@@ -1,9 +1,21 @@
 """An opt-in real Redis subscription owned by Scheduler; no extra service command."""
 
 from app.plugin_sdk import PluginRegistry, TaskDefinition, define_plugin
+from app.plugins.runtime_example.parameter_task import ExampleParameters
 
 
 def setup(registry: PluginRegistry) -> None:
+    registry.tasks.register(
+        TaskDefinition(
+            id="example.runtime.parameters",
+            title="Worker 参数示例",
+            handler="app.plugins.runtime_example.parameter_task:calculate",
+            parameters=ExampleParameters,
+            default_parameters={"count": 2},
+            manual=True,
+            enabled=False,
+        )
+    )
     registry.tasks.register(
         TaskDefinition(
             id="example.runtime.subscription",

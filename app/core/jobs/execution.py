@@ -14,6 +14,7 @@ from app.core.config import Settings, load_settings
 from app.core.database import Database
 from app.core.jobs.definitions import definitions
 from app.core.jobs.models import TaskPlan, TaskRun
+from app.core.jobs.parameters import validate_parameters
 from app.core.jobs.progress import progress_scope, report_progress, task_progress
 from app.core.jobs.service import available, claim, now
 
@@ -87,7 +88,13 @@ async def execute(
             with suppress(Exception):
                 await task_progress(stage="running", message="Task execution started")
             if not resident:
-                result = await asyncio.wait_for(handler(spec.handler)(config), spec.timeout)
+                parameters = validate_parameters(spec, run.parameters)
+                invocation = (
+                    handler(spec.handler)(config, parameters)
+                    if parameters is not None
+                    else handler(spec.handler)(config)
+                )
+                result = await asyncio.wait_for(invocation, spec.timeout)
             else:
                 ctx = ResidentContext(config, db, run)
                 job = asyncio.create_task(handler(spec.handler)(ctx))

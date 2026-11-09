@@ -4,7 +4,7 @@ from sqlalchemy import MetaData, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
 
-SCHEMA_REVISION = "0034_task_progress"
+SCHEMA_REVISION = "0035_task_parameters"
 
 
 class Base(DeclarativeBase):

@@ -83,7 +83,11 @@ async def reconcile(session: AsyncSession) -> None:
             continue
         # Registered executions recover; missed, unregistered ticks coalesce to one current scan.
         if not any(run.status in {"queued", "running"} for run in active):
-            session.add(TaskRun(task_id=identity, planned_at=now()))
+            session.add(
+                TaskRun(
+                    task_id=identity, planned_at=now(), parameters=spec.default_parameters.copy()
+                )
+            )
         plan.next_at = now() + timedelta(seconds=spec.interval)
     # Compact routine no-op polling records; executions that changed data remain durable.
     expired = (

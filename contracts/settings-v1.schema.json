@@ -3116,6 +3116,11 @@
           ],
           "title": "Action",
           "type": "string"
+        },
+        "parameters": {
+          "additionalProperties": true,
+          "title": "Parameters",
+          "type": "object"
         }
       },
       "required": [
@@ -3291,6 +3296,16 @@
           "default": "",
           "title": "Handler",
           "type": "string"
+        },
+        "parameters_schema": {
+          "additionalProperties": true,
+          "title": "Parameters Schema",
+          "type": "object"
+        },
+        "parameter_defaults": {
+          "additionalProperties": true,
+          "title": "Parameter Defaults",
+          "type": "object"
         },
         "plugin": {
           "title": "Plugin",
@@ -4568,7 +4583,7 @@
   "title": "SettingsContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "1.22.0",
+  "x-everunfold-contract-version": "1.23.0",
   "x-everunfold-language-regions": {
     "zh": "CN",
     "en": "GB",
