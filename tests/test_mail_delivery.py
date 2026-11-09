@@ -19,6 +19,9 @@ from sqlalchemy.engine import make_url
 
 from app.core.config import load_settings
 from app.core.database import Database
+from app.core.jobs.progress import watch_progress
+from app.core.jobs.progress_schemas import WatchTask
+from app.modules.auth.permissions import Actor
 from app.modules.auth.service import AuthFailure
 from app.modules.settings.mail_delivery import deliver_test
 from app.modules.settings.mail_schemas import MailPreferences, SaveMailSettings, SendTestMail
@@ -204,6 +207,40 @@ def test_scheduler_worker_test_mail_idempotency_and_config_fence(tmp_path):
                 )
                 wait_for(lambda: asyncio.run(status()) == "sent", timeout=35)
                 assert len(messages) == 1
+
+                async def diagnostics():
+                    owner = Actor(actor, "test", "Test", "admin", {"settings:write": "all"})
+                    progress = await watch_progress(
+                        local,
+                        owner,
+                        WatchTask(
+                            resource="mail-test",
+                            id=identity,
+                            wait_seconds=0,
+                        ),
+                    )
+                    assert progress.state == "succeeded"
+                    assert progress.events[0].message == "Test message queued for Worker delivery."
+                    assert [event.sequence for event in progress.events] == sorted(
+                        {event.sequence for event in progress.events}
+                    )
+                    transcript = "\n".join(event.message for event in progress.events)
+                    assert "EHLO" in transcript and "250" in transcript
+                    assert "Message-ID:" in transcript and "This test email" in transcript
+                    assert "SMTP server accepted" in transcript
+                    resumed = await watch_progress(
+                        local,
+                        owner,
+                        WatchTask(
+                            resource="mail-test",
+                            id=identity,
+                            after_sequence=progress.cursor,
+                            wait_seconds=0,
+                        ),
+                    )
+                    assert resumed.events == [] and resumed.state == "succeeded"
+
+                asyncio.run(diagnostics())
             # A repeated worker drain never repeats a completed request.
             asyncio.run(deliver_test(local))
             assert len(messages) == 1

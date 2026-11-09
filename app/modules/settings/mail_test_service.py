@@ -5,6 +5,7 @@ from uuid import UUID
 
 from sqlalchemy import func, select
 
+from app.core.jobs.progress_models import TaskProgressEventRecord
 from app.modules.auth.service import AuthFailure
 from app.modules.settings.mail_schemas import MailPreferences, MailTestState, SendTestMail
 from app.modules.settings.mail_service import MAIL_KEY
@@ -68,6 +69,20 @@ class MailTestService:
             created_at=now,
         )
         session.add(row)
+        session.add(
+            TaskProgressEventRecord(
+                resource="mail-test",
+                resource_id=row.id,
+                at=now,
+                level="info",
+                kind="stage",
+                stage="queued",
+                message="Test message queued for Worker delivery.",
+                completed=None,
+                total=None,
+                unit=None,
+            )
+        )
         session.add(
             SettingsAudit(
                 user_id=actor,
