@@ -1093,6 +1093,96 @@
       "title": "LanguageDefinition",
       "type": "object"
     },
+    "MailPreferences": {
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "default": false,
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "host": {
+          "default": "",
+          "maxLength": 253,
+          "title": "Host",
+          "type": "string"
+        },
+        "port": {
+          "default": 587,
+          "maximum": 65535,
+          "minimum": 1,
+          "title": "Port",
+          "type": "integer"
+        },
+        "encryption": {
+          "default": "starttls",
+          "pattern": "^(starttls|tls|none)$",
+          "title": "Encryption",
+          "type": "string"
+        },
+        "authenticate": {
+          "default": true,
+          "title": "Authenticate",
+          "type": "boolean"
+        },
+        "username": {
+          "default": "",
+          "maxLength": 320,
+          "title": "Username",
+          "type": "string"
+        },
+        "from_address": {
+          "default": "",
+          "maxLength": 254,
+          "title": "From Address",
+          "type": "string"
+        },
+        "from_name": {
+          "default": "",
+          "maxLength": 200,
+          "title": "From Name",
+          "type": "string"
+        },
+        "reply_to": {
+          "default": "",
+          "maxLength": 254,
+          "title": "Reply To",
+          "type": "string"
+        },
+        "timeout_seconds": {
+          "default": 15,
+          "maximum": 120,
+          "minimum": 3,
+          "title": "Timeout Seconds",
+          "type": "integer"
+        }
+      },
+      "title": "MailPreferences",
+      "type": "object"
+    },
+    "MailSettingsState": {
+      "additionalProperties": false,
+      "properties": {
+        "revision": {
+          "title": "Revision",
+          "type": "integer"
+        },
+        "value": {
+          "$ref": "#/$defs/MailPreferences"
+        },
+        "password_configured": {
+          "title": "Password Configured",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "revision",
+        "value",
+        "password_configured"
+      ],
+      "title": "MailSettingsState",
+      "type": "object"
+    },
     "MediaCatalog": {
       "additionalProperties": false,
       "properties": {
@@ -2346,6 +2436,34 @@
       "title": "PublicResponse[IconCatalog]",
       "type": "object"
     },
+    "PublicResponse_MailSettingsState_": {
+      "additionalProperties": false,
+      "properties": {
+        "success": {
+          "default": true,
+          "title": "Success",
+          "type": "boolean"
+        },
+        "code": {
+          "default": 200,
+          "title": "Code",
+          "type": "integer"
+        },
+        "msg": {
+          "default": "请求成功",
+          "title": "Msg",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/MailSettingsState"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "title": "PublicResponse[MailSettingsState]",
+      "type": "object"
+    },
     "PublicResponse_MediaCatalog_": {
       "additionalProperties": false,
       "properties": {
@@ -3177,6 +3295,45 @@
       "title": "RuntimeRun",
       "type": "object"
     },
+    "SaveMailSettings": {
+      "additionalProperties": false,
+      "properties": {
+        "expected_revision": {
+          "minimum": 0,
+          "title": "Expected Revision",
+          "type": "integer"
+        },
+        "value": {
+          "$ref": "#/$defs/MailPreferences"
+        },
+        "password": {
+          "anyOf": [
+            {
+              "format": "password",
+              "maxLength": 2048,
+              "type": "string",
+              "writeOnly": true
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Password"
+        },
+        "clear_password": {
+          "default": false,
+          "title": "Clear Password",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "expected_revision",
+        "value"
+      ],
+      "title": "SaveMailSettings",
+      "type": "object"
+    },
     "SavePolicy": {
       "additionalProperties": false,
       "properties": {
@@ -3834,6 +3991,12 @@
   },
   "additionalProperties": false,
   "properties": {
+    "mail": {
+      "$ref": "#/$defs/PublicResponse_MailSettingsState_"
+    },
+    "save_mail": {
+      "$ref": "#/$defs/SaveMailSettings"
+    },
     "runtime": {
       "$ref": "#/$defs/PublicResponse_RuntimeOverview_"
     },
@@ -3950,6 +4113,8 @@
     }
   },
   "required": [
+    "mail",
+    "save_mail",
     "runtime",
     "runtime_command",
     "extensions",
@@ -3992,7 +4157,7 @@
   "title": "SettingsContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "1.18.1",
+  "x-everunfold-contract-version": "1.19.0",
   "x-everunfold-language-regions": {
     "zh": "CN",
     "en": "GB",
@@ -4028,6 +4193,19 @@
     "sw": "TZ"
   },
   "x-everunfold-operations": [
+    {
+      "name": "readMailSettings",
+      "path": "/v1/admin/settings/mail",
+      "method": "GET",
+      "response": "mail"
+    },
+    {
+      "name": "saveMailSettings",
+      "path": "/v1/admin/settings/mail",
+      "method": "PATCH",
+      "input": "save_mail",
+      "response": "mail"
+    },
     {
       "name": "readRuntime",
       "path": "/v1/admin/runtime",

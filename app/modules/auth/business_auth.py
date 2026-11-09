@@ -78,6 +78,8 @@ MEDIA_DELETE = {
 
 
 def route_permission(path: str, method: str, body: dict[str, object]) -> tuple[str, bool]:
+    if path == "/v1/admin/settings/mail":
+        return ("settings:read", True) if method == "GET" else ("settings:write", False)
     if path == "/v1/admin/runtime":
         return "settings:read", True
     if path == "/v1/admin/runtime/control":
