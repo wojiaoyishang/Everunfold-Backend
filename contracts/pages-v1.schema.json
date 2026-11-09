@@ -922,6 +922,11 @@
           "title": "Options",
           "type": "object"
         },
+        "read_receipt": {
+          "default": "",
+          "title": "Read Receipt",
+          "type": "string"
+        },
         "access": {
           "default": "public",
           "enum": [
@@ -1353,7 +1358,7 @@
   "title": "PagesContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "1.7.0",
+  "x-everunfold-contract-version": "1.7.1",
   "x-everunfold-operations": [
     {
       "name": "setPageEnabled",

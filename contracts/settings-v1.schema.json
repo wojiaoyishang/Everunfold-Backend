@@ -1923,6 +1923,12 @@
     "PluginUsage": {
       "additionalProperties": false,
       "properties": {
+        "captcha_references": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Captcha References",
+          "type": "integer"
+        },
         "plugin_id": {
           "title": "Plugin Id",
           "type": "string"
@@ -3379,7 +3385,7 @@
   "title": "SettingsContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "1.14.0",
+  "x-everunfold-contract-version": "1.15.0",
   "x-everunfold-language-regions": {
     "zh": "CN",
     "en": "GB",

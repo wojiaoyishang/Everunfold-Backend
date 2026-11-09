@@ -777,6 +777,11 @@
           "title": "Options",
           "type": "object"
         },
+        "read_receipt": {
+          "default": "",
+          "title": "Read Receipt",
+          "type": "string"
+        },
         "access": {
           "default": "public",
           "enum": [
@@ -968,5 +973,5 @@
       "type": "object"
     }
   },
-  "x-everunfold-contract-version": "0.10.0"
+  "x-everunfold-contract-version": "0.10.1"
 }

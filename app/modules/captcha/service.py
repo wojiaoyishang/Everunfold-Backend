@@ -124,10 +124,10 @@ class CaptchaService:
 
     async def challenge(self, payload: ChallengeRequest) -> CaptchaChallenge:
         try:
-            await self._limit("challenge", 40)
             policy = await self.policy(payload.action, payload.content_id)
             if not policy.required:
                 return CaptchaChallenge(required=False)
+            await self._limit("challenge", 40)
             provider = policy.config.provider
             settings = policy.config.providers.get(provider, StoredProvider())
             challenge_id = uuid4()
@@ -248,6 +248,10 @@ async def save_settings(
     if payload.provider != "local" and payload.provider not in provider_catalog():
         raise AuthFailure(422, 42286, "验证码提供方未注册")
     providers = dict(before.providers)
+    if payload.provider in payload.remove_providers:
+        raise AuthFailure(422, 42286, "不能移除当前选中的验证码提供方配置")
+    for key in payload.remove_providers:
+        providers.pop(key, None)
     for key, value in payload.providers.items():
         if key not in provider_catalog():
             raise AuthFailure(422, 42286, "验证码提供方未注册")

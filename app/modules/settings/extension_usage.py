@@ -115,6 +115,11 @@ async def scan_usage(
         identity: PluginUsage(plugin_id=identity, title=identity, registered=False)
         for identity in sorted(set(plugin_ids))
     }
+    from app.modules.captcha.providers import provider_catalog
+    from app.modules.captcha.service import current_config
+
+    captcha = await current_config(session)
+    captcha_provider = provider_catalog().get(captcha.provider)
     pages: dict[str, set[str]] = {}
     shortcodes: dict[str, set[str]] = {}
     for plugin in definitions:
@@ -122,6 +127,8 @@ async def scan_usage(
             continue
         counts[plugin.id].registered = True
         counts[plugin.id].title = plugin.title
+        if captcha_provider and captcha_provider.widget in plugin.components:
+            counts[plugin.id].captcha_references = 1
         for identity in plugin.page_ids:
             pages.setdefault(identity, set()).add(plugin.id)
         for name in plugin.shortcodes:

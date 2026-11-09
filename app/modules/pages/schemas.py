@@ -98,6 +98,7 @@ class PageValue(PublicModel):
 
 
 class PublicManagedPage(PageValue):
+    read_receipt: str = ""
     access: Literal["public", "captcha"] = "public"
     enabled: Literal[True] = True
     id: UUID

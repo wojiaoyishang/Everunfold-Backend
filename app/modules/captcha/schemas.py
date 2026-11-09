@@ -73,6 +73,7 @@ class SaveProvider(ProviderSettings):
 
 
 class SaveCaptchaSettings(PublicModel):
+    remove_providers: list[str] = Field(default_factory=list, max_length=30)
     expected_revision: int = Field(ge=1)
     provider: str = Field(max_length=100)
     rules: CaptchaRules

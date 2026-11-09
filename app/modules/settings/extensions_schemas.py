@@ -113,6 +113,7 @@ class ExtensionUsageQuery(PublicModel):
 
 
 class PluginUsage(PublicModel):
+    captcha_references: int = Field(default=0, ge=0)
     plugin_id: str
     title: str
     registered: bool

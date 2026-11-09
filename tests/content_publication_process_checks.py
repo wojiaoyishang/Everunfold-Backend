@@ -10,6 +10,7 @@ from uuid import UUID, uuid4
 
 import httpx2 as httpx
 
+from tests.captcha_process_checks import check_captcha
 from tests.content_access_process_checks import check_content_access
 from tests.editor_settings_process_checks import check_editor_settings
 from tests.imported_preview_process_checks import check_imported_preview
@@ -218,3 +219,4 @@ def check_content_publication(
         frontend,
         backend_config,
     )
+    check_captcha(client, csrf, api_b, sql, state, snapshot, wait_for, backend_config)
