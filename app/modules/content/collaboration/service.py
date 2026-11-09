@@ -274,9 +274,10 @@ async def accept_update(
     from app.modules.content.collaboration.source_leases import verify_rich_update
 
     await verify_rich_update(session, draft_id, document.state, state, update.rich_versions)
-    from app.modules.content.taxonomy_names import TermDirectory
+    from app.modules.content.taxonomy_names import TermDirectory, register_draft_terms
 
     normalized = (await TermDirectory.load(session)).normalize(fields.settings or EditorSettings())
+    await register_draft_terms(session, normalized)
     if fields.settings != normalized:
         # Keep the original client digest for retries; broadcast both its update
         # and the canonical term adjustment as one durable, integrated delta.

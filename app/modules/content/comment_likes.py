@@ -7,10 +7,12 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, Response
 from pydantic import UUID4
-from sqlalchemy import delete, func, or_, select
+from sqlalchemy import delete, false, func, or_, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.sql.elements import ColumnElement
 
+from app.modules.captcha.read_grants import read_grant_target
 from app.modules.comments.visibility import public_page_ids
 from app.modules.content.comment_likes_schema import (
     CommentLikeInput,
@@ -41,8 +43,16 @@ router = APIRouter(
 
 
 class CommentLikeService:
-    def __init__(self, session: AsyncSession) -> None:
+    def __init__(self, session: AsyncSession, read_target: UUID | None = None) -> None:
         self.session = session
+        self.read_target = read_target
+
+    def grant_condition(self) -> ColumnElement[bool]:
+        return (
+            or_(Comment.content_id == self.read_target, Comment.page_id == self.read_target)
+            if self.read_target
+            else false()
+        )
 
     async def read(self, ids: list[UUID], visitor: UUID) -> list[CommentLikeState]:
         page_ids = await public_page_ids(self.session)
@@ -58,7 +68,11 @@ class CommentLikeService:
             .where(
                 Comment.id.in_(ids),
                 Comment.status == "approved",
-                or_(public_conditions()[0] & public_conditions()[1], Comment.page_id.in_(page_ids)),
+                or_(
+                    public_conditions()[0] & public_conditions()[1],
+                    Comment.page_id.in_(page_ids),
+                    self.grant_condition(),
+                ),
             )
             .group_by(Comment.id)
         )
@@ -81,6 +95,7 @@ class CommentLikeService:
                     or_(
                         public_conditions()[0] & public_conditions()[1],
                         Comment.page_id.in_(page_ids),
+                        self.grant_condition(),
                     ),
                 )
                 .with_for_update(of=Comment)
@@ -120,10 +135,17 @@ Visitor = Annotated[UUID4, Header(alias="X-Everunfold-Visitor")]
 
 @router.get("/likes", response_model=PublicResponse[CommentLikes])
 async def read_likes(
-    query: Annotated[CommentLikesQuery, Query()], session: Session, visitor: Visitor
+    query: Annotated[CommentLikesQuery, Query()],
+    session: Session,
+    visitor: Visitor,
+    request: Request,
 ) -> PublicResponse[CommentLikes]:
     return PublicResponse(
-        data=CommentLikes(items=await CommentLikeService(session).read(query.ids, visitor))
+        data=CommentLikes(
+            items=await CommentLikeService(session, await read_grant_target(request, session)).read(
+                query.ids, visitor
+            )
+        )
     )
 
 
@@ -139,5 +161,7 @@ async def set_like(
     if origin and origin not in runtime_from_request(request).settings.cors.allowed_origins:
         raise HTTPException(status_code=403, headers={"Cache-Control": "no-store"})
     return PublicResponse(
-        data=await CommentLikeService(session).set(comment_id, visitor, body.liked)
+        data=await CommentLikeService(session, await read_grant_target(request, session)).set(
+            comment_id, visitor, body.liked
+        )
     )

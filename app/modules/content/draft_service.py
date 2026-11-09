@@ -187,9 +187,10 @@ class DraftService:
                 json.dumps([block.model_dump(mode="json") for block in fields.body])
             )
             settings = fields.settings or EditorSettings.model_validate(row.editor_settings or {})
-            from app.modules.content.taxonomy_names import TermDirectory
+            from app.modules.content.taxonomy_names import TermDirectory, register_draft_terms
 
             settings = (await TermDirectory.load(self.session)).normalize(settings)
+            await register_draft_terms(self.session, settings)
             if not settings.path:
                 settings.path = row.public_path or await initial_path(
                     self.session, fields.title, row.id, language=row.language

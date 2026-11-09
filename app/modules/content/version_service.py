@@ -571,11 +571,12 @@ async def command_merge(
         ):
             raise AuthFailure(409, 40984, "合并目标已变化，请重新比较")
         fields = DraftFields.model_validate(item.result)
-        from app.modules.content.taxonomy_names import TermDirectory
+        from app.modules.content.taxonomy_names import TermDirectory, register_draft_terms
 
         settings = (await TermDirectory.load(session)).normalize(
             fields.settings or EditorSettings()
         )
+        await register_draft_terms(session, settings)
         prior = EditorSettings.model_validate(row.editor_settings)
         settings.visibility, settings.opens_at = prior.visibility, prior.opens_at
         fields.settings = settings

@@ -13,7 +13,7 @@ from app.modules.content.draft_models import ContentDraft, DraftRevision
 from app.modules.content.draft_repository import detail
 from app.modules.content.editor_schema import EditorSettings
 from app.modules.content.management_schemas import MetadataPatch, TermChange
-from app.modules.content.taxonomy_names import TermDirectory
+from app.modules.content.taxonomy_names import TermDirectory, register_draft_terms
 
 
 def change_terms(current: list[str], patch: TermChange | None) -> list[str]:
@@ -49,6 +49,7 @@ async def stage_metadata(
         if getattr(patch, key) is not None:
             values[key] = getattr(patch, key)
     settings = directory.normalize(EditorSettings.model_validate(values))
+    await register_draft_terms(session, settings)
     now = datetime.now(UTC)
     if doc and head:
         vector = doc.get_state()

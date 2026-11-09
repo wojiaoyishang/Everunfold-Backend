@@ -185,10 +185,11 @@ async def test_taxonomy_rename_merge_removal_and_impact_guard(
     session = database_session
     actor, first, _ = await setup(session)
     service = TaxonomyService(session, config())
-    created = await service.mutate(
-        actor, TaxonomyCommand(operation_id=uuid4(), action="create", kind="tag", name="TagOne")
+    row = await session.scalar(
+        select(Taxonomy).where(Taxonomy.kind == "tag", Taxonomy.name == "TagOne")
     )
-    row = await session.get(Taxonomy, created.id)
+    assert row
+    created_id = row.id
     slug = row.slug
     change = TaxonomyCommand(
         operation_id=uuid4(),
@@ -203,7 +204,7 @@ async def test_taxonomy_rename_merge_removal_and_impact_guard(
     with pytest.raises(AuthFailure):
         await service.mutate(actor, change)
     changed = await service.mutate(actor, change.model_copy(update={"impact_token": impact.token}))
-    assert changed.id == created.id and row.slug == slug
+    assert changed.id == created_id and row.slug == slug
     assert first.editor_settings["tags"] == ["Renamed"]
     assert (await TermDirectory.load(session)).names_for("tag", ["TagOne"]) == ["Renamed"]
     target = await service.mutate(

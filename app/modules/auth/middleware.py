@@ -32,7 +32,15 @@ class BusinessCORSMiddleware:
             allow_origins=allowed_origins,
             allow_credentials=False,
             allow_methods=["GET", "PUT"],
-            allow_headers=["Accept", "Content-Type", "X-Everunfold-Visitor", "X-Site-Locale"],
+            allow_headers=[
+                "Accept",
+                "Content-Type",
+                "Authorization",
+                "X-Everunfold-Visitor",
+                "X-Site-Locale",
+                "X-Everunfold-Read-Receipt",
+                "X-Everunfold-Read-Target",
+            ],
         )
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:

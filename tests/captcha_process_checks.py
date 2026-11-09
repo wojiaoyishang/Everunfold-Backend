@@ -277,6 +277,78 @@ def check_captcha(
         check_captcha_keys(
             client, csrf, api_b, sql, patch, rules, article, page_id, settings, answer
         )
+        # Approved protected-page comments are returned only after unlock. The same
+        # receipt enables reactions on the other API replica, scoped to this page.
+        comment_id = uuid4()
+        asyncio.run(
+            sql(
+                "INSERT INTO comments (id,page_id,author,content,created_at,status) "
+                "VALUES ($1,$2,'Reader','Protected-page comment',now(),'approved')",
+                comment_id,
+                UUID(page_id),
+            )
+        )
+        private_page = httpx.post(
+            api_b + "/v1/reader/access-page",
+            json={"id": page_id, "captcha": answer("read", page_id)},
+            headers={"Origin": origin},
+        )
+        assert private_page.status_code == 200, private_page.text
+        unlocked_page = private_page.json()["data"]
+        assert any(value["id"] == str(comment_id) for value in unlocked_page["unlocked_comments"])
+        grant_headers = {
+            "Origin": origin,
+            "X-Everunfold-Visitor": str(uuid4()),
+            "X-Everunfold-Read-Target": page_id,
+            "X-Everunfold-Read-Receipt": unlocked_page["read_receipt"],
+        }
+        anonymous_headers = {
+            key: value for key, value in grant_headers.items() if "Read-" not in key
+        }
+        assert (
+            client.get(
+                "/v1/comments/likes", params={"ids": str(comment_id)}, headers=anonymous_headers
+            ).json()["data"]["items"]
+            == []
+        )
+        assert (
+            client.put(
+                f"/v1/comments/{comment_id}/like", json={"liked": True}, headers=anonymous_headers
+            ).status_code
+            == 404
+        )
+        liked = client.put(
+            f"/v1/comments/{comment_id}/like", json={"liked": True}, headers=grant_headers
+        )
+        assert liked.status_code == 200 and liked.json()["data"]["count"] == 1, liked.text
+        read_like = httpx.get(
+            api_b + "/v1/comments/likes", params={"ids": str(comment_id)}, headers=grant_headers
+        )
+        assert read_like.status_code == 200 and read_like.json()["data"]["items"][0]["liked"]
+        assert "no-store" in read_like.headers["cache-control"]
+        wrong = {**grant_headers, "X-Everunfold-Read-Target": article["id"]}
+        assert (
+            client.put(
+                f"/v1/comments/{comment_id}/like", json={"liked": False}, headers=wrong
+            ).status_code
+            == 403
+        )
+
+        async def revoke_receipt() -> None:
+            redis = Redis.from_url(settings.redis.url.get_secret_value())
+            try:
+                digest = hashlib.sha256(unlocked_page["read_receipt"].encode()).hexdigest()
+                await redis.delete(redis_key(settings, "captcha", "read", digest))
+            finally:
+                await redis.aclose()
+
+        asyncio.run(revoke_receipt())
+        assert (
+            client.put(
+                f"/v1/comments/{comment_id}/like", json={"liked": False}, headers=grant_headers
+            ).status_code
+            == 403
+        )
         with httpx.Client(base_url=api_b, timeout=10) as anonymous:
             auth = anonymous.get("/v1/auth/session", headers={"Origin": origin}).json()["data"]
             missing = anonymous.post(

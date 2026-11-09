@@ -285,125 +285,39 @@
       "title": "ProviderDescription",
       "type": "object"
     },
-    "PublicManagedPage": {
+    "PublicComment": {
       "additionalProperties": false,
       "properties": {
-        "captcha_read": {
-          "default": "inherit",
-          "enum": [
-            "inherit",
-            "required",
-            "off"
-          ],
-          "title": "Captcha Read",
-          "type": "string"
-        },
-        "captcha_comment": {
-          "default": "inherit",
-          "enum": [
-            "inherit",
-            "required",
-            "off"
-          ],
-          "title": "Captcha Comment",
-          "type": "string"
-        },
-        "title": {
-          "maxLength": 120,
-          "minLength": 1,
-          "title": "Title",
-          "type": "string"
-        },
-        "path": {
-          "maxLength": 500,
-          "minLength": 2,
-          "title": "Path",
-          "type": "string"
-        },
-        "description": {
-          "default": "",
-          "maxLength": 500,
-          "title": "Description",
-          "type": "string"
-        },
-        "allow_indexing": {
-          "default": true,
-          "title": "Allow Indexing",
-          "type": "boolean"
-        },
-        "enabled": {
-          "const": true,
-          "default": true,
-          "title": "Enabled",
-          "type": "boolean"
-        },
-        "html": {
-          "default": "",
-          "maxLength": 200000,
-          "title": "Html",
-          "type": "string"
-        },
-        "css": {
-          "default": "",
-          "maxLength": 100000,
-          "title": "Css",
-          "type": "string"
-        },
-        "javascript": {
-          "default": "",
-          "maxLength": 100000,
-          "title": "Javascript",
-          "type": "string"
-        },
-        "javascript_enabled": {
-          "default": false,
-          "title": "Javascript Enabled",
-          "type": "boolean"
-        },
-        "javascript_position": {
-          "default": "body_end",
-          "enum": [
-            "head",
-            "body_end"
-          ],
-          "title": "Javascript Position",
-          "type": "string"
-        },
-        "options": {
-          "additionalProperties": {
-            "$ref": "#/$defs/JsonValue"
-          },
-          "title": "Options",
-          "type": "object"
-        },
-        "read_receipt": {
-          "default": "",
-          "title": "Read Receipt",
-          "type": "string"
-        },
-        "access": {
-          "default": "public",
-          "enum": [
-            "public",
-            "captcha"
-          ],
-          "title": "Access",
-          "type": "string"
-        },
         "id": {
-          "format": "uuid",
           "title": "Id",
           "type": "string"
         },
-        "source": {
-          "enum": [
-            "custom",
-            "registered"
+        "parent_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
           ],
-          "title": "Source",
+          "title": "Parent Id"
+        },
+        "author": {
+          "title": "Author",
           "type": "string"
         },
-        "implementation_id": {
+        "content": {
+          "description": "纯文本，按文本展示，不再作为 HTML 解析",
+          "title": "Content",
+          "type": "string"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "reply_to": {
           "anyOf": [
             {
               "type": "string"
@@ -413,64 +327,17 @@
             }
           ],
           "default": null,
-          "title": "Implementation Id"
-        },
-        "implementation_version": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Implementation Version"
-        },
-        "revision": {
-          "minimum": 1,
-          "title": "Revision",
-          "type": "integer"
-        },
-        "language": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Language"
-        },
-        "translation_group_id": {
-          "anyOf": [
-            {
-              "format": "uuid",
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Translation Group Id"
-        },
-        "is_original": {
-          "default": true,
-          "title": "Is Original",
-          "type": "boolean"
+          "title": "Reply To"
         }
       },
       "required": [
-        "title",
-        "path",
         "id",
-        "source",
-        "revision"
+        "parent_id",
+        "author",
+        "content",
+        "created_at"
       ],
-      "title": "PublicManagedPage",
+      "title": "PublicComment",
       "type": "object"
     },
     "PublicProviderSettings": {
@@ -585,7 +452,7 @@
       "title": "PublicResponse[CommentReceipt]",
       "type": "object"
     },
-    "PublicResponse_PublicManagedPage_": {
+    "PublicResponse_UnlockedManagedPage_": {
       "additionalProperties": false,
       "properties": {
         "success": {
@@ -604,13 +471,13 @@
           "type": "string"
         },
         "data": {
-          "$ref": "#/$defs/PublicManagedPage"
+          "$ref": "#/$defs/UnlockedManagedPage"
         }
       },
       "required": [
         "data"
       ],
-      "title": "PublicResponse[PublicManagedPage]",
+      "title": "PublicResponse[UnlockedManagedPage]",
       "type": "object"
     },
     "SaveCaptchaSettings": {
@@ -790,6 +657,201 @@
       ],
       "title": "SubmitComment",
       "type": "object"
+    },
+    "UnlockedManagedPage": {
+      "additionalProperties": false,
+      "properties": {
+        "captcha_read": {
+          "default": "inherit",
+          "enum": [
+            "inherit",
+            "required",
+            "off"
+          ],
+          "title": "Captcha Read",
+          "type": "string"
+        },
+        "captcha_comment": {
+          "default": "inherit",
+          "enum": [
+            "inherit",
+            "required",
+            "off"
+          ],
+          "title": "Captcha Comment",
+          "type": "string"
+        },
+        "title": {
+          "maxLength": 120,
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        },
+        "path": {
+          "maxLength": 500,
+          "minLength": 2,
+          "title": "Path",
+          "type": "string"
+        },
+        "description": {
+          "default": "",
+          "maxLength": 500,
+          "title": "Description",
+          "type": "string"
+        },
+        "allow_indexing": {
+          "default": true,
+          "title": "Allow Indexing",
+          "type": "boolean"
+        },
+        "enabled": {
+          "const": true,
+          "default": true,
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "html": {
+          "default": "",
+          "maxLength": 200000,
+          "title": "Html",
+          "type": "string"
+        },
+        "css": {
+          "default": "",
+          "maxLength": 100000,
+          "title": "Css",
+          "type": "string"
+        },
+        "javascript": {
+          "default": "",
+          "maxLength": 100000,
+          "title": "Javascript",
+          "type": "string"
+        },
+        "javascript_enabled": {
+          "default": false,
+          "title": "Javascript Enabled",
+          "type": "boolean"
+        },
+        "javascript_position": {
+          "default": "body_end",
+          "enum": [
+            "head",
+            "body_end"
+          ],
+          "title": "Javascript Position",
+          "type": "string"
+        },
+        "options": {
+          "additionalProperties": {
+            "$ref": "#/$defs/JsonValue"
+          },
+          "title": "Options",
+          "type": "object"
+        },
+        "read_receipt": {
+          "default": "",
+          "title": "Read Receipt",
+          "type": "string"
+        },
+        "access": {
+          "default": "public",
+          "enum": [
+            "public",
+            "captcha"
+          ],
+          "title": "Access",
+          "type": "string"
+        },
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "source": {
+          "enum": [
+            "custom",
+            "registered"
+          ],
+          "title": "Source",
+          "type": "string"
+        },
+        "implementation_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Implementation Id"
+        },
+        "implementation_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Implementation Version"
+        },
+        "revision": {
+          "minimum": 1,
+          "title": "Revision",
+          "type": "integer"
+        },
+        "language": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Language"
+        },
+        "translation_group_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Translation Group Id"
+        },
+        "is_original": {
+          "default": true,
+          "title": "Is Original",
+          "type": "boolean"
+        },
+        "unlocked_comments": {
+          "items": {
+            "$ref": "#/$defs/PublicComment"
+          },
+          "title": "Unlocked Comments",
+          "type": "array"
+        }
+      },
+      "required": [
+        "title",
+        "path",
+        "id",
+        "source",
+        "revision"
+      ],
+      "title": "UnlockedManagedPage",
+      "type": "object"
     }
   },
   "additionalProperties": false,
@@ -810,7 +872,7 @@
       "$ref": "#/$defs/ContentAccessInput"
     },
     "page_response": {
-      "$ref": "#/$defs/PublicResponse_PublicManagedPage_"
+      "$ref": "#/$defs/PublicResponse_UnlockedManagedPage_"
     },
     "comment_request": {
       "$ref": "#/$defs/SubmitComment"
@@ -832,7 +894,7 @@
   "title": "CaptchaAPIContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "1.1.0",
+  "x-everunfold-contract-version": "1.2.0",
   "x-everunfold-reader-authorization": {
     "header": "Authorization: Bearer <API Key>",
     "audience": "everunfold",

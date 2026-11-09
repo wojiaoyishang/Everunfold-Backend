@@ -68,3 +68,12 @@ async def ensure_term(session: AsyncSession, kind: str, name: str) -> Taxonomy |
     session.add(TaxonomyName(kind=kind, name_key=name.casefold(), taxonomy_id=row.id))
     await session.flush()
     return row
+
+
+async def register_draft_terms(session: AsyncSession, settings: EditorSettings) -> None:
+    """Index freely entered draft terms for administration before first publication."""
+    directory = await TermDirectory.load(session)
+    for kind, names in (("category", settings.categories), ("tag", settings.tags)):
+        for name in names:
+            if (kind, name.casefold()) not in directory.names:
+                await ensure_term(session, kind, name)

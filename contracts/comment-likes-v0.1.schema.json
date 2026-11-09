@@ -158,7 +158,11 @@
   "title": "CommentLikesContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "0.1.0",
+  "x-everunfold-contract-version": "0.2.0",
+  "x-everunfold-private-read-headers": {
+    "receipt": "X-Everunfold-Read-Receipt",
+    "target": "X-Everunfold-Read-Target"
+  },
   "x-everunfold-visitor-header": "X-Everunfold-Visitor",
   "x-everunfold-operations": [
     {

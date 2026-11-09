@@ -9,7 +9,11 @@ from app.modules.content.comment_likes_schema import CommentLikesContract
 def main() -> None:
     schema = CommentLikesContract.model_json_schema()
     schema["$schema"] = "http://json-schema.org/draft-07/schema#"
-    schema["x-everunfold-contract-version"] = "0.1.0"
+    schema["x-everunfold-contract-version"] = "0.2.0"
+    schema["x-everunfold-private-read-headers"] = {
+        "receipt": "X-Everunfold-Read-Receipt",
+        "target": "X-Everunfold-Read-Target",
+    }
     schema["x-everunfold-visitor-header"] = "X-Everunfold-Visitor"
     schema["x-everunfold-operations"] = [
         {
