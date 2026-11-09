@@ -92,7 +92,7 @@ def test_duplicate_dependencies_and_invalid_setup_fail_atomically() -> None:
     async def asynchronous(registry: PluginRegistry) -> None:
         pass
 
-    setattr(a, "setup", asynchronous)
+    a.setup = asynchronous  # type: ignore[method-assign,assignment]
     with pytest.raises(ValueError, match="synchronous"):
         collect_plugins([(a, "0" * 64)])
 

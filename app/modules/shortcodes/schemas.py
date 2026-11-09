@@ -90,6 +90,7 @@ class ShortcodeItem(ShortcodeModel):
 
 class ShortcodeCatalog(ShortcodeModel):
     items: list[ShortcodeItem]
+    applied: list[PublicShortcode] = Field(default_factory=list)
     settings_revision: int
 
 

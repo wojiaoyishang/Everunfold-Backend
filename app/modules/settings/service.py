@@ -224,6 +224,7 @@ class SettingsService:
         if record.generation != payload.expected_revision:
             raise AuthFailure(409, 40920, "设置已被修改，请重新读取后合并你的更改")
         before = await self.resolve(public_settings(record.data))
+        payload.value = await self.resolve(payload.value)
         from app.core.plugins.state import public_shortcodes
 
         # Backend templates are immutable deployment data. The browser echoes the old
@@ -232,7 +233,7 @@ class SettingsService:
             item for item in payload.value.shortcodes if not item.name.startswith("custom:")
         ]
         previous = [item for item in before.shortcodes if not item.name.startswith("custom:")]
-        if incoming != previous:
+        if sorted(incoming, key=lambda item: item.id) != sorted(previous, key=lambda item: item.id):
             raise AuthFailure(422, 42280, "代码注册的短代码不能编辑")
         custom = [item for item in payload.value.shortcodes if item.name.startswith("custom:")]
         if not shortcode_write and custom != [

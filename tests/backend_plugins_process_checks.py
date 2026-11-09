@@ -57,8 +57,11 @@ def check_backend_plugins(
         "example.cards",
         "core.basic-shortcodes",
     }
-    catalog = client.get("/v1/admin/shortcodes").json()["data"]["items"]
-    assert any(c["source"]["name"] == "example:card" and not c["editable"] for c in catalog)
+    catalog = client.get("/v1/admin/shortcodes").json()["data"]
+    assert any(
+        c["source"]["name"] == "example:card" and not c["editable"] for c in catalog["items"]
+    )
+    assert catalog["applied"] == current["value"]["shortcodes"]
 
     def render() -> Any:
         result = subprocess.run(
@@ -85,7 +88,7 @@ def check_backend_plugins(
 
     rendered = render()
     assert not rendered["diagnostics"] and "From applied snapshot" in rendered["html"]
-    assert "<h3>" in rendered["html"] and "P0 body" in rendered["html"]
+    assert "<h3" in rendered["html"] and "P0 body" in rendered["html"], rendered["html"]
     spoof = copy.deepcopy(current["value"])
     spoof["shortcodes"][0]["html"] = "spoofed"
     assert (
@@ -116,8 +119,9 @@ def check_backend_plugins(
         c["source"]["name"] == "example:card"
         for c in client.get("/v1/admin/shortcodes").json()["data"]["items"]
     )
-    assert "{{&lt; example:card" in render()["html"] or "example:card" in render()["html"]
-    assert "<h3>" not in render()["html"]
+    disabled_render = render()
+    assert "example:card" in disabled_render["html"]
+    assert "<h3" not in disabled_render["html"]
     toggle(original_disabled)
     assert not render()["diagnostics"]
     assert state()["value"] == current["value"]

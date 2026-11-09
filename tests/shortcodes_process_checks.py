@@ -231,6 +231,11 @@ def check_shortcodes(
     assert draft.status_code == 200, draft.text
     row = draft.json()["data"]
     assert settings()["value"]["shortcodes"] == desired["value"]["shortcodes"]
+    # Editors use this projection without needing settings:read; an unapplied
+    # template draft must never change their insertion or document previews.
+    library = client.get("/v1/admin/shortcodes").json()["data"]
+    assert library["applied"] == desired["value"]["shortcodes"]
+    assert "UNAPPLIED" not in json.dumps(library["applied"])
     assert "UNAPPLIED" not in filename.read_text()
     assert (
         post(

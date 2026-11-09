@@ -26,7 +26,13 @@ def check_scoped_accounts(admin: httpx.Client, csrf: dict[str, str], api_b: str)
             "display_name": "作者",
             "password": "Temporary-pass-12345",
             "current_password": "123456",
-            "grants": {"everunfold": {"content:read": "own", "content:write": "own"}},
+            "grants": {
+                "everunfold": {
+                    "content:read": "own",
+                    "content:write": "own",
+                    "shortcodes:read": "all",
+                }
+            },
         },
     )
     assert created.status_code == 201, created.text
@@ -55,6 +61,8 @@ def check_scoped_accounts(admin: httpx.Client, csrf: dict[str, str], api_b: str)
         access = member.get("/v1/admin/session")
         assert access.status_code == 200, access.text
         assert member.get("/v1/admin/settings").status_code == 403
+        templates = member.get("/v1/admin/shortcodes")
+        assert templates.status_code == 200 and "applied" in templates.json()["data"]
         prefix = "/v1/admin/content/"
 
         def draft(client: httpx.Client, auth: dict[str, str], title: str) -> dict[str, Any]:
