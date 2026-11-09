@@ -21,6 +21,8 @@ from app.core.modules import (
     register_settings_module,
     register_shortcodes_module,
 )
+from app.core.plugins.definition import PluginRuntime
+from app.core.plugins.loader import plugin_catalog
 from app.core.responses import JSONResponseError, JSONResponseFail, JSONResponseSuccess
 from app.core.runtime import Runtime
 from app.modules.auth.middleware import AuthBoundaryMiddleware, BusinessCORSMiddleware
@@ -30,6 +32,7 @@ logger = logging.getLogger(__name__)
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
+    plugins = plugin_catalog()
     i18n.load()
     resolved = settings
     if resolved is None:
@@ -44,7 +47,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         runtime = Runtime.create(resolved) if resolved is not None else None
         application.state.runtime = runtime
         try:
-            yield
+            async with plugins.lifespan(PluginRuntime(role="api", runtime=runtime)):
+                yield
         finally:
             if runtime is not None:
                 await runtime.close()

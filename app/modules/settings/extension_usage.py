@@ -98,13 +98,20 @@ def shortcode_references(blocks: object) -> set[str]:
 
 
 async def installed_plugins(session: AsyncSession) -> list[InstalledPlugin]:
+    from app.core.plugins.state import installed_info
+    from app.modules.content.models import SiteSettings
+
+    site = await session.get(SiteSettings, 1)
     records = await session.scalars(
         select(FrontendExtensionInventory).order_by(FrontendExtensionInventory.node_id)
     )
     return [
-        plugin
-        for record in records
-        for plugin in ExtensionInventory.model_validate(record.data).plugins
+        *installed_info(site.data if site else {}),
+        *[
+            plugin
+            for record in records
+            for plugin in ExtensionInventory.model_validate(record.data).plugins
+        ],
     ]
 
 
@@ -127,7 +134,9 @@ async def scan_usage(
             continue
         counts[plugin.id].registered = True
         counts[plugin.id].title = plugin.title
-        if captcha_provider and captcha_provider.widget in plugin.components:
+        if (
+            captcha_provider and captcha_provider.widget in plugin.components
+        ) or captcha.provider in getattr(plugin, "captcha_providers", []):
             counts[plugin.id].captcha_references = 1
         for identity in plugin.page_ids:
             pages.setdefault(identity, set()).add(plugin.id)

@@ -1,12 +1,7 @@
 """Trusted backend provider discovery. No request-controlled imports or verification URLs."""
 
-import importlib
-import inspect
-import re
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
-from functools import lru_cache
-from pathlib import Path
 
 from app.modules.captcha.schemas import ProviderDescription, StoredProvider
 
@@ -22,26 +17,12 @@ class CaptchaProvider:
         return ProviderDescription(id=self.id, title=self.title, widget=self.widget)
 
 
-@lru_cache(maxsize=1)
 def provider_catalog() -> dict[str, CaptchaProvider]:
-    result: dict[str, CaptchaProvider] = {}
-    root = Path(__file__).resolve().parents[2] / "plugins"
-    for path in sorted(root.glob("*/captcha.py")):
-        if not re.fullmatch(r"[a-z][a-z0-9_]*", path.parent.name):
-            raise RuntimeError("Invalid CAPTCHA plugin directory")
-        provider = getattr(
-            importlib.import_module(f"app.plugins.{path.parent.name}.captcha"), "provider", None
-        )
-        if (
-            not isinstance(provider, CaptchaProvider)
-            or not re.fullmatch(r"[a-z][a-z0-9_.-]{0,99}", provider.id)
-            or provider.id == "local"
-            or provider.id in result
-            or not inspect.iscoroutinefunction(provider.verify)
-        ):
-            raise RuntimeError("Invalid or duplicate CAPTCHA provider")
-        result[provider.id] = provider
-    return result
+    from app.core.plugins.loader import plugin_catalog
+
+    return {
+        provider.id: provider for plugin in plugin_catalog().plugins for provider in plugin.captcha
+    }
 
 
 async def verify_site_token(url: str, answer: str, settings: StoredProvider) -> bool:

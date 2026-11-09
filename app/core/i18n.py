@@ -42,6 +42,15 @@ class I18n:
                     if full in catalogs[locale] or not isinstance(value, str):
                         raise RuntimeError("Invalid or duplicate translation key")
                     catalogs[locale][full] = value
+        from app.core.plugins.loader import plugin_catalog
+
+        for plugin in plugin_catalog().plugins:
+            for locale in LOCALES:
+                for key, value in plugin.locales.get(locale, {}).items():
+                    full = f"{plugin.info.id}.{key}"
+                    if full in catalogs[locale]:
+                        raise RuntimeError("Duplicate plugin translation key")
+                    catalogs[locale][full] = value
         self._source_keys = {value: key for key, value in catalogs[DEFAULT_LOCALE].items()}
         self._catalogs = {key: MappingProxyType(value) for key, value in catalogs.items()}
 

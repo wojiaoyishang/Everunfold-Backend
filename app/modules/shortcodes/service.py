@@ -7,6 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
+from app.core.plugins.state import shortcode_items
 from app.modules.auth.service import AuthFailure
 from app.modules.media.locking import lock_references
 from app.modules.settings.defaults import public_settings
@@ -74,7 +75,7 @@ class ShortcodeService:
             )
         ).all()
         return ShortcodeCatalog(
-            items=builtin_catalog() + [await self.item(row) for row in rows],
+            items=shortcode_items(site.data) + [await self.item(row) for row in rows],
             settings_revision=site.generation,
         )
 

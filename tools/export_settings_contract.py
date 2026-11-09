@@ -6,15 +6,13 @@ from typing import Any
 
 from app.modules.settings.languages import LANGUAGE_REGIONS
 from app.modules.settings.schemas import SettingsContract
-from app.modules.shortcodes.registry import builtin_catalog
 
 
 def build_schema() -> dict[str, Any]:
     schema = SettingsContract.model_json_schema()
     schema["$schema"] = "http://json-schema.org/draft-07/schema#"
-    schema["x-everunfold-contract-version"] = "1.15.0"
+    schema["x-everunfold-contract-version"] = "1.16.0"
     schema["x-everunfold-language-regions"] = LANGUAGE_REGIONS
-    schema["x-everunfold-shortcodes"] = [item.model_dump() for item in builtin_catalog()]
     schema["x-everunfold-operations"] = [
         {
             "name": "queryExtensionUsage",

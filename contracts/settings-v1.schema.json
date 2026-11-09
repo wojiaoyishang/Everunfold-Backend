@@ -1,5 +1,100 @@
 {
   "$defs": {
+    "BackendPluginInfo": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "pattern": "^[a-z][a-z0-9-]*(?:\\.[a-z][a-z0-9-]*)+$",
+          "title": "Id",
+          "type": "string"
+        },
+        "title": {
+          "maxLength": 80,
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        },
+        "description": {
+          "default": "",
+          "maxLength": 500,
+          "title": "Description",
+          "type": "string"
+        },
+        "build": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Build",
+          "type": "string"
+        },
+        "page_ids": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 100,
+          "title": "Page Ids",
+          "type": "array"
+        },
+        "components": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 200,
+          "title": "Components",
+          "type": "array"
+        },
+        "shortcodes": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 100,
+          "title": "Shortcodes",
+          "type": "array"
+        },
+        "version": {
+          "pattern": "^\\d+\\.\\d+\\.\\d+(?:-[a-zA-Z0-9.-]+)?$",
+          "title": "Version",
+          "type": "string"
+        },
+        "author": {
+          "default": "",
+          "maxLength": 100,
+          "title": "Author",
+          "type": "string"
+        },
+        "requires": {
+          "items": {
+            "pattern": "^[a-z][a-z0-9-]*(?:\\.[a-z][a-z0-9-]*)+$",
+            "type": "string"
+          },
+          "maxItems": 100,
+          "title": "Requires",
+          "type": "array"
+        },
+        "captcha_providers": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 100,
+          "title": "Captcha Providers",
+          "type": "array"
+        },
+        "widgets": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 100,
+          "title": "Widgets",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "build",
+        "version"
+      ],
+      "title": "BackendPluginInfo",
+      "type": "object"
+    },
     "CachePolicy": {
       "additionalProperties": false,
       "description": "First operational policy: request lifetime, refresh freshness and batching.",
@@ -284,6 +379,18 @@
           },
           "title": "Nodes",
           "type": "array"
+        },
+        "backend_plugins": {
+          "items": {
+            "$ref": "#/$defs/BackendPluginInfo"
+          },
+          "title": "Backend Plugins",
+          "type": "array"
+        },
+        "backend_in_sync": {
+          "default": true,
+          "title": "Backend In Sync",
+          "type": "boolean"
         }
       },
       "required": [
@@ -3385,7 +3492,7 @@
   "title": "SettingsContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "1.15.0",
+  "x-everunfold-contract-version": "1.16.0",
   "x-everunfold-language-regions": {
     "zh": "CN",
     "en": "GB",
@@ -3420,134 +3527,6 @@
     "ur": "PK",
     "sw": "TZ"
   },
-  "x-everunfold-shortcodes": [
-    {
-      "id": "15184599-2f9b-541f-a81f-439ce0ea0e8f",
-      "origin": "backend",
-      "editable": false,
-      "revision": 1,
-      "applied_revision": 1,
-      "archived": false,
-      "source": {
-        "name": "notice",
-        "title": "提示框",
-        "description": "提示、成功、警告或错误信息。",
-        "kind": "container",
-        "parameters": [
-          {
-            "name": "title",
-            "label": "标题",
-            "type": "text",
-            "default": "提示",
-            "required": false,
-            "options": []
-          },
-          {
-            "name": "type",
-            "label": "类型",
-            "type": "select",
-            "default": "info",
-            "required": false,
-            "options": [
-              "info",
-              "success",
-              "warning",
-              "error"
-            ]
-          }
-        ],
-        "html": "<aside class=\"notice\" data-variant=\"{{type}}\"><strong>{{title}}</strong><div>{{content}}</div></aside>",
-        "css": ".notice{padding:1em 1.25em;border-radius:8px;border-left:4px solid #5b7bcc;background:#5b7bcc14}.notice[data-variant=\"success\"]{border-color:#24966b;background:#24966b14}.notice[data-variant=\"warning\"]{border-color:#c18a18;background:#c18a1814}.notice[data-variant=\"error\"]{border-color:#c95151;background:#c9515114}.notice > strong{display:block;margin-bottom:.4em}.notice p:last-child{margin-bottom:0}",
-        "example_body": "这里是正文内容。"
-      },
-      "compiled": {
-        "id": "15184599-2f9b-541f-a81f-439ce0ea0e8f",
-        "name": "notice",
-        "title": "提示框",
-        "description": "提示、成功、警告或错误信息。",
-        "kind": "container",
-        "parameters": [
-          {
-            "name": "title",
-            "label": "标题",
-            "type": "text",
-            "default": "提示",
-            "required": false,
-            "options": []
-          },
-          {
-            "name": "type",
-            "label": "类型",
-            "type": "select",
-            "default": "info",
-            "required": false,
-            "options": [
-              "info",
-              "success",
-              "warning",
-              "error"
-            ]
-          }
-        ],
-        "html": "<aside class=\"ef-sc-151845992f9b541fa81f439ce0ea0e8f-notice\" data-variant=\"{{type}}\"><strong>{{title}}</strong><div>{{content}}</div></aside>",
-        "css": ".ef-sc-151845992f9b541fa81f439ce0ea0e8f .ef-sc-151845992f9b541fa81f439ce0ea0e8f-notice{padding:1em 1.25em;border-radius:8px;border-left:4px solid #5b7bcc;background:#5b7bcc14;}.ef-sc-151845992f9b541fa81f439ce0ea0e8f .ef-sc-151845992f9b541fa81f439ce0ea0e8f-notice[data-variant=\"success\"]{border-color:#24966b;background:#24966b14;}.ef-sc-151845992f9b541fa81f439ce0ea0e8f .ef-sc-151845992f9b541fa81f439ce0ea0e8f-notice[data-variant=\"warning\"]{border-color:#c18a18;background:#c18a1814;}.ef-sc-151845992f9b541fa81f439ce0ea0e8f .ef-sc-151845992f9b541fa81f439ce0ea0e8f-notice[data-variant=\"error\"]{border-color:#c95151;background:#c9515114;}.ef-sc-151845992f9b541fa81f439ce0ea0e8f .ef-sc-151845992f9b541fa81f439ce0ea0e8f-notice > strong{display:block;margin-bottom:.4em;}.ef-sc-151845992f9b541fa81f439ce0ea0e8f .ef-sc-151845992f9b541fa81f439ce0ea0e8f-notice p:last-child{margin-bottom:0;}",
-        "scope": "ef-sc-151845992f9b541fa81f439ce0ea0e8f",
-        "revision": 1,
-        "media_urls": {}
-      },
-      "versions": []
-    },
-    {
-      "id": "c9df582f-05fa-5804-a01c-d13b9d11b73d",
-      "origin": "backend",
-      "editable": false,
-      "revision": 1,
-      "applied_revision": 1,
-      "archived": false,
-      "source": {
-        "name": "accordion",
-        "title": "折叠内容",
-        "description": "可由读者展开的详细说明。",
-        "kind": "container",
-        "parameters": [
-          {
-            "name": "title",
-            "label": "标题",
-            "type": "text",
-            "default": "展开查看",
-            "required": false,
-            "options": []
-          }
-        ],
-        "html": "<details class=\"accordion\"><summary>{{title}}</summary><div class=\"body\">{{content}}</div></details>",
-        "css": ".accordion{border:1px solid #8885;border-radius:8px;padding:.8em 1em}.accordion > summary{cursor:pointer;font-weight:600}.body{padding-top:.8em}.body p:last-child{margin-bottom:0}",
-        "example_body": "这里是正文内容。"
-      },
-      "compiled": {
-        "id": "c9df582f-05fa-5804-a01c-d13b9d11b73d",
-        "name": "accordion",
-        "title": "折叠内容",
-        "description": "可由读者展开的详细说明。",
-        "kind": "container",
-        "parameters": [
-          {
-            "name": "title",
-            "label": "标题",
-            "type": "text",
-            "default": "展开查看",
-            "required": false,
-            "options": []
-          }
-        ],
-        "html": "<details class=\"ef-sc-c9df582f05fa5804a01cd13b9d11b73d-accordion\"><summary>{{title}}</summary><div class=\"ef-sc-c9df582f05fa5804a01cd13b9d11b73d-body\">{{content}}</div></details>",
-        "css": ".ef-sc-c9df582f05fa5804a01cd13b9d11b73d .ef-sc-c9df582f05fa5804a01cd13b9d11b73d-accordion{border:1px solid #8885;border-radius:8px;padding:.8em 1em;}.ef-sc-c9df582f05fa5804a01cd13b9d11b73d .ef-sc-c9df582f05fa5804a01cd13b9d11b73d-accordion > summary{cursor:pointer;font-weight:600;}.ef-sc-c9df582f05fa5804a01cd13b9d11b73d .ef-sc-c9df582f05fa5804a01cd13b9d11b73d-body{padding-top:.8em;}.ef-sc-c9df582f05fa5804a01cd13b9d11b73d .ef-sc-c9df582f05fa5804a01cd13b9d11b73d-body p:last-child{margin-bottom:0;}",
-        "scope": "ef-sc-c9df582f05fa5804a01cd13b9d11b73d",
-        "revision": 1,
-        "media_urls": {}
-      },
-      "versions": []
-    }
-  ],
   "x-everunfold-operations": [
     {
       "name": "queryExtensionUsage",

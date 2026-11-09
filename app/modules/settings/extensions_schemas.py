@@ -68,6 +68,22 @@ class InstalledPlugin(PublicModel):
     shortcodes: list[str] = Field(default_factory=list, max_length=100)
 
 
+class BackendPluginInfo(InstalledPlugin):
+    version: str = Field(pattern=r"^\d+\.\d+\.\d+(?:-[a-zA-Z0-9.-]+)?$")
+    author: str = Field(default="", max_length=100)
+    requires: list[Annotated[str, Field(pattern=PluginId)]] = Field(
+        default_factory=list, max_length=100
+    )
+    captcha_providers: list[str] = Field(default_factory=list, max_length=100)
+    widgets: list[str] = Field(default_factory=list, max_length=100)
+
+    @model_validator(mode="after")
+    def valid_dependencies(self) -> Self:
+        if self.id in self.requires or len(set(self.requires)) != len(self.requires):
+            raise ValueError("invalid plugin dependencies")
+        return self
+
+
 class ExtensionInventory(PublicModel):
     protocol: Literal["extensions-1"] = "extensions-1"
     themes: list[InstalledTheme] = Field(default_factory=list, max_length=100)
@@ -106,6 +122,8 @@ class NodeExtensionInventory(PublicModel):
 
 class ExtensionCatalog(PublicModel):
     nodes: list[NodeExtensionInventory]
+    backend_plugins: list[BackendPluginInfo] = Field(default_factory=list)
+    backend_in_sync: bool = True
 
 
 class ExtensionUsageQuery(PublicModel):

@@ -66,6 +66,7 @@ class CaptchaContext:
     action: str
     content_id: UUID | None
     credential: ReaderCredential | None = None
+    provider_available: bool = True
 
 
 async def context(session: AsyncSession, action: str, content_id: UUID | None) -> CaptchaContext:
@@ -94,10 +95,16 @@ async def context(session: AsyncSession, action: str, content_id: UUID | None) -
                 page.applied_revision or page.revision,
             )
     needed = required(config, action, kind, policy)
+    from app.core.plugins.state import provider_state
+
+    site = await session.get(SiteSettings, 1)
+    available, provider_stamp = provider_state(site.data if site else {}, config.provider)
+    if config.provider != "local" and site:
+        provider_stamp += f":{site.generation}"
     stamp = hashlib.sha256(
-        f"{config.revision}:{action}:{content_id}:{generation}:{needed}".encode()
+        f"{config.revision}:{action}:{content_id}:{generation}:{needed}:{provider_stamp}".encode()
     ).hexdigest()
-    return CaptchaContext(config, needed, stamp, action, content_id)
+    return CaptchaContext(config, needed, stamp, action, content_id, provider_available=available)
 
 
 class CaptchaService:
@@ -180,7 +187,7 @@ class CaptchaService:
                 salt = secrets.token_hex(24)
                 digest = hashlib.sha256((salt + answer).encode()).hexdigest()
             else:
-                definition = provider_catalog().get(provider)
+                definition = provider_catalog().get(provider) if policy.provider_available else None
                 if (
                     definition is None
                     or not settings.secret
@@ -237,7 +244,11 @@ class CaptchaService:
             ).hexdigest()
             valid = hmac.compare_digest(actual, stored["digest"])
         else:
-            provider = provider_catalog().get(policy.config.provider)
+            provider = (
+                provider_catalog().get(policy.config.provider)
+                if policy.provider_available
+                else None
+            )
             if provider is None:
                 raise AuthFailure(503, 50386, "验证码提供方不可用")
             valid = await provider.verify(answer.answer, policy.config.providers[provider.id])
@@ -251,7 +262,10 @@ async def guard(session: AsyncSession, permit: CaptchaContext) -> None:
         await fence(session, permit.credential, permit.action)
     # Site-before-content order matches publication. External HTTP has already finished.
     await session.scalar(
-        select(SiteSettings).where(SiteSettings.id == 1).with_for_update(read=True)
+        select(SiteSettings)
+        .where(SiteSettings.id == 1)
+        .with_for_update(read=True)
+        .execution_options(populate_existing=True)
     )
     current = await context(session, permit.action, permit.content_id)
     if current.stamp != permit.stamp:
@@ -295,6 +309,10 @@ async def save_settings(
         raise AuthFailure(409, 40986, "验证码设置已更新，请重新读取后再保存")
     if payload.provider != "local" and payload.provider not in provider_catalog():
         raise AuthFailure(422, 42286, "验证码提供方未注册")
+    from app.core.plugins.state import provider_state
+
+    if payload.provider != "local" and not provider_state(site.data, payload.provider)[0]:
+        raise AuthFailure(422, 42286, "验证码插件未启用或尚未完成部署登记")
     providers = dict(before.providers)
     if payload.provider in payload.remove_providers:
         raise AuthFailure(422, 42286, "不能移除当前选中的验证码提供方配置")

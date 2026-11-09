@@ -223,8 +223,27 @@ class SettingsService:
         record = await self.site(locked=True)
         if record.generation != payload.expected_revision:
             raise AuthFailure(409, 40920, "设置已被修改，请重新读取后合并你的更改")
-        payload.value = await self.resolve(payload.value)
         before = await self.resolve(public_settings(record.data))
+        from app.core.plugins.state import public_shortcodes
+
+        # Backend templates are immutable deployment data. The browser echoes the old
+        # catalog while changing switches; the server derives the new active catalog.
+        incoming = [
+            item for item in payload.value.shortcodes if not item.name.startswith("custom:")
+        ]
+        previous = [item for item in before.shortcodes if not item.name.startswith("custom:")]
+        if incoming != previous:
+            raise AuthFailure(422, 42280, "代码注册的短代码不能编辑")
+        custom = [item for item in payload.value.shortcodes if item.name.startswith("custom:")]
+        if not shortcode_write and custom != [
+            item for item in before.shortcodes if item.name.startswith("custom:")
+        ]:
+            raise AuthFailure(422, 42280, "请在短代码库中应用模板修改")
+        payload.value.shortcodes = [
+            *public_shortcodes(record.data, payload.value.extensions.disabled_plugins),
+            *custom,
+        ]
+        payload.value = await self.resolve(payload.value)
         if before.extensions != payload.value.extensions:
             from app.modules.settings.extensions_service import validate_activation
 
@@ -269,8 +288,6 @@ class SettingsService:
             )
         ):
             raise AuthFailure(422, 42292, "该语言仍有内容，请保留语言或改为禁用")
-        if not shortcode_write and before.shortcodes != payload.value.shortcodes:
-            raise AuthFailure(422, 42280, "请在短代码库中应用模板修改")
         if before != payload.value:
             record.data = stored_settings(record.data, payload.value)
             record.generation += 1

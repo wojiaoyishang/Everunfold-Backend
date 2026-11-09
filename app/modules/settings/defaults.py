@@ -2,6 +2,7 @@
 
 from typing import Any
 
+from app.core.plugins.state import public_shortcodes
 from app.modules.settings.schemas import PublicSettings, SitePreferences, ThemePreferences
 
 
@@ -29,7 +30,7 @@ def public_settings(data: dict[str, Any]) -> PublicSettings:
     return PublicSettings(
         site=SitePreferences.model_validate(site),
         theme=ThemePreferences.model_validate(theme),
-        shortcodes=data.get("shortcodes", []),
+        shortcodes=[*public_shortcodes(data), *data.get("shortcodes", [])],
         extensions=data.get("extensions", {}),
     )
 
@@ -44,5 +45,7 @@ def stored_settings(original: dict[str, Any], value: PublicSettings) -> dict[str
         "hero_url": theme.pop("background_url") or None,
         "theme": theme,
         "extensions": value.extensions.model_dump(mode="json"),
-        "shortcodes": [item.model_dump() for item in value.shortcodes],
+        "shortcodes": [
+            item.model_dump() for item in value.shortcodes if item.name.startswith("custom:")
+        ],
     }

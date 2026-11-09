@@ -6,7 +6,10 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
+from app.core.plugins.loader import plugin_catalog
+from app.core.plugins.state import CATALOG_KEY, installed_info
 from app.modules.auth.service import AuthFailure
+from app.modules.content.models import SiteSettings
 from app.modules.pages.registration import install_manifest
 from app.modules.settings.extensions_schemas import (
     ExtensionCatalog,
@@ -21,7 +24,14 @@ async def catalog(session: AsyncSession, config: Settings) -> ExtensionCatalog:
     records = {
         row.node_id: row for row in await session.scalars(select(FrontendExtensionInventory))
     }
+    site = await session.get(SiteSettings, 1)
+    data = site.data if site else {}
+    plugins = plugin_catalog()
+    infos = {item.id: item for item in installed_info(data)}
+    infos.update({item.info.id: item.info for item in plugins.plugins})
     return ExtensionCatalog(
+        backend_plugins=list(infos.values()),
+        backend_in_sync=data.get(CATALOG_KEY) == plugins.snapshot(),
         nodes=[
             NodeExtensionInventory(
                 node_id=node,
@@ -32,7 +42,7 @@ async def catalog(session: AsyncSession, config: Settings) -> ExtensionCatalog:
                 else None,
             )
             for node, target in config.frontends.items()
-        ]
+        ],
     )
 
 
@@ -41,6 +51,9 @@ async def install_inventory(
 ) -> None:
     if node not in config.frontends:
         raise AuthFailure(404, 40420, "节点不存在")
+    from app.modules.settings.backend_plugins import validate_names
+
+    validate_names(plugin_catalog(), value)
     # The page installer takes the same site lock as activation and preserves existing data.
     await install_manifest(session, config, node, value.pages, commit=False)
     record = await session.get(FrontendExtensionInventory, node)
@@ -62,6 +75,12 @@ async def validate_activation(
 ) -> None:
     inventories = await catalog(session, config)
     enabled = [node for node in inventories.nodes if node.enabled]
+    backend_ids = {item.id for item in inventories.backend_plugins}
+    for plugin in inventories.backend_plugins:
+        if plugin.id not in value.disabled_plugins and set(plugin.requires) & set(
+            value.disabled_plugins
+        ):
+            raise AuthFailure(422, 42298, "请同时启用依赖插件，或先停用依赖它的插件")
     if value.theme and value.theme != before.theme:
         definitions = [
             next((theme for theme in node.inventory.themes if theme.id == value.theme), None)
@@ -76,6 +95,14 @@ async def validate_activation(
         ):
             raise AuthFailure(422, 42298, "主题尚未在所有启用节点部署，请先完成部署登记")
     for plugin_id in set(before.disabled_plugins) - set(value.disabled_plugins):
+        if plugin_id in backend_ids:
+            if not inventories.backend_in_sync:
+                raise AuthFailure(422, 42298, "后端插件尚未完成部署登记，请先同步插件目录")
+            if not any(
+                node.inventory and any(p.id == plugin_id for p in node.inventory.plugins)
+                for node in enabled
+            ):
+                continue
         plugin_definitions = [
             next((plugin for plugin in node.inventory.plugins if plugin.id == plugin_id), None)
             if node.inventory

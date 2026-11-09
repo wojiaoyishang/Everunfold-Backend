@@ -23,6 +23,7 @@ import pytest
 from sqlalchemy.engine import make_url
 
 from app.core.config import load_settings
+from tests.backend_plugins_process_checks import check_backend_plugins
 from tests.content_draft_process_checks import check_content_drafts
 from tests.content_publication_process_checks import check_content_publication
 from tests.extensions_process_checks import check_extensions
@@ -707,6 +708,20 @@ def test_settings_atomic_save_restart_delivery_and_crash_replay(tmp_path: Path) 
             assert (
                 json.loads(latest.read_text(encoding="utf-8"))["value"]["icon_urls"][icon["id"]]
                 == icon["url"]
+            )
+            check_backend_plugins(
+                client,
+                csrf,
+                api_b,
+                config_file,
+                env,
+                wait_for,
+                frontend,
+                node_id,
+                epoch,
+                tmp_path / "applied",
+                node_executable,
+                node_env,
             )
             check_shortcodes(
                 client,
