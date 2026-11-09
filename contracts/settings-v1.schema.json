@@ -3,6 +3,41 @@
     "BackendPluginInfo": {
       "additionalProperties": false,
       "properties": {
+        "version": {
+          "pattern": "^\\d+\\.\\d+\\.\\d+(?:-[a-zA-Z0-9.-]+)?$",
+          "title": "Version",
+          "type": "string"
+        },
+        "author": {
+          "default": "",
+          "maxLength": 100,
+          "title": "Author",
+          "type": "string"
+        },
+        "homepage": {
+          "default": "",
+          "maxLength": 2048,
+          "title": "Homepage",
+          "type": "string"
+        },
+        "license": {
+          "default": "",
+          "maxLength": 100,
+          "title": "License",
+          "type": "string"
+        },
+        "preview": {
+          "default": "",
+          "maxLength": 2048,
+          "title": "Preview",
+          "type": "string"
+        },
+        "readme": {
+          "default": "",
+          "maxLength": 50000,
+          "title": "Readme",
+          "type": "string"
+        },
         "id": {
           "pattern": "^[a-z][a-z0-9-]*(?:\\.[a-z][a-z0-9-]*)+$",
           "title": "Id",
@@ -49,16 +84,13 @@
           "title": "Shortcodes",
           "type": "array"
         },
-        "version": {
-          "pattern": "^\\d+\\.\\d+\\.\\d+(?:-[a-zA-Z0-9.-]+)?$",
-          "title": "Version",
-          "type": "string"
-        },
-        "author": {
-          "default": "",
-          "maxLength": 100,
-          "title": "Author",
-          "type": "string"
+        "tasks": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 100,
+          "title": "Tasks",
+          "type": "array"
         },
         "requires": {
           "items": {
@@ -87,10 +119,10 @@
         }
       },
       "required": [
+        "version",
         "id",
         "title",
-        "build",
-        "version"
+        "build"
       ],
       "title": "BackendPluginInfo",
       "type": "object"
@@ -814,6 +846,42 @@
     "InstalledPlugin": {
       "additionalProperties": false,
       "properties": {
+        "version": {
+          "default": "1.0.0",
+          "maxLength": 80,
+          "title": "Version",
+          "type": "string"
+        },
+        "author": {
+          "default": "",
+          "maxLength": 100,
+          "title": "Author",
+          "type": "string"
+        },
+        "homepage": {
+          "default": "",
+          "maxLength": 2048,
+          "title": "Homepage",
+          "type": "string"
+        },
+        "license": {
+          "default": "",
+          "maxLength": 100,
+          "title": "License",
+          "type": "string"
+        },
+        "preview": {
+          "default": "",
+          "maxLength": 2048,
+          "title": "Preview",
+          "type": "string"
+        },
+        "readme": {
+          "default": "",
+          "maxLength": 50000,
+          "title": "Readme",
+          "type": "string"
+        },
         "id": {
           "pattern": "^[a-z][a-z0-9-]*(?:\\.[a-z][a-z0-9-]*)+$",
           "title": "Id",
@@ -2030,6 +2098,12 @@
     "PluginUsage": {
       "additionalProperties": false,
       "properties": {
+        "active_tasks": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Active Tasks",
+          "type": "integer"
+        },
         "captcha_references": {
           "default": 0,
           "minimum": 0,
@@ -2744,6 +2818,320 @@
       "title": "RestoreShortcode",
       "type": "object"
     },
+    "RuntimeCommand": {
+      "additionalProperties": false,
+      "properties": {
+        "task_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Task Id",
+          "type": "string"
+        },
+        "action": {
+          "enum": [
+            "enable",
+            "disable",
+            "run"
+          ],
+          "title": "Action",
+          "type": "string"
+        }
+      },
+      "required": [
+        "task_id",
+        "action"
+      ],
+      "title": "RuntimeCommand",
+      "type": "object"
+    },
+    "RuntimeInstance": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "role": {
+          "title": "Role",
+          "type": "string"
+        },
+        "host": {
+          "title": "Host",
+          "type": "string"
+        },
+        "pid": {
+          "title": "Pid",
+          "type": "integer"
+        },
+        "started_at": {
+          "title": "Started At",
+          "type": "number"
+        },
+        "heartbeat": {
+          "title": "Heartbeat",
+          "type": "number"
+        },
+        "state": {
+          "title": "State",
+          "type": "string"
+        },
+        "error": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Error"
+        },
+        "last_scan": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Last Scan"
+        },
+        "residents": {
+          "default": 0,
+          "title": "Residents",
+          "type": "integer"
+        },
+        "pending": {
+          "default": 0,
+          "title": "Pending",
+          "type": "integer"
+        },
+        "queue": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Queue"
+        }
+      },
+      "required": [
+        "id",
+        "role",
+        "host",
+        "pid",
+        "started_at",
+        "heartbeat",
+        "state"
+      ],
+      "title": "RuntimeInstance",
+      "type": "object"
+    },
+    "RuntimeOverview": {
+      "additionalProperties": false,
+      "properties": {
+        "instances": {
+          "items": {
+            "$ref": "#/$defs/RuntimeInstance"
+          },
+          "title": "Instances",
+          "type": "array"
+        },
+        "plans": {
+          "items": {
+            "$ref": "#/$defs/RuntimePlan"
+          },
+          "title": "Plans",
+          "type": "array"
+        },
+        "runs": {
+          "items": {
+            "$ref": "#/$defs/RuntimeRun"
+          },
+          "title": "Runs",
+          "type": "array"
+        },
+        "sampled_at": {
+          "format": "date-time",
+          "title": "Sampled At",
+          "type": "string"
+        },
+        "telemetry_available": {
+          "title": "Telemetry Available",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "instances",
+        "plans",
+        "runs",
+        "sampled_at",
+        "telemetry_available"
+      ],
+      "title": "RuntimeOverview",
+      "type": "object"
+    },
+    "RuntimePlan": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "plugin": {
+          "title": "Plugin",
+          "type": "string"
+        },
+        "kind": {
+          "title": "Kind",
+          "type": "string"
+        },
+        "enabled": {
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "available": {
+          "title": "Available",
+          "type": "boolean"
+        },
+        "interval": {
+          "title": "Interval",
+          "type": "integer"
+        },
+        "manual": {
+          "title": "Manual",
+          "type": "boolean"
+        },
+        "next_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Next At"
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "plugin",
+        "kind",
+        "enabled",
+        "available",
+        "interval",
+        "manual",
+        "next_at"
+      ],
+      "title": "RuntimePlan",
+      "type": "object"
+    },
+    "RuntimeRun": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "task_id": {
+          "title": "Task Id",
+          "type": "string"
+        },
+        "status": {
+          "title": "Status",
+          "type": "string"
+        },
+        "planned_at": {
+          "format": "date-time",
+          "title": "Planned At",
+          "type": "string"
+        },
+        "started_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Started At"
+        },
+        "finished_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Finished At"
+        },
+        "error": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Error"
+        },
+        "connection": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Connection"
+        },
+        "last_message_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Last Message At"
+        }
+      },
+      "required": [
+        "id",
+        "task_id",
+        "status",
+        "planned_at",
+        "started_at",
+        "finished_at",
+        "error"
+      ],
+      "title": "RuntimeRun",
+      "type": "object"
+    },
     "SavePolicy": {
       "additionalProperties": false,
       "properties": {
@@ -3401,6 +3789,12 @@
   },
   "additionalProperties": false,
   "properties": {
+    "runtime": {
+      "$ref": "#/$defs/RuntimeOverview"
+    },
+    "runtime_command": {
+      "$ref": "#/$defs/RuntimeCommand"
+    },
     "extensions": {
       "$ref": "#/$defs/PublicResponse_ExtensionCatalog_"
     },
@@ -3511,6 +3905,8 @@
     }
   },
   "required": [
+    "runtime",
+    "runtime_command",
     "extensions",
     "extension_usage_query",
     "extension_usage",
@@ -3551,7 +3947,7 @@
   "title": "SettingsContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "1.17.0",
+  "x-everunfold-contract-version": "1.18.0",
   "x-everunfold-language-regions": {
     "zh": "CN",
     "en": "GB",
@@ -3587,6 +3983,19 @@
     "sw": "TZ"
   },
   "x-everunfold-operations": [
+    {
+      "name": "readRuntime",
+      "path": "/v1/admin/runtime",
+      "method": "GET",
+      "response": "runtime"
+    },
+    {
+      "name": "controlRuntime",
+      "path": "/v1/admin/runtime/control",
+      "method": "POST",
+      "input": "runtime_command",
+      "response": "runtime"
+    },
     {
       "name": "queryExtensionUsage",
       "path": "/v1/admin/extensions/usage",

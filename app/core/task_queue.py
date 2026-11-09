@@ -17,6 +17,12 @@ celery_app.conf.update(
     task_reject_on_worker_lost=True,
     worker_prefetch_multiplier=1,
     task_default_queue=settings.redis_prefix + "settings",
-    broker_transport_options={"global_keyprefix": settings.redis_prefix + "celery:"},
+    broker_transport_options={
+        "global_keyprefix": settings.redis_prefix + "celery:",
+        "socket_timeout": 2,
+        "socket_connect_timeout": 2,
+    },
     broker_connection_retry_on_startup=True,
+    broker_connection_timeout=2,
+    task_publish_retry=False,
 )

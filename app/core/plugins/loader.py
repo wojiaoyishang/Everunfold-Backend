@@ -13,6 +13,7 @@ from pathlib import Path
 from types import MappingProxyType
 from typing import Any, cast
 
+from app.core.jobs.definitions import TaskDefinition
 from app.core.plugins.definition import Plugin, PluginRuntime
 from app.core.plugins.registry import PluginRegistry
 from app.modules.captcha.providers import CaptchaProvider
@@ -22,6 +23,7 @@ from app.modules.shortcodes.schemas import ShortcodeItem
 
 @dataclass(frozen=True)
 class LoadedPlugin:
+    tasks: tuple[TaskDefinition, ...]
     definition: Plugin
     info: BackendPluginInfo
     shortcodes: tuple[ShortcodeItem, ...]
@@ -72,6 +74,10 @@ def collect_plugins(entries: Iterable[tuple[Plugin, str]]) -> PluginCatalog:
             version=plugin.version,
             description=plugin.description,
             author=plugin.author,
+            homepage=plugin.homepage,
+            license=plugin.license,
+            preview=plugin.preview,
+            readme=plugin.readme,
             requires=list(plugin.requires),
             build=digest,
         )
@@ -112,6 +118,7 @@ def collect_plugins(entries: Iterable[tuple[Plugin, str]]) -> PluginCatalog:
                 if provider.id in providers:
                     raise ValueError(f"Duplicate CAPTCHA provider: {provider.id}")
                 providers.add(provider.id)
+            info.tasks = [item.id for item in registry.tasks.items]
             info.shortcodes = [item.source.name for item in registry.shortcodes._items]
             info.captcha_providers = [item.id for item in registry.captcha._items]
             # Widget names are references to frontend contributions, not backend UI ownership.
@@ -127,6 +134,7 @@ def collect_plugins(entries: Iterable[tuple[Plugin, str]]) -> PluginCatalog:
             ).hexdigest()
             completed.append(
                 LoadedPlugin(
+                    tuple(registry.tasks.items),
                     plugin,
                     info,
                     tuple(registry.shortcodes._items),

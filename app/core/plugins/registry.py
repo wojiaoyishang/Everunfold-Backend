@@ -5,6 +5,7 @@ import re
 from collections.abc import Mapping
 from uuid import NAMESPACE_URL, UUID, uuid5
 
+from app.core.jobs.definitions import TaskDefinition
 from app.modules.captcha.providers import CaptchaProvider
 from app.modules.shortcodes.compiler import compile_shortcode
 from app.modules.shortcodes.schemas import ShortcodeItem, ShortcodeSource
@@ -83,6 +84,22 @@ class LocaleRegistry:
             existing[key] = value
 
 
+class TaskRegistry:
+    def __init__(self, owner: "PluginRegistry") -> None:
+        from app.core.jobs.definitions import TaskDefinition
+
+        self.owner = owner
+        self.items: list[TaskDefinition] = []
+
+    def register(self, definition: "TaskDefinition") -> None:
+        self.owner.check_open()
+        if not definition.id.startswith(self.owner.id + ".") or any(
+            x.id == definition.id for x in self.items
+        ):
+            raise ValueError("Task ID must be unique within its plugin namespace")
+        self.items.append(definition)
+
+
 class PluginRegistry:
     def __init__(self, identity: str) -> None:
         self.id = identity
@@ -90,6 +107,7 @@ class PluginRegistry:
         self.shortcodes = ShortcodeRegistry(self)
         self.captcha = CaptchaRegistry(self)
         self.locales = LocaleRegistry(self)
+        self.tasks = TaskRegistry(self)
 
     def check_open(self) -> None:
         if not self._open:

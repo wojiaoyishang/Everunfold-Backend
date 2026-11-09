@@ -59,6 +59,14 @@ class InstalledTheme(PublicModel):
 
 
 class InstalledPlugin(PublicModel):
+    version: str = Field(default="1.0.0", max_length=80)
+    author: str = Field(default="", max_length=100)
+    homepage: str = Field(default="", max_length=2048)
+    license: str = Field(default="", max_length=100)
+    preview: str = Field(default="", max_length=2048)
+    readme: str = Field(default="", max_length=50000)
+    _urls = field_validator("homepage", "preview")(safe_url)
+
     id: str = Field(pattern=PluginId)
     title: str = Field(min_length=1, max_length=80)
     description: str = Field(default="", max_length=500)
@@ -69,6 +77,7 @@ class InstalledPlugin(PublicModel):
 
 
 class BackendPluginInfo(InstalledPlugin):
+    tasks: list[str] = Field(default_factory=list, max_length=100)
     version: str = Field(pattern=r"^\d+\.\d+\.\d+(?:-[a-zA-Z0-9.-]+)?$")
     author: str = Field(default="", max_length=100)
     requires: list[Annotated[str, Field(pattern=PluginId)]] = Field(
@@ -131,6 +140,7 @@ class ExtensionUsageQuery(PublicModel):
 
 
 class PluginUsage(PublicModel):
+    active_tasks: int = Field(default=0, ge=0)
     captcha_references: int = Field(default=0, ge=0)
     plugin_id: str
     title: str

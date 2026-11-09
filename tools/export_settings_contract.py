@@ -11,9 +11,22 @@ from app.modules.settings.schemas import SettingsContract
 def build_schema() -> dict[str, Any]:
     schema = SettingsContract.model_json_schema()
     schema["$schema"] = "http://json-schema.org/draft-07/schema#"
-    schema["x-everunfold-contract-version"] = "1.17.0"
+    schema["x-everunfold-contract-version"] = "1.18.0"
     schema["x-everunfold-language-regions"] = LANGUAGE_REGIONS
     schema["x-everunfold-operations"] = [
+        {
+            "name": "readRuntime",
+            "path": "/v1/admin/runtime",
+            "method": "GET",
+            "response": "runtime",
+        },
+        {
+            "name": "controlRuntime",
+            "path": "/v1/admin/runtime/control",
+            "method": "POST",
+            "input": "runtime_command",
+            "response": "runtime",
+        },
         {
             "name": "queryExtensionUsage",
             "path": "/v1/admin/extensions/usage",

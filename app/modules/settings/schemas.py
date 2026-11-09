@@ -6,6 +6,7 @@ from uuid import UUID
 
 from pydantic import ConfigDict, Field, field_validator, model_validator
 
+from app.core.jobs.schemas import RuntimeCommand, RuntimeOverview
 from app.core.schemas import PublicModel, PublicResponse
 from app.modules.media.fonts import FontCatalog
 from app.modules.media.schemas import (
@@ -267,6 +268,8 @@ class DeliveryReceipt(SettingsModel):
 
 
 class SettingsContract(PublicModel):
+    runtime: RuntimeOverview
+    runtime_command: RuntimeCommand
     extensions: PublicResponse[ExtensionCatalog]
     extension_usage_query: ExtensionUsageQuery
     extension_usage: PublicResponse[ExtensionUsage]

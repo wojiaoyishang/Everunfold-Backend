@@ -21,6 +21,10 @@ class Plugin:
     version: str = "1.0.0"
     description: str = ""
     author: str = ""
+    homepage: str = ""
+    license: str = ""
+    preview: str = ""
+    readme: str = ""
     api_version: int = 1
     requires: tuple[str, ...] = ()
 
@@ -75,8 +79,12 @@ def define_plugin(
     requires: tuple[str, ...] = (),
     startup: Callable[[PluginRuntime], Awaitable[None]] | None = None,
     shutdown: Callable[[PluginRuntime], Awaitable[None]] | None = None,
+    homepage: str = "",
+    license: str = "",
+    preview: str = "",
+    readme: str = "",
 ) -> Plugin:
-    return _FunctionPlugin(
+    plugin = _FunctionPlugin(
         id=id,
         title=title,
         version=version,
@@ -87,3 +95,11 @@ def define_plugin(
         startup=startup,
         shutdown=shutdown,
     )
+
+    plugin.homepage, plugin.license, plugin.preview, plugin.readme = (
+        homepage,
+        license,
+        preview,
+        readme,
+    )
+    return plugin

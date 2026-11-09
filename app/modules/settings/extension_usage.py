@@ -186,4 +186,14 @@ async def scan_usage(
             counts[owner].published_contents = count
         for owner, count in scheduled.items():
             counts[owner].scheduled_contents = count
+    from app.core.jobs.definitions import definitions as task_definitions
+    from app.core.jobs.models import TaskRun
+
+    owners = {key: owner for key, (owner, _) in task_definitions().items()}
+    for task in await session.scalars(
+        select(TaskRun.task_id).where(TaskRun.status.in_(["queued", "running"]))
+    ):
+        task_owner = owners.get(task)
+        if task_owner is not None and task_owner in counts:
+            counts[task_owner].active_tasks += 1
     return ExtensionUsage(scanned_at=datetime.now(UTC), plugins=list(counts.values()))
