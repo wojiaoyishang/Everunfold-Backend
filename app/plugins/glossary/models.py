@@ -4,6 +4,7 @@ from datetime import datetime
 from uuid import UUID
 
 from sqlalchemy import (
+    Boolean,
     CheckConstraint,
     DateTime,
     ForeignKey,
@@ -39,6 +40,8 @@ class GlossaryTerm(Base):
     body_markdown: Mapped[str] = mapped_column(Text)
     body: Mapped[list[dict[str, object]]] = mapped_column(JSONB, default=list)
     aliases: Mapped[list[str]] = mapped_column(JSONB, default=list)
+    auto_match_title: Mapped[bool] = mapped_column(Boolean, default=True)
+    match_rules: Mapped[list[dict[str, object]] | None] = mapped_column(JSONB, nullable=True)
     status: Mapped[str] = mapped_column(String(16), default="draft")
     revision: Mapped[int] = mapped_column(Integer, default=1)
     created_by: Mapped[UUID] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"))

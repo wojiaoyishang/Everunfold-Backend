@@ -162,6 +162,24 @@
           "title": "Aliases",
           "type": "array"
         },
+        "auto_match_title": {
+          "title": "Auto Match Title",
+          "type": "boolean"
+        },
+        "match_rules": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/GlossaryMatchRule"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Match Rules"
+        },
         "status": {
           "enum": [
             "draft",
@@ -224,6 +242,8 @@
         "title",
         "summary",
         "aliases",
+        "auto_match_title",
+        "match_rules",
         "status",
         "revision",
         "updated_at",
@@ -288,6 +308,27 @@
           "maxItems": 20,
           "title": "Aliases",
           "type": "array"
+        },
+        "auto_match_title": {
+          "default": true,
+          "title": "Auto Match Title",
+          "type": "boolean"
+        },
+        "match_rules": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/GlossaryMatchRule"
+              },
+              "maxItems": 30,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Match Rules"
         },
         "status": {
           "default": "draft",
@@ -376,6 +417,24 @@
           "title": "Aliases",
           "type": "array"
         },
+        "auto_match_title": {
+          "title": "Auto Match Title",
+          "type": "boolean"
+        },
+        "match_rules": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/GlossaryMatchRule"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Match Rules"
+        },
         "status": {
           "enum": [
             "draft",
@@ -414,12 +473,157 @@
         "title",
         "summary",
         "aliases",
+        "auto_match_title",
+        "match_rules",
         "status",
         "revision",
         "updated_at",
         "published_at"
       ],
       "title": "GlossaryListItem",
+      "type": "object"
+    },
+    "GlossaryMatchPreviewInput": {
+      "additionalProperties": false,
+      "properties": {
+        "title": {
+          "default": "",
+          "maxLength": 120,
+          "title": "Title",
+          "type": "string"
+        },
+        "aliases": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 20,
+          "title": "Aliases",
+          "type": "array"
+        },
+        "auto_match_title": {
+          "default": true,
+          "title": "Auto Match Title",
+          "type": "boolean"
+        },
+        "match_rules": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/GlossaryMatchRule"
+              },
+              "maxItems": 30,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Match Rules"
+        },
+        "sample": {
+          "maxLength": 2000,
+          "title": "Sample",
+          "type": "string"
+        }
+      },
+      "required": [
+        "sample"
+      ],
+      "title": "GlossaryMatchPreviewInput",
+      "type": "object"
+    },
+    "GlossaryMatchPreviewOutput": {
+      "additionalProperties": false,
+      "properties": {
+        "hits": {
+          "items": {
+            "$ref": "#/$defs/GlossaryMatchedText"
+          },
+          "title": "Hits",
+          "type": "array"
+        }
+      },
+      "required": [
+        "hits"
+      ],
+      "title": "GlossaryMatchPreviewOutput",
+      "type": "object"
+    },
+    "GlossaryMatchRule": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "default": "literal",
+          "enum": [
+            "literal",
+            "regex"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "pattern": {
+          "maxLength": 160,
+          "minLength": 1,
+          "title": "Pattern",
+          "type": "string"
+        },
+        "enabled": {
+          "default": true,
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "case_sensitive": {
+          "default": false,
+          "title": "Case Sensitive",
+          "type": "boolean"
+        },
+        "whole_word": {
+          "default": true,
+          "title": "Whole Word",
+          "type": "boolean"
+        },
+        "priority": {
+          "default": 0,
+          "maximum": 100,
+          "minimum": 0,
+          "title": "Priority",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "pattern"
+      ],
+      "title": "GlossaryMatchRule",
+      "type": "object"
+    },
+    "GlossaryMatchedText": {
+      "additionalProperties": false,
+      "properties": {
+        "text": {
+          "title": "Text",
+          "type": "string"
+        },
+        "case_sensitive": {
+          "title": "Case Sensitive",
+          "type": "boolean"
+        },
+        "whole_word": {
+          "title": "Whole Word",
+          "type": "boolean"
+        },
+        "priority": {
+          "title": "Priority",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "text",
+        "case_sensitive",
+        "whole_word",
+        "priority"
+      ],
+      "title": "GlossaryMatchedText",
       "type": "object"
     },
     "GlossaryQuery": {
@@ -673,6 +877,13 @@
           },
           "title": "Matched Texts",
           "type": "array"
+        },
+        "matched_patterns": {
+          "items": {
+            "$ref": "#/$defs/GlossaryMatchedText"
+          },
+          "title": "Matched Patterns",
+          "type": "array"
         }
       },
       "required": [
@@ -821,6 +1032,34 @@
       "title": "PublicResponse[GlossaryList]",
       "type": "object"
     },
+    "PublicResponse_GlossaryMatchPreviewOutput_": {
+      "additionalProperties": false,
+      "properties": {
+        "success": {
+          "default": true,
+          "title": "Success",
+          "type": "boolean"
+        },
+        "code": {
+          "default": 200,
+          "title": "Code",
+          "type": "integer"
+        },
+        "msg": {
+          "default": "请求成功",
+          "title": "Msg",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/GlossaryMatchPreviewOutput"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "title": "PublicResponse[GlossaryMatchPreviewOutput]",
+      "type": "object"
+    },
     "PublicResponse_PublicGlossaryDetail_": {
       "additionalProperties": false,
       "properties": {
@@ -889,6 +1128,12 @@
     "content_matches": {
       "$ref": "#/$defs/PublicResponse_ContentGlossaryMatches_"
     },
+    "preview_input": {
+      "$ref": "#/$defs/GlossaryMatchPreviewInput"
+    },
+    "preview_output": {
+      "$ref": "#/$defs/PublicResponse_GlossaryMatchPreviewOutput_"
+    },
     "query": {
       "$ref": "#/$defs/GlossaryQuery"
     },
@@ -909,6 +1154,8 @@
     "public_index",
     "public_detail",
     "content_matches",
+    "preview_input",
+    "preview_output",
     "query",
     "create",
     "update",
@@ -918,7 +1165,7 @@
   "title": "GlossaryContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "2.0.0",
+  "x-everunfold-contract-version": "3.0.0",
   "x-everunfold-operations": [
     {
       "name": "readGlossaryIndex",
@@ -950,6 +1197,13 @@
       "method": "POST",
       "input": "query",
       "response": "list"
+    },
+    {
+      "name": "previewGlossary",
+      "path": "/v1/plugins/everunfold.glossary/admin/preview",
+      "method": "POST",
+      "input": "preview_input",
+      "response": "preview_output"
     },
     {
       "name": "readGlossaryTerm",

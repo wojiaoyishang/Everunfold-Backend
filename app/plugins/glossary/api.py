@@ -11,6 +11,8 @@ from .schemas import (
     GlossaryCreate,
     GlossaryDetail,
     GlossaryList,
+    GlossaryMatchPreviewInput,
+    GlossaryMatchPreviewOutput,
     GlossaryQuery,
     GlossaryUpdate,
     PublicGlossaryDetail,
@@ -20,6 +22,7 @@ from .service import (
     content_matches,
     create_term,
     list_terms,
+    preview_matches,
     public_index,
     public_term,
     read_term,
@@ -60,6 +63,11 @@ async def matches(content_id: UUID, ctx: PluginRequest) -> JSONResponseSuccess:
 @read_admin.post("/admin/query", response_model=PublicResponse[GlossaryList])
 async def query(payload: GlossaryQuery, ctx: PluginRequest) -> JSONResponseSuccess:
     return JSONResponseSuccess(data=await list_terms(ctx.session, payload))
+
+
+@read_admin.post("/admin/preview", response_model=PublicResponse[GlossaryMatchPreviewOutput])
+async def preview(payload: GlossaryMatchPreviewInput, ctx: PluginRequest) -> JSONResponseSuccess:
+    return JSONResponseSuccess(data=preview_matches(payload))
 
 
 @read_admin.get("/admin/terms/{term_id}", response_model=PublicResponse[GlossaryDetail])

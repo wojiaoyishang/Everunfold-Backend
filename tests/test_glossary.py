@@ -9,7 +9,8 @@ import pytest
 from app.core.database import Database
 from app.modules.content.models import Content
 from app.modules.settings.backend_plugins import install_backend_plugins
-from app.plugins.glossary.schemas import GlossaryBlock, GlossaryFields
+from app.plugins.glossary.matching import MatchRule, evaluate_rules
+from app.plugins.glossary.schemas import GlossaryBlock, GlossaryFields, GlossaryMatchRule
 from app.plugins.glossary.service import (
     operation_fingerprint,
     searchable_source,
@@ -50,6 +51,35 @@ def test_glossary_text_matching_ignores_code_links_and_markup() -> None:
         == "*"
     )
     assert operation_fingerprint({"b": 2, "a": 1}) == operation_fingerprint({"a": 1, "b": 2})
+
+
+def test_regex_glossary_rules_are_bounded_and_preserve_match_options() -> None:
+    sample = "人工智能技术与 AI 系统；可读性不是 ai 化。"
+    regex = GlossaryMatchRule(kind="regex", pattern="(?:AI|人工智能)(?:技术|系统)?")
+    hits = evaluate_rules(sample, [MatchRule(**regex.model_dump())])
+    assert {hit.text for hit in hits} == {"人工智能技术", "AI"}
+    assert all(hit.whole_word for hit in hits)
+    sensitive = evaluate_rules(
+        sample,
+        [MatchRule(kind="literal", pattern="AI", case_sensitive=True)],
+    )
+    assert [hit.text for hit in sensitive] == ["AI"]
+    for expression in (r"(a+)+", r"\w+", "^", r"(.)\1", r"(?=AI)AI"):
+        with pytest.raises(ValueError):
+            GlossaryMatchRule(kind="regex", pattern=expression)
+    # A disabled explicit set must not silently re-enable legacy aliases.
+    fields = GlossaryFields(
+        slug="configurable",
+        title="标题",
+        summary="说明",
+        body=[GlossaryBlock(id=uuid4(), content="")],
+        aliases=["旧别名"],
+        auto_match_title=False,
+        match_rules=[],
+    )
+    from app.plugins.glossary.service import term_targets
+
+    assert term_targets(fields) == []
 
 
 def test_glossary_admin_and_article_scoped_public_matching(

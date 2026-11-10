@@ -10,7 +10,7 @@ from app.plugins.glossary.schemas import GlossaryContract
 def build_schema() -> dict[str, Any]:
     schema = GlossaryContract.model_json_schema()
     schema["$schema"] = "http://json-schema.org/draft-07/schema#"
-    schema["x-everunfold-contract-version"] = "2.0.0"
+    schema["x-everunfold-contract-version"] = "3.0.0"
     schema["x-everunfold-operations"] = [
         {
             "name": "readGlossaryIndex",
@@ -42,6 +42,13 @@ def build_schema() -> dict[str, Any]:
             "method": "POST",
             "input": "query",
             "response": "list",
+        },
+        {
+            "name": "previewGlossary",
+            "path": "/v1/plugins/everunfold.glossary/admin/preview",
+            "method": "POST",
+            "input": "preview_input",
+            "response": "preview_output",
         },
         {
             "name": "readGlossaryTerm",

@@ -10,6 +10,8 @@ from app.core.schemas import PublicModel, PublicResponse
 from app.modules.content.schemas import MediaURL
 from app.modules.settings.languages import LanguageCode
 
+from .matching import validate_regex
+
 GlossaryStatus = Literal["draft", "published", "archived"]
 GlossaryLanguage = Literal["*"] | LanguageCode
 
@@ -20,6 +22,42 @@ class GlossaryBlock(PublicModel):
     content: str = Field(max_length=100_000)
 
 
+class GlossaryMatchRule(PublicModel):
+    kind: Literal["literal", "regex"] = "literal"
+    pattern: str = Field(min_length=1, max_length=160)
+    enabled: bool = True
+    case_sensitive: bool = False
+    whole_word: bool = True
+    priority: int = Field(default=0, ge=0, le=100)
+
+    @model_validator(mode="after")
+    def validate_pattern(self) -> Self:
+        if not self.pattern.strip():
+            raise ValueError("匹配文字不能为空")
+        if self.kind == "regex":
+            validate_regex(self.pattern)
+        return self
+
+
+class GlossaryMatchedText(PublicModel):
+    text: str
+    case_sensitive: bool
+    whole_word: bool
+    priority: int
+
+
+class GlossaryMatchPreviewInput(PublicModel):
+    title: str = Field(default="", max_length=120)
+    aliases: list[str] = Field(default_factory=list, max_length=20)
+    auto_match_title: bool = True
+    match_rules: list[GlossaryMatchRule] | None = Field(default=None, max_length=30)
+    sample: str = Field(max_length=2000)
+
+
+class GlossaryMatchPreviewOutput(PublicModel):
+    hits: list[GlossaryMatchedText]
+
+
 class GlossaryFields(PublicModel):
     language: GlossaryLanguage = "*"
     slug: str = Field(min_length=1, max_length=120)
@@ -27,6 +65,8 @@ class GlossaryFields(PublicModel):
     summary: str = Field(min_length=1, max_length=500)
     body: list[GlossaryBlock] = Field(min_length=1, max_length=128)
     aliases: list[str] = Field(default_factory=list, max_length=20)
+    auto_match_title: bool = True
+    match_rules: list[GlossaryMatchRule] | None = Field(default=None, max_length=30)
     status: GlossaryStatus = "draft"
 
     @field_validator("slug")
@@ -92,6 +132,8 @@ class GlossaryListItem(PublicModel):
     title: str
     summary: str
     aliases: list[str]
+    auto_match_title: bool
+    match_rules: list[GlossaryMatchRule] | None
     status: GlossaryStatus
     revision: int
     updated_at: datetime
@@ -144,6 +186,7 @@ class PublicGlossaryMatch(PublicGlossaryTerm):
     body: list[GlossaryBlock]
     media_urls: dict[str, MediaURL] = Field(default_factory=dict)
     matched_texts: list[str]
+    matched_patterns: list[GlossaryMatchedText] = Field(default_factory=list)
 
 
 class ContentGlossaryMatches(PublicModel):
@@ -156,6 +199,8 @@ class GlossaryContract(PublicModel):
     public_index: PublicResponse[PublicGlossaryIndex]
     public_detail: PublicResponse[PublicGlossaryDetail]
     content_matches: PublicResponse[ContentGlossaryMatches]
+    preview_input: GlossaryMatchPreviewInput
+    preview_output: PublicResponse[GlossaryMatchPreviewOutput]
     query: GlossaryQuery
     create: GlossaryCreate
     update: GlossaryUpdate

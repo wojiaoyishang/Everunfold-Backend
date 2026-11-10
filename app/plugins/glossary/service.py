@@ -21,6 +21,7 @@ from app.modules.content.editor_service import editor_media
 from app.modules.content.models import Content
 from app.modules.content.schemas import MediaURL
 
+from .matching import MatchRule, evaluate_rules
 from .models import GlossaryOperation, GlossaryTerm
 from .schemas import (
     ContentGlossaryMatches,
@@ -30,6 +31,10 @@ from .schemas import (
     GlossaryFields,
     GlossaryList,
     GlossaryListItem,
+    GlossaryMatchedText,
+    GlossaryMatchPreviewInput,
+    GlossaryMatchPreviewOutput,
+    GlossaryMatchRule,
     GlossaryQuery,
     GlossaryStatus,
     GlossaryUpdate,
@@ -45,11 +50,66 @@ def alias_key(value: str) -> str:
 
 
 def term_targets(fields: GlossaryFields) -> list[str]:
-    values = [fields.title, *fields.aliases]
+    values = [fields.title] if fields.auto_match_title else []
+    if fields.match_rules is None:
+        values.extend(fields.aliases)
+    else:
+        values.extend(
+            rule.pattern for rule in fields.match_rules if rule.enabled and rule.kind == "literal"
+        )
     unique: dict[str, str] = {}
     for value in values:
         unique.setdefault(alias_key(value), value)
     return list(unique.values())
+
+
+def configured_rules(
+    title: str,
+    aliases: list[str],
+    auto_match_title: bool,
+    match_rules: list[GlossaryMatchRule] | None,
+) -> list[MatchRule]:
+    rules = (
+        [MatchRule(kind="literal", pattern=title, whole_word=True, priority=50)]
+        if auto_match_title and title
+        else []
+    )
+    if match_rules is None:
+        rules.extend(MatchRule(kind="literal", pattern=alias) for alias in aliases)
+    else:
+        rules.extend(
+            MatchRule(
+                kind=entry.kind,
+                pattern=entry.pattern,
+                enabled=entry.enabled,
+                case_sensitive=entry.case_sensitive,
+                whole_word=entry.whole_word,
+                priority=entry.priority,
+            )
+            for entry in match_rules
+        )
+    return rules
+
+
+def preview_matches(payload: GlossaryMatchPreviewInput) -> GlossaryMatchPreviewOutput:
+    rules = configured_rules(
+        payload.title,
+        payload.aliases,
+        payload.auto_match_title,
+        payload.match_rules,
+    )
+    hits = evaluate_rules(unicodedata.normalize("NFKC", payload.sample), rules)
+    return GlossaryMatchPreviewOutput(
+        hits=[
+            GlossaryMatchedText(
+                text=hit.text,
+                case_sensitive=hit.case_sensitive,
+                whole_word=hit.whole_word,
+                priority=hit.priority,
+            )
+            for hit in hits
+        ]
+    )
 
 
 def operation_fingerprint(value: object) -> str:
@@ -86,6 +146,10 @@ async def detail(
         title=row.title,
         summary=row.summary,
         aliases=row.aliases,
+        auto_match_title=row.auto_match_title,
+        match_rules=[GlossaryMatchRule.model_validate(rule) for rule in row.match_rules]
+        if row.match_rules is not None
+        else None,
         status=cast(GlossaryStatus, row.status),
         revision=row.revision,
         updated_at=row.updated_at,
@@ -144,6 +208,8 @@ async def validate_targets(
                         "summary": row.summary,
                         "body": row.body,
                         "aliases": row.aliases,
+                        "auto_match_title": row.auto_match_title,
+                        "match_rules": row.match_rules,
                         "status": row.status,
                     }
                 )
@@ -195,6 +261,10 @@ async def create_term(
         body_markdown="",
         body=body,
         aliases=payload.fields.aliases,
+        auto_match_title=payload.fields.auto_match_title,
+        match_rules=[rule.model_dump(mode="json") for rule in payload.fields.match_rules]
+        if payload.fields.match_rules is not None
+        else None,
         status=payload.fields.status,
         revision=1,
         created_by=actor.id,
@@ -256,6 +326,12 @@ async def update_term(
     row.body_markdown = ""
     row.body = body
     row.aliases = payload.fields.aliases
+    row.auto_match_title = payload.fields.auto_match_title
+    row.match_rules = (
+        [rule.model_dump(mode="json") for rule in payload.fields.match_rules]
+        if payload.fields.match_rules is not None
+        else None
+    )
     row.status = payload.fields.status
     row.revision += 1
     row.updated_by = actor.id
@@ -314,6 +390,10 @@ async def list_terms(session: AsyncSession, query: GlossaryQuery) -> GlossaryLis
                 title=row.title,
                 summary=row.summary,
                 aliases=row.aliases,
+                auto_match_title=row.auto_match_title,
+                match_rules=[GlossaryMatchRule.model_validate(rule) for rule in row.match_rules]
+                if row.match_rules is not None
+                else None,
                 status=cast(GlossaryStatus, row.status),
                 revision=row.revision,
                 updated_at=row.updated_at,
@@ -398,11 +478,12 @@ def searchable_source(blocks: list[dict[str, object]]) -> str:
         source = MARKDOWN_LINK.sub(" ", source)
         source = HTML_TAG.sub(" ", source)
         pieces.append(html.unescape(source))
-    return unicodedata.normalize("NFKC", "\n".join(pieces)).casefold()
+    return unicodedata.normalize("NFKC", "\n".join(pieces))
 
 
 def target_in_source(source: str, value: str) -> bool:
     """Match prose without treating an ASCII term as part of a larger word."""
+    source = source.casefold()
     needle = unicodedata.normalize("NFKC", value).casefold()
     offset = 0
     while offset < len(source):
@@ -452,7 +533,15 @@ async def content_matches(
     matches: list[PublicGlossaryMatch] = []
     latest = datetime(1970, 1, 1, tzinfo=UTC)
     for row in rows:
-        visible = {value for value in [row.title, *row.aliases] if target_in_source(source, value)}
+        rules = configured_rules(
+            row.title,
+            row.aliases,
+            row.auto_match_title,
+            [GlossaryMatchRule.model_validate(raw) for raw in row.match_rules]
+            if row.match_rules is not None
+            else None,
+        )
+        visible = evaluate_rules(source, rules)
         if not visible:
             continue
         item = public_item(row)
@@ -462,7 +551,16 @@ async def content_matches(
                 **item.model_dump(),
                 body=[GlossaryBlock.model_validate(block) for block in row.body],
                 media_urls=media,
-                matched_texts=sorted(visible, key=lambda value: (-len(value), value)),
+                matched_texts=[hit.text for hit in visible],
+                matched_patterns=[
+                    GlossaryMatchedText(
+                        text=hit.text,
+                        case_sensitive=hit.case_sensitive,
+                        whole_word=hit.whole_word,
+                        priority=hit.priority,
+                    )
+                    for hit in visible
+                ],
             )
         )
         latest = max(latest, row.updated_at)
