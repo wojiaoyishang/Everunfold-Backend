@@ -1,5 +1,12 @@
 # 后端交接状态
 
+## 最新修复：术语保存、默认提示与匹配预览（2026-11-10）
+
+- 术语摘要现在可留空，后端会将空白摘要规范化为 `""`；必填项仅标题与路径片段。站点 `GlossaryPreferences.popup_source` 默认改为 `content`，设置契约升级到 1.26.0。
+- 隔离 PostgreSQL 写入测试复现并定位了旧规则配置保存失败：SQLAlchemy 默认将 Python `None` 写为 JSONB `null`，与迁移 0038 的 `match_rules IS NULL OR jsonb_typeof(match_rules) = 'array'` 约束冲突。改为 `JSONB(none_as_null=True)` 后，旧词条的 SQL NULL 能正确读写。
+- 术语契约升级到 3.1.0，插件版本 1.2.0。新增测试覆盖空摘要、默认标题匹配、正文预览、创建/更新/冲突/归档及文章级命中。
+- `RUN_DATABASE_TESTS=1 .venv/bin/python -m pytest tests/test_glossary.py -q` 使用临时隔离数据库并自动清理，结果 3 passed。未迁移当前开发/正式数据库、未改动真实词条。当前运行 API 的 readiness 仍显示 schema 0038 未应用，故该环境暂不能完成真实保存。
+
 ## 最新改造：术语规则、表格与两级弹层（2026-11-10）
 
 - 后端首阶段本地提交 `2c5a163`：术语新增 `auto_match_title`、`match_rules` 及 0038 显式迁移；契约 `glossary-v1 3.0.0`，增加 `matched_patterns` 和授权 `POST /admin/preview`。后端保留 `match_rules=NULL` 的旧标题+别名兼容模式，空数组则表示主动取消额外规则；仍只响应当前公开文章实际命中的词条，绝不打包全站词典。

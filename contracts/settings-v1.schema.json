@@ -824,7 +824,7 @@
           "type": "integer"
         },
         "popup_source": {
-          "default": "summary",
+          "default": "content",
           "enum": [
             "summary",
             "content"
@@ -4796,7 +4796,7 @@
   "title": "SettingsContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "1.25.0",
+  "x-everunfold-contract-version": "1.26.0",
   "x-everunfold-language-regions": {
     "zh": "CN",
     "en": "GB",

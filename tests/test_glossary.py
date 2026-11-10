@@ -9,6 +9,7 @@ import pytest
 from app.core.database import Database
 from app.modules.content.models import Content
 from app.modules.settings.backend_plugins import install_backend_plugins
+from app.modules.settings.schemas import GlossaryPreferences
 from app.plugins.glossary.matching import MatchRule, evaluate_rules
 from app.plugins.glossary.schemas import (
     GlossaryBlock,
@@ -57,6 +58,13 @@ def test_glossary_text_matching_ignores_code_links_and_markup() -> None:
         == "*"
     )
     assert operation_fingerprint({"b": 2, "a": 1}) == operation_fingerprint({"a": 1, "b": 2})
+    assert GlossaryPreferences().popup_source == "content"
+    optional_summary = GlossaryFields(
+        slug="body-only",
+        title="正文即提示",
+        body=[GlossaryBlock(id=uuid4(), content="正文说明。")],
+    )
+    assert optional_summary.summary == ""
 
 
 def test_regex_glossary_rules_are_bounded_and_preserve_match_options() -> None:
@@ -95,6 +103,13 @@ def test_regex_glossary_rules_are_bounded_and_preserve_match_options() -> None:
         )
     )
     assert {item.text for item in preview.hits} == {"人工智能", "人工智能技术", "AI系统"}
+    title_preview = preview_matches(
+        GlossaryMatchPreviewInput(
+            title="默认匹配标题",
+            sample="这是默认匹配标题的测试。",
+        )
+    )
+    assert [item.text for item in title_preview.hits] == ["默认匹配标题"]
 
 
 def test_glossary_admin_and_article_scoped_public_matching(
@@ -162,7 +177,7 @@ def test_glossary_admin_and_article_scoped_public_matching(
                 "language": "*",
                 "slug": "jin-ling",
                 "title": "金灵",
-                "summary": "一位喜欢看云的旧同学。",
+                "summary": "",
                 "body": [
                     {
                         "id": str(uuid4()),
@@ -182,6 +197,16 @@ def test_glossary_admin_and_article_scoped_public_matching(
     )
     assert create.status_code == 200, create.text
     term_id = create.json()["data"]["id"]
+    preview = ctx.root.post(
+        base + "/admin/preview",
+        headers=headers(ctx.root),
+        json={
+            "title": "金灵",
+            "sample": "这段正文提到了金灵，默认标题规则应该命中。",
+        },
+    )
+    assert preview.status_code == 200, preview.text
+    assert [hit["text"] for hit in preview.json()["data"]["hits"]] == ["金灵"]
     conflict = ctx.root.post(
         base + "/admin/terms",
         headers=headers(ctx.root),

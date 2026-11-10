@@ -62,7 +62,7 @@ class GlossaryFields(PublicModel):
     language: GlossaryLanguage = "*"
     slug: str = Field(min_length=1, max_length=120)
     title: str = Field(min_length=1, max_length=120)
-    summary: str = Field(min_length=1, max_length=500)
+    summary: str = Field(default="", max_length=500)
     body: list[GlossaryBlock] = Field(min_length=1, max_length=128)
     aliases: list[str] = Field(default_factory=list, max_length=20)
     auto_match_title: bool = True
@@ -81,13 +81,18 @@ class GlossaryFields(PublicModel):
             raise ValueError("slug 只能包含非空路径片段")
         return value
 
-    @field_validator("title", "summary")
+    @field_validator("title")
     @classmethod
     def trimmed(cls, value: str) -> str:
         value = value.strip()
         if not value:
             raise ValueError("不能为空")
         return value
+
+    @field_validator("summary")
+    @classmethod
+    def optional_summary(cls, value: str) -> str:
+        return value.strip()
 
     @field_validator("aliases")
     @classmethod

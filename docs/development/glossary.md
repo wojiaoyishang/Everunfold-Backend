@@ -1,6 +1,6 @@
 # 术语表与文章按需 Tooltip
 
-版本：glossary-runtime-4，2026-11-10。实现决定见 [ADR0099](../decisions/0099-article-scoped-glossary-tooltips.md) 与 [ADR0101](../decisions/0101-glossary-rules-and-reader-ui.md)。当前功能属于后端插件 `everunfold.glossary`，文章和正文快照不做术语迁移。
+版本：glossary-runtime-5，2026-11-10。实现决定见 [ADR0099](../decisions/0099-article-scoped-glossary-tooltips.md) 与 [ADR0101](../decisions/0101-glossary-rules-and-reader-ui.md)。当前功能属于后端插件 `everunfold.glossary`，文章和正文快照不做术语迁移。
 
 ## 管理入口
 
@@ -8,12 +8,13 @@
 
 - 旧词条默认继续以标题和别名匹配；新词条可独立关闭标题匹配，并配置普通文本或受限正则、逐条启停、区分大小写、ASCII 单词边界和 0~100 优先级。同一语言内的活跃普通文字不能与其他非归档词条重复；正则交集在运行时按优先级处理。
 - 旧记录的 `match_rules=null` 表示兼容匹配标题和别名；明确保存的空规则列表不再额外匹配别名。普通规则会作为目录展示别名，正则表达式不会公开；后台「匹配测试」通过后端 `POST /admin/preview` 仅验证不保存。
-- 简短提示用于默认 Tooltip；完整正文与文章相同，是带稳定块 ID 的安全 Markdown/HTML 区块列表，用于详情页或选择“完整词条说明”时。
+- 默认 Tooltip 来源为完整术语正文，正文使用与文章相同的安全 Markdown/HTML 区块列表；简短提示摘要可留空，仅在站点提示来源显式设为“简短提示”时使用。
+- 新词条默认启用“术语标题本身”匹配规则；标题变更会同步更新该规则。标题和路径片段是必填项，摘要、正文、别名与补充匹配规则均可留空。
 - 草稿不进入公开目录和文章匹配；发布后进入；归档后保留记录但不再公开。
 - 保存使用 `operation_id` 幂等和 `expected_revision` 冲突保护。冲突时保留当前输入，刷新词条后再合并。
 - 公开路径为 `/glossary/{slug}`。路径是稳定公开标识，修改已有词条的 slug 会改变旧链接。
 
-后台采用与其他系统设置一致的布局：页面接入 `admin-settings-page`，编辑区用 `SettingsSection` / `SettingsText` / `admin-settings-field`，目录与状态使用共享的后台按钮、搜索、徽标和空状态。术语正文复用文章 `EditorBody`、`BlockComposer`、`DraftPreview`、格式/代码/公式/媒体工具和统一上传队列；默认弹层使用简短提示，完整正文在详情页或选择“完整词条说明”时使用。术语页面不应重新用裸标签和浏览器默认控件拼装表单。
+后台采用与其他系统设置一致的布局：页面接入 `admin-settings-page`，编辑区用 `SettingsSection` / `SettingsText` / `admin-settings-field`，目录与状态使用共享的后台按钮、搜索、徽标和空状态。术语正文复用文章 `EditorBody`、`BlockComposer`、`DraftPreview`、格式/代码/公式/媒体工具和统一上传队列；正文预览按钮位于正文编辑器工具栏。默认 Tooltip 直接渲染正文，简短摘要可选；必要字段以星号标记。术语页面不应重新用裸标签和浏览器默认控件拼装表单。
 
 ## 后端匹配与缓存边界
 
