@@ -1,6 +1,6 @@
 # 术语表与文章按需 Tooltip
 
-版本：glossary-runtime-5，2026-11-10。实现决定见 [ADR0099](../decisions/0099-article-scoped-glossary-tooltips.md) 与 [ADR0101](../decisions/0101-glossary-rules-and-reader-ui.md)。当前功能属于后端插件 `everunfold.glossary`，文章和正文快照不做术语迁移。
+版本：glossary-runtime-6，2026-11-10。实现决定见 [ADR0099](../decisions/0099-article-scoped-glossary-tooltips.md) 与 [ADR0101](../decisions/0101-glossary-rules-and-reader-ui.md)。当前功能属于后端插件 `everunfold.glossary`，文章和正文快照不做术语迁移。
 
 ## 管理入口
 
@@ -14,7 +14,7 @@
 - 保存使用 `operation_id` 幂等和 `expected_revision` 冲突保护。冲突时保留当前输入，刷新词条后再合并。
 - 公开路径为 `/glossary/{slug}`。路径是稳定公开标识，修改已有词条的 slug 会改变旧链接。
 
-后台采用与其他系统设置一致的布局：页面接入 `admin-settings-page`，编辑区用 `SettingsSection` / `SettingsText` / `admin-settings-field`，目录与状态使用共享的后台按钮、搜索、徽标和空状态。术语正文复用文章 `EditorBody`、`BlockComposer`、`DraftPreview`、格式/代码/公式/媒体工具和统一上传队列；正文预览按钮位于正文编辑器工具栏。默认 Tooltip 直接渲染正文，简短摘要可选；必要字段以星号标记。术语页面不应重新用裸标签和浏览器默认控件拼装表单。
+后台采用与其他系统设置一致的布局：页面接入 `admin-settings-page`，编辑区用 `SettingsSection` / `SettingsText` / `admin-settings-field`，目录与状态使用共享的后台按钮、搜索、徽标和空状态。术语正文复用文章 `EditorBody`、`BlockComposer`、`DraftPreview`、格式/代码/公式/媒体工具和统一上传队列；正文预览按钮通过 `SettingsSection` 的头部操作位放在“术语正文”标题右侧。默认 Tooltip 直接渲染正文，简短摘要可选；必要字段由原生 `required` 和共享 CSS 显示单个星号，页面组件不再重复添加。术语页面不应重新用裸标签和浏览器默认控件拼装表单。
 
 ## 后端匹配与缓存边界
 
@@ -40,7 +40,7 @@ GET /v1/plugins/everunfold.glossary/for-content/{content_id}
 - 同起点先比较规则优先级、再比较文字长度，区间不重叠；完整英文单词匹配会检查 ASCII 边界。
 - 链接、按钮、代码、公式、脚本、隐藏文本和已有提示节点不装饰。
 - Tooltip 支持点击/触屏打开、Enter/空格、Escape 关闭并回到触发词；悬停离开有短暂延迟，便于进入弹层。
-- 首级 Tooltip 始终显示简短摘要；设置 `popup_source=content` 且存在非空正文时提供「完整说明」，打开原生 dialog 并复用共享富文本渲染，保留代码、公式、媒体、HTML 和已应用短代码。设置 `summary` 时仅提供摘要与详情页链接。
+- 设置 `popup_source=content` 且正文非空时，首级 Tooltip 直接显示正文，并可打开原生 dialog「放大阅读」；正文为空时回退简短摘要。设置 `popup_source=summary` 时仅显示摘要。摘要与正文都为空时不生成空段落，仍保留词条入口。
 - 完整弹层桌面宽度最多 700px、手机使用底部阅读容器，内部独立滚动，退出动画后关闭；桌面/触屏、Tab/Escape 和焦点恢复须做实页验收。
 - 主题共享 `.article-content` 表格样式覆盖文章、说说、术语详情、完整弹层及统一草稿预览。表格默认铺满阅读容器，宽表在局部可聚焦滚动区域内滚动；管理数据列表不继承文章排版。
 
