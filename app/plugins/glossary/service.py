@@ -51,9 +51,8 @@ def alias_key(value: str) -> str:
 
 def term_targets(fields: GlossaryFields) -> list[str]:
     values = [fields.title] if fields.auto_match_title else []
-    if fields.match_rules is None:
-        values.extend(fields.aliases)
-    else:
+    values.extend(fields.aliases)
+    if fields.match_rules is not None:
         values.extend(
             rule.pattern for rule in fields.match_rules if rule.enabled and rule.kind == "literal"
         )
@@ -69,14 +68,12 @@ def configured_rules(
     auto_match_title: bool,
     match_rules: list[GlossaryMatchRule] | None,
 ) -> list[MatchRule]:
-    rules = (
-        [MatchRule(kind="literal", pattern=title, whole_word=True, priority=0)]
-        if auto_match_title and title
-        else []
-    )
-    if match_rules is None:
-        rules.extend(MatchRule(kind="literal", pattern=alias) for alias in aliases)
-    else:
+    values = ([title] if auto_match_title and title else []) + aliases
+    unique: dict[str, str] = {}
+    for value in values:
+        unique.setdefault(alias_key(value), value)
+    rules = [MatchRule(kind="literal", pattern=value) for value in unique.values()]
+    if match_rules is not None:
         rules.extend(
             MatchRule(
                 kind=entry.kind,

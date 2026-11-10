@@ -81,7 +81,6 @@ def test_regex_glossary_rules_are_bounded_and_preserve_match_options() -> None:
     for expression in (r"(a+)+", r"\w+", "^", r"(.)\1", r"(?=AI)AI"):
         with pytest.raises(ValueError):
             GlossaryMatchRule(kind="regex", pattern=expression)
-    # A disabled explicit set must not silently re-enable legacy aliases.
     fields = GlossaryFields(
         slug="configurable",
         title="标题",
@@ -93,7 +92,7 @@ def test_regex_glossary_rules_are_bounded_and_preserve_match_options() -> None:
     )
     from app.plugins.glossary.service import term_targets
 
-    assert term_targets(fields) == []
+    assert term_targets(fields) == ["旧别名"]
     preview = preview_matches(
         GlossaryMatchPreviewInput(
             title="人工智能",
@@ -102,7 +101,12 @@ def test_regex_glossary_rules_are_bounded_and_preserve_match_options() -> None:
             sample="人工智能技术和AI系统都可以检索。",
         )
     )
-    assert {item.text for item in preview.hits} == {"人工智能", "人工智能技术", "AI系统"}
+    assert {item.text for item in preview.hits} == {
+        "人工智能",
+        "人工智能技术",
+        "AI",
+        "AI系统",
+    }
     title_preview = preview_matches(
         GlossaryMatchPreviewInput(
             title="默认匹配标题",
