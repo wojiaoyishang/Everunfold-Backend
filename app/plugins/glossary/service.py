@@ -40,6 +40,7 @@ from .schemas import (
     GlossaryHookFields,
     GlossaryHookItem,
     GlossaryHookList,
+    GlossaryHookMode,
     GlossaryHookQuery,
     GlossaryHookScope,
     GlossaryHookStatus,
@@ -625,7 +626,9 @@ async def admin_hook_item(
     return GlossaryHookItem(
         id=hook.id,
         term=public_item(term),
+        mode=cast(GlossaryHookMode, hook.mode),
         selector=hook.selector,
+        script=hook.script,
         scope=cast(GlossaryHookScope, hook.scope),
         targets=[GlossaryHookTarget.model_validate(value) for value in hook.targets],
         enabled=hook.enabled,
@@ -680,12 +683,16 @@ async def create_hook(
     term = await session.get(GlossaryTerm, payload.term_id)
     if term is None:
         raise AuthFailure(404, 40436, "术语不存在")
+    if payload.fields.mode == "script" and actor.role != "admin":
+        raise AuthFailure(403, 40339, "只有管理员可以创建 JavaScript 页面触发")
     await validate_hook_targets(session, payload.fields)
     now = datetime.now(UTC)
     hook = GlossaryHook(
         id=payload.hook_id,
         term_id=payload.term_id,
+        mode=payload.fields.mode,
         selector=payload.fields.selector,
+        script=payload.fields.script,
         scope=payload.fields.scope,
         targets=[target.model_dump(mode="json") for target in payload.fields.targets],
         enabled=payload.fields.enabled,
@@ -741,10 +748,14 @@ async def update_hook(
     term = await session.get(GlossaryTerm, payload.term_id)
     if term is None:
         raise AuthFailure(404, 40436, "术语不存在")
+    if payload.fields.mode == "script" and actor.role != "admin":
+        raise AuthFailure(403, 40339, "只有管理员可以修改 JavaScript 页面触发")
     await validate_hook_targets(session, payload.fields)
     now = datetime.now(UTC)
     hook.term_id = payload.term_id
+    hook.mode = payload.fields.mode
     hook.selector = payload.fields.selector
+    hook.script = payload.fields.script
     hook.scope = payload.fields.scope
     hook.targets = [target.model_dump(mode="json") for target in payload.fields.targets]
     hook.enabled = payload.fields.enabled
@@ -930,7 +941,9 @@ async def public_hooks(
         hooks.append(
             PublicGlossaryHook(
                 id=row.GlossaryHook.id,
+                mode=cast(GlossaryHookMode, row.GlossaryHook.mode),
                 selector=row.GlossaryHook.selector,
+                script=row.GlossaryHook.script,
                 scope=cast(GlossaryHookScope, row.GlossaryHook.scope),
                 priority=row.GlossaryHook.priority,
                 term=term,

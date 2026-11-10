@@ -154,9 +154,18 @@ def test_cross_page_hook_selectors_and_targets_are_bounded() -> None:
     )
     assert fields.targets[0].id == target
     assert GlossaryHookFields(selector="#avatar").targets == []
+    script_hook = GlossaryHookFields(
+        mode="script",
+        selector="",
+        script='glossary.mount(document.querySelector("#avatar"));',
+    )
+    assert script_hook.mode == "script"
+    assert "#avatar" in script_hook.script
     for selector in ("*", "body", "#avatar::before", "a{color:red}", ""):
         with pytest.raises(ValueError):
             GlossaryHookFields(selector=selector)
+    with pytest.raises(ValueError):
+        GlossaryHookFields(mode="script", selector="", script=" ")
     with pytest.raises(ValueError):
         GlossaryHookFields(selector="#avatar", scope="content")
     with pytest.raises(ValueError):

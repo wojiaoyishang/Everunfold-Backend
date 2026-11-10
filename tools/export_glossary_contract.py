@@ -10,7 +10,7 @@ from app.plugins.glossary.schemas import GlossaryContract
 def build_schema() -> dict[str, Any]:
     schema = GlossaryContract.model_json_schema()
     schema["$schema"] = "http://json-schema.org/draft-07/schema#"
-    schema["x-everunfold-contract-version"] = "3.3.0"
+    schema["x-everunfold-contract-version"] = "3.4.0"
     schema["x-everunfold-operations"] = [
         {
             "name": "readGlossaryIndex",

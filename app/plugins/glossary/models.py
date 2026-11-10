@@ -82,6 +82,10 @@ class GlossaryHook(Base):
             name="ck_glossary_hooks_scope",
         ),
         CheckConstraint(
+            "mode IN ('selector', 'script')",
+            name="ck_glossary_hooks_mode",
+        ),
+        CheckConstraint(
             "status IN ('active', 'archived')",
             name="ck_glossary_hooks_status",
         ),
@@ -102,7 +106,9 @@ class GlossaryHook(Base):
         ForeignKey("glossary_terms.id", ondelete="RESTRICT"),
         nullable=False,
     )
+    mode: Mapped[str] = mapped_column(String(16), default="selector")
     selector: Mapped[str] = mapped_column(String(256))
+    script: Mapped[str] = mapped_column(Text, default="")
     scope: Mapped[str] = mapped_column(String(16))
     targets: Mapped[list[dict[str, object]]] = mapped_column(JSONB, default=list)
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)

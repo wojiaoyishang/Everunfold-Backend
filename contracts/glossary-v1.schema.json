@@ -404,10 +404,25 @@
     "GlossaryHookFields": {
       "additionalProperties": false,
       "properties": {
+        "mode": {
+          "default": "selector",
+          "enum": [
+            "selector",
+            "script"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
         "selector": {
+          "default": "",
           "maxLength": 256,
-          "minLength": 2,
           "title": "Selector",
+          "type": "string"
+        },
+        "script": {
+          "default": "",
+          "maxLength": 20000,
+          "title": "Script",
           "type": "string"
         },
         "scope": {
@@ -440,9 +455,6 @@
           "type": "integer"
         }
       },
-      "required": [
-        "selector"
-      ],
       "title": "GlossaryHookFields",
       "type": "object"
     },
@@ -457,8 +469,20 @@
         "term": {
           "$ref": "#/$defs/PublicGlossaryTerm"
         },
+        "mode": {
+          "enum": [
+            "selector",
+            "script"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
         "selector": {
           "title": "Selector",
+          "type": "string"
+        },
+        "script": {
+          "title": "Script",
           "type": "string"
         },
         "scope": {
@@ -505,7 +529,9 @@
       "required": [
         "id",
         "term",
+        "mode",
         "selector",
+        "script",
         "scope",
         "targets",
         "enabled",
@@ -1116,8 +1142,20 @@
           "title": "Id",
           "type": "string"
         },
+        "mode": {
+          "enum": [
+            "selector",
+            "script"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
         "selector": {
           "title": "Selector",
+          "type": "string"
+        },
+        "script": {
+          "title": "Script",
           "type": "string"
         },
         "scope": {
@@ -1138,7 +1176,9 @@
       },
       "required": [
         "id",
+        "mode",
         "selector",
+        "script",
         "scope",
         "priority",
         "term"
@@ -1645,7 +1685,7 @@
   "title": "GlossaryContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "3.3.0",
+  "x-everunfold-contract-version": "3.4.0",
   "x-everunfold-operations": [
     {
       "name": "readGlossaryIndex",

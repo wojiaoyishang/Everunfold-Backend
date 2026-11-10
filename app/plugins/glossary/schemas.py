@@ -18,6 +18,7 @@ GlossaryLanguage = Literal["*"] | LanguageCode
 GlossaryHookScope = Literal["all", "content"]
 GlossaryHookTargetKind = Literal["article", "shuoshuo", "page"]
 GlossaryHookStatus = Literal["active", "archived"]
+GlossaryHookMode = Literal["selector", "script"]
 
 
 class GlossaryBlock(PublicModel):
@@ -227,7 +228,9 @@ def validate_css_selector(value: str) -> str:
 
 
 class GlossaryHookFields(PublicModel):
-    selector: str = Field(min_length=2, max_length=256)
+    mode: GlossaryHookMode = "selector"
+    selector: str = Field(default="", max_length=256)
+    script: str = Field(default="", max_length=20000)
     scope: GlossaryHookScope = "all"
     targets: list[GlossaryHookTarget] = Field(default_factory=list, max_length=32)
     enabled: bool = True
@@ -236,7 +239,14 @@ class GlossaryHookFields(PublicModel):
     @field_validator("selector")
     @classmethod
     def valid_selector(cls, value: str) -> str:
-        return validate_css_selector(value)
+        return validate_css_selector(value) if value.strip() else ""
+
+    @field_validator("script")
+    @classmethod
+    def safe_script(cls, value: str) -> str:
+        if "\x00" in value or "\r" in value:
+            raise ValueError("脚本包含不支持的字符")
+        return value
 
     @model_validator(mode="after")
     def valid_targets(self) -> Self:
@@ -247,6 +257,10 @@ class GlossaryHookFields(PublicModel):
             raise ValueError("所有页面范围不能同时指定内容目标")
         if self.scope == "content" and not self.targets:
             raise ValueError("指定内容范围至少需要一个目标")
+        if self.mode == "selector" and not self.selector:
+            raise ValueError("CSS 选择器不能为空")
+        if self.mode == "script" and not self.script.strip():
+            raise ValueError("JavaScript 挂载脚本不能为空")
         return self
 
 
@@ -280,7 +294,9 @@ class GlossaryHookQuery(PublicModel):
 class GlossaryHookItem(PublicModel):
     id: UUID
     term: PublicGlossaryTerm
+    mode: GlossaryHookMode
     selector: str
+    script: str
     scope: GlossaryHookScope
     targets: list[GlossaryHookTarget]
     enabled: bool
@@ -299,7 +315,9 @@ class GlossaryHookList(PublicModel):
 
 class PublicGlossaryHook(PublicModel):
     id: UUID
+    mode: GlossaryHookMode
     selector: str
+    script: str
     scope: GlossaryHookScope
     priority: int
     term: PublicGlossaryDetail
