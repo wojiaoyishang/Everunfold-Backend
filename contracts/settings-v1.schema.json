@@ -831,6 +831,16 @@
           ],
           "title": "Popup Source",
           "type": "string"
+        },
+        "article_footnotes": {
+          "default": true,
+          "title": "Article Footnotes",
+          "type": "boolean"
+        },
+        "shuoshuo_footnotes": {
+          "default": true,
+          "title": "Shuoshuo Footnotes",
+          "type": "boolean"
         }
       },
       "title": "GlossaryPreferences",
@@ -4796,7 +4806,7 @@
   "title": "SettingsContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "1.26.0",
+  "x-everunfold-contract-version": "1.27.0",
   "x-everunfold-language-regions": {
     "zh": "CN",
     "en": "GB",

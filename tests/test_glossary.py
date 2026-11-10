@@ -58,7 +58,16 @@ def test_glossary_text_matching_ignores_code_links_and_markup() -> None:
         == "*"
     )
     assert operation_fingerprint({"b": 2, "a": 1}) == operation_fingerprint({"a": 1, "b": 2})
-    assert GlossaryPreferences().popup_source == "content"
+    preferences = GlossaryPreferences()
+    assert preferences.popup_source == "content"
+    assert preferences.article_footnotes is True
+    assert preferences.shuoshuo_footnotes is True
+    assert (
+        GlossaryPreferences(article_footnotes=False, shuoshuo_footnotes=False).model_dump()[
+            "article_footnotes"
+        ]
+        is False
+    )
     optional_summary = GlossaryFields(
         slug="body-only",
         title="正文即提示",

@@ -120,6 +120,8 @@ class GlossaryPreferences(SettingsModel):
     auto_match: bool = True
     max_matches_per_page: int = Field(default=20, ge=1, le=100)
     popup_source: Literal["summary", "content"] = "content"
+    article_footnotes: bool = True
+    shuoshuo_footnotes: bool = True
 
 
 class FooterLink(SettingsModel):
