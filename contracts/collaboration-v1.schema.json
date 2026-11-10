@@ -912,6 +912,16 @@
           "title": "Comments Open",
           "type": "boolean"
         },
+        "show_glossary_tooltips": {
+          "default": true,
+          "title": "Show Glossary Tooltips",
+          "type": "boolean"
+        },
+        "show_glossary_footnotes": {
+          "default": true,
+          "title": "Show Glossary Footnotes",
+          "type": "boolean"
+        },
         "captcha_read": {
           "default": "inherit",
           "enum": [
@@ -2603,7 +2613,7 @@
   "title": "CollaborationContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "2.5.0",
+  "x-everunfold-contract-version": "2.6.0",
   "x-everunfold-operations": [
     {
       "name": "acquireHtmlSource",

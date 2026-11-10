@@ -176,7 +176,7 @@ async def seed_public_case(session: AsyncSession) -> dict[str, Any]:
                 "hero_title": "Hello",
                 "hero_subtitle": "World",
                 "notice": "",
-                "navigation": [{"label": "首页", "href": "/"}],
+                "navigation": [{"label": "首页", "labels": {"en": "Home"}, "href": "/"}],
             },
         )
     )
@@ -232,6 +232,9 @@ async def test_public_api_filters_pagination_search_and_comment_privacy(
             transport=ASGITransport(app=application), base_url="http://testserver"
         ) as client,
     ):
+        site = await client.get("/v1/site")
+        assert site.status_code == 200
+        assert site.json()["data"]["navigation"][0]["labels"] == {"en": "Home"}
         response = await client.get("/v1/contents", params={"kind": "article", "page_size": 1})
         assert response.status_code == 200
         assert response.json()["data"]["total"] == 2
@@ -285,6 +288,7 @@ async def test_snapshot_contains_only_public_projection_and_consistent_stats(
     assert snapshot.site.stats.comments == 3
     assert snapshot.site.stats.categories == 1
     assert snapshot.site.stats.tags == 0
+    assert snapshot.site.navigation[0].labels == {"en": "Home"}
     assert len(snapshot.comments[str(seeded["contents"][0].id)]) == 3
     assert "不可见用户" not in snapshot.model_dump_json()
     assert "source_id" not in snapshot.model_dump_json()

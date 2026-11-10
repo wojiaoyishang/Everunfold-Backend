@@ -35,6 +35,7 @@ class TaxonomyDTO(PublicModel):
 
 class NavigationItem(PublicModel):
     label: str
+    labels: dict[str, str] = Field(default_factory=dict, max_length=32)
     href: str
     icon: str = ""
 

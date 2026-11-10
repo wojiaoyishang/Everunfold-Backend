@@ -2015,6 +2015,14 @@
           "title": "Label",
           "type": "string"
         },
+        "labels": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "maxProperties": 32,
+          "title": "Labels",
+          "type": "object"
+        },
         "href": {
           "title": "Href",
           "type": "string"
@@ -3695,7 +3703,7 @@
   "title": "ContentAdminContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "1.18.0",
+  "x-everunfold-contract-version": "1.19.0",
   "x-everunfold-content-types": [
     {
       "id": "article",

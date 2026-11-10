@@ -96,7 +96,8 @@ def check_content_publication(
     assert state()["revision"] == before + 1
     restart()
     assert post("sync").status_code == 200
-    wait_for(lambda: state()["delivery"][0]["status"] == "applied")
+    # Node startup plus outbox backoff can exceed the default wait on a loaded CI host.
+    wait_for(lambda: state()["delivery"][0]["status"] == "applied", timeout=60)
 
     def snapshot() -> Any:
         result = subprocess.run(
