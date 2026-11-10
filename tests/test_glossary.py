@@ -172,3 +172,24 @@ def test_glossary_admin_and_article_scoped_public_matching(
         },
     )
     assert stale.status_code == 409
+    archived = ctx.root.patch(
+        base + f"/admin/terms/{term_id}",
+        headers=headers(ctx.root),
+        json={
+            "operation_id": str(uuid4()),
+            "expected_revision": 2,
+            "fields": {
+                "language": "zh-CN",
+                "slug": "jin-ling",
+                "title": "金灵",
+                "summary": "归档后不再提示。",
+                "body_markdown": "归档词条保留记录。",
+                "aliases": ["金灵同学"],
+                "status": "archived",
+            },
+        },
+    )
+    assert archived.status_code == 200, archived.text
+    assert archived.json()["data"]["status"] == "archived"
+    assert public.get(base + f"/for-content/{matched}").json()["data"]["terms"] == []
+    assert public.get(base + "/index?language=zh-CN").json()["data"]["terms"] == []

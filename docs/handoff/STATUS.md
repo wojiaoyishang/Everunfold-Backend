@@ -1,5 +1,14 @@
 # 后端交接状态
 
+## 最新交付：术语表文章级匹配与主题设置契约（2026-11-10）
+
+- f276040/2fe2b4b。新增 `everunfold.glossary` 1.0.0：术语、别名、简短提示、Markdown 详情、语言、草稿/发布/归档、幂等操作与修订冲突；7 条插件路由和 `glossary-v1` 1.0.0。`GET /for-content/{content_id}` 先在后端检查文章公开状态和语言，从可见普通正文匹配标题/别名，只返回实际命中的已发布词条；未命中文章返回 `terms: []`。代码、链接和标签不参与，ASCII 使用单词边界。见[术语指南](../development/glossary.md)、[ADR0099](../decisions/0099-article-scoped-glossary-tooltips.md)与[验收](glossary-theme-settings-verification.md)。
+- 新增 `glossary_terms`/`glossary_operations` 与显式迁移 `0036_glossary_plugin`，`SCHEMA_REVISION` 同步。文章内容、正文 block 和公开快照不写术语派生结果；`/glossary` 保留为代码路径。
+- settings 1.25.0 新增 `theme_options`、主题 article/feed/code 默认值、`paper_tone`、`site.footer`、`site.author_tagline` 和 `site.glossary`。顶层 `theme` 继续作为活动主题兼容投影；旧设置读取补默认值。所有主题 profile 的媒体引用统一校验和解析，避免切换主题时互相覆盖。见[主题设置指南](../development/theme-settings.md)与[ADR0100](../decisions/0100-theme-owned-settings-profiles.md)。
+- 完整真实库 337 项/416.03 秒通过；补 ASCII 边界和归档退出后，术语专项 2 项/5.68 秒通过。Ruff check 与 338 文件格式通过，生产代码 mypy 222 文件通过；全仓 mypy 仍暴露既有测试注解债务，未伪报通过。
+- 主库和测试库已应用 0036；插件目录显式同步后 API index/search 与文章级接口 200，未同步曾返回 50389，重新登记并交付后恢复。前端命中/未命中、Tooltip、公开目录和隔离生产构建已由前端记录；QA 词条已归档，未迁移文章。
+- 仅本地提交，未 push；未做上游/外部服务变更、全浏览器、长期负载或超大术语库性能验收。
+
 ## 最新交付：后端插件 HTTP 路由（2026-11-10）
 
 - 后端2f6ae8b；新增registry.routes.register(APIRouter)，保留plugin.py单入口、自由文件布局和原生路径/查询/请求模型/依赖，统一/v1/plugins/<插件ID>。默认Session，可显式公开或现有权限/Key保护，all默认范围；SDK提供PluginRequest和标准响应。见[指南](../development/backend-plugin-routes.md)、[ADR0098](../decisions/0098-backend-plugin-http-routes.md)与[验收](backend-plugin-routes-verification.md)。
