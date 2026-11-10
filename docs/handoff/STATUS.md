@@ -4,6 +4,7 @@
 
 - 前端`cd3ce09`将公开主题具名组件改为同步发现，使文章标题、摘要与正文直接进入首次服务端 HTML；术语 Tooltip、阅览量等继续按需加载。后端代码、业务契约、插件、迁移和运行中的 API 均未改变。
 - 公共架构、搜索发现指南、索引、ADR0102及基线摘要已与前端同步；前端检查、浏览器证据和剩余边界以前端仓库的`docs/handoff/STATUS.md`及[ADR0102](../decisions/0102-static-seo-content-and-dynamic-enhancements.md)为准。
+- 后续前端`4019e1d`将静态主题/components.tsx与水合主题/client-components.tsx分离，文章/列表原始正文块不再进入客户端props，Unicode正文直接以UTF-8输出。后端仍无代码、契约、迁移或配置变化；最新验证以ADR0102-2和前端STATUS为准。
 
 ## 最新修复：术语别名独立于匹配规则（2026-11-10）
 
