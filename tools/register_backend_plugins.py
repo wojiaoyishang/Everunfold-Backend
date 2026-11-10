@@ -35,7 +35,8 @@ def main() -> None:
     for plugin in catalog.plugins:
         print(
             f"{plugin.info.id} {plugin.info.version}: "
-            f"{len(plugin.shortcodes)} shortcodes, {len(plugin.captcha)} CAPTCHA providers"
+            f"{len(plugin.shortcodes)} shortcodes, {len(plugin.captcha)} CAPTCHA providers, "
+            f"{sum(len(item.routes) for item in plugin.routes)} HTTP routes"
         )
     if args.apply:
         asyncio.run(apply(args.config))

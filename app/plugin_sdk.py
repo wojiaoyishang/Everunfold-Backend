@@ -5,11 +5,20 @@ from app.core.jobs.execution import ResidentContext
 from app.core.jobs.progress import task_progress
 from app.core.plugins.definition import Plugin, PluginRuntime, define_plugin
 from app.core.plugins.registry import PluginRegistry
+from app.core.plugins.route_runtime import PluginRequest, PluginRequestContext
+from app.core.responses import JSONResponseFail, JSONResponseSuccess
+from app.core.schemas import PublicModel, PublicResponse
 from app.modules.captcha.providers import CaptchaProvider, verify_site_token
 from app.modules.captcha.schemas import StoredProvider
 from app.modules.shortcodes.schemas import ShortcodeParameter, ShortcodeSource
 
 __all__ = [
+    "PluginRequest",
+    "PluginRequestContext",
+    "JSONResponseSuccess",
+    "JSONResponseFail",
+    "PublicModel",
+    "PublicResponse",
     "TaskDefinition",
     "task_progress",
     "ResidentContext",

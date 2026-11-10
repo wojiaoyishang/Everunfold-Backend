@@ -13,6 +13,14 @@ class BusinessCORSMiddleware:
     """Credentialed auth paths do not widen the existing public API's CORS behavior."""
 
     def __init__(self, app: ASGIApp, allowed_origins: list[str]) -> None:
+        self.plugins = CORSMiddleware(
+            app,
+            allow_origins=allowed_origins,
+            allow_credentials=True,
+            allow_methods=["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+            allow_headers=["*"],
+            expose_headers=["Retry-After"],
+        )
         self.private = CORSMiddleware(
             app,
             allow_origins=allowed_origins,
@@ -45,7 +53,9 @@ class BusinessCORSMiddleware:
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         target = (
-            self.private
+            self.plugins
+            if str(scope.get("path", "")).startswith("/v1/plugins/")
+            else self.private
             if str(scope.get("path", "")).startswith(
                 ("/v1/auth/", "/v1/admin/", "/v1/account/", "/v1/reader/")
             )
@@ -62,7 +72,7 @@ class AuthBoundaryMiddleware:
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         path = str(scope.get("path", ""))
         if scope["type"] != "http" or not path.startswith(
-            ("/v1/auth/", "/v1/admin/", "/v1/account/", "/v1/reader/")
+            ("/v1/auth/", "/v1/admin/", "/v1/account/", "/v1/reader/", "/v1/plugins/")
         ):
             await self.app(scope, receive, send)
             return
@@ -81,7 +91,7 @@ class AuthBoundaryMiddleware:
         write = scope["method"] not in {"GET", "HEAD", "OPTIONS"}
         machine = path == "/v1/auth/api-keys/introspect" or (
             (
-                path.startswith("/v1/admin/")
+                path.startswith(("/v1/admin/", "/v1/plugins/"))
                 or path
                 in {
                     "/v1/reader/access",
@@ -92,6 +102,10 @@ class AuthBoundaryMiddleware:
             )
             and headers.get("authorization", "").lower().startswith("bearer efk_")
         )
+        if path.startswith("/v1/plugins/"):
+            from app.core.plugins.routes import public_plugin_request
+
+            machine = machine or public_plugin_request(scope)
         if (origin is not None or (write and not machine)) and origin not in self.allowed_origins:
             await JSONResponseFail(status_code=403, code=40310, msg="请求来源不被允许")(
                 scope, receive, private_send
@@ -131,7 +145,7 @@ class AuthBoundaryMiddleware:
                     else 1500000
                     if path == "/v1/admin/icons/upload"
                     else 65536
-                    if path.startswith("/v1/admin/")
+                    if path.startswith(("/v1/admin/", "/v1/plugins/"))
                     else 16384
                 ):
                     await JSONResponseFail(status_code=413, msg="请求内容过大")(

@@ -23,6 +23,7 @@ from app.core.modules import (
 )
 from app.core.plugins.definition import PluginRuntime
 from app.core.plugins.loader import plugin_catalog
+from app.core.plugins.route_runtime import mount_plugin_routes
 from app.core.responses import JSONResponseError, JSONResponseFail, JSONResponseSuccess
 from app.core.runtime import Runtime
 from app.modules.auth.middleware import AuthBoundaryMiddleware, BusinessCORSMiddleware
@@ -77,6 +78,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     register_shortcodes_module(application)
     register_pages_module(application)
     register_media_module(application)
+    mount_plugin_routes(application, plugins)
 
     @application.exception_handler(AuthFailure)
     async def handle_auth_error(request: Request, exc: AuthFailure) -> JSONResponseFail:
@@ -112,7 +114,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         logger.error("Unhandled request error: %s", type(exc).__name__)
         headers = (
             {"Cache-Control": "private, no-store", "Pragma": "no-cache"}
-            if request.url.path.startswith(("/v1/auth/", "/v1/admin/", "/v1/account/"))
+            if request.url.path.startswith(
+                ("/v1/auth/", "/v1/admin/", "/v1/account/", "/v1/plugins/")
+            )
             else {}
         )
         locale = getattr(request.state, "locale", "zh-CN")

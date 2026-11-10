@@ -16,6 +16,7 @@ from typing import Any, cast
 from app.core.jobs.definitions import TaskDefinition
 from app.core.plugins.definition import Plugin, PluginRuntime
 from app.core.plugins.registry import PluginRegistry
+from app.core.plugins.routes import RouteContribution
 from app.modules.captcha.providers import CaptchaProvider
 from app.modules.settings.extensions_schemas import BackendPluginInfo
 from app.modules.shortcodes.schemas import ShortcodeItem
@@ -23,6 +24,7 @@ from app.modules.shortcodes.schemas import ShortcodeItem
 
 @dataclass(frozen=True)
 class LoadedPlugin:
+    routes: tuple[RouteContribution, ...]
     tasks: tuple[TaskDefinition, ...]
     definition: Plugin
     info: BackendPluginInfo
@@ -123,17 +125,20 @@ def collect_plugins(entries: Iterable[tuple[Plugin, str]]) -> PluginCatalog:
             info.captcha_providers = [item.id for item in registry.captcha._items]
             # Widget names are references to frontend contributions, not backend UI ownership.
             info.widgets = [item.widget for item in registry.captcha._items]
-            fingerprint = {
+            fingerprint: dict[str, Any] = {
                 "source": info.build,
                 "info": info.model_dump(mode="json"),
                 "shortcodes": [item.model_dump(mode="json") for item in registry.shortcodes._items],
                 "locales": registry.locales._items,
             }
+            if registry.routes.items:
+                fingerprint["routes"] = [item.manifest() for item in registry.routes.items]
             info.build = hashlib.sha256(
                 json.dumps(fingerprint, sort_keys=True).encode()
             ).hexdigest()
             completed.append(
                 LoadedPlugin(
+                    tuple(registry.routes.items),
                     tuple(registry.tasks.items),
                     plugin,
                     info,
