@@ -1,5 +1,12 @@
 # 后端交接状态
 
+## 最新改造：术语规则、表格与两级弹层（2026-11-10）
+
+- 后端首阶段本地提交 `2c5a163`：术语新增 `auto_match_title`、`match_rules` 及 0038 显式迁移；契约 `glossary-v1 3.0.0`，增加 `matched_patterns` 和授权 `POST /admin/preview`。后端保留 `match_rules=NULL` 的旧标题+别名兼容模式，空数组则表示主动取消额外规则；仍只响应当前公开文章实际命中的词条，绝不打包全站词典。
+- 后续补充规则引擎的优先级兼容（默认标题优先级 0）、受限正则分支/有限重复的复杂度围栏与预览测试；插件版本 1.1.0。Regex 支持普通/正则规则、开关、大小写、ASCII 整词边界和优先级；拒绝无限重复、嵌套重复、断言、反向引用及空宽度匹配。每规则/文章采集结果量受限。
+- `ruff check`、`ruff format --check`、针对 `app/plugins/glossary` 的生产类型 mypy 通过；`tests/test_glossary.py` 为 2 passed / 1 skipped（当前环境没有专用 PostgreSQL 测试库），未宣称真实数据库或多进程测试成功；`git diff --check` 通过。没有对主数据库执行 0038 迁移，没有升级在运行的 API、没有重新同步插件目录，也没有修改文章或 WordPress 备份。
+- **部署前必须** 在隔离 PostgreSQL 数据库执行 0038 并验证旧词条读写、API 权限、预览、规则匹配/撤回与迁移回滚，再按维护流程显式迁移正式数据库、同步插件目录和受控重启服务；前端必须使用 3.0.0 契约。实际浏览器和主库验收未执行，详见 [ADR0101](../decisions/0101-glossary-rules-and-reader-ui.md) 与 [开发指南](../development/glossary.md)。
+
 ## 最新交付：术语文章式富文本正文（2026-11-10）
 
 - 后端2d5fe5c/e7b8219，前端f444034。`everunfold.glossary`术语正文由单个`body_markdown`升级为最多128个带稳定ID的有序Markdown/HTML块，旧正文迁移为一个Markdown块；`glossary-v1`升级2.0.0，迁移`0037_glossary_rich_body`与主库版本常量一致。术语仍不写入文章正文或公开内容快照。

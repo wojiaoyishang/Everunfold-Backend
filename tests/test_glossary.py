@@ -10,9 +10,15 @@ from app.core.database import Database
 from app.modules.content.models import Content
 from app.modules.settings.backend_plugins import install_backend_plugins
 from app.plugins.glossary.matching import MatchRule, evaluate_rules
-from app.plugins.glossary.schemas import GlossaryBlock, GlossaryFields, GlossaryMatchRule
+from app.plugins.glossary.schemas import (
+    GlossaryBlock,
+    GlossaryFields,
+    GlossaryMatchPreviewInput,
+    GlossaryMatchRule,
+)
 from app.plugins.glossary.service import (
     operation_fingerprint,
+    preview_matches,
     searchable_source,
     target_in_source,
 )
@@ -80,6 +86,15 @@ def test_regex_glossary_rules_are_bounded_and_preserve_match_options() -> None:
     from app.plugins.glossary.service import term_targets
 
     assert term_targets(fields) == []
+    preview = preview_matches(
+        GlossaryMatchPreviewInput(
+            title="人工智能",
+            aliases=["AI"],
+            match_rules=[GlossaryMatchRule(kind="regex", pattern="(?:AI|人工智能)(?:技术|系统)?")],
+            sample="人工智能技术和AI系统都可以检索。",
+        )
+    )
+    assert {item.text for item in preview.hits} == {"人工智能", "人工智能技术", "AI系统"}
 
 
 def test_glossary_admin_and_article_scoped_public_matching(

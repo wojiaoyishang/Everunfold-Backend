@@ -29,36 +29,34 @@ def validate_regex(pattern: str) -> None:
     except re.error as error:
         raise ValueError(f"正则语法错误：{error}") from error
     repetitions = 0
+    branches = 0
 
     def check(items: Iterable[tuple[Any, Any]], *, repeated: bool = False, depth: int = 0) -> None:
-        nonlocal repetitions
+        nonlocal repetitions, branches
         if depth > 8:
             raise ValueError("正则嵌套层级不能超过 8")
         for opcode, value in items:
             if opcode in {_parser.LITERAL, _parser.NOT_LITERAL, _parser.ANY, _parser.AT}:
                 continue
             if opcode == _parser.IN:
-                valid_entries = {
-                    _parser.LITERAL, _parser.RANGE, _parser.NEGATE, _parser.CATEGORY
-                }
-                if any(
-                    entry[0] not in valid_entries for entry in value
-                ):
+                valid_entries = {_parser.LITERAL, _parser.RANGE, _parser.NEGATE, _parser.CATEGORY}
+                if any(entry[0] not in valid_entries for entry in value):
                     raise ValueError("正则字符组包含不支持的写法")
             elif opcode == _parser.CATEGORY:
                 continue
             elif opcode == _parser.SUBPATTERN:
                 check(value[-1], repeated=repeated, depth=depth + 1)
             elif opcode == _parser.BRANCH:
-                if len(value[1]) > 12:
-                    raise ValueError("正则分支不能超过 12 个")
+                branches += 1
+                if branches > 6 or len(value[1]) > 6:
+                    raise ValueError("正则最多只能有 6 处分支，每处不超过 6 个选项")
                 for branch in value[1]:
                     check(branch, repeated=repeated, depth=depth + 1)
             elif opcode in {_parser.MAX_REPEAT, _parser.MIN_REPEAT}:
                 repetitions += 1
                 minimum, maximum, body = value
-                if repetitions > 8 or repeated or maximum == _parser.MAXREPEAT or maximum > 32:
-                    raise ValueError("正则只能使用最多 8 个非嵌套的有限重复（最多 {0,32}）")
+                if repetitions > 6 or repeated or maximum == _parser.MAXREPEAT or maximum > 32:
+                    raise ValueError("正则只能使用最多 6 个非嵌套的有限重复（最多 {0,32}）")
                 if maximum > 1 and any(
                     token[0] in {_parser.SUBPATTERN, _parser.BRANCH} for token in body
                 ):

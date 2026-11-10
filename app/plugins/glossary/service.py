@@ -70,7 +70,7 @@ def configured_rules(
     match_rules: list[GlossaryMatchRule] | None,
 ) -> list[MatchRule]:
     rules = (
-        [MatchRule(kind="literal", pattern=title, whole_word=True, priority=50)]
+        [MatchRule(kind="literal", pattern=title, whole_word=True, priority=0)]
         if auto_match_title and title
         else []
     )
