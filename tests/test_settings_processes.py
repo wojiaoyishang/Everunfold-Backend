@@ -52,8 +52,13 @@ def toml_text(data: dict[str, Any], prefix: str = "") -> str:
 
 @contextmanager
 def background(arguments: list[str], env: dict[str, str], cwd: Path):  # type: ignore[no-untyped-def]
+    passthrough = os.environ.get("EVERUNFOLD_TEST_BACKGROUND_LOG") == "1"
     process = subprocess.Popen(
-        arguments, env=env, cwd=cwd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+        arguments,
+        env=env,
+        cwd=cwd,
+        stdout=None if passthrough else subprocess.DEVNULL,
+        stderr=None if passthrough else subprocess.DEVNULL,
     )
     try:
         yield process

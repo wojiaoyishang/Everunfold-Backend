@@ -79,8 +79,65 @@
   },
   "definitions": {
     "Site": {
-      "type": "object",
       "additionalProperties": false,
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "description": {
+          "title": "Description",
+          "type": "string"
+        },
+        "author": {
+          "title": "Author",
+          "type": "string"
+        },
+        "avatar_url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Avatar Url"
+        },
+        "hero_url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Hero Url"
+        },
+        "hero_title": {
+          "title": "Hero Title",
+          "type": "string"
+        },
+        "hero_subtitle": {
+          "title": "Hero Subtitle",
+          "type": "string"
+        },
+        "notice": {
+          "title": "Notice",
+          "type": "string"
+        },
+        "navigation": {
+          "items": {
+            "$ref": "#/definitions/NavigationItem"
+          },
+          "title": "Navigation",
+          "type": "array"
+        },
+        "stats": {
+          "$ref": "#/definitions/SiteStats"
+        }
+      },
       "required": [
         "name",
         "description",
@@ -93,93 +150,8 @@
         "navigation",
         "stats"
       ],
-      "properties": {
-        "name": {
-          "type": "string"
-        },
-        "description": {
-          "type": "string"
-        },
-        "author": {
-          "type": "string"
-        },
-        "avatar_url": {
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        "hero_url": {
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        "hero_title": {
-          "type": "string"
-        },
-        "hero_subtitle": {
-          "type": "string"
-        },
-        "notice": {
-          "type": "string"
-        },
-        "navigation": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "additionalProperties": false,
-            "required": [
-              "label",
-              "href"
-            ],
-            "properties": {
-              "label": {
-                "type": "string"
-              },
-              "href": {
-                "type": "string"
-              },
-              "icon": {
-                "type": "string"
-              }
-            }
-          }
-        },
-        "stats": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": [
-            "articles",
-            "pages",
-            "comments",
-            "tags",
-            "categories"
-          ],
-          "properties": {
-            "articles": {
-              "type": "integer",
-              "minimum": 0
-            },
-            "pages": {
-              "type": "integer",
-              "minimum": 0
-            },
-            "comments": {
-              "type": "integer",
-              "minimum": 0
-            },
-            "tags": {
-              "type": "integer",
-              "minimum": 0
-            },
-            "categories": {
-              "type": "integer",
-              "minimum": 0
-            }
-          }
-        }
-      }
+      "title": "SiteDTO",
+      "type": "object"
     },
     "Taxonomy": {
       "type": "object",
@@ -1001,6 +973,77 @@
         "count"
       ],
       "title": "TaxonomyDTO",
+      "type": "object"
+    },
+    "NavigationItem": {
+      "additionalProperties": false,
+      "properties": {
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "labels": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "maxProperties": 32,
+          "title": "Labels",
+          "type": "object"
+        },
+        "href": {
+          "title": "Href",
+          "type": "string"
+        },
+        "icon": {
+          "default": "",
+          "title": "Icon",
+          "type": "string"
+        }
+      },
+      "required": [
+        "label",
+        "href"
+      ],
+      "title": "NavigationItem",
+      "type": "object"
+    },
+    "SiteStats": {
+      "additionalProperties": false,
+      "properties": {
+        "articles": {
+          "minimum": 0,
+          "title": "Articles",
+          "type": "integer"
+        },
+        "pages": {
+          "minimum": 0,
+          "title": "Pages",
+          "type": "integer"
+        },
+        "comments": {
+          "minimum": 0,
+          "title": "Comments",
+          "type": "integer"
+        },
+        "tags": {
+          "minimum": 0,
+          "title": "Tags",
+          "type": "integer"
+        },
+        "categories": {
+          "minimum": 0,
+          "title": "Categories",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "articles",
+        "pages",
+        "comments",
+        "tags",
+        "categories"
+      ],
+      "title": "SiteStats",
       "type": "object"
     }
   },

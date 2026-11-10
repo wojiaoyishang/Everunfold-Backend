@@ -3,7 +3,13 @@
 import json
 from pathlib import Path
 
-from app.modules.content.schemas import ContentDetail, ContentTranslation, MediaURL, PublicSnapshot
+from app.modules.content.schemas import (
+    ContentDetail,
+    ContentTranslation,
+    MediaURL,
+    PublicSnapshot,
+    SiteDTO,
+)
 from app.modules.pages.schemas import PublicManagedPage
 
 
@@ -25,6 +31,9 @@ def main() -> None:
     pages = PublicManagedPage.model_json_schema(ref_template="#/definitions/{model}")
     schema["definitions"].update(pages.pop("$defs", {}))
     schema["definitions"]["PublicManagedPage"] = pages
+    site = SiteDTO.model_json_schema(ref_template="#/definitions/{model}")
+    schema["definitions"].update(site.pop("$defs", {}))
+    schema["definitions"]["Site"] = site
     schema["properties"]["pages"] = {
         "type": "array",
         "items": {"$ref": "#/definitions/PublicManagedPage"},

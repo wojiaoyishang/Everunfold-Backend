@@ -9,6 +9,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
+from app.modules.content.schemas import SiteDTO
 from app.modules.settings.defaults import public_settings, stored_settings
 from app.modules.settings.schemas import (
     CachePolicy,
@@ -26,6 +27,15 @@ def test_settings_contract_matches_published_artifact() -> None:
         json.loads(Path("contracts/settings-v1.schema.json").read_text(encoding="utf-8"))
         == build_schema()
     )
+
+
+def test_public_snapshot_site_contract_matches_public_dto() -> None:
+    artifact = json.loads(Path("contracts/public-v0.1.schema.json").read_text(encoding="utf-8"))
+    site = SiteDTO.model_json_schema(ref_template="#/definitions/{model}")
+    definitions = site.pop("$defs", {})
+    assert artifact["definitions"]["Site"] == site
+    for name, value in definitions.items():
+        assert artifact["definitions"][name] == value
 
 
 @pytest.mark.parametrize(
