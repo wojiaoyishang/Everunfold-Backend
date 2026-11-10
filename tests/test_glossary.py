@@ -9,6 +9,7 @@ import pytest
 from app.core.database import Database
 from app.modules.content.models import Content
 from app.modules.settings.backend_plugins import install_backend_plugins
+from app.plugins.glossary.schemas import GlossaryFields
 from app.plugins.glossary.service import (
     operation_fingerprint,
     searchable_source,
@@ -33,6 +34,14 @@ def test_glossary_text_matching_ignores_code_links_and_markup() -> None:
     assert target_in_source(source, "金灵")
     assert target_in_source("uses json safely", "JSON")
     assert not target_in_source("uses json safely", "JS")
+    assert (
+        GlossaryFields(
+            slug="all-languages",
+            title="通用术语",
+            summary="默认对所有文章语言生效。",
+        ).language
+        == "*"
+    )
     assert operation_fingerprint({"b": 2, "a": 1}) == operation_fingerprint({"a": 1, "b": 2})
 
 
@@ -98,7 +107,7 @@ def test_glossary_admin_and_article_scoped_public_matching(
             "operation_id": str(uuid4()),
             "term_id": str(uuid4()),
             "fields": {
-                "language": "zh-CN",
+                "language": "*",
                 "slug": "jin-ling",
                 "title": "金灵",
                 "summary": "一位喜欢看云的旧同学。",
@@ -117,7 +126,7 @@ def test_glossary_admin_and_article_scoped_public_matching(
             "operation_id": str(uuid4()),
             "term_id": str(uuid4()),
             "fields": {
-                "language": "zh-CN",
+                "language": "en",
                 "slug": "another",
                 "title": "别名冲突",
                 "summary": "不应创建",
@@ -133,6 +142,9 @@ def test_glossary_admin_and_article_scoped_public_matching(
     miss = public.get(base + f"/for-content/{unmatched}")
     assert hit.status_code == 200, hit.text
     assert [item["title"] for item in hit.json()["data"]["terms"]] == ["金灵"]
+    assert [
+        item["title"] for item in public.get(base + "/index?language=en").json()["data"]["terms"]
+    ] == ["金灵"]
     assert miss.status_code == 200
     assert miss.json()["data"]["terms"] == []
     update = ctx.root.patch(
@@ -142,7 +154,7 @@ def test_glossary_admin_and_article_scoped_public_matching(
             "operation_id": str(uuid4()),
             "expected_revision": 1,
             "fields": {
-                "language": "zh-CN",
+                "language": "*",
                 "slug": "jin-ling",
                 "title": "金灵",
                 "summary": "更新后的提示。",
@@ -161,7 +173,7 @@ def test_glossary_admin_and_article_scoped_public_matching(
             "operation_id": str(uuid4()),
             "expected_revision": 1,
             "fields": {
-                "language": "zh-CN",
+                "language": "*",
                 "slug": "jin-ling",
                 "title": "金灵",
                 "summary": "争执后的提示。",
@@ -179,7 +191,7 @@ def test_glossary_admin_and_article_scoped_public_matching(
             "operation_id": str(uuid4()),
             "expected_revision": 2,
             "fields": {
-                "language": "zh-CN",
+                "language": "*",
                 "slug": "jin-ling",
                 "title": "金灵",
                 "summary": "归档后不再提示。",

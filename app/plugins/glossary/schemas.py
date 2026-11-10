@@ -10,10 +10,11 @@ from app.core.schemas import PublicModel, PublicResponse
 from app.modules.settings.languages import LanguageCode
 
 GlossaryStatus = Literal["draft", "published", "archived"]
+GlossaryLanguage = Literal["*"] | LanguageCode
 
 
 class GlossaryFields(PublicModel):
-    language: LanguageCode = "zh-CN"
+    language: GlossaryLanguage = "*"
     slug: str = Field(min_length=1, max_length=120)
     title: str = Field(min_length=1, max_length=120)
     summary: str = Field(min_length=1, max_length=500)
@@ -102,7 +103,7 @@ class GlossaryList(PublicModel):
 class GlossaryQuery(PublicModel):
     search: str = Field(default="", max_length=200)
     status: Literal["all", "draft", "published", "archived"] = "all"
-    language: LanguageCode | None = None
+    language: GlossaryLanguage | None = None
     page: int = Field(default=1, ge=1)
     page_size: int = Field(default=30, ge=1, le=100)
 

@@ -151,12 +151,20 @@
       "additionalProperties": false,
       "properties": {
         "language": {
-          "default": "zh-CN",
-          "maxLength": 32,
-          "minLength": 2,
-          "pattern": "^[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*$",
-          "title": "Language",
-          "type": "string"
+          "anyOf": [
+            {
+              "const": "*",
+              "type": "string"
+            },
+            {
+              "maxLength": 32,
+              "minLength": 2,
+              "pattern": "^[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*$",
+              "type": "string"
+            }
+          ],
+          "default": "*",
+          "title": "Language"
         },
         "slug": {
           "maxLength": 120,
@@ -344,6 +352,10 @@
         },
         "language": {
           "anyOf": [
+            {
+              "const": "*",
+              "type": "string"
+            },
             {
               "maxLength": 32,
               "minLength": 2,
@@ -764,7 +776,7 @@
   "title": "GlossaryContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "1.0.0",
+  "x-everunfold-contract-version": "1.1.0",
   "x-everunfold-operations": [
     {
       "name": "readGlossaryIndex",

@@ -83,10 +83,11 @@ def public_item(row: GlossaryTerm) -> PublicGlossaryTerm:
     )
 
 
-async def lock_language(session: AsyncSession, language: str) -> None:
+async def lock_glossary(session: AsyncSession) -> None:
+    """Serialize glossary writes so wildcard and language-specific targets cannot race."""
     await session.execute(
         text("SELECT pg_advisory_xact_lock(hashtext(:key))"),
-        {"key": f"everunfold:glossary:{language}"},
+        {"key": "everunfold:glossary"},
     )
 
 
@@ -97,13 +98,15 @@ async def validate_targets(
     exclude_id: UUID | None = None,
 ) -> None:
     claimed = {alias_key(value): value for value in term_targets(fields)}
-    statement = select(GlossaryTerm).where(
-        GlossaryTerm.language == fields.language,
-        GlossaryTerm.status != "archived",
-    )
+    statement = select(GlossaryTerm).where(GlossaryTerm.status != "archived")
     if exclude_id is not None:
         statement = statement.where(GlossaryTerm.id != exclude_id)
     for row in (await session.scalars(statement)).all():
+        overlaps = fields.language == "*" or row.language == "*" or row.language == fields.language
+        if not overlaps:
+            continue
+        if alias_key(row.slug) == alias_key(fields.slug):
+            raise AuthFailure(409, 40936, f"公开路径“{fields.slug}”已被其他词条使用")
         row_targets = {
             alias_key(value)
             for value in term_targets(
@@ -150,7 +153,7 @@ async def create_term(
     replayed = await replay_operation(session, payload.operation_id, fingerprint)
     if replayed is not None:
         return replayed
-    await lock_language(session, payload.fields.language)
+    await lock_glossary(session)
     await validate_targets(session, payload.fields)
     now = datetime.now(UTC)
     row = GlossaryTerm(
@@ -201,7 +204,7 @@ async def update_term(
     replayed = await replay_operation(session, payload.operation_id, fingerprint)
     if replayed is not None:
         return replayed
-    await lock_language(session, payload.fields.language)
+    await lock_glossary(session)
     row = await session.scalar(
         select(GlossaryTerm).where(GlossaryTerm.id == term_id).with_for_update()
     )
@@ -299,7 +302,9 @@ async def read_term(session: AsyncSession, term_id: UUID) -> GlossaryDetail:
 async def public_index(session: AsyncSession, language: str | None) -> PublicGlossaryIndex:
     statement = select(GlossaryTerm).where(GlossaryTerm.status == "published")
     if language:
-        statement = statement.where(GlossaryTerm.language == language)
+        statement = statement.where(
+            or_(GlossaryTerm.language == language, GlossaryTerm.language == "*")
+        )
     rows = (await session.scalars(statement.order_by(GlossaryTerm.title, GlossaryTerm.id))).all()
     revision = max((row.updated_at for row in rows), default=datetime(1970, 1, 1, tzinfo=UTC))
     return PublicGlossaryIndex(
@@ -316,8 +321,10 @@ async def public_term(
         GlossaryTerm.slug == slug,
     )
     if language:
-        statement = statement.where(GlossaryTerm.language == language)
-    row = await session.scalar(statement)
+        statement = statement.where(
+            or_(GlossaryTerm.language == language, GlossaryTerm.language == "*")
+        )
+    row = await session.scalar(statement.order_by(GlossaryTerm.language.desc()))
     if row is None:
         raise AuthFailure(404, 40436, "术语不存在")
     item = public_item(row)
@@ -385,7 +392,10 @@ async def content_matches(session: AsyncSession, content_id: UUID) -> ContentGlo
         await session.scalars(
             select(GlossaryTerm).where(
                 GlossaryTerm.status == "published",
-                GlossaryTerm.language == content.language,
+                or_(
+                    GlossaryTerm.language == content.language,
+                    GlossaryTerm.language == "*",
+                ),
             )
         )
     ).all()
