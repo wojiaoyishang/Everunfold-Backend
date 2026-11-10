@@ -553,6 +553,55 @@
       "title": "GlossaryHookList",
       "type": "object"
     },
+    "GlossaryHookQuery": {
+      "additionalProperties": false,
+      "properties": {
+        "search": {
+          "default": "",
+          "maxLength": 200,
+          "title": "Search",
+          "type": "string"
+        },
+        "status": {
+          "default": "all",
+          "enum": [
+            "all",
+            "active",
+            "archived"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "term_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Term Id"
+        },
+        "page": {
+          "default": 1,
+          "minimum": 1,
+          "title": "Page",
+          "type": "integer"
+        },
+        "page_size": {
+          "default": 30,
+          "maximum": 100,
+          "minimum": 1,
+          "title": "Page Size",
+          "type": "integer"
+        }
+      },
+      "title": "GlossaryHookQuery",
+      "type": "object"
+    },
     "GlossaryHookTarget": {
       "additionalProperties": false,
       "properties": {
@@ -1546,6 +1595,9 @@
     "public_hooks": {
       "$ref": "#/$defs/PublicResponse_PublicGlossaryHooks_"
     },
+    "hook_query": {
+      "$ref": "#/$defs/GlossaryHookQuery"
+    },
     "hooks_query": {
       "$ref": "#/$defs/PublicResponse_GlossaryHookList_"
     },
@@ -1574,6 +1626,7 @@
     "list",
     "detail",
     "public_hooks",
+    "hook_query",
     "hooks_query",
     "hook_detail",
     "hook_create",
@@ -1655,7 +1708,7 @@
       "name": "queryGlossaryHooks",
       "path": "/v1/plugins/everunfold.glossary/admin/hooks/query",
       "method": "POST",
-      "input": "hooks_query",
+      "input": "hook_query",
       "response": "hooks_query"
     },
     {

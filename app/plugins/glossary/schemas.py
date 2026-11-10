@@ -321,6 +321,7 @@ class GlossaryContract(PublicModel):
     list: PublicResponse[GlossaryList]
     detail: PublicResponse[GlossaryDetail]
     public_hooks: PublicResponse[PublicGlossaryHooks]
+    hook_query: GlossaryHookQuery
     hooks_query: PublicResponse[GlossaryHookList]
     hook_detail: PublicResponse[GlossaryHookItem]
     hook_create: GlossaryHookCreate

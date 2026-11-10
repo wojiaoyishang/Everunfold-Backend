@@ -82,7 +82,7 @@ def build_schema() -> dict[str, Any]:
             "name": "queryGlossaryHooks",
             "path": "/v1/plugins/everunfold.glossary/admin/hooks/query",
             "method": "POST",
-            "input": "hooks_query",
+            "input": "hook_query",
             "response": "hooks_query",
         },
         {
