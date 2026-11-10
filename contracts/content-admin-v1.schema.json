@@ -98,6 +98,16 @@
           "title": "Comments Open",
           "type": "boolean"
         },
+        "show_glossary_tooltips": {
+          "default": true,
+          "title": "Show Glossary Tooltips",
+          "type": "boolean"
+        },
+        "show_glossary_footnotes": {
+          "default": true,
+          "title": "Show Glossary Footnotes",
+          "type": "boolean"
+        },
         "allow_indexing": {
           "default": true,
           "title": "Allow Indexing",
@@ -1621,6 +1631,16 @@
           "title": "Comments Open",
           "type": "boolean"
         },
+        "show_glossary_tooltips": {
+          "default": true,
+          "title": "Show Glossary Tooltips",
+          "type": "boolean"
+        },
+        "show_glossary_footnotes": {
+          "default": true,
+          "title": "Show Glossary Footnotes",
+          "type": "boolean"
+        },
         "captcha_read": {
           "default": "inherit",
           "enum": [
@@ -2118,6 +2138,16 @@
           "title": "Comments Open",
           "type": "boolean"
         },
+        "show_glossary_tooltips": {
+          "default": true,
+          "title": "Show Glossary Tooltips",
+          "type": "boolean"
+        },
+        "show_glossary_footnotes": {
+          "default": true,
+          "title": "Show Glossary Footnotes",
+          "type": "boolean"
+        },
         "enabled": {
           "const": true,
           "default": true,
@@ -2600,7 +2630,7 @@
       "additionalProperties": false,
       "properties": {
         "schema_version": {
-          "default": "0.9.0",
+          "default": "0.10.0",
           "enum": [
             "0.1.0",
             "0.2.0",
@@ -2610,7 +2640,8 @@
             "0.6.0",
             "0.7.0",
             "0.8.0",
-            "0.9.0"
+            "0.9.0",
+            "0.10.0"
           ],
           "title": "Schema Version",
           "type": "string"
@@ -3664,7 +3695,7 @@
   "title": "ContentAdminContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "1.17.0",
+  "x-everunfold-contract-version": "1.18.0",
   "x-everunfold-content-types": [
     {
       "id": "article",

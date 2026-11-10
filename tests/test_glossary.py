@@ -7,7 +7,9 @@ from uuid import uuid4
 import pytest
 
 from app.core.database import Database
+from app.modules.content.editor_schema import EditorSettings
 from app.modules.content.models import Content
+from app.modules.pages.schemas import PageValue
 from app.modules.settings.backend_plugins import install_backend_plugins
 from app.modules.settings.schemas import GlossaryPreferences
 from app.plugins.glossary.matching import MatchRule, evaluate_rules
@@ -63,19 +65,18 @@ def test_glossary_text_matching_ignores_code_links_and_markup() -> None:
     assert operation_fingerprint({"b": 2, "a": 1}) == operation_fingerprint({"a": 1, "b": 2})
     preferences = GlossaryPreferences()
     assert preferences.popup_source == "content"
-    assert preferences.article_inline_tooltips is True
-    assert preferences.article_footnotes is True
-    assert preferences.shuoshuo_inline_tooltips is True
-    assert preferences.shuoshuo_footnotes is True
-    assert (
-        GlossaryPreferences(
-            article_inline_tooltips=False,
-            article_footnotes=False,
-            shuoshuo_inline_tooltips=False,
-            shuoshuo_footnotes=False,
-        ).model_dump()["article_footnotes"]
-        is False
+    assert "article_footnotes" not in GlossaryPreferences.model_fields
+    assert EditorSettings().show_glossary_tooltips is True
+    assert EditorSettings().show_glossary_footnotes is True
+    per_article = EditorSettings(
+        show_glossary_tooltips=False,
+        show_glossary_footnotes=False,
     )
+    assert per_article.show_glossary_tooltips is False
+    assert per_article.show_glossary_footnotes is False
+    page = PageValue(title="Page", path="/page")
+    assert page.show_glossary_tooltips is True
+    assert page.show_glossary_footnotes is True
     optional_summary = GlossaryFields(
         slug="body-only",
         title="正文即提示",

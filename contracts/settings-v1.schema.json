@@ -831,26 +831,6 @@
           ],
           "title": "Popup Source",
           "type": "string"
-        },
-        "article_inline_tooltips": {
-          "default": true,
-          "title": "Article Inline Tooltips",
-          "type": "boolean"
-        },
-        "article_footnotes": {
-          "default": true,
-          "title": "Article Footnotes",
-          "type": "boolean"
-        },
-        "shuoshuo_inline_tooltips": {
-          "default": true,
-          "title": "Shuoshuo Inline Tooltips",
-          "type": "boolean"
-        },
-        "shuoshuo_footnotes": {
-          "default": true,
-          "title": "Shuoshuo Footnotes",
-          "type": "boolean"
         }
       },
       "title": "GlossaryPreferences",

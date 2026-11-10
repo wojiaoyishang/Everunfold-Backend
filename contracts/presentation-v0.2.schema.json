@@ -316,6 +316,16 @@
       "title": "Comments Open",
       "type": "boolean"
     },
+    "show_glossary_tooltips": {
+      "default": true,
+      "title": "Show Glossary Tooltips",
+      "type": "boolean"
+    },
+    "show_glossary_footnotes": {
+      "default": true,
+      "title": "Show Glossary Footnotes",
+      "type": "boolean"
+    },
     "allow_indexing": {
       "default": true,
       "title": "Allow Indexing",
@@ -386,6 +396,6 @@
   "title": "ContentPresentation",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "0.2.0-preview.3",
+  "x-everunfold-contract-version": "0.2.0-preview.4",
   "description": "Draft presentation contract. No HTTP endpoint or database migration is installed. Locked records omit body, excerpt and media. Viewer-specific state is separate."
 }
