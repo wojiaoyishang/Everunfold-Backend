@@ -123,7 +123,12 @@ def test_glossary_admin_and_article_scoped_public_matching(
                         "id": str(uuid4()),
                         "type": "markdown",
                         "content": "她出现在**旧日校园回忆**中。",
-                    }
+                    },
+                    {
+                        "id": str(uuid4()),
+                        "type": "html",
+                        "content": "<p><strong>HTML 正文块</strong>与 Markdown 混合保存。</p>",
+                    },
                 ],
                 "aliases": ["金灵同学"],
                 "status": "published",
@@ -162,9 +167,13 @@ def test_glossary_admin_and_article_scoped_public_matching(
     assert hit.status_code == 200, hit.text
     assert [item["title"] for item in hit.json()["data"]["terms"]] == ["金灵"]
     assert hit.json()["data"]["terms"][0]["body"][0]["content"] == "她出现在**旧日校园回忆**中。"
+    assert [block["type"] for block in hit.json()["data"]["terms"][0]["body"]] == [
+        "markdown",
+        "html",
+    ]
     detail = public.get(base + "/terms/jin-ling?language=zh-CN")
     assert detail.status_code == 200, detail.text
-    assert detail.json()["data"]["body"][0]["type"] == "markdown"
+    assert [block["type"] for block in detail.json()["data"]["body"]] == ["markdown", "html"]
     assert [
         item["title"] for item in public.get(base + "/index?language=en").json()["data"]["terms"]
     ] == ["金灵"]
