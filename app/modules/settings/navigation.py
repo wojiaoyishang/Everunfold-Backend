@@ -81,6 +81,7 @@ async def public_navigation(
         result.append(
             {
                 "label": item["label"],
+                "labels": item.get("labels", {}),
                 "href": href,
                 **({"icon": item["icon"]} if "icon" in item else {}),
             }

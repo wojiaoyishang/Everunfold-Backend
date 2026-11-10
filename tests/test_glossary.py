@@ -11,13 +11,16 @@ from app.modules.content.models import Content
 from app.modules.settings.backend_plugins import install_backend_plugins
 from app.modules.settings.schemas import GlossaryPreferences
 from app.plugins.glossary.matching import MatchRule, evaluate_rules
+from app.plugins.glossary.models import GlossaryHook
 from app.plugins.glossary.schemas import (
     GlossaryBlock,
     GlossaryFields,
+    GlossaryHookFields,
     GlossaryMatchPreviewInput,
     GlossaryMatchRule,
 )
 from app.plugins.glossary.service import (
+    hook_targets_surface,
     operation_fingerprint,
     preview_matches,
     searchable_source,
@@ -60,12 +63,17 @@ def test_glossary_text_matching_ignores_code_links_and_markup() -> None:
     assert operation_fingerprint({"b": 2, "a": 1}) == operation_fingerprint({"a": 1, "b": 2})
     preferences = GlossaryPreferences()
     assert preferences.popup_source == "content"
+    assert preferences.article_inline_tooltips is True
     assert preferences.article_footnotes is True
+    assert preferences.shuoshuo_inline_tooltips is True
     assert preferences.shuoshuo_footnotes is True
     assert (
-        GlossaryPreferences(article_footnotes=False, shuoshuo_footnotes=False).model_dump()[
-            "article_footnotes"
-        ]
+        GlossaryPreferences(
+            article_inline_tooltips=False,
+            article_footnotes=False,
+            shuoshuo_inline_tooltips=False,
+            shuoshuo_footnotes=False,
+        ).model_dump()["article_footnotes"]
         is False
     )
     optional_summary = GlossaryFields(
@@ -133,6 +141,36 @@ def test_regex_glossary_rules_are_bounded_and_preserve_match_options() -> None:
         )
     )
     assert [item.text for item in title_preview.hits] == ["默认匹配标题"]
+
+
+def test_cross_page_hook_selectors_and_targets_are_bounded() -> None:
+    target = uuid4()
+    fields = GlossaryHookFields(
+        selector=".article-header .avatar",
+        scope="content",
+        targets=[{"kind": "article", "id": target}],
+        priority=20,
+    )
+    assert fields.targets[0].id == target
+    assert GlossaryHookFields(selector="#avatar").targets == []
+    for selector in ("*", "body", "#avatar::before", "a{color:red}", ""):
+        with pytest.raises(ValueError):
+            GlossaryHookFields(selector=selector)
+    with pytest.raises(ValueError):
+        GlossaryHookFields(selector="#avatar", scope="content")
+    with pytest.raises(ValueError):
+        GlossaryHookFields(
+            selector="#avatar",
+            scope="all",
+            targets=[{"kind": "article", "id": target}],
+        )
+    hook = GlossaryHook(
+        scope="content",
+        targets=[{"kind": "article", "id": str(target)}],
+    )
+    assert hook_targets_surface(hook, "article", target, None)
+    assert not hook_targets_surface(hook, "article", uuid4(), None)
+    assert not hook_targets_surface(hook, "code", target, None)
 
 
 def test_glossary_admin_and_article_scoped_public_matching(
@@ -297,6 +335,83 @@ def test_glossary_admin_and_article_scoped_public_matching(
     )
     assert update.status_code == 200, update.text
     assert update.json()["data"]["revision"] == 2
+    hook_id = uuid4()
+    hook_operation = uuid4()
+    hook = ctx.root.post(
+        base + "/admin/hooks",
+        headers=headers(ctx.root),
+        json={
+            "operation_id": str(hook_operation),
+            "hook_id": str(hook_id),
+            "term_id": term_id,
+            "fields": {
+                "selector": "#avatar",
+                "scope": "content",
+                "targets": [{"kind": "article", "id": matched}],
+                "enabled": True,
+                "priority": 25,
+            },
+        },
+    )
+    assert hook.status_code == 200, hook.text
+    assert hook.json()["data"]["term"]["title"] == "金灵"
+    replay_hook = ctx.root.post(
+        base + "/admin/hooks",
+        headers=headers(ctx.root),
+        json={
+            "operation_id": str(hook_operation),
+            "hook_id": str(hook_id),
+            "term_id": term_id,
+            "fields": {
+                "selector": "#avatar",
+                "scope": "content",
+                "targets": [{"kind": "article", "id": matched}],
+                "enabled": True,
+                "priority": 25,
+            },
+        },
+    )
+    assert replay_hook.status_code == 200
+    hooks = public.get(
+        base + f"/hooks/for-target?surface=article&content_id={matched}&language=zh-CN"
+    )
+    assert hooks.status_code == 200, hooks.text
+    assert [item["selector"] for item in hooks.json()["data"]["hooks"]] == ["#avatar"]
+    wrong_target = public.get(
+        base + f"/hooks/for-target?surface=article&content_id={unmatched}&language=zh-CN"
+    )
+    assert wrong_target.json()["data"]["hooks"] == []
+    disabled = ctx.root.patch(
+        base + f"/admin/hooks/{hook_id}",
+        headers=headers(ctx.root),
+        json={
+            "operation_id": str(uuid4()),
+            "expected_revision": 1,
+            "term_id": term_id,
+            "fields": {
+                "selector": "#avatar",
+                "scope": "content",
+                "targets": [{"kind": "article", "id": matched}],
+                "enabled": False,
+                "priority": 25,
+            },
+        },
+    )
+    assert disabled.status_code == 200, disabled.text
+    assert disabled.json()["data"]["revision"] == 2
+    assert (
+        public.get(
+            base + f"/hooks/for-target?surface=article&content_id={matched}&language=zh-CN"
+        ).json()["data"]["hooks"]
+        == []
+    )
+    archived_hook = ctx.root.post(
+        base + f"/admin/hooks/{hook_id}/archive",
+        headers=headers(ctx.root),
+        json={"operation_id": str(uuid4()), "expected_revision": 2},
+    )
+    assert archived_hook.status_code == 200, archived_hook.text
+    assert archived_hook.json()["data"]["status"] == "archived"
     stale = ctx.root.patch(
         base + f"/admin/terms/{term_id}",
         headers=headers(ctx.root),

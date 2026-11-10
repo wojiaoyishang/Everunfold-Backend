@@ -832,9 +832,19 @@
           "title": "Popup Source",
           "type": "string"
         },
+        "article_inline_tooltips": {
+          "default": true,
+          "title": "Article Inline Tooltips",
+          "type": "boolean"
+        },
         "article_footnotes": {
           "default": true,
           "title": "Article Footnotes",
+          "type": "boolean"
+        },
+        "shuoshuo_inline_tooltips": {
+          "default": true,
+          "title": "Shuoshuo Inline Tooltips",
           "type": "boolean"
         },
         "shuoshuo_footnotes": {
@@ -2021,6 +2031,14 @@
           "minLength": 1,
           "title": "Label",
           "type": "string"
+        },
+        "labels": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "maxProperties": 32,
+          "title": "Labels",
+          "type": "object"
         },
         "href": {
           "maxLength": 2048,
@@ -4806,7 +4824,7 @@
   "title": "SettingsContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "1.27.0",
+  "x-everunfold-contract-version": "1.28.0",
   "x-everunfold-language-regions": {
     "zh": "CN",
     "en": "GB",

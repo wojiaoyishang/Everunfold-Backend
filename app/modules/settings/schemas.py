@@ -1,5 +1,6 @@
 """Versioned settings; only these whitelisted values may leave the backend."""
 
+import re
 from datetime import datetime
 from typing import Literal, Self
 from uuid import UUID
@@ -89,6 +90,7 @@ class NavigationCatalog(SettingsModel):
 class MenuLink(SettingsModel):
     id: str = Field(pattern=r"^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,63}$")
     label: str = Field(min_length=1, max_length=60)
+    labels: dict[str, str] = Field(default_factory=dict, max_length=32)
     href: str = Field(min_length=1, max_length=2048)
     icon: str = Field(
         default="link",
@@ -96,6 +98,19 @@ class MenuLink(SettingsModel):
     )
     _url = field_validator("href")(safe_url)
     reference: NavigationReference | None = None
+
+    @field_validator("labels")
+    @classmethod
+    def localized_labels(cls, values: dict[str, str]) -> dict[str, str]:
+        result: dict[str, str] = {}
+        for language, raw in values.items():
+            if not re.fullmatch(r"[A-Za-z0-9*][A-Za-z0-9*-]{0,31}", language):
+                raise ValueError("invalid navigation label language")
+            label = " ".join(raw.split())
+            if not label or len(label) > 60 or any(ord(char) < 32 for char in label):
+                raise ValueError("navigation label must be 1 to 60 visible characters")
+            result[language] = label
+        return result
 
 
 class MenuItem(MenuLink):
@@ -120,7 +135,9 @@ class GlossaryPreferences(SettingsModel):
     auto_match: bool = True
     max_matches_per_page: int = Field(default=20, ge=1, le=100)
     popup_source: Literal["summary", "content"] = "content"
+    article_inline_tooltips: bool = True
     article_footnotes: bool = True
+    shuoshuo_inline_tooltips: bool = True
     shuoshuo_footnotes: bool = True
 
 

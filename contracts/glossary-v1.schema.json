@@ -349,6 +349,266 @@
       "title": "GlossaryFields",
       "type": "object"
     },
+    "GlossaryHookArchive": {
+      "additionalProperties": false,
+      "properties": {
+        "operation_id": {
+          "format": "uuid",
+          "title": "Operation Id",
+          "type": "string"
+        },
+        "expected_revision": {
+          "minimum": 1,
+          "title": "Expected Revision",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "operation_id",
+        "expected_revision"
+      ],
+      "title": "GlossaryHookArchive",
+      "type": "object"
+    },
+    "GlossaryHookCreate": {
+      "additionalProperties": false,
+      "properties": {
+        "operation_id": {
+          "format": "uuid",
+          "title": "Operation Id",
+          "type": "string"
+        },
+        "hook_id": {
+          "format": "uuid",
+          "title": "Hook Id",
+          "type": "string"
+        },
+        "term_id": {
+          "format": "uuid",
+          "title": "Term Id",
+          "type": "string"
+        },
+        "fields": {
+          "$ref": "#/$defs/GlossaryHookFields"
+        }
+      },
+      "required": [
+        "operation_id",
+        "hook_id",
+        "term_id",
+        "fields"
+      ],
+      "title": "GlossaryHookCreate",
+      "type": "object"
+    },
+    "GlossaryHookFields": {
+      "additionalProperties": false,
+      "properties": {
+        "selector": {
+          "maxLength": 256,
+          "minLength": 2,
+          "title": "Selector",
+          "type": "string"
+        },
+        "scope": {
+          "default": "all",
+          "enum": [
+            "all",
+            "content"
+          ],
+          "title": "Scope",
+          "type": "string"
+        },
+        "targets": {
+          "items": {
+            "$ref": "#/$defs/GlossaryHookTarget"
+          },
+          "maxItems": 32,
+          "title": "Targets",
+          "type": "array"
+        },
+        "enabled": {
+          "default": true,
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "priority": {
+          "default": 0,
+          "maximum": 100,
+          "minimum": 0,
+          "title": "Priority",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "selector"
+      ],
+      "title": "GlossaryHookFields",
+      "type": "object"
+    },
+    "GlossaryHookItem": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "term": {
+          "$ref": "#/$defs/PublicGlossaryTerm"
+        },
+        "selector": {
+          "title": "Selector",
+          "type": "string"
+        },
+        "scope": {
+          "enum": [
+            "all",
+            "content"
+          ],
+          "title": "Scope",
+          "type": "string"
+        },
+        "targets": {
+          "items": {
+            "$ref": "#/$defs/GlossaryHookTarget"
+          },
+          "title": "Targets",
+          "type": "array"
+        },
+        "enabled": {
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "priority": {
+          "title": "Priority",
+          "type": "integer"
+        },
+        "status": {
+          "enum": [
+            "active",
+            "archived"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "revision": {
+          "title": "Revision",
+          "type": "integer"
+        },
+        "updated_at": {
+          "format": "date-time",
+          "title": "Updated At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "term",
+        "selector",
+        "scope",
+        "targets",
+        "enabled",
+        "priority",
+        "status",
+        "revision",
+        "updated_at"
+      ],
+      "title": "GlossaryHookItem",
+      "type": "object"
+    },
+    "GlossaryHookList": {
+      "additionalProperties": false,
+      "properties": {
+        "items": {
+          "items": {
+            "$ref": "#/$defs/GlossaryHookItem"
+          },
+          "title": "Items",
+          "type": "array"
+        },
+        "total": {
+          "minimum": 0,
+          "title": "Total",
+          "type": "integer"
+        },
+        "page": {
+          "minimum": 1,
+          "title": "Page",
+          "type": "integer"
+        },
+        "page_size": {
+          "maximum": 100,
+          "minimum": 1,
+          "title": "Page Size",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "items",
+        "total",
+        "page",
+        "page_size"
+      ],
+      "title": "GlossaryHookList",
+      "type": "object"
+    },
+    "GlossaryHookTarget": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "enum": [
+            "article",
+            "shuoshuo",
+            "page"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "id"
+      ],
+      "title": "GlossaryHookTarget",
+      "type": "object"
+    },
+    "GlossaryHookUpdate": {
+      "additionalProperties": false,
+      "properties": {
+        "operation_id": {
+          "format": "uuid",
+          "title": "Operation Id",
+          "type": "string"
+        },
+        "expected_revision": {
+          "minimum": 1,
+          "title": "Expected Revision",
+          "type": "integer"
+        },
+        "term_id": {
+          "format": "uuid",
+          "title": "Term Id",
+          "type": "string"
+        },
+        "fields": {
+          "$ref": "#/$defs/GlossaryHookFields"
+        }
+      },
+      "required": [
+        "operation_id",
+        "expected_revision",
+        "term_id",
+        "fields"
+      ],
+      "title": "GlossaryHookUpdate",
+      "type": "object"
+    },
     "GlossaryList": {
       "additionalProperties": false,
       "properties": {
@@ -799,6 +1059,57 @@
       "title": "PublicGlossaryDetail",
       "type": "object"
     },
+    "PublicGlossaryHook": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "selector": {
+          "title": "Selector",
+          "type": "string"
+        },
+        "priority": {
+          "title": "Priority",
+          "type": "integer"
+        },
+        "term": {
+          "$ref": "#/$defs/PublicGlossaryDetail"
+        }
+      },
+      "required": [
+        "id",
+        "selector",
+        "priority",
+        "term"
+      ],
+      "title": "PublicGlossaryHook",
+      "type": "object"
+    },
+    "PublicGlossaryHooks": {
+      "additionalProperties": false,
+      "properties": {
+        "revision": {
+          "title": "Revision",
+          "type": "string"
+        },
+        "hooks": {
+          "items": {
+            "$ref": "#/$defs/PublicGlossaryHook"
+          },
+          "title": "Hooks",
+          "type": "array"
+        }
+      },
+      "required": [
+        "revision",
+        "hooks"
+      ],
+      "title": "PublicGlossaryHooks",
+      "type": "object"
+    },
     "PublicGlossaryIndex": {
       "additionalProperties": false,
       "properties": {
@@ -1003,6 +1314,62 @@
       "title": "PublicResponse[GlossaryDetail]",
       "type": "object"
     },
+    "PublicResponse_GlossaryHookItem_": {
+      "additionalProperties": false,
+      "properties": {
+        "success": {
+          "default": true,
+          "title": "Success",
+          "type": "boolean"
+        },
+        "code": {
+          "default": 200,
+          "title": "Code",
+          "type": "integer"
+        },
+        "msg": {
+          "default": "请求成功",
+          "title": "Msg",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/GlossaryHookItem"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "title": "PublicResponse[GlossaryHookItem]",
+      "type": "object"
+    },
+    "PublicResponse_GlossaryHookList_": {
+      "additionalProperties": false,
+      "properties": {
+        "success": {
+          "default": true,
+          "title": "Success",
+          "type": "boolean"
+        },
+        "code": {
+          "default": 200,
+          "title": "Code",
+          "type": "integer"
+        },
+        "msg": {
+          "default": "请求成功",
+          "title": "Msg",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/GlossaryHookList"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "title": "PublicResponse[GlossaryHookList]",
+      "type": "object"
+    },
     "PublicResponse_GlossaryList_": {
       "additionalProperties": false,
       "properties": {
@@ -1087,6 +1454,34 @@
       "title": "PublicResponse[PublicGlossaryDetail]",
       "type": "object"
     },
+    "PublicResponse_PublicGlossaryHooks_": {
+      "additionalProperties": false,
+      "properties": {
+        "success": {
+          "default": true,
+          "title": "Success",
+          "type": "boolean"
+        },
+        "code": {
+          "default": 200,
+          "title": "Code",
+          "type": "integer"
+        },
+        "msg": {
+          "default": "请求成功",
+          "title": "Msg",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/PublicGlossaryHooks"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "title": "PublicResponse[PublicGlossaryHooks]",
+      "type": "object"
+    },
     "PublicResponse_PublicGlossaryIndex_": {
       "additionalProperties": false,
       "properties": {
@@ -1147,6 +1542,24 @@
     },
     "detail": {
       "$ref": "#/$defs/PublicResponse_GlossaryDetail_"
+    },
+    "public_hooks": {
+      "$ref": "#/$defs/PublicResponse_PublicGlossaryHooks_"
+    },
+    "hooks_query": {
+      "$ref": "#/$defs/PublicResponse_GlossaryHookList_"
+    },
+    "hook_detail": {
+      "$ref": "#/$defs/PublicResponse_GlossaryHookItem_"
+    },
+    "hook_create": {
+      "$ref": "#/$defs/GlossaryHookCreate"
+    },
+    "hook_update": {
+      "$ref": "#/$defs/GlossaryHookUpdate"
+    },
+    "hook_archive": {
+      "$ref": "#/$defs/GlossaryHookArchive"
     }
   },
   "required": [
@@ -1159,12 +1572,18 @@
     "create",
     "update",
     "list",
-    "detail"
+    "detail",
+    "public_hooks",
+    "hooks_query",
+    "hook_detail",
+    "hook_create",
+    "hook_update",
+    "hook_archive"
   ],
   "title": "GlossaryContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "3.2.0",
+  "x-everunfold-contract-version": "3.3.0",
   "x-everunfold-operations": [
     {
       "name": "readGlossaryIndex",
@@ -1223,6 +1642,48 @@
       "method": "PATCH",
       "input": "update",
       "response": "detail"
+    },
+    {
+      "name": "readGlossaryHooksForTarget",
+      "path": "/v1/plugins/everunfold.glossary/hooks/for-target",
+      "method": "GET",
+      "response": "public_hooks",
+      "csrf": false,
+      "credentials": "omit"
+    },
+    {
+      "name": "queryGlossaryHooks",
+      "path": "/v1/plugins/everunfold.glossary/admin/hooks/query",
+      "method": "POST",
+      "input": "hooks_query",
+      "response": "hooks_query"
+    },
+    {
+      "name": "readGlossaryHook",
+      "path": "/v1/plugins/everunfold.glossary/admin/hooks/{hook_id}",
+      "method": "GET",
+      "response": "hook_detail"
+    },
+    {
+      "name": "createGlossaryHook",
+      "path": "/v1/plugins/everunfold.glossary/admin/hooks",
+      "method": "POST",
+      "input": "hook_create",
+      "response": "hook_detail"
+    },
+    {
+      "name": "updateGlossaryHook",
+      "path": "/v1/plugins/everunfold.glossary/admin/hooks/{hook_id}",
+      "method": "PATCH",
+      "input": "hook_update",
+      "response": "hook_detail"
+    },
+    {
+      "name": "archiveGlossaryHook",
+      "path": "/v1/plugins/everunfold.glossary/admin/hooks/{hook_id}/archive",
+      "method": "POST",
+      "input": "hook_archive",
+      "response": "hook_detail"
     }
   ]
 }

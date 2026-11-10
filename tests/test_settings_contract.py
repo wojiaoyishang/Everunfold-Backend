@@ -60,6 +60,33 @@ def test_blank_navigation_is_authoritative_and_legacy_settings_survive() -> None
     assert stored["description"] == "Changed"
 
 
+def test_navigation_labels_are_independent_by_language_and_legacy_values_survive() -> None:
+    menu = MenuItem(
+        id="home",
+        label="首页",
+        labels={"zh-CN": "首页", "en": "Home"},
+        href="/",
+    )
+    assert menu.labels == {"zh-CN": "首页", "en": "Home"}
+    original = {
+        "name": "Campfire",
+        "author": "A",
+        "description": "",
+        "navigation": [menu.model_dump(mode="json")],
+    }
+    value = public_settings(original)
+    assert value.site.navigation[0].labels["en"] == "Home"
+    assert public_settings(stored_settings(original, value)) == value
+    for invalid in (
+        {"bad code": "Home"},
+        {"en": "   "},
+        {"en": "\n"},
+        {"en": "x" * 61},
+    ):
+        with pytest.raises(ValidationError):
+            MenuItem(id="home", label="首页", labels=invalid, href="/")
+
+
 def test_code_preferences_are_bounded_and_legacy_defaults_round_trip() -> None:
     original = {"name": "Campfire", "author": "A", "description": ""}
     value = public_settings(original)

@@ -1,5 +1,6 @@
 """Versioned request and response models shared by the plugin contract exporter."""
 
+import re
 from datetime import datetime
 from typing import Literal, Self
 from uuid import UUID
@@ -14,6 +15,9 @@ from .matching import validate_regex
 
 GlossaryStatus = Literal["draft", "published", "archived"]
 GlossaryLanguage = Literal["*"] | LanguageCode
+GlossaryHookScope = Literal["all", "content"]
+GlossaryHookTargetKind = Literal["article", "shuoshuo", "page"]
+GlossaryHookStatus = Literal["active", "archived"]
 
 
 class GlossaryBlock(PublicModel):
@@ -200,6 +204,111 @@ class ContentGlossaryMatches(PublicModel):
     terms: list[PublicGlossaryMatch]
 
 
+class GlossaryHookTarget(PublicModel):
+    kind: GlossaryHookTargetKind
+    id: UUID = Field(strict=False)
+
+
+def validate_css_selector(value: str) -> str:
+    selector = value.strip()
+    if not 2 <= len(selector) <= 256:
+        raise ValueError("选择器必须为 2 至 256 个字符")
+    if any(char in selector for char in "\x00\r\n{}<>"):
+        raise ValueError("选择器包含不安全字符")
+    if "::" in selector:
+        raise ValueError("不支持伪元素选择器")
+    if re.search(
+        r"(?:^|[\s,>+~])(?:html|body|\*)(?=$|[\s,.#:[>+~])",
+        selector,
+        flags=re.IGNORECASE,
+    ):
+        raise ValueError("不允许使用过于宽泛的选择器")
+    return selector
+
+
+class GlossaryHookFields(PublicModel):
+    selector: str = Field(min_length=2, max_length=256)
+    scope: GlossaryHookScope = "all"
+    targets: list[GlossaryHookTarget] = Field(default_factory=list, max_length=32)
+    enabled: bool = True
+    priority: int = Field(default=0, ge=0, le=100)
+
+    @field_validator("selector")
+    @classmethod
+    def valid_selector(cls, value: str) -> str:
+        return validate_css_selector(value)
+
+    @model_validator(mode="after")
+    def valid_targets(self) -> Self:
+        keys = [(target.kind, target.id) for target in self.targets]
+        if len(keys) != len(set(keys)):
+            raise ValueError("触发目标不可重复")
+        if self.scope == "all" and self.targets:
+            raise ValueError("所有页面范围不能同时指定内容目标")
+        if self.scope == "content" and not self.targets:
+            raise ValueError("指定内容范围至少需要一个目标")
+        return self
+
+
+class GlossaryHookCreate(PublicModel):
+    operation_id: UUID
+    hook_id: UUID
+    term_id: UUID
+    fields: GlossaryHookFields
+
+
+class GlossaryHookUpdate(PublicModel):
+    operation_id: UUID
+    expected_revision: int = Field(ge=1)
+    term_id: UUID
+    fields: GlossaryHookFields
+
+
+class GlossaryHookArchive(PublicModel):
+    operation_id: UUID
+    expected_revision: int = Field(ge=1)
+
+
+class GlossaryHookQuery(PublicModel):
+    search: str = Field(default="", max_length=200)
+    status: Literal["all", "active", "archived"] = "all"
+    term_id: UUID | None = Field(default=None, strict=False)
+    page: int = Field(default=1, ge=1)
+    page_size: int = Field(default=30, ge=1, le=100)
+
+
+class GlossaryHookItem(PublicModel):
+    id: UUID
+    term: PublicGlossaryTerm
+    selector: str
+    scope: GlossaryHookScope
+    targets: list[GlossaryHookTarget]
+    enabled: bool
+    priority: int
+    status: GlossaryHookStatus
+    revision: int
+    updated_at: datetime
+
+
+class GlossaryHookList(PublicModel):
+    items: list[GlossaryHookItem]
+    total: int = Field(ge=0)
+    page: int = Field(ge=1)
+    page_size: int = Field(ge=1, le=100)
+
+
+class PublicGlossaryHook(PublicModel):
+    id: UUID
+    selector: str
+    priority: int
+    term: PublicGlossaryDetail
+
+
+class PublicGlossaryHooks(PublicModel):
+    revision: str
+    hooks: list[PublicGlossaryHook]
+
+
 class GlossaryContract(PublicModel):
     public_index: PublicResponse[PublicGlossaryIndex]
     public_detail: PublicResponse[PublicGlossaryDetail]
@@ -211,3 +320,9 @@ class GlossaryContract(PublicModel):
     update: GlossaryUpdate
     list: PublicResponse[GlossaryList]
     detail: PublicResponse[GlossaryDetail]
+    public_hooks: PublicResponse[PublicGlossaryHooks]
+    hooks_query: PublicResponse[GlossaryHookList]
+    hook_detail: PublicResponse[GlossaryHookItem]
+    hook_create: GlossaryHookCreate
+    hook_update: GlossaryHookUpdate
+    hook_archive: GlossaryHookArchive

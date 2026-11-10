@@ -10,7 +10,7 @@ from app.plugins.glossary.schemas import GlossaryContract
 def build_schema() -> dict[str, Any]:
     schema = GlossaryContract.model_json_schema()
     schema["$schema"] = "http://json-schema.org/draft-07/schema#"
-    schema["x-everunfold-contract-version"] = "3.2.0"
+    schema["x-everunfold-contract-version"] = "3.3.0"
     schema["x-everunfold-operations"] = [
         {
             "name": "readGlossaryIndex",
@@ -69,6 +69,48 @@ def build_schema() -> dict[str, Any]:
             "method": "PATCH",
             "input": "update",
             "response": "detail",
+        },
+        {
+            "name": "readGlossaryHooksForTarget",
+            "path": "/v1/plugins/everunfold.glossary/hooks/for-target",
+            "method": "GET",
+            "response": "public_hooks",
+            "csrf": False,
+            "credentials": "omit",
+        },
+        {
+            "name": "queryGlossaryHooks",
+            "path": "/v1/plugins/everunfold.glossary/admin/hooks/query",
+            "method": "POST",
+            "input": "hooks_query",
+            "response": "hooks_query",
+        },
+        {
+            "name": "readGlossaryHook",
+            "path": "/v1/plugins/everunfold.glossary/admin/hooks/{hook_id}",
+            "method": "GET",
+            "response": "hook_detail",
+        },
+        {
+            "name": "createGlossaryHook",
+            "path": "/v1/plugins/everunfold.glossary/admin/hooks",
+            "method": "POST",
+            "input": "hook_create",
+            "response": "hook_detail",
+        },
+        {
+            "name": "updateGlossaryHook",
+            "path": "/v1/plugins/everunfold.glossary/admin/hooks/{hook_id}",
+            "method": "PATCH",
+            "input": "hook_update",
+            "response": "hook_detail",
+        },
+        {
+            "name": "archiveGlossaryHook",
+            "path": "/v1/plugins/everunfold.glossary/admin/hooks/{hook_id}/archive",
+            "method": "POST",
+            "input": "hook_archive",
+            "response": "hook_detail",
         },
     ]
     return schema

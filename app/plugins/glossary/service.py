@@ -6,7 +6,7 @@ import json
 import re
 import unicodedata
 from datetime import UTC, datetime
-from typing import cast
+from typing import Literal, cast
 from uuid import UUID
 
 from sqlalchemy import String, func, or_, select, text
@@ -20,15 +20,32 @@ from app.modules.content.editor_schema import EditorSettings
 from app.modules.content.editor_service import editor_media
 from app.modules.content.models import Content
 from app.modules.content.schemas import MediaURL
+from app.modules.pages.models import ManagedPage
 
 from .matching import MatchRule, evaluate_rules
-from .models import GlossaryOperation, GlossaryTerm
+from .models import (
+    GlossaryHook,
+    GlossaryHookOperation,
+    GlossaryOperation,
+    GlossaryTerm,
+)
 from .schemas import (
     ContentGlossaryMatches,
     GlossaryBlock,
     GlossaryCreate,
     GlossaryDetail,
     GlossaryFields,
+    GlossaryHookArchive,
+    GlossaryHookCreate,
+    GlossaryHookFields,
+    GlossaryHookItem,
+    GlossaryHookList,
+    GlossaryHookQuery,
+    GlossaryHookScope,
+    GlossaryHookStatus,
+    GlossaryHookTarget,
+    GlossaryHookTargetKind,
+    GlossaryHookUpdate,
     GlossaryList,
     GlossaryListItem,
     GlossaryMatchedText,
@@ -39,6 +56,8 @@ from .schemas import (
     GlossaryStatus,
     GlossaryUpdate,
     PublicGlossaryDetail,
+    PublicGlossaryHook,
+    PublicGlossaryHooks,
     PublicGlossaryIndex,
     PublicGlossaryMatch,
     PublicGlossaryTerm,
@@ -566,3 +585,355 @@ async def content_matches(
         revision=latest.isoformat(),
         terms=matches,
     )
+
+
+def hook_fields_dump(fields: GlossaryHookFields) -> dict[str, object]:
+    return fields.model_dump(mode="json")
+
+
+async def validate_hook_targets(
+    session: AsyncSession,
+    fields: GlossaryHookFields,
+) -> None:
+    for target in fields.targets:
+        if target.kind == "page":
+            exists = await session.scalar(
+                select(ManagedPage.id).where(
+                    ManagedPage.id == target.id,
+                    ManagedPage.deleted_at.is_(None),
+                    ManagedPage.published.is_not(None),
+                )
+            )
+        else:
+            exists = await session.scalar(
+                select(Content.id).where(
+                    Content.id == target.id,
+                    Content.kind == target.kind,
+                    Content.publication_status == "published",
+                    Content.visibility == "public",
+                )
+            )
+        if exists is None:
+            raise AuthFailure(422, 42239, "触发目标不存在或尚未公开")
+
+
+async def admin_hook_item(
+    session: AsyncSession,
+    hook: GlossaryHook,
+    term: GlossaryTerm,
+) -> GlossaryHookItem:
+    return GlossaryHookItem(
+        id=hook.id,
+        term=public_item(term),
+        selector=hook.selector,
+        scope=cast(GlossaryHookScope, hook.scope),
+        targets=[GlossaryHookTarget.model_validate(value) for value in hook.targets],
+        enabled=hook.enabled,
+        priority=hook.priority,
+        status=cast(GlossaryHookStatus, hook.status),
+        revision=hook.revision,
+        updated_at=hook.updated_at,
+    )
+
+
+async def hook_detail(
+    session: AsyncSession,
+    hook_id: UUID,
+) -> GlossaryHookItem:
+    row = (
+        await session.execute(
+            select(GlossaryHook, GlossaryTerm)
+            .join(GlossaryTerm, GlossaryTerm.id == GlossaryHook.term_id)
+            .where(GlossaryHook.id == hook_id)
+        )
+    ).one_or_none()
+    if row is None:
+        raise AuthFailure(404, 40439, "术语触发不存在")
+    return await admin_hook_item(session, row.GlossaryHook, row.GlossaryTerm)
+
+
+async def replay_hook_operation(
+    session: AsyncSession,
+    operation_id: UUID,
+    fingerprint: str,
+) -> GlossaryHookItem | None:
+    operation = await session.get(GlossaryHookOperation, operation_id)
+    if operation is None:
+        return None
+    if operation.fingerprint != fingerprint:
+        raise AuthFailure(409, 40939, "同一操作编号不能用于不同触发请求")
+    return await hook_detail(session, operation.hook_id)
+
+
+async def create_hook(
+    session: AsyncSession,
+    actor: Actor,
+    payload: GlossaryHookCreate,
+) -> GlossaryHookItem:
+    fingerprint = operation_fingerprint(payload.model_dump(mode="json"))
+    replayed = await replay_hook_operation(session, payload.operation_id, fingerprint)
+    if replayed is not None:
+        return replayed
+    await lock_glossary(session)
+    if await session.get(GlossaryHook, payload.hook_id) is not None:
+        raise AuthFailure(409, 40939, "术语触发标识已存在")
+    term = await session.get(GlossaryTerm, payload.term_id)
+    if term is None:
+        raise AuthFailure(404, 40436, "术语不存在")
+    await validate_hook_targets(session, payload.fields)
+    now = datetime.now(UTC)
+    hook = GlossaryHook(
+        id=payload.hook_id,
+        term_id=payload.term_id,
+        selector=payload.fields.selector,
+        scope=payload.fields.scope,
+        targets=[target.model_dump(mode="json") for target in payload.fields.targets],
+        enabled=payload.fields.enabled,
+        priority=payload.fields.priority,
+        status="active",
+        revision=1,
+        created_by=actor.id,
+        updated_by=actor.id,
+        created_at=now,
+        updated_at=now,
+    )
+    session.add(hook)
+    await session.flush()
+    session.add(
+        GlossaryHookOperation(
+            operation_id=payload.operation_id,
+            hook_id=hook.id,
+            actor_id=actor.id,
+            fingerprint=fingerprint,
+            revision=1,
+            created_at=now,
+        )
+    )
+    await session.flush()
+    return await admin_hook_item(session, hook, term)
+
+
+async def update_hook(
+    session: AsyncSession,
+    actor: Actor,
+    hook_id: UUID,
+    payload: GlossaryHookUpdate,
+) -> GlossaryHookItem:
+    fingerprint = operation_fingerprint(
+        {
+            "hook_id": str(hook_id),
+            "expected_revision": payload.expected_revision,
+            "term_id": str(payload.term_id),
+            "fields": hook_fields_dump(payload.fields),
+        }
+    )
+    replayed = await replay_hook_operation(session, payload.operation_id, fingerprint)
+    if replayed is not None:
+        return replayed
+    await lock_glossary(session)
+    hook = await session.scalar(
+        select(GlossaryHook).where(GlossaryHook.id == hook_id).with_for_update()
+    )
+    if hook is None:
+        raise AuthFailure(404, 40439, "术语触发不存在")
+    if hook.revision != payload.expected_revision:
+        raise AuthFailure(409, 40940, "术语触发已在其他窗口更新")
+    term = await session.get(GlossaryTerm, payload.term_id)
+    if term is None:
+        raise AuthFailure(404, 40436, "术语不存在")
+    await validate_hook_targets(session, payload.fields)
+    now = datetime.now(UTC)
+    hook.term_id = payload.term_id
+    hook.selector = payload.fields.selector
+    hook.scope = payload.fields.scope
+    hook.targets = [target.model_dump(mode="json") for target in payload.fields.targets]
+    hook.enabled = payload.fields.enabled
+    hook.priority = payload.fields.priority
+    hook.status = "active"
+    hook.revision += 1
+    hook.updated_by = actor.id
+    hook.updated_at = now
+    session.add(
+        GlossaryHookOperation(
+            operation_id=payload.operation_id,
+            hook_id=hook.id,
+            actor_id=actor.id,
+            fingerprint=fingerprint,
+            revision=hook.revision,
+            created_at=now,
+        )
+    )
+    await session.flush()
+    return await admin_hook_item(session, hook, term)
+
+
+async def archive_hook(
+    session: AsyncSession,
+    actor: Actor,
+    hook_id: UUID,
+    payload: GlossaryHookArchive,
+) -> GlossaryHookItem:
+    fingerprint = operation_fingerprint(
+        {
+            "hook_id": str(hook_id),
+            "expected_revision": payload.expected_revision,
+            "status": "archived",
+        }
+    )
+    replayed = await replay_hook_operation(session, payload.operation_id, fingerprint)
+    if replayed is not None:
+        return replayed
+    await lock_glossary(session)
+    row = (
+        await session.execute(
+            select(GlossaryHook, GlossaryTerm)
+            .join(GlossaryTerm, GlossaryTerm.id == GlossaryHook.term_id)
+            .where(GlossaryHook.id == hook_id)
+            .with_for_update()
+        )
+    ).one_or_none()
+    if row is None:
+        raise AuthFailure(404, 40439, "术语触发不存在")
+    hook = row.GlossaryHook
+    if hook.revision != payload.expected_revision:
+        raise AuthFailure(409, 40940, "术语触发已在其他窗口更新")
+    now = datetime.now(UTC)
+    hook.status = "archived"
+    hook.enabled = False
+    hook.revision += 1
+    hook.updated_by = actor.id
+    hook.updated_at = now
+    session.add(
+        GlossaryHookOperation(
+            operation_id=payload.operation_id,
+            hook_id=hook.id,
+            actor_id=actor.id,
+            fingerprint=fingerprint,
+            revision=hook.revision,
+            created_at=now,
+        )
+    )
+    await session.flush()
+    return await admin_hook_item(session, hook, row.GlossaryTerm)
+
+
+async def list_hooks(session: AsyncSession, query: GlossaryHookQuery) -> GlossaryHookList:
+    conditions = []
+    if query.status != "all":
+        conditions.append(GlossaryHook.status == query.status)
+    if query.term_id is not None:
+        conditions.append(GlossaryHook.term_id == query.term_id)
+    if query.search.strip():
+        needle = f"%{query.search.strip()}%"
+        conditions.append(
+            or_(
+                GlossaryTerm.title.ilike(needle),
+                GlossaryHook.selector.ilike(needle),
+            )
+        )
+    where = conditions or [GlossaryHook.id.is_not(None)]
+    joined = (
+        select(GlossaryHook, GlossaryTerm)
+        .join(GlossaryTerm, GlossaryTerm.id == GlossaryHook.term_id)
+        .where(*where)
+    )
+    total = int(
+        await session.scalar(select(func.count()).select_from(joined.order_by(None).subquery()))
+        or 0
+    )
+    rows = (
+        await session.execute(
+            joined.order_by(
+                GlossaryHook.status,
+                GlossaryHook.priority.desc(),
+                GlossaryHook.updated_at.desc(),
+                GlossaryHook.id,
+            )
+            .offset((query.page - 1) * query.page_size)
+            .limit(query.page_size)
+        )
+    ).all()
+    return GlossaryHookList(
+        items=[await admin_hook_item(session, row.GlossaryHook, row.GlossaryTerm) for row in rows],
+        total=total,
+        page=query.page,
+        page_size=query.page_size,
+    )
+
+
+def hook_targets_surface(
+    hook: GlossaryHook,
+    surface: str,
+    content_id: UUID | None,
+    page_id: UUID | None,
+) -> bool:
+    if hook.scope == "all":
+        return True
+    if hook.scope != "content":
+        return False
+    target_id = page_id if surface == "page" else content_id
+    if target_id is None:
+        return False
+    kind: GlossaryHookTargetKind = cast(GlossaryHookTargetKind, surface)
+    return any(
+        value.get("kind") == kind and str(value.get("id")) == str(target_id)
+        for value in hook.targets
+    )
+
+
+async def public_hooks(
+    session: AsyncSession,
+    surface: Literal["article", "shuoshuo", "page", "code"],
+    content_id: UUID | None,
+    page_id: UUID | None,
+    language: str | None,
+    config: Settings | None = None,
+) -> PublicGlossaryHooks:
+    statement = (
+        select(GlossaryHook, GlossaryTerm)
+        .join(GlossaryTerm, GlossaryTerm.id == GlossaryHook.term_id)
+        .where(
+            GlossaryHook.status == "active",
+            GlossaryHook.enabled.is_(True),
+            GlossaryTerm.status == "published",
+        )
+    )
+    if language:
+        statement = statement.where(
+            or_(GlossaryTerm.language == language, GlossaryTerm.language == "*")
+        )
+    rows = (
+        await session.execute(
+            statement.order_by(
+                GlossaryHook.priority.desc(),
+                GlossaryHook.updated_at.desc(),
+                GlossaryHook.id,
+            ).limit(50)
+        )
+    ).all()
+    hooks: list[PublicGlossaryHook] = []
+    latest = datetime(1970, 1, 1, tzinfo=UTC)
+    for row in rows:
+        if not hook_targets_surface(row.GlossaryHook, surface, content_id, page_id):
+            continue
+        item = public_item(row.GlossaryTerm)
+        term = PublicGlossaryDetail(
+            **item.model_dump(),
+            body=[GlossaryBlock.model_validate(block) for block in row.GlossaryTerm.body],
+            media_urls=await resolved_media(
+                session,
+                config,
+                row.GlossaryTerm.body,
+                strict=False,
+            ),
+        )
+        hooks.append(
+            PublicGlossaryHook(
+                id=row.GlossaryHook.id,
+                selector=row.GlossaryHook.selector,
+                priority=row.GlossaryHook.priority,
+                term=term,
+            )
+        )
+        latest = max(latest, row.GlossaryHook.updated_at, row.GlossaryTerm.updated_at)
+    return PublicGlossaryHooks(revision=latest.isoformat(), hooks=hooks)
