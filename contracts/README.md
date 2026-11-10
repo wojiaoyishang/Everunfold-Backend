@@ -12,13 +12,13 @@
 | comment-likes-v0.1.schema.json | 0.2.0 | 匿名历史评论点赞 |
 | content-access-v1.schema.json | 1.4.0 | 私有受限正文读取 |
 | content-admin-v1.schema.json | 1.19.0 | 草稿、语言/导航、逐内容术语设置、修订/分支/合并与页面预览 |
-| glossary-v1.schema.json | 3.4.0 | 术语索引/详情、按内容匹配与跨页面 DOM/脚本触发 |
+| glossary-v1.schema.json | 3.5.0 | 术语索引/详情、特色图片、按内容匹配与跨页面 DOM/脚本触发 |
 | operations-v1.schema.json | 1.0.0 | 设置、任务与邮件等管理操作元数据 |
 | pages-v1.schema.json | 1.9.0 | 页面草稿/应用、逐页术语设置、可信清单与脚本执行位置 |
 | presentation-v0.2.schema.json | 0.2.0-preview.4 | 草稿展示预览（草案） |
 | public-v0.1.schema.json | 0.13.0 | 完整公开快照、多语言导航与逐页术语/验证码边界 |
 | reader-preview-v0.1.schema.json | 0.1.0-preview.1 | 阅读演示指标（预览） |
-| settings-v1.schema.json | 1.28.0 | 站点/主题/系统、语言目录、多语言菜单、插件与主题元数据 |
+| settings-v1.schema.json | 1.29.0 | 站点/主题/系统、语言目录、主题独立导航、插件与主题元数据 |
 
 权威导出入口为`tools/export_*_contract.py`；例如`uv run --locked python -m tools.export_accounts_contract`。协议Schema与独立Node参考对应，见[接入指南](../docs/development/api-key-applications.md)。`presentation-v0.2.schema.json`和`reader-preview-v0.1.schema.json`仍分别标记preview，不把展示草案当作正式写接口。`public-openapi-v0.1.json`由现有FastAPI公开业务路由导出，完整应用另含诊断路由。
 
