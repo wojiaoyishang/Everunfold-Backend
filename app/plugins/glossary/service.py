@@ -9,7 +9,8 @@ from datetime import UTC, datetime
 from typing import cast
 from uuid import UUID
 
-from sqlalchemy import func, or_, select, text
+from sqlalchemy import String, func, or_, select, text
+from sqlalchemy import cast as sql_cast
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.auth.permissions import Actor
@@ -250,6 +251,7 @@ async def list_terms(session: AsyncSession, query: GlossaryQuery) -> GlossaryLis
                 GlossaryTerm.title.ilike(needle),
                 GlossaryTerm.slug.ilike(needle),
                 GlossaryTerm.summary.ilike(needle),
+                sql_cast(GlossaryTerm.aliases, String).ilike(needle),
             )
         )
     where = conditions or [GlossaryTerm.id.is_not(None)]
@@ -328,6 +330,7 @@ HTML_COMMENT = re.compile(r"<!--[\s\S]*?-->")
 HTML_LINK = re.compile(r"<a\b[^>]*>[\s\S]*?</a>", re.IGNORECASE)
 MARKDOWN_LINK = re.compile(r"!?\[[^\]]*\]\([^)]*\)")
 HTML_TAG = re.compile(r"<[^>]+>")
+ASCII_WORD = re.compile(r"[A-Za-z0-9]")
 
 
 def searchable_source(blocks: list[dict[str, object]]) -> str:
@@ -343,6 +346,29 @@ def searchable_source(blocks: list[dict[str, object]]) -> str:
         source = HTML_TAG.sub(" ", source)
         pieces.append(html.unescape(source))
     return unicodedata.normalize("NFKC", "\n".join(pieces)).casefold()
+
+
+def target_in_source(source: str, value: str) -> bool:
+    """Match prose without treating an ASCII term as part of a larger word."""
+    needle = unicodedata.normalize("NFKC", value).casefold()
+    offset = 0
+    while offset < len(source):
+        start = source.find(needle, offset)
+        if start < 0:
+            return False
+        end = start + len(needle)
+        left_safe = (
+            not ASCII_WORD.match(needle[0]) or start == 0 or not ASCII_WORD.match(source[start - 1])
+        )
+        right_safe = (
+            not ASCII_WORD.match(needle[-1])
+            or end == len(source)
+            or not ASCII_WORD.match(source[end])
+        )
+        if left_safe and right_safe:
+            return True
+        offset = start + 1
+    return False
 
 
 async def content_matches(session: AsyncSession, content_id: UUID) -> ContentGlossaryMatches:
@@ -366,11 +392,7 @@ async def content_matches(session: AsyncSession, content_id: UUID) -> ContentGlo
     matches: list[PublicGlossaryMatch] = []
     latest = datetime(1970, 1, 1, tzinfo=UTC)
     for row in rows:
-        visible = {
-            value
-            for value in [row.title, *row.aliases]
-            if unicodedata.normalize("NFKC", value).casefold() in source
-        }
+        visible = {value for value in [row.title, *row.aliases] if target_in_source(source, value)}
         if not visible:
             continue
         item = public_item(row)

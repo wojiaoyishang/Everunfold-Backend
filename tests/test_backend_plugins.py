@@ -142,7 +142,7 @@ def test_persisted_catalog_controls_projection_and_provider_activation() -> None
     assert provider_state(data, "cloudflare.turnstile")[0]
     assert not provider_state({}, "cloudflare.turnstile")[0]
     assert provider_state({}, "local")[0]
-    assert len(data[CATALOG_KEY]) == 6
+    assert len(data[CATALOG_KEY]) == 7
 
 
 def test_frontend_inventory_cannot_override_backend_or_custom_shortcodes() -> None:

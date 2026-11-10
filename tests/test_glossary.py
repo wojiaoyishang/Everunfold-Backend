@@ -9,7 +9,11 @@ import pytest
 from app.core.database import Database
 from app.modules.content.models import Content
 from app.modules.settings.backend_plugins import install_backend_plugins
-from app.plugins.glossary.service import operation_fingerprint, searchable_source
+from app.plugins.glossary.service import (
+    operation_fingerprint,
+    searchable_source,
+    target_in_source,
+)
 from tests.test_accounts import AccountsTest, headers
 from tests.test_page_comments import comments as glossary_database  # noqa: F401
 
@@ -26,6 +30,9 @@ def test_glossary_text_matching_ignores_code_links_and_markup() -> None:
         ]
     )
     assert source.count("金灵") == 2
+    assert target_in_source(source, "金灵")
+    assert target_in_source("uses json safely", "JSON")
+    assert not target_in_source("uses json safely", "JS")
     assert operation_fingerprint({"b": 2, "a": 1}) == operation_fingerprint({"a": 1, "b": 2})
 
 

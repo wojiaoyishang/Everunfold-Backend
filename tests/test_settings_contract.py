@@ -10,7 +10,14 @@ import pytest
 from pydantic import ValidationError
 
 from app.modules.settings.defaults import public_settings, stored_settings
-from app.modules.settings.schemas import CachePolicy, CodePreferences, MenuItem, SitePreferences
+from app.modules.settings.schemas import (
+    CachePolicy,
+    CodePreferences,
+    FooterLink,
+    FooterPreferences,
+    MenuItem,
+    SitePreferences,
+)
 from tools.export_settings_contract import build_schema
 
 
@@ -73,6 +80,44 @@ def test_code_preferences_are_bounded_and_legacy_defaults_round_trip() -> None:
     ]:
         with pytest.raises(ValidationError):
             CodePreferences.model_validate(invalid)
+
+
+def test_theme_options_are_isolated_per_theme_and_legacy_values_migrate() -> None:
+    original = {
+        "name": "Campfire",
+        "author": "Author",
+        "description": "",
+        "hero_title": "Legacy hero",
+        "theme": {"accent": "#123456"},
+        "extensions": {"theme": "paper"},
+    }
+    value = public_settings(original)
+    assert value.theme.accent == "#123456"
+    assert value.theme_options["paper"].accent == "#123456"
+    value.theme_options["paper"].paper_tone = "gray"
+    value.theme_options["argon"] = value.theme_options["paper"].model_copy(
+        update={"accent": "#abcdef", "paper_tone": "white"}
+    )
+    stored = stored_settings(original, value)
+    restored = public_settings(stored)
+    assert restored.theme.accent == "#123456"
+    assert restored.theme.paper_tone == "gray"
+    assert restored.theme_options["argon"].accent == "#abcdef"
+
+
+def test_footer_links_and_glossary_settings_validate() -> None:
+    footer = FooterPreferences(
+        copyright="Copyright",
+        links=[FooterLink(id="beian", label="备案", href="https://example.com")],
+    )
+    assert footer.links[0].href == "https://example.com"
+    with pytest.raises(ValidationError):
+        FooterPreferences(
+            links=[
+                FooterLink(id="same", label="A", href="/a"),
+                FooterLink(id="same", label="B", href="/b"),
+            ]
+        )
 
 
 def test_duplicate_navigation_ids_and_missing_title_placeholder_rejected() -> None:

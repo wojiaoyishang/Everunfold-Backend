@@ -43,6 +43,7 @@ def content_path(value: str) -> str:
         "tags",
         "search",
         "ss",
+        "glossary",
         "favicon.ico",
         "robots.txt",
         "feed.xml",

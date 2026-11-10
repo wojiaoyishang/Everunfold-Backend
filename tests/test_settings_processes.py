@@ -603,8 +603,11 @@ def test_settings_atomic_save_restart_delivery_and_crash_replay(tmp_path: Path) 
                     "background_video_url": "https://forged.invalid/background.mp4",
                 }
             )
+            # The top-level theme is a compatibility projection; the active
+            # per-theme profile is authoritative when both are present.
+            media_value["theme_options"]["argon"] = copy.deepcopy(media_value["theme"])
             wrong_kind = copy.deepcopy(media_value)
-            wrong_kind["theme"]["background_video_media_id"] = icon["id"]
+            wrong_kind["theme_options"]["argon"]["background_video_media_id"] = icon["id"]
             assert (
                 client.patch(
                     "/v1/admin/settings",
