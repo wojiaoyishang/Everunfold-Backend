@@ -8,6 +8,7 @@ from sqlalchemy import (
     CheckConstraint,
     DateTime,
     ForeignKey,
+    Index,
     Integer,
     String,
     Text,
@@ -30,14 +31,19 @@ class GlossaryTerm(Base):
         ),
         CheckConstraint("revision >= 1", name="ck_glossary_terms_revision"),
         CheckConstraint("jsonb_typeof(aliases) = 'array'", name="ck_glossary_terms_aliases"),
+        CheckConstraint(
+            "match_rules IS NULL OR jsonb_typeof(match_rules) = 'array'",
+            name="match_rules",
+        ),
+        Index("ix_glossary_terms_public", "language", "status", "title"),
     )
 
     id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True)
-    language: Mapped[str] = mapped_column(String(32), index=True)
+    language: Mapped[str] = mapped_column(String(32))
     slug: Mapped[str] = mapped_column(String(120))
     title: Mapped[str] = mapped_column(String(120))
     summary: Mapped[str] = mapped_column(Text)
-    body_markdown: Mapped[str] = mapped_column(Text)
+    body_markdown: Mapped[str | None] = mapped_column(Text)
     body: Mapped[list[dict[str, object]]] = mapped_column(JSONB, default=list)
     aliases: Mapped[list[str]] = mapped_column(JSONB, default=list)
     auto_match_title: Mapped[bool] = mapped_column(Boolean, default=True)
@@ -50,7 +56,7 @@ class GlossaryTerm(Base):
     created_by: Mapped[UUID] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"))
     updated_by: Mapped[UUID] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 

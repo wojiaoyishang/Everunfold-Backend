@@ -5,7 +5,8 @@
 - 术语摘要现在可留空，后端会将空白摘要规范化为 `""`；必填项仅标题与路径片段。站点 `GlossaryPreferences.popup_source` 默认改为 `content`，设置契约升级到 1.26.0。
 - 隔离 PostgreSQL 写入测试复现并定位了旧规则配置保存失败：SQLAlchemy 默认将 Python `None` 写为 JSONB `null`，与迁移 0038 的 `match_rules IS NULL OR jsonb_typeof(match_rules) = 'array'` 约束冲突。改为 `JSONB(none_as_null=True)` 后，旧词条的 SQL NULL 能正确读写。
 - 术语契约升级到 3.1.0，插件版本 1.2.0。新增测试覆盖空摘要、默认标题匹配、正文预览、创建/更新/冲突/归档及文章级命中。
-- `RUN_DATABASE_TESTS=1 .venv/bin/python -m pytest tests/test_glossary.py -q` 使用临时隔离数据库并自动清理，结果 3 passed。未迁移当前开发/正式数据库、未改动真实词条。当前运行 API 的 readiness 仍显示 schema 0038 未应用，故该环境暂不能完成真实保存。
+- `RUN_DATABASE_TESTS=1 .venv/bin/python -m pytest tests/test_glossary.py -q` 使用临时隔离数据库并自动清理，结果 3 passed。随后显式升级核心开发库 `0037_glossary_rich_body → 0038_glossary_matching_rules (head)`，同步 `everunfold.glossary 1.2.0` 并受控重启 API；readiness 恢复 `database/redis/schema=ok`，公开术语索引 HTTP 200，无来源/会话的预览与保存路由返回 403 而不是 503。未改动真实词条内容。
+- Alembic 环境现在显式加载术语插件模型，并让模型的公开索引、可空 `body_markdown`、`auto_match_title` 与 `match_rules` 检查约束对齐 0036–0038 迁移；`alembic check` 恢复为“No new upgrade operations detected”。Ruff 与定向 mypy 通过。
 
 ## 最新改造：术语规则、表格与两级弹层（2026-11-10）
 
