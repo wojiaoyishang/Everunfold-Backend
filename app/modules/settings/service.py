@@ -57,12 +57,17 @@ class SettingsService:
             pending.extend(item.children)
         service = MediaService(self.session, self.config)
         references: dict[str, str] = {}
+        active_theme = value.extensions.theme or "argon"
+        profiles = {
+            key: profile.model_copy(deep=True) for key, profile in value.theme_options.items()
+        }
+        profiles.setdefault(active_theme, value.theme.model_copy(deep=True))
         for reference, kind in [
             (value.site.avatar_media_id, "image"),
-            (value.theme.background_media_id, "image"),
-            (value.theme.background_video_media_id, "video"),
-            (value.theme.font_media_id, "font"),
-            (value.theme.code.font_media_id, "font"),
+            *[(profile.font_media_id, "font") for profile in profiles.values()],
+            *[(profile.code.font_media_id, "font") for profile in profiles.values()],
+            *[(profile.background_media_id, "image") for profile in profiles.values()],
+            *[(profile.background_video_media_id, "video") for profile in profiles.values()],
         ]:
             if reference:
                 if reference in references and references[reference] != kind:
@@ -70,31 +75,36 @@ class SettingsService:
                 references[reference] = kind
         urls = await service.resolve_resources(references)
         site = value.site.model_copy()
-        theme = value.theme.model_copy()
-        theme.code = theme.code.model_copy()
-        for font in (theme, theme.code):
-            font.font_url = ""
-            font.font_info = None
-            if not font.font_media_id:
-                continue
-            from uuid import UUID
+        for profile in profiles.values():
+            for font in (profile, profile.code):
+                font.font_url = ""
+                font.font_info = None
+                if not font.font_media_id:
+                    continue
+                from uuid import UUID
 
-            from app.modules.media.models import MediaAsset
-            from app.modules.media.schemas import FontInfo
+                from app.modules.media.models import MediaAsset
+                from app.modules.media.schemas import FontInfo
 
-            asset = await self.session.get(MediaAsset, UUID(font.font_media_id[6:]))
-            if asset is None or asset.font_info is None:
-                raise AuthFailure(422, 42234, "请选择有效的字体")
-            font.font_url = urls[font.font_media_id]
-            font.font_info = FontInfo.model_validate(asset.font_info)
+                asset = await self.session.get(MediaAsset, UUID(font.font_media_id[6:]))
+                if asset is None or asset.font_info is None:
+                    raise AuthFailure(422, 42234, "请选择有效的字体")
+                font.font_url = urls[font.font_media_id]
+                font.font_info = FontInfo.model_validate(asset.font_info)
+            if profile.background_media_id:
+                profile.background_url = urls[profile.background_media_id]
+            if profile.background_video_media_id:
+                profile.background_video_url = urls[profile.background_video_media_id]
         if site.avatar_media_id:
             site.avatar_url = urls[site.avatar_media_id]
-        if theme.background_media_id:
-            theme.background_url = urls[theme.background_media_id]
-        if theme.background_video_media_id:
-            theme.background_video_url = urls[theme.background_video_media_id]
+        theme = profiles[active_theme]
         resolved = value.model_copy(
-            update={"site": site, "theme": theme, "icon_urls": await service.resolve_icons(icons)}
+            update={
+                "site": site,
+                "theme": theme,
+                "theme_options": profiles,
+                "icon_urls": await service.resolve_icons(icons),
+            }
         )
         # Template media use the same immutable IDs as content; derived addresses
         # are refreshed with the settings projection, never written into sources.

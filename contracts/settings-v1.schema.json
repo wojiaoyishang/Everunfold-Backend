@@ -1,5 +1,69 @@
 {
   "$defs": {
+    "ArticleDisplayPreferences": {
+      "additionalProperties": false,
+      "properties": {
+        "show_author": {
+          "default": true,
+          "title": "Show Author",
+          "type": "boolean"
+        },
+        "show_date": {
+          "default": true,
+          "title": "Show Date",
+          "type": "boolean"
+        },
+        "show_word_count": {
+          "default": true,
+          "title": "Show Word Count",
+          "type": "boolean"
+        },
+        "show_reading_time": {
+          "default": true,
+          "title": "Show Reading Time",
+          "type": "boolean"
+        },
+        "show_comments": {
+          "default": true,
+          "title": "Show Comments",
+          "type": "boolean"
+        },
+        "show_views": {
+          "default": true,
+          "title": "Show Views",
+          "type": "boolean"
+        },
+        "show_share": {
+          "default": true,
+          "title": "Show Share",
+          "type": "boolean"
+        },
+        "show_neighbors": {
+          "default": true,
+          "title": "Show Neighbors",
+          "type": "boolean"
+        },
+        "show_related": {
+          "default": true,
+          "title": "Show Related",
+          "type": "boolean"
+        },
+        "related_count": {
+          "default": 6,
+          "maximum": 6,
+          "minimum": 0,
+          "title": "Related Count",
+          "type": "integer"
+        },
+        "toc_numbered": {
+          "default": false,
+          "title": "Toc Numbered",
+          "type": "boolean"
+        }
+      },
+      "title": "ArticleDisplayPreferences",
+      "type": "object"
+    },
     "BackendPluginInfo": {
       "additionalProperties": false,
       "properties": {
@@ -530,6 +594,30 @@
       "title": "ExtensionUsageQuery",
       "type": "object"
     },
+    "FeedPreferences": {
+      "additionalProperties": false,
+      "properties": {
+        "default_type": {
+          "default": "all",
+          "enum": [
+            "all",
+            "article",
+            "shuoshuo"
+          ],
+          "title": "Default Type",
+          "type": "string"
+        },
+        "page_size": {
+          "default": 10,
+          "maximum": 30,
+          "minimum": 1,
+          "title": "Page Size",
+          "type": "integer"
+        }
+      },
+      "title": "FeedPreferences",
+      "type": "object"
+    },
     "FontAsset": {
       "additionalProperties": false,
       "properties": {
@@ -662,6 +750,90 @@
         "format"
       ],
       "title": "FontInfo",
+      "type": "object"
+    },
+    "FooterLink": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,63}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "label": {
+          "maxLength": 60,
+          "minLength": 1,
+          "title": "Label",
+          "type": "string"
+        },
+        "href": {
+          "maxLength": 2048,
+          "minLength": 1,
+          "title": "Href",
+          "type": "string"
+        },
+        "icon": {
+          "default": "link",
+          "pattern": "^(?:[a-z][a-z-]{0,31}|media:[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})$",
+          "title": "Icon",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "label",
+        "href"
+      ],
+      "title": "FooterLink",
+      "type": "object"
+    },
+    "FooterPreferences": {
+      "additionalProperties": false,
+      "properties": {
+        "copyright": {
+          "default": "",
+          "maxLength": 300,
+          "title": "Copyright",
+          "type": "string"
+        },
+        "links": {
+          "items": {
+            "$ref": "#/$defs/FooterLink"
+          },
+          "maxItems": 8,
+          "title": "Links",
+          "type": "array"
+        }
+      },
+      "title": "FooterPreferences",
+      "type": "object"
+    },
+    "GlossaryPreferences": {
+      "additionalProperties": false,
+      "properties": {
+        "auto_match": {
+          "default": true,
+          "title": "Auto Match",
+          "type": "boolean"
+        },
+        "max_matches_per_page": {
+          "default": 20,
+          "maximum": 100,
+          "minimum": 1,
+          "title": "Max Matches Per Page",
+          "type": "integer"
+        },
+        "popup_source": {
+          "default": "summary",
+          "enum": [
+            "summary",
+            "content"
+          ],
+          "title": "Popup Source",
+          "type": "string"
+        }
+      },
+      "title": "GlossaryPreferences",
       "type": "object"
     },
     "IconAsset": {
@@ -2979,6 +3151,14 @@
         "theme": {
           "$ref": "#/$defs/ThemePreferences"
         },
+        "theme_options": {
+          "additionalProperties": {
+            "$ref": "#/$defs/ThemePreferences"
+          },
+          "maxProperties": 20,
+          "title": "Theme Options",
+          "type": "object"
+        },
         "icon_urls": {
           "additionalProperties": {
             "type": "string"
@@ -3987,6 +4167,12 @@
         "discovery": {
           "$ref": "#/$defs/SearchDiscovery"
         },
+        "footer": {
+          "$ref": "#/$defs/FooterPreferences"
+        },
+        "glossary": {
+          "$ref": "#/$defs/GlossaryPreferences"
+        },
         "language_catalog": {
           "$ref": "#/$defs/LanguageCatalog"
         },
@@ -4005,6 +4191,12 @@
           "maxLength": 100,
           "minLength": 1,
           "title": "Author",
+          "type": "string"
+        },
+        "author_tagline": {
+          "default": "",
+          "maxLength": 160,
+          "title": "Author Tagline",
           "type": "string"
         },
         "avatar_media_id": {
@@ -4275,8 +4467,14 @@
     "ThemePreferences": {
       "additionalProperties": false,
       "properties": {
+        "article": {
+          "$ref": "#/$defs/ArticleDisplayPreferences"
+        },
         "code": {
           "$ref": "#/$defs/CodePreferences"
+        },
+        "feed": {
+          "$ref": "#/$defs/FeedPreferences"
         },
         "font_media_id": {
           "default": "",
@@ -4357,6 +4555,16 @@
           "default": true,
           "title": "Background Play",
           "type": "boolean"
+        },
+        "paper_tone": {
+          "default": "ivory",
+          "enum": [
+            "ivory",
+            "white",
+            "gray"
+          ],
+          "title": "Paper Tone",
+          "type": "string"
         }
       },
       "title": "ThemePreferences",
@@ -4588,7 +4796,7 @@
   "title": "SettingsContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "1.24.0",
+  "x-everunfold-contract-version": "1.25.0",
   "x-everunfold-language-regions": {
     "zh": "CN",
     "en": "GB",

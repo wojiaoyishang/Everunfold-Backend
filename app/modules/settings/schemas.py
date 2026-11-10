@@ -116,12 +116,43 @@ class SearchDiscovery(SettingsModel):
     _image = field_validator("share_image")(safe_url)
 
 
+class GlossaryPreferences(SettingsModel):
+    auto_match: bool = True
+    max_matches_per_page: int = Field(default=20, ge=1, le=100)
+    popup_source: Literal["summary", "content"] = "summary"
+
+
+class FooterLink(SettingsModel):
+    id: str = Field(pattern=r"^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,63}$")
+    label: str = Field(min_length=1, max_length=60)
+    href: str = Field(min_length=1, max_length=2048)
+    icon: str = Field(
+        default="link",
+        pattern=r"^(?:[a-z][a-z-]{0,31}|media:[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})$",
+    )
+    _url = field_validator("href")(safe_url)
+
+
+class FooterPreferences(SettingsModel):
+    copyright: str = Field(default="", max_length=300)
+    links: list[FooterLink] = Field(default_factory=list, max_length=8)
+
+    @model_validator(mode="after")
+    def unique_ids(self) -> Self:
+        if len({item.id for item in self.links}) != len(self.links):
+            raise ValueError("duplicate footer link identifiers")
+        return self
+
+
 class SitePreferences(SettingsModel):
     discovery: SearchDiscovery = Field(default_factory=SearchDiscovery)
+    footer: FooterPreferences = Field(default_factory=FooterPreferences)
+    glossary: GlossaryPreferences = Field(default_factory=GlossaryPreferences)
     language_catalog: LanguageCatalog = Field(default_factory=LanguageCatalog)
     name: str = Field(min_length=1, max_length=120)
     description: str = Field(max_length=300)
     author: str = Field(min_length=1, max_length=100)
+    author_tagline: str = Field(default="", max_length=160)
     avatar_media_id: str = Field(default="", pattern=MediaReference)
     avatar_url: str = Field(default="", max_length=2048)
     notice_title: str = Field(default="", max_length=120)
@@ -175,8 +206,29 @@ class CodePreferences(SettingsModel):
     font_info: FontInfo | None = None
 
 
+class ArticleDisplayPreferences(SettingsModel):
+    show_author: bool = True
+    show_date: bool = True
+    show_word_count: bool = True
+    show_reading_time: bool = True
+    show_comments: bool = True
+    show_views: bool = True
+    show_share: bool = True
+    show_neighbors: bool = True
+    show_related: bool = True
+    related_count: int = Field(default=6, ge=0, le=6)
+    toc_numbered: bool = False
+
+
+class FeedPreferences(SettingsModel):
+    default_type: Literal["all", "article", "shuoshuo"] = "all"
+    page_size: int = Field(default=10, ge=1, le=30)
+
+
 class ThemePreferences(SettingsModel):
+    article: ArticleDisplayPreferences = Field(default_factory=ArticleDisplayPreferences)
     code: CodePreferences = Field(default_factory=CodePreferences)
+    feed: FeedPreferences = Field(default_factory=FeedPreferences)
     font_media_id: str = Field(default="", pattern=MediaReference)
     font_url: str = Field(default="", max_length=2048)
     font_info: FontInfo | None = None
@@ -191,6 +243,7 @@ class ThemePreferences(SettingsModel):
         default="/reference/campfire-background.webm", max_length=2048
     )
     background_play: bool = True
+    paper_tone: Literal["ivory", "white", "gray"] = "ivory"
     _urls = field_validator("background_url", "background_video_url")(safe_url)
 
 
@@ -198,8 +251,24 @@ class PublicSettings(SettingsModel):
     extensions: ExtensionPreferences = Field(default_factory=ExtensionPreferences)
     site: SitePreferences
     theme: ThemePreferences
+    theme_options: dict[str, ThemePreferences] = Field(default_factory=dict, max_length=20)
     icon_urls: dict[str, str] = Field(default_factory=dict)
     shortcodes: list[PublicShortcode] = Field(default_factory=list, max_length=100)
+
+    @model_validator(mode="after")
+    def active_theme_projection(self) -> Self:
+        import re
+
+        if any(not re.fullmatch(r"[a-z][a-z0-9-]*", key) for key in self.theme_options):
+            raise ValueError("invalid theme option identifier")
+        active = self.extensions.theme or "argon"
+        profiles = dict(self.theme_options)
+        if active in profiles:
+            self.theme = profiles[active]
+        else:
+            profiles[active] = self.theme
+        self.theme_options = profiles
+        return self
 
 
 class CachePolicy(SettingsModel):

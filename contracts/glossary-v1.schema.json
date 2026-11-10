@@ -1,0 +1,821 @@
+{
+  "$defs": {
+    "ContentGlossaryMatches": {
+      "additionalProperties": false,
+      "properties": {
+        "content_id": {
+          "format": "uuid",
+          "title": "Content Id",
+          "type": "string"
+        },
+        "revision": {
+          "title": "Revision",
+          "type": "string"
+        },
+        "terms": {
+          "items": {
+            "$ref": "#/$defs/PublicGlossaryMatch"
+          },
+          "title": "Terms",
+          "type": "array"
+        }
+      },
+      "required": [
+        "content_id",
+        "revision",
+        "terms"
+      ],
+      "title": "ContentGlossaryMatches",
+      "type": "object"
+    },
+    "GlossaryCreate": {
+      "additionalProperties": false,
+      "properties": {
+        "operation_id": {
+          "format": "uuid",
+          "title": "Operation Id",
+          "type": "string"
+        },
+        "term_id": {
+          "format": "uuid",
+          "title": "Term Id",
+          "type": "string"
+        },
+        "fields": {
+          "$ref": "#/$defs/GlossaryFields"
+        }
+      },
+      "required": [
+        "operation_id",
+        "term_id",
+        "fields"
+      ],
+      "title": "GlossaryCreate",
+      "type": "object"
+    },
+    "GlossaryDetail": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "language": {
+          "title": "Language",
+          "type": "string"
+        },
+        "slug": {
+          "title": "Slug",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "summary": {
+          "title": "Summary",
+          "type": "string"
+        },
+        "aliases": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Aliases",
+          "type": "array"
+        },
+        "status": {
+          "enum": [
+            "draft",
+            "published",
+            "archived"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "revision": {
+          "title": "Revision",
+          "type": "integer"
+        },
+        "updated_at": {
+          "format": "date-time",
+          "title": "Updated At",
+          "type": "string"
+        },
+        "published_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Published At"
+        },
+        "body_markdown": {
+          "title": "Body Markdown",
+          "type": "string"
+        },
+        "created_by": {
+          "format": "uuid",
+          "title": "Created By",
+          "type": "string"
+        },
+        "updated_by": {
+          "format": "uuid",
+          "title": "Updated By",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "language",
+        "slug",
+        "title",
+        "summary",
+        "aliases",
+        "status",
+        "revision",
+        "updated_at",
+        "published_at",
+        "body_markdown",
+        "created_by",
+        "updated_by"
+      ],
+      "title": "GlossaryDetail",
+      "type": "object"
+    },
+    "GlossaryFields": {
+      "additionalProperties": false,
+      "properties": {
+        "language": {
+          "default": "zh-CN",
+          "maxLength": 32,
+          "minLength": 2,
+          "pattern": "^[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*$",
+          "title": "Language",
+          "type": "string"
+        },
+        "slug": {
+          "maxLength": 120,
+          "minLength": 1,
+          "title": "Slug",
+          "type": "string"
+        },
+        "title": {
+          "maxLength": 120,
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        },
+        "summary": {
+          "maxLength": 500,
+          "minLength": 1,
+          "title": "Summary",
+          "type": "string"
+        },
+        "body_markdown": {
+          "default": "",
+          "maxLength": 20000,
+          "title": "Body Markdown",
+          "type": "string"
+        },
+        "aliases": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 20,
+          "title": "Aliases",
+          "type": "array"
+        },
+        "status": {
+          "default": "draft",
+          "enum": [
+            "draft",
+            "published",
+            "archived"
+          ],
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "slug",
+        "title",
+        "summary"
+      ],
+      "title": "GlossaryFields",
+      "type": "object"
+    },
+    "GlossaryList": {
+      "additionalProperties": false,
+      "properties": {
+        "items": {
+          "items": {
+            "$ref": "#/$defs/GlossaryListItem"
+          },
+          "title": "Items",
+          "type": "array"
+        },
+        "total": {
+          "minimum": 0,
+          "title": "Total",
+          "type": "integer"
+        },
+        "page": {
+          "minimum": 1,
+          "title": "Page",
+          "type": "integer"
+        },
+        "page_size": {
+          "maximum": 100,
+          "minimum": 1,
+          "title": "Page Size",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "items",
+        "total",
+        "page",
+        "page_size"
+      ],
+      "title": "GlossaryList",
+      "type": "object"
+    },
+    "GlossaryListItem": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "language": {
+          "title": "Language",
+          "type": "string"
+        },
+        "slug": {
+          "title": "Slug",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "summary": {
+          "title": "Summary",
+          "type": "string"
+        },
+        "aliases": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Aliases",
+          "type": "array"
+        },
+        "status": {
+          "enum": [
+            "draft",
+            "published",
+            "archived"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "revision": {
+          "title": "Revision",
+          "type": "integer"
+        },
+        "updated_at": {
+          "format": "date-time",
+          "title": "Updated At",
+          "type": "string"
+        },
+        "published_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Published At"
+        }
+      },
+      "required": [
+        "id",
+        "language",
+        "slug",
+        "title",
+        "summary",
+        "aliases",
+        "status",
+        "revision",
+        "updated_at",
+        "published_at"
+      ],
+      "title": "GlossaryListItem",
+      "type": "object"
+    },
+    "GlossaryQuery": {
+      "additionalProperties": false,
+      "properties": {
+        "search": {
+          "default": "",
+          "maxLength": 200,
+          "title": "Search",
+          "type": "string"
+        },
+        "status": {
+          "default": "all",
+          "enum": [
+            "all",
+            "draft",
+            "published",
+            "archived"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "language": {
+          "anyOf": [
+            {
+              "maxLength": 32,
+              "minLength": 2,
+              "pattern": "^[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Language"
+        },
+        "page": {
+          "default": 1,
+          "minimum": 1,
+          "title": "Page",
+          "type": "integer"
+        },
+        "page_size": {
+          "default": 30,
+          "maximum": 100,
+          "minimum": 1,
+          "title": "Page Size",
+          "type": "integer"
+        }
+      },
+      "title": "GlossaryQuery",
+      "type": "object"
+    },
+    "GlossaryUpdate": {
+      "additionalProperties": false,
+      "properties": {
+        "operation_id": {
+          "format": "uuid",
+          "title": "Operation Id",
+          "type": "string"
+        },
+        "expected_revision": {
+          "minimum": 1,
+          "title": "Expected Revision",
+          "type": "integer"
+        },
+        "fields": {
+          "$ref": "#/$defs/GlossaryFields"
+        }
+      },
+      "required": [
+        "operation_id",
+        "expected_revision",
+        "fields"
+      ],
+      "title": "GlossaryUpdate",
+      "type": "object"
+    },
+    "PublicGlossaryDetail": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "language": {
+          "title": "Language",
+          "type": "string"
+        },
+        "slug": {
+          "title": "Slug",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "summary": {
+          "title": "Summary",
+          "type": "string"
+        },
+        "aliases": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Aliases",
+          "type": "array"
+        },
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "body_markdown": {
+          "title": "Body Markdown",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "language",
+        "slug",
+        "title",
+        "summary",
+        "aliases",
+        "path",
+        "body_markdown"
+      ],
+      "title": "PublicGlossaryDetail",
+      "type": "object"
+    },
+    "PublicGlossaryIndex": {
+      "additionalProperties": false,
+      "properties": {
+        "revision": {
+          "title": "Revision",
+          "type": "string"
+        },
+        "terms": {
+          "items": {
+            "$ref": "#/$defs/PublicGlossaryTerm"
+          },
+          "title": "Terms",
+          "type": "array"
+        }
+      },
+      "required": [
+        "revision",
+        "terms"
+      ],
+      "title": "PublicGlossaryIndex",
+      "type": "object"
+    },
+    "PublicGlossaryMatch": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "language": {
+          "title": "Language",
+          "type": "string"
+        },
+        "slug": {
+          "title": "Slug",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "summary": {
+          "title": "Summary",
+          "type": "string"
+        },
+        "aliases": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Aliases",
+          "type": "array"
+        },
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "body_markdown": {
+          "title": "Body Markdown",
+          "type": "string"
+        },
+        "matched_texts": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Matched Texts",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "language",
+        "slug",
+        "title",
+        "summary",
+        "aliases",
+        "path",
+        "body_markdown",
+        "matched_texts"
+      ],
+      "title": "PublicGlossaryMatch",
+      "type": "object"
+    },
+    "PublicGlossaryTerm": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "language": {
+          "title": "Language",
+          "type": "string"
+        },
+        "slug": {
+          "title": "Slug",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "summary": {
+          "title": "Summary",
+          "type": "string"
+        },
+        "aliases": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Aliases",
+          "type": "array"
+        },
+        "path": {
+          "title": "Path",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "language",
+        "slug",
+        "title",
+        "summary",
+        "aliases",
+        "path"
+      ],
+      "title": "PublicGlossaryTerm",
+      "type": "object"
+    },
+    "PublicResponse_ContentGlossaryMatches_": {
+      "additionalProperties": false,
+      "properties": {
+        "success": {
+          "default": true,
+          "title": "Success",
+          "type": "boolean"
+        },
+        "code": {
+          "default": 200,
+          "title": "Code",
+          "type": "integer"
+        },
+        "msg": {
+          "default": "请求成功",
+          "title": "Msg",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/ContentGlossaryMatches"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "title": "PublicResponse[ContentGlossaryMatches]",
+      "type": "object"
+    },
+    "PublicResponse_GlossaryDetail_": {
+      "additionalProperties": false,
+      "properties": {
+        "success": {
+          "default": true,
+          "title": "Success",
+          "type": "boolean"
+        },
+        "code": {
+          "default": 200,
+          "title": "Code",
+          "type": "integer"
+        },
+        "msg": {
+          "default": "请求成功",
+          "title": "Msg",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/GlossaryDetail"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "title": "PublicResponse[GlossaryDetail]",
+      "type": "object"
+    },
+    "PublicResponse_GlossaryList_": {
+      "additionalProperties": false,
+      "properties": {
+        "success": {
+          "default": true,
+          "title": "Success",
+          "type": "boolean"
+        },
+        "code": {
+          "default": 200,
+          "title": "Code",
+          "type": "integer"
+        },
+        "msg": {
+          "default": "请求成功",
+          "title": "Msg",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/GlossaryList"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "title": "PublicResponse[GlossaryList]",
+      "type": "object"
+    },
+    "PublicResponse_PublicGlossaryDetail_": {
+      "additionalProperties": false,
+      "properties": {
+        "success": {
+          "default": true,
+          "title": "Success",
+          "type": "boolean"
+        },
+        "code": {
+          "default": 200,
+          "title": "Code",
+          "type": "integer"
+        },
+        "msg": {
+          "default": "请求成功",
+          "title": "Msg",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/PublicGlossaryDetail"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "title": "PublicResponse[PublicGlossaryDetail]",
+      "type": "object"
+    },
+    "PublicResponse_PublicGlossaryIndex_": {
+      "additionalProperties": false,
+      "properties": {
+        "success": {
+          "default": true,
+          "title": "Success",
+          "type": "boolean"
+        },
+        "code": {
+          "default": 200,
+          "title": "Code",
+          "type": "integer"
+        },
+        "msg": {
+          "default": "请求成功",
+          "title": "Msg",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/PublicGlossaryIndex"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "title": "PublicResponse[PublicGlossaryIndex]",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "public_index": {
+      "$ref": "#/$defs/PublicResponse_PublicGlossaryIndex_"
+    },
+    "public_detail": {
+      "$ref": "#/$defs/PublicResponse_PublicGlossaryDetail_"
+    },
+    "content_matches": {
+      "$ref": "#/$defs/PublicResponse_ContentGlossaryMatches_"
+    },
+    "query": {
+      "$ref": "#/$defs/GlossaryQuery"
+    },
+    "create": {
+      "$ref": "#/$defs/GlossaryCreate"
+    },
+    "update": {
+      "$ref": "#/$defs/GlossaryUpdate"
+    },
+    "list": {
+      "$ref": "#/$defs/PublicResponse_GlossaryList_"
+    },
+    "detail": {
+      "$ref": "#/$defs/PublicResponse_GlossaryDetail_"
+    }
+  },
+  "required": [
+    "public_index",
+    "public_detail",
+    "content_matches",
+    "query",
+    "create",
+    "update",
+    "list",
+    "detail"
+  ],
+  "title": "GlossaryContract",
+  "type": "object",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "x-everunfold-contract-version": "1.0.0",
+  "x-everunfold-operations": [
+    {
+      "name": "readGlossaryIndex",
+      "path": "/v1/plugins/everunfold.glossary/index",
+      "method": "GET",
+      "response": "public_index",
+      "csrf": false,
+      "credentials": "omit"
+    },
+    {
+      "name": "readGlossaryDetail",
+      "path": "/v1/plugins/everunfold.glossary/terms/{slug}",
+      "method": "GET",
+      "response": "public_detail",
+      "csrf": false,
+      "credentials": "omit"
+    },
+    {
+      "name": "readContentGlossaryMatches",
+      "path": "/v1/plugins/everunfold.glossary/for-content/{content_id}",
+      "method": "GET",
+      "response": "content_matches",
+      "csrf": false,
+      "credentials": "omit"
+    },
+    {
+      "name": "queryGlossary",
+      "path": "/v1/plugins/everunfold.glossary/admin/query",
+      "method": "POST",
+      "input": "query",
+      "response": "list"
+    },
+    {
+      "name": "readGlossaryTerm",
+      "path": "/v1/plugins/everunfold.glossary/admin/terms/{term_id}",
+      "method": "GET",
+      "response": "detail"
+    },
+    {
+      "name": "createGlossaryTerm",
+      "path": "/v1/plugins/everunfold.glossary/admin/terms",
+      "method": "POST",
+      "input": "create",
+      "response": "detail"
+    },
+    {
+      "name": "updateGlossaryTerm",
+      "path": "/v1/plugins/everunfold.glossary/admin/terms/{term_id}",
+      "method": "PATCH",
+      "input": "update",
+      "response": "detail"
+    }
+  ]
+}

@@ -21,22 +21,36 @@ def public_settings(data: dict[str, Any]) -> PublicSettings:
         avatar_url=data.get("avatar_url") or "",
         navigation=menu,
     )
-    theme = {
+    legacy_theme = {
         **data.get("theme", {}),
         "hero_title": data.get("hero_title", data.get("name", "Everunfold")),
         "hero_subtitle": data.get("hero_subtitle", ""),
         "background_url": data.get("hero_url") or "",
     }
+    extensions = data.get("extensions", {})
+    active_theme = extensions.get("theme") or "argon"
+    profiles = {
+        key: ThemePreferences.model_validate(value)
+        for key, value in data.get("theme_options", {}).items()
+    }
+    if active_theme not in profiles:
+        profiles[active_theme] = ThemePreferences.model_validate(legacy_theme)
     return PublicSettings(
         site=SitePreferences.model_validate(site),
-        theme=ThemePreferences.model_validate(theme),
+        theme=profiles[active_theme],
+        theme_options=profiles,
         shortcodes=[*public_shortcodes(data), *data.get("shortcodes", [])],
-        extensions=data.get("extensions", {}),
+        extensions=extensions,
     )
 
 
 def stored_settings(original: dict[str, Any], value: PublicSettings) -> dict[str, Any]:
-    theme = value.theme.model_dump(mode="json")
+    active_theme = value.extensions.theme or "argon"
+    profiles = {
+        key: profile.model_dump(mode="json") for key, profile in value.theme_options.items()
+    }
+    profiles[active_theme] = value.theme.model_dump(mode="json")
+    theme = profiles[active_theme].copy()
     return {
         **original,
         **value.site.model_dump(mode="json"),
@@ -44,6 +58,7 @@ def stored_settings(original: dict[str, Any], value: PublicSettings) -> dict[str
         "hero_subtitle": theme.pop("hero_subtitle"),
         "hero_url": theme.pop("background_url") or None,
         "theme": theme,
+        "theme_options": profiles,
         "extensions": value.extensions.model_dump(mode="json"),
         "shortcodes": [
             item.model_dump() for item in value.shortcodes if item.name.startswith("custom:")
