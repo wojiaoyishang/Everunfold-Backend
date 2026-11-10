@@ -9,8 +9,12 @@
 ```python
 from fastapi import APIRouter
 from app.plugin_sdk import (
-    JSONResponseSuccess, PluginRegistry, PluginRequest,
-    PublicModel, PublicResponse, define_plugin,
+    JSONResponseSuccess,
+    PluginRegistry,
+    PluginRequest,
+    PublicModel,
+    PublicResponse,
+    define_plugin,
 )
 
 
