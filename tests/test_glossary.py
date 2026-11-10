@@ -9,7 +9,7 @@ import pytest
 from app.core.database import Database
 from app.modules.content.models import Content
 from app.modules.settings.backend_plugins import install_backend_plugins
-from app.plugins.glossary.schemas import GlossaryFields
+from app.plugins.glossary.schemas import GlossaryBlock, GlossaryFields
 from app.plugins.glossary.service import (
     operation_fingerprint,
     searchable_source,
@@ -39,6 +39,13 @@ def test_glossary_text_matching_ignores_code_links_and_markup() -> None:
             slug="all-languages",
             title="通用术语",
             summary="默认对所有文章语言生效。",
+            body=[
+                GlossaryBlock(
+                    id=uuid4(),
+                    type="markdown",
+                    content="通用说明。",
+                )
+            ],
         ).language
         == "*"
     )
@@ -111,7 +118,13 @@ def test_glossary_admin_and_article_scoped_public_matching(
                 "slug": "jin-ling",
                 "title": "金灵",
                 "summary": "一位喜欢看云的旧同学。",
-                "body_markdown": "她出现在旧日校园回忆中。",
+                "body": [
+                    {
+                        "id": str(uuid4()),
+                        "type": "markdown",
+                        "content": "她出现在**旧日校园回忆**中。",
+                    }
+                ],
                 "aliases": ["金灵同学"],
                 "status": "published",
             },
@@ -130,7 +143,13 @@ def test_glossary_admin_and_article_scoped_public_matching(
                 "slug": "another",
                 "title": "别名冲突",
                 "summary": "不应创建",
-                "body_markdown": "",
+                "body": [
+                    {
+                        "id": str(uuid4()),
+                        "type": "markdown",
+                        "content": "",
+                    }
+                ],
                 "aliases": ["金灵同学"],
                 "status": "published",
             },
@@ -142,6 +161,10 @@ def test_glossary_admin_and_article_scoped_public_matching(
     miss = public.get(base + f"/for-content/{unmatched}")
     assert hit.status_code == 200, hit.text
     assert [item["title"] for item in hit.json()["data"]["terms"]] == ["金灵"]
+    assert hit.json()["data"]["terms"][0]["body"][0]["content"] == "她出现在**旧日校园回忆**中。"
+    detail = public.get(base + "/terms/jin-ling?language=zh-CN")
+    assert detail.status_code == 200, detail.text
+    assert detail.json()["data"]["body"][0]["type"] == "markdown"
     assert [
         item["title"] for item in public.get(base + "/index?language=en").json()["data"]["terms"]
     ] == ["金灵"]
@@ -158,7 +181,13 @@ def test_glossary_admin_and_article_scoped_public_matching(
                 "slug": "jin-ling",
                 "title": "金灵",
                 "summary": "更新后的提示。",
-                "body_markdown": "更新后的说明。",
+                "body": [
+                    {
+                        "id": str(uuid4()),
+                        "type": "markdown",
+                        "content": "更新后的 **说明**。",
+                    }
+                ],
                 "aliases": ["金灵同学"],
                 "status": "published",
             },
@@ -177,7 +206,13 @@ def test_glossary_admin_and_article_scoped_public_matching(
                 "slug": "jin-ling",
                 "title": "金灵",
                 "summary": "争执后的提示。",
-                "body_markdown": "争执后的说明。",
+                "body": [
+                    {
+                        "id": str(uuid4()),
+                        "type": "markdown",
+                        "content": "争执后的说明。",
+                    }
+                ],
                 "aliases": ["金灵同学"],
                 "status": "draft",
             },
@@ -195,7 +230,13 @@ def test_glossary_admin_and_article_scoped_public_matching(
                 "slug": "jin-ling",
                 "title": "金灵",
                 "summary": "归档后不再提示。",
-                "body_markdown": "归档词条保留记录。",
+                "body": [
+                    {
+                        "id": str(uuid4()),
+                        "type": "markdown",
+                        "content": "归档词条保留记录。",
+                    }
+                ],
                 "aliases": ["金灵同学"],
                 "status": "archived",
             },

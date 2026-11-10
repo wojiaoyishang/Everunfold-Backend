@@ -28,6 +28,84 @@
       "title": "ContentGlossaryMatches",
       "type": "object"
     },
+    "FontInfo": {
+      "additionalProperties": false,
+      "properties": {
+        "family": {
+          "title": "Family",
+          "type": "string"
+        },
+        "style": {
+          "enum": [
+            "normal",
+            "italic"
+          ],
+          "title": "Style",
+          "type": "string"
+        },
+        "weight_min": {
+          "maximum": 1000,
+          "minimum": 1,
+          "title": "Weight Min",
+          "type": "integer"
+        },
+        "weight_max": {
+          "maximum": 1000,
+          "minimum": 1,
+          "title": "Weight Max",
+          "type": "integer"
+        },
+        "format": {
+          "enum": [
+            "woff2",
+            "woff",
+            "truetype",
+            "opentype"
+          ],
+          "title": "Format",
+          "type": "string"
+        }
+      },
+      "required": [
+        "family",
+        "style",
+        "weight_min",
+        "weight_max",
+        "format"
+      ],
+      "title": "FontInfo",
+      "type": "object"
+    },
+    "GlossaryBlock": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "type": {
+          "default": "markdown",
+          "enum": [
+            "markdown",
+            "html"
+          ],
+          "title": "Type",
+          "type": "string"
+        },
+        "content": {
+          "maxLength": 100000,
+          "title": "Content",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "content"
+      ],
+      "title": "GlossaryBlock",
+      "type": "object"
+    },
     "GlossaryCreate": {
       "additionalProperties": false,
       "properties": {
@@ -114,9 +192,19 @@
           ],
           "title": "Published At"
         },
-        "body_markdown": {
-          "title": "Body Markdown",
-          "type": "string"
+        "body": {
+          "items": {
+            "$ref": "#/$defs/GlossaryBlock"
+          },
+          "title": "Body",
+          "type": "array"
+        },
+        "media_urls": {
+          "additionalProperties": {
+            "$ref": "#/$defs/MediaURL"
+          },
+          "title": "Media Urls",
+          "type": "object"
         },
         "created_by": {
           "format": "uuid",
@@ -140,7 +228,7 @@
         "revision",
         "updated_at",
         "published_at",
-        "body_markdown",
+        "body",
         "created_by",
         "updated_by"
       ],
@@ -184,11 +272,14 @@
           "title": "Summary",
           "type": "string"
         },
-        "body_markdown": {
-          "default": "",
-          "maxLength": 20000,
-          "title": "Body Markdown",
-          "type": "string"
+        "body": {
+          "items": {
+            "$ref": "#/$defs/GlossaryBlock"
+          },
+          "maxItems": 128,
+          "minItems": 1,
+          "title": "Body",
+          "type": "array"
         },
         "aliases": {
           "items": {
@@ -212,7 +303,8 @@
       "required": [
         "slug",
         "title",
-        "summary"
+        "summary",
+        "body"
       ],
       "title": "GlossaryFields",
       "type": "object"
@@ -411,6 +503,36 @@
       "title": "GlossaryUpdate",
       "type": "object"
     },
+    "MediaURL": {
+      "additionalProperties": false,
+      "properties": {
+        "original": {
+          "title": "Original",
+          "type": "string"
+        },
+        "webp": {
+          "default": "",
+          "title": "Webp",
+          "type": "string"
+        },
+        "font": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FontInfo"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "original"
+      ],
+      "title": "MediaURL",
+      "type": "object"
+    },
     "PublicGlossaryDetail": {
       "additionalProperties": false,
       "properties": {
@@ -446,9 +568,19 @@
           "title": "Path",
           "type": "string"
         },
-        "body_markdown": {
-          "title": "Body Markdown",
-          "type": "string"
+        "body": {
+          "items": {
+            "$ref": "#/$defs/GlossaryBlock"
+          },
+          "title": "Body",
+          "type": "array"
+        },
+        "media_urls": {
+          "additionalProperties": {
+            "$ref": "#/$defs/MediaURL"
+          },
+          "title": "Media Urls",
+          "type": "object"
         }
       },
       "required": [
@@ -459,7 +591,7 @@
         "summary",
         "aliases",
         "path",
-        "body_markdown"
+        "body"
       ],
       "title": "PublicGlossaryDetail",
       "type": "object"
@@ -521,9 +653,19 @@
           "title": "Path",
           "type": "string"
         },
-        "body_markdown": {
-          "title": "Body Markdown",
-          "type": "string"
+        "body": {
+          "items": {
+            "$ref": "#/$defs/GlossaryBlock"
+          },
+          "title": "Body",
+          "type": "array"
+        },
+        "media_urls": {
+          "additionalProperties": {
+            "$ref": "#/$defs/MediaURL"
+          },
+          "title": "Media Urls",
+          "type": "object"
         },
         "matched_texts": {
           "items": {
@@ -541,7 +683,7 @@
         "summary",
         "aliases",
         "path",
-        "body_markdown",
+        "body",
         "matched_texts"
       ],
       "title": "PublicGlossaryMatch",
@@ -776,7 +918,7 @@
   "title": "GlossaryContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "1.1.0",
+  "x-everunfold-contract-version": "2.0.0",
   "x-everunfold-operations": [
     {
       "name": "readGlossaryIndex",

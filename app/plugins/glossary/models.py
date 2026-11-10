@@ -37,6 +37,7 @@ class GlossaryTerm(Base):
     title: Mapped[str] = mapped_column(String(120))
     summary: Mapped[str] = mapped_column(Text)
     body_markdown: Mapped[str] = mapped_column(Text)
+    body: Mapped[list[dict[str, object]]] = mapped_column(JSONB, default=list)
     aliases: Mapped[list[str]] = mapped_column(JSONB, default=list)
     status: Mapped[str] = mapped_column(String(16), default="draft")
     revision: Mapped[int] = mapped_column(Integer, default=1)

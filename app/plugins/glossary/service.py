@@ -13,13 +13,18 @@ from sqlalchemy import String, func, or_, select, text
 from sqlalchemy import cast as sql_cast
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import Settings
 from app.modules.auth.permissions import Actor
 from app.modules.auth.service import AuthFailure
+from app.modules.content.editor_schema import EditorSettings
+from app.modules.content.editor_service import editor_media
 from app.modules.content.models import Content
+from app.modules.content.schemas import MediaURL
 
 from .models import GlossaryOperation, GlossaryTerm
 from .schemas import (
     ContentGlossaryMatches,
+    GlossaryBlock,
     GlossaryCreate,
     GlossaryDetail,
     GlossaryFields,
@@ -53,7 +58,27 @@ def operation_fingerprint(value: object) -> str:
     ).hexdigest()
 
 
-def detail(row: GlossaryTerm) -> GlossaryDetail:
+async def resolved_media(
+    session: AsyncSession,
+    config: Settings | None,
+    body: list[dict[str, object]],
+    *,
+    strict: bool,
+) -> dict[str, MediaURL]:
+    return await editor_media(
+        session,
+        config,
+        json.dumps(body, ensure_ascii=False),
+        EditorSettings(),
+        strict=strict,
+    )
+
+
+async def detail(
+    session: AsyncSession,
+    row: GlossaryTerm,
+    config: Settings | None = None,
+) -> GlossaryDetail:
     return GlossaryDetail(
         id=row.id,
         language=row.language,
@@ -65,7 +90,8 @@ def detail(row: GlossaryTerm) -> GlossaryDetail:
         revision=row.revision,
         updated_at=row.updated_at,
         published_at=row.published_at,
-        body_markdown=row.body_markdown,
+        body=[GlossaryBlock.model_validate(block) for block in row.body],
+        media_urls=await resolved_media(session, config, row.body, strict=False),
         created_by=row.created_by,
         updated_by=row.updated_by,
     )
@@ -116,7 +142,7 @@ async def validate_targets(
                         "slug": row.slug,
                         "title": row.title,
                         "summary": row.summary,
-                        "body_markdown": row.body_markdown,
+                        "body": row.body,
                         "aliases": row.aliases,
                         "status": row.status,
                     }
@@ -132,6 +158,7 @@ async def replay_operation(
     session: AsyncSession,
     operation_id: UUID,
     fingerprint: str,
+    config: Settings | None = None,
 ) -> GlossaryDetail | None:
     operation = await session.get(GlossaryOperation, operation_id)
     if operation is None:
@@ -141,20 +168,23 @@ async def replay_operation(
     row = await session.get(GlossaryTerm, operation.term_id)
     if row is None:
         raise AuthFailure(409, 40937, "原操作对应的词条已不存在")
-    return detail(row)
+    return await detail(session, row, config)
 
 
 async def create_term(
     session: AsyncSession,
     actor: Actor,
     payload: GlossaryCreate,
+    config: Settings | None = None,
 ) -> GlossaryDetail:
     fingerprint = operation_fingerprint(payload.model_dump(mode="json"))
-    replayed = await replay_operation(session, payload.operation_id, fingerprint)
+    replayed = await replay_operation(session, payload.operation_id, fingerprint, config)
     if replayed is not None:
         return replayed
     await lock_glossary(session)
     await validate_targets(session, payload.fields)
+    body = [block.model_dump(mode="json") for block in payload.fields.body]
+    await resolved_media(session, config, body, strict=True)
     now = datetime.now(UTC)
     row = GlossaryTerm(
         id=payload.term_id,
@@ -162,7 +192,8 @@ async def create_term(
         slug=payload.fields.slug,
         title=payload.fields.title,
         summary=payload.fields.summary,
-        body_markdown=payload.fields.body_markdown,
+        body_markdown="",
+        body=body,
         aliases=payload.fields.aliases,
         status=payload.fields.status,
         revision=1,
@@ -185,7 +216,7 @@ async def create_term(
         )
     )
     await session.flush()
-    return detail(row)
+    return await detail(session, row, config)
 
 
 async def update_term(
@@ -193,6 +224,7 @@ async def update_term(
     actor: Actor,
     term_id: UUID,
     payload: GlossaryUpdate,
+    config: Settings | None = None,
 ) -> GlossaryDetail:
     fingerprint = operation_fingerprint(
         {
@@ -201,7 +233,7 @@ async def update_term(
             "fields": payload.fields.model_dump(mode="json"),
         }
     )
-    replayed = await replay_operation(session, payload.operation_id, fingerprint)
+    replayed = await replay_operation(session, payload.operation_id, fingerprint, config)
     if replayed is not None:
         return replayed
     await lock_glossary(session)
@@ -213,13 +245,16 @@ async def update_term(
     if row.revision != payload.expected_revision:
         raise AuthFailure(409, 40938, "术语已在其他窗口更新，请载入最新版本")
     await validate_targets(session, payload.fields, exclude_id=term_id)
+    body = [block.model_dump(mode="json") for block in payload.fields.body]
+    await resolved_media(session, config, body, strict=True)
     now = datetime.now(UTC)
     previous_status = row.status
     row.language = payload.fields.language
     row.slug = payload.fields.slug
     row.title = payload.fields.title
     row.summary = payload.fields.summary
-    row.body_markdown = payload.fields.body_markdown
+    row.body_markdown = ""
+    row.body = body
     row.aliases = payload.fields.aliases
     row.status = payload.fields.status
     row.revision += 1
@@ -238,7 +273,7 @@ async def update_term(
         )
     )
     await session.flush()
-    return detail(row)
+    return await detail(session, row, config)
 
 
 async def list_terms(session: AsyncSession, query: GlossaryQuery) -> GlossaryList:
@@ -292,11 +327,15 @@ async def list_terms(session: AsyncSession, query: GlossaryQuery) -> GlossaryLis
     )
 
 
-async def read_term(session: AsyncSession, term_id: UUID) -> GlossaryDetail:
+async def read_term(
+    session: AsyncSession,
+    term_id: UUID,
+    config: Settings | None = None,
+) -> GlossaryDetail:
     row = await session.get(GlossaryTerm, term_id)
     if row is None:
         raise AuthFailure(404, 40436, "术语不存在")
-    return detail(row)
+    return await detail(session, row, config)
 
 
 async def public_index(session: AsyncSession, language: str | None) -> PublicGlossaryIndex:
@@ -314,7 +353,10 @@ async def public_index(session: AsyncSession, language: str | None) -> PublicGlo
 
 
 async def public_term(
-    session: AsyncSession, slug: str, language: str | None
+    session: AsyncSession,
+    slug: str,
+    language: str | None,
+    config: Settings | None = None,
 ) -> PublicGlossaryDetail:
     statement = select(GlossaryTerm).where(
         GlossaryTerm.status == "published",
@@ -328,7 +370,11 @@ async def public_term(
     if row is None:
         raise AuthFailure(404, 40436, "术语不存在")
     item = public_item(row)
-    return PublicGlossaryDetail(**item.model_dump(), body_markdown=row.body_markdown)
+    return PublicGlossaryDetail(
+        **item.model_dump(),
+        body=[GlossaryBlock.model_validate(block) for block in row.body],
+        media_urls=await resolved_media(session, config, row.body, strict=False),
+    )
 
 
 CODE_FENCE = re.compile(r"```[\s\S]*?```|~~~[\s\S]*?~~~")
@@ -378,7 +424,11 @@ def target_in_source(source: str, value: str) -> bool:
     return False
 
 
-async def content_matches(session: AsyncSession, content_id: UUID) -> ContentGlossaryMatches:
+async def content_matches(
+    session: AsyncSession,
+    content_id: UUID,
+    config: Settings | None = None,
+) -> ContentGlossaryMatches:
     content = await session.get(Content, content_id)
     if (
         content is None
@@ -406,10 +456,12 @@ async def content_matches(session: AsyncSession, content_id: UUID) -> ContentGlo
         if not visible:
             continue
         item = public_item(row)
+        media = await resolved_media(session, config, row.body, strict=False)
         matches.append(
             PublicGlossaryMatch(
                 **item.model_dump(),
-                body_markdown=row.body_markdown,
+                body=[GlossaryBlock.model_validate(block) for block in row.body],
+                media_urls=media,
                 matched_texts=sorted(visible, key=lambda value: (-len(value), value)),
             )
         )

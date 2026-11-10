@@ -7,10 +7,17 @@ from uuid import UUID
 from pydantic import Field, field_validator, model_validator
 
 from app.core.schemas import PublicModel, PublicResponse
+from app.modules.content.schemas import MediaURL
 from app.modules.settings.languages import LanguageCode
 
 GlossaryStatus = Literal["draft", "published", "archived"]
 GlossaryLanguage = Literal["*"] | LanguageCode
+
+
+class GlossaryBlock(PublicModel):
+    id: UUID
+    type: Literal["markdown", "html"] = "markdown"
+    content: str = Field(max_length=100_000)
 
 
 class GlossaryFields(PublicModel):
@@ -18,7 +25,7 @@ class GlossaryFields(PublicModel):
     slug: str = Field(min_length=1, max_length=120)
     title: str = Field(min_length=1, max_length=120)
     summary: str = Field(min_length=1, max_length=500)
-    body_markdown: str = Field(default="", max_length=20_000)
+    body: list[GlossaryBlock] = Field(min_length=1, max_length=128)
     aliases: list[str] = Field(default_factory=list, max_length=20)
     status: GlossaryStatus = "draft"
 
@@ -58,7 +65,11 @@ class GlossaryFields(PublicModel):
         return result
 
     @model_validator(mode="after")
-    def archive_has_no_public_requirement(self) -> Self:
+    def bounded_body(self) -> Self:
+        if len({block.id for block in self.body}) != len(self.body):
+            raise ValueError("正文块 ID 不可重复")
+        if sum(len(block.content) for block in self.body) > 200_000:
+            raise ValueError("正文不能超过 200000 字符")
         return self
 
 
@@ -88,7 +99,8 @@ class GlossaryListItem(PublicModel):
 
 
 class GlossaryDetail(GlossaryListItem):
-    body_markdown: str
+    body: list[GlossaryBlock]
+    media_urls: dict[str, MediaURL] = Field(default_factory=dict)
     created_by: UUID
     updated_by: UUID
 
@@ -124,11 +136,13 @@ class PublicGlossaryIndex(PublicModel):
 
 
 class PublicGlossaryDetail(PublicGlossaryTerm):
-    body_markdown: str
+    body: list[GlossaryBlock]
+    media_urls: dict[str, MediaURL] = Field(default_factory=dict)
 
 
 class PublicGlossaryMatch(PublicGlossaryTerm):
-    body_markdown: str
+    body: list[GlossaryBlock]
+    media_urls: dict[str, MediaURL] = Field(default_factory=dict)
     matched_texts: list[str]
 
 

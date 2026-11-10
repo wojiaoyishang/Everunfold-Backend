@@ -45,12 +45,16 @@ async def term(
     ctx: PluginRequest,
     language: str | None = Query(default=None, max_length=32),
 ) -> JSONResponseSuccess:
-    return JSONResponseSuccess(data=await public_term(ctx.session, slug, language))
+    return JSONResponseSuccess(
+        data=await public_term(ctx.session, slug, language, ctx.runtime.settings)
+    )
 
 
 @public.get("/for-content/{content_id}", response_model=PublicResponse[ContentGlossaryMatches])
 async def matches(content_id: UUID, ctx: PluginRequest) -> JSONResponseSuccess:
-    return JSONResponseSuccess(data=await content_matches(ctx.session, content_id))
+    return JSONResponseSuccess(
+        data=await content_matches(ctx.session, content_id, ctx.runtime.settings)
+    )
 
 
 @read_admin.post("/admin/query", response_model=PublicResponse[GlossaryList])
@@ -60,16 +64,26 @@ async def query(payload: GlossaryQuery, ctx: PluginRequest) -> JSONResponseSucce
 
 @read_admin.get("/admin/terms/{term_id}", response_model=PublicResponse[GlossaryDetail])
 async def admin_term(term_id: UUID, ctx: PluginRequest) -> JSONResponseSuccess:
-    return JSONResponseSuccess(data=await read_term(ctx.session, term_id))
+    return JSONResponseSuccess(data=await read_term(ctx.session, term_id, ctx.runtime.settings))
 
 
 @write_admin.post("/admin/terms", response_model=PublicResponse[GlossaryDetail])
 async def create(payload: GlossaryCreate, ctx: PluginRequest) -> JSONResponseSuccess:
     assert ctx.actor is not None
-    return JSONResponseSuccess(data=await create_term(ctx.session, ctx.actor, payload))
+    return JSONResponseSuccess(
+        data=await create_term(ctx.session, ctx.actor, payload, ctx.runtime.settings)
+    )
 
 
 @write_admin.patch("/admin/terms/{term_id}", response_model=PublicResponse[GlossaryDetail])
 async def update(term_id: UUID, payload: GlossaryUpdate, ctx: PluginRequest) -> JSONResponseSuccess:
     assert ctx.actor is not None
-    return JSONResponseSuccess(data=await update_term(ctx.session, ctx.actor, term_id, payload))
+    return JSONResponseSuccess(
+        data=await update_term(
+            ctx.session,
+            ctx.actor,
+            term_id,
+            payload,
+            ctx.runtime.settings,
+        )
+    )
