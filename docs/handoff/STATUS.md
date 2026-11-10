@@ -6,6 +6,7 @@
 - 公共架构、搜索发现指南、索引、ADR0102及基线摘要已与前端同步；前端检查、浏览器证据和剩余边界以前端仓库的`docs/handoff/STATUS.md`及[ADR0102](../decisions/0102-static-seo-content-and-dynamic-enhancements.md)为准。
 - 后续前端`4019e1d`将静态主题/components.tsx与水合主题/client-components.tsx分离，文章/列表原始正文块不再进入客户端props，Unicode正文直接以UTF-8输出。后端仍无代码、契约、迁移或配置变化；最新验证以ADR0102-2和前端STATUS为准。
 - 最新前端`c8fb7f6`阅读进度移至右下工具组顶部，正文底部经过视口后淡出并收起。后端无代码、契约、迁移或配置变化；视觉与自动检查以前端STATUS为准。
+- 后端`63461d3`、前端`de8ccda`新增文章/说说独立术语脚注开关与动态脚注。`settings-v1`升至1.27.0，字段位于已有站点JSON，无迁移；旧设置按开启处理。定向设置/术语测试16 passed、1 skipped（专用PostgreSQL库未配置），详情见ADR0103。
 
 ## 最新修复：术语别名独立于匹配规则（2026-11-10）
 
