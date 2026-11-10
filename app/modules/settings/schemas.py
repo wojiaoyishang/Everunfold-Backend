@@ -259,7 +259,24 @@ class ThemePreferences(SettingsModel):
     )
     background_play: bool = True
     paper_tone: Literal["ivory", "white", "gray"] = "ivory"
+    navigation: list[MenuItem] | None = None
     _urls = field_validator("background_url", "background_video_url")(safe_url)
+
+    @model_validator(mode="after")
+    def unique_navigation_ids(self) -> Self:
+        if self.navigation is None:
+            return self
+        ids: list[str] = []
+        pending = list(self.navigation)
+        while pending:
+            item = pending.pop()
+            ids.append(item.id)
+            if len(ids) > 256:
+                raise ValueError("at most 256 menu entries")
+            pending.extend(item.children)
+        if len(ids) != len(set(ids)):
+            raise ValueError("duplicate menu identifiers")
+        return self
 
 
 class PublicSettings(SettingsModel):

@@ -53,7 +53,7 @@ async def index(
     ctx: PluginRequest,
     language: str | None = Query(default=None, max_length=32),
 ) -> JSONResponseSuccess:
-    return JSONResponseSuccess(data=await public_index(ctx.session, language))
+    return JSONResponseSuccess(data=await public_index(ctx.session, language, ctx.runtime.settings))
 
 
 @public.get("/terms/{slug}", response_model=PublicResponse[PublicGlossaryDetail])

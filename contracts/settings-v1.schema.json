@@ -4573,6 +4573,21 @@
           ],
           "title": "Paper Tone",
           "type": "string"
+        },
+        "navigation": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/MenuItem"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Navigation"
         }
       },
       "title": "ThemePreferences",
@@ -4804,7 +4819,7 @@
   "title": "SettingsContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "1.28.0",
+  "x-everunfold-contract-version": "1.29.0",
   "x-everunfold-language-regions": {
     "zh": "CN",
     "en": "GB",

@@ -238,6 +238,18 @@ def test_glossary_admin_and_article_scoped_public_matching(
 
     matched, unmatched = asyncio.run(deploy())
     base = "/v1/plugins/everunfold.glossary"
+    uploaded = ctx.root.post(
+        "/v1/admin/media/upload",
+        params={"filename": "glossary-feature.svg", "upload_id": str(uuid4())},
+        content=(
+            b'<svg xmlns="http://www.w3.org/2000/svg" width="120" height="80">'
+            b'<rect width="120" height="80" fill="#415fb7"/></svg>'
+        ),
+        headers={**headers(ctx.root), "Content-Type": "application/octet-stream"},
+    )
+    assert uploaded.status_code == 200, uploaded.text
+    feature = uploaded.json()["data"]
+    feature_id = feature["id"].removeprefix("media:")
     create = ctx.root.post(
         base + "/admin/terms",
         headers=headers(ctx.root),
@@ -249,6 +261,7 @@ def test_glossary_admin_and_article_scoped_public_matching(
                 "slug": "jin-ling",
                 "title": "金灵",
                 "summary": "",
+                "feature_media_id": feature_id,
                 "body": [
                     {
                         "id": str(uuid4()),
@@ -307,6 +320,7 @@ def test_glossary_admin_and_article_scoped_public_matching(
     miss = public.get(base + f"/for-content/{unmatched}")
     assert hit.status_code == 200, hit.text
     assert [item["title"] for item in hit.json()["data"]["terms"]] == ["金灵"]
+    assert hit.json()["data"]["terms"][0]["feature_image"]["original"] == feature["url"]
     assert hit.json()["data"]["terms"][0]["body"][0]["content"] == "她出现在**旧日校园回忆**中。"
     assert [block["type"] for block in hit.json()["data"]["terms"][0]["body"]] == [
         "markdown",
@@ -315,9 +329,16 @@ def test_glossary_admin_and_article_scoped_public_matching(
     detail = public.get(base + "/terms/jin-ling?language=zh-CN")
     assert detail.status_code == 200, detail.text
     assert [block["type"] for block in detail.json()["data"]["body"]] == ["markdown", "html"]
+    assert detail.json()["data"]["feature_image"]["original"] == feature["url"]
     assert [
         item["title"] for item in public.get(base + "/index?language=en").json()["data"]["terms"]
     ] == ["金灵"]
+    assert (
+        public.get(base + "/index?language=en").json()["data"]["terms"][0]["feature_image"][
+            "original"
+        ]
+        == feature["url"]
+    )
     assert miss.status_code == 200
     assert miss.json()["data"]["terms"] == []
     update = ctx.root.patch(
@@ -331,6 +352,7 @@ def test_glossary_admin_and_article_scoped_public_matching(
                 "slug": "jin-ling",
                 "title": "金灵",
                 "summary": "更新后的提示。",
+                "feature_media_id": feature_id,
                 "body": [
                     {
                         "id": str(uuid4()),

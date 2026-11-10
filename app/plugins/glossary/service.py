@@ -141,13 +141,35 @@ async def resolved_media(
     body: list[dict[str, object]],
     *,
     strict: bool,
+    feature_media_id: UUID | None = None,
 ) -> dict[str, MediaURL]:
     return await editor_media(
         session,
         config,
         json.dumps(body, ensure_ascii=False),
-        EditorSettings(),
+        EditorSettings(cover_media_id=feature_media_id),
         strict=strict,
+    )
+
+
+def row_feature_media_id(row: GlossaryTerm) -> UUID | None:
+    return UUID(row.feature_media_id) if row.feature_media_id else None
+
+
+async def resolved_feature_images(
+    session: AsyncSession,
+    config: Settings | None,
+    rows: list[GlossaryTerm],
+) -> dict[str, MediaURL]:
+    ids = [feature_id for row in rows if (feature_id := row_feature_media_id(row))]
+    if not ids or config is None:
+        return {}
+    return await editor_media(
+        session,
+        config,
+        "\n".join(f"site://media/{item}" for item in ids),
+        EditorSettings(),
+        strict=False,
     )
 
 
@@ -156,12 +178,21 @@ async def detail(
     row: GlossaryTerm,
     config: Settings | None = None,
 ) -> GlossaryDetail:
+    feature_media_id = row_feature_media_id(row)
+    media_urls = await resolved_media(
+        session,
+        config,
+        row.body,
+        strict=False,
+        feature_media_id=feature_media_id,
+    )
     return GlossaryDetail(
         id=row.id,
         language=row.language,
         slug=row.slug,
         title=row.title,
         summary=row.summary,
+        feature_media_id=feature_media_id,
         aliases=row.aliases,
         auto_match_title=row.auto_match_title,
         match_rules=[GlossaryMatchRule.model_validate(rule) for rule in row.match_rules]
@@ -172,19 +203,24 @@ async def detail(
         updated_at=row.updated_at,
         published_at=row.published_at,
         body=[GlossaryBlock.model_validate(block) for block in row.body],
-        media_urls=await resolved_media(session, config, row.body, strict=False),
+        feature_image=media_urls.get(str(feature_media_id)) if feature_media_id else None,
+        media_urls=media_urls,
         created_by=row.created_by,
         updated_by=row.updated_by,
     )
 
 
-def public_item(row: GlossaryTerm) -> PublicGlossaryTerm:
+def public_item(
+    row: GlossaryTerm,
+    feature_image: MediaURL | None = None,
+) -> PublicGlossaryTerm:
     return PublicGlossaryTerm(
         id=row.id,
         language=row.language,
         slug=row.slug,
         title=row.title,
         summary=row.summary,
+        feature_image=feature_image,
         aliases=row.aliases,
         path=f"/glossary/{row.slug}",
     )
@@ -267,7 +303,13 @@ async def create_term(
     await lock_glossary(session)
     await validate_targets(session, payload.fields)
     body = [block.model_dump(mode="json") for block in payload.fields.body]
-    await resolved_media(session, config, body, strict=True)
+    await resolved_media(
+        session,
+        config,
+        body,
+        strict=True,
+        feature_media_id=payload.fields.feature_media_id,
+    )
     now = datetime.now(UTC)
     row = GlossaryTerm(
         id=payload.term_id,
@@ -275,6 +317,7 @@ async def create_term(
         slug=payload.fields.slug,
         title=payload.fields.title,
         summary=payload.fields.summary,
+        feature_media_id=str(payload.fields.feature_media_id or ""),
         body_markdown="",
         body=body,
         aliases=payload.fields.aliases,
@@ -333,13 +376,20 @@ async def update_term(
         raise AuthFailure(409, 40938, "术语已在其他窗口更新，请载入最新版本")
     await validate_targets(session, payload.fields, exclude_id=term_id)
     body = [block.model_dump(mode="json") for block in payload.fields.body]
-    await resolved_media(session, config, body, strict=True)
+    await resolved_media(
+        session,
+        config,
+        body,
+        strict=True,
+        feature_media_id=payload.fields.feature_media_id,
+    )
     now = datetime.now(UTC)
     previous_status = row.status
     row.language = payload.fields.language
     row.slug = payload.fields.slug
     row.title = payload.fields.title
     row.summary = payload.fields.summary
+    row.feature_media_id = str(payload.fields.feature_media_id or "")
     row.body_markdown = ""
     row.body = body
     row.aliases = payload.fields.aliases
@@ -406,6 +456,7 @@ async def list_terms(session: AsyncSession, query: GlossaryQuery) -> GlossaryLis
                 slug=row.slug,
                 title=row.title,
                 summary=row.summary,
+                feature_media_id=row_feature_media_id(row),
                 aliases=row.aliases,
                 auto_match_title=row.auto_match_title,
                 match_rules=[GlossaryMatchRule.model_validate(rule) for rule in row.match_rules]
@@ -435,17 +486,25 @@ async def read_term(
     return await detail(session, row, config)
 
 
-async def public_index(session: AsyncSession, language: str | None) -> PublicGlossaryIndex:
+async def public_index(
+    session: AsyncSession,
+    language: str | None,
+    config: Settings | None = None,
+) -> PublicGlossaryIndex:
     statement = select(GlossaryTerm).where(GlossaryTerm.status == "published")
     if language:
         statement = statement.where(
             or_(GlossaryTerm.language == language, GlossaryTerm.language == "*")
         )
     rows = (await session.scalars(statement.order_by(GlossaryTerm.title, GlossaryTerm.id))).all()
+    features = await resolved_feature_images(session, config, list(rows))
     revision = max((row.updated_at for row in rows), default=datetime(1970, 1, 1, tzinfo=UTC))
     return PublicGlossaryIndex(
         revision=revision.isoformat(),
-        terms=[public_item(row) for row in rows],
+        terms=[
+            public_item(row, features.get(row.feature_media_id) if row.feature_media_id else None)
+            for row in rows
+        ],
     )
 
 
@@ -466,11 +525,22 @@ async def public_term(
     row = await session.scalar(statement.order_by(GlossaryTerm.language.desc()))
     if row is None:
         raise AuthFailure(404, 40436, "术语不存在")
-    item = public_item(row)
+    feature_media_id = row_feature_media_id(row)
+    media_urls = await resolved_media(
+        session,
+        config,
+        row.body,
+        strict=False,
+        feature_media_id=feature_media_id,
+    )
+    item = public_item(
+        row,
+        media_urls.get(str(feature_media_id)) if feature_media_id else None,
+    )
     return PublicGlossaryDetail(
         **item.model_dump(),
         body=[GlossaryBlock.model_validate(block) for block in row.body],
-        media_urls=await resolved_media(session, config, row.body, strict=False),
+        media_urls=media_urls,
     )
 
 
@@ -561,8 +631,18 @@ async def content_matches(
         visible = evaluate_rules(source, rules)
         if not visible:
             continue
-        item = public_item(row)
-        media = await resolved_media(session, config, row.body, strict=False)
+        feature_media_id = row_feature_media_id(row)
+        media = await resolved_media(
+            session,
+            config,
+            row.body,
+            strict=False,
+            feature_media_id=feature_media_id,
+        )
+        item = public_item(
+            row,
+            media.get(str(feature_media_id)) if feature_media_id else None,
+        )
         matches.append(
             PublicGlossaryMatch(
                 **item.model_dump(),
@@ -927,16 +1007,22 @@ async def public_hooks(
     for row in rows:
         if not hook_targets_surface(row.GlossaryHook, surface, content_id, page_id):
             continue
-        item = public_item(row.GlossaryTerm)
+        feature_media_id = row_feature_media_id(row.GlossaryTerm)
+        media_urls = await resolved_media(
+            session,
+            config,
+            row.GlossaryTerm.body,
+            strict=False,
+            feature_media_id=feature_media_id,
+        )
+        item = public_item(
+            row.GlossaryTerm,
+            media_urls.get(str(feature_media_id)) if feature_media_id else None,
+        )
         term = PublicGlossaryDetail(
             **item.model_dump(),
             body=[GlossaryBlock.model_validate(block) for block in row.GlossaryTerm.body],
-            media_urls=await resolved_media(
-                session,
-                config,
-                row.GlossaryTerm.body,
-                strict=False,
-            ),
+            media_urls=media_urls,
         )
         hooks.append(
             PublicGlossaryHook(

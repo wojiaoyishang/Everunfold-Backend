@@ -26,6 +26,8 @@ async def require_unreferenced(
     # IDs are stable through Base URL changes. Checking serialized documents also
     # finds IDs embedded in URLs/HTML/Markdown; false positives intentionally block removal.
     token = str(asset.id)
+    from app.plugins.glossary.models import GlossaryTerm
+
     current = [
         select(ManagedPage.id).where(
             or_(
@@ -65,6 +67,12 @@ async def require_unreferenced(
             )
         ),
         select(Comment.id).where(Comment.content.contains(token)),
+        select(GlossaryTerm.id).where(
+            or_(
+                cast(GlossaryTerm.body, Text).contains(token),
+                GlossaryTerm.feature_media_id.contains(token),
+            )
+        ),
     ]
     for statement in current:
         if await session.scalar(statement.limit(1)) is not None:

@@ -18,6 +18,7 @@ from app.modules.settings.schemas import (
     FooterPreferences,
     MenuItem,
     SitePreferences,
+    ThemePreferences,
 )
 from tools.export_settings_contract import build_schema
 
@@ -95,6 +96,30 @@ def test_navigation_labels_are_independent_by_language_and_legacy_values_survive
     ):
         with pytest.raises(ValidationError):
             MenuItem(id="home", label="首页", labels=invalid, href="/")
+
+
+def test_navigation_is_owned_by_each_theme_and_legacy_site_navigation_remains_valid() -> None:
+    site_menu = MenuItem(id="site-home", label="首页", href="/")
+    theme_menu = MenuItem(id="theme-home", label="Home", href="/")
+    original = {
+        "name": "Campfire",
+        "author": "A",
+        "description": "",
+        "navigation": [site_menu.model_dump(mode="json")],
+        "theme_options": {
+            "argon": ThemePreferences(navigation=[theme_menu]).model_dump(mode="json"),
+            "paper": ThemePreferences(paper_tone="white").model_dump(mode="json"),
+        },
+        "extensions": {"theme": "argon"},
+    }
+    value = public_settings(original)
+    assert value.site.navigation[0].id == "site-home"
+    assert value.theme.navigation is not None
+    assert value.theme.navigation[0].id == "theme-home"
+    assert value.theme_options["paper"].navigation is None
+    stored = stored_settings(original, value)
+    assert stored["navigation"][0]["id"] == "site-home"
+    assert stored["theme_options"]["argon"]["navigation"][0]["id"] == "theme-home"
 
 
 def test_code_preferences_are_bounded_and_legacy_defaults_round_trip() -> None:

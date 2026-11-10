@@ -43,6 +43,7 @@ class GlossaryTerm(Base):
     slug: Mapped[str] = mapped_column(String(120))
     title: Mapped[str] = mapped_column(String(120))
     summary: Mapped[str] = mapped_column(Text)
+    feature_media_id: Mapped[str] = mapped_column(String(64), default="")
     body_markdown: Mapped[str | None] = mapped_column(Text)
     body: Mapped[list[dict[str, object]]] = mapped_column(JSONB, default=list)
     aliases: Mapped[list[str]] = mapped_column(JSONB, default=list)

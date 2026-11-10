@@ -177,6 +177,19 @@ async def seed_public_case(session: AsyncSession) -> dict[str, Any]:
                 "hero_subtitle": "World",
                 "notice": "",
                 "navigation": [{"label": "首页", "labels": {"en": "Home"}, "href": "/"}],
+                "extensions": {"theme": "argon"},
+                "theme_options": {
+                    "argon": {
+                        "navigation": [
+                            {
+                                "id": "theme-home",
+                                "label": "首页",
+                                "labels": {"en": "Theme home"},
+                                "href": "/",
+                            }
+                        ]
+                    }
+                },
             },
         )
     )
@@ -234,7 +247,7 @@ async def test_public_api_filters_pagination_search_and_comment_privacy(
     ):
         site = await client.get("/v1/site")
         assert site.status_code == 200
-        assert site.json()["data"]["navigation"][0]["labels"] == {"en": "Home"}
+        assert site.json()["data"]["navigation"][0]["labels"] == {"en": "Theme home"}
         response = await client.get("/v1/contents", params={"kind": "article", "page_size": 1})
         assert response.status_code == 200
         assert response.json()["data"]["total"] == 2
@@ -288,7 +301,7 @@ async def test_snapshot_contains_only_public_projection_and_consistent_stats(
     assert snapshot.site.stats.comments == 3
     assert snapshot.site.stats.categories == 1
     assert snapshot.site.stats.tags == 0
-    assert snapshot.site.navigation[0].labels == {"en": "Home"}
+    assert snapshot.site.navigation[0].labels == {"en": "Theme home"}
     assert len(snapshot.comments[str(seeded["contents"][0].id)]) == 3
     assert "不可见用户" not in snapshot.model_dump_json()
     assert "source_id" not in snapshot.model_dump_json()

@@ -66,6 +66,12 @@ class PublicContentService:
             categories=sum(item.kind == "category" for item in taxonomies),
         )
         data = {key: value for key, value in stored.data.items() if key in SiteDTO.model_fields}
+        active_theme = (stored.data.get("extensions") or {}).get("theme") or "argon"
+        theme = (stored.data.get("theme_options") or {}).get(active_theme)
+        if not isinstance(theme, dict):
+            theme = stored.data.get("theme")
+        if isinstance(theme, dict) and theme.get("navigation") is not None:
+            data["navigation"] = theme["navigation"]
         from app.modules.settings.navigation import public_navigation
 
         data["navigation"] = await public_navigation(
