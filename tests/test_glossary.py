@@ -107,6 +107,16 @@ def test_regex_glossary_rules_are_bounded_and_preserve_match_options() -> None:
         "AI",
         "AI系统",
     }
+    alias_preview = preview_matches(
+        GlossaryMatchPreviewInput(
+            title="标题",
+            aliases=["独立别名"],
+            auto_match_title=False,
+            match_rules=[],
+            sample="正文里的独立别名仍然命中。",
+        )
+    )
+    assert [item.text for item in alias_preview.hits] == ["独立别名"]
     title_preview = preview_matches(
         GlossaryMatchPreviewInput(
             title="默认匹配标题",
