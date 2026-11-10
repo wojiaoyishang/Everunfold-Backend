@@ -1,5 +1,14 @@
 # 后端交接状态
 
+## 最新交付：多语言导航、术语页面钩子与逐内容设置（2026-11-10）
+
+- 后端`121c85b`/`951e3f6`/`a4abcf2`/`c660b76`、前端`1885d42`/`a0fb842`/`cb27731`。导航菜单保存稀疏语言名称，公开`NavigationItem`携带`labels`并由前端按当前语言回退解析。
+- 文章、说说、页面分别保存Tooltip与脚注开关；站点仅保留匹配总开关、上限和提示来源。术语钩子支持全站/最多32个指定目标、常见CSS选择器、优先级、DOM变化/路由切换及管理员JavaScript挂载；新建术语先在前端暂存触发，术语首次保存后按稳定ID创建。`glossary.mount(element)`接受原生DOM节点。
+- `content-admin1.19.0`、`captcha1.4.0`、`collaboration2.6.0`、`settings1.28.0`、`glossary1.5.0/glossary-v1 3.4.0`、`pages1.9.0`、`public0.13.0`、`presentation 0.2.0-preview.4`；0039/0040已显式应用并同步，无额外迁移。
+- 完整真实数据库测试341项通过，覆盖双API、Worker、Scheduler、Node接收器、内容投递/重放与公开`labels`投影；Ruff、636文件格式、223文件mypy、`alembic check`通过。
+- 修复发现：公开站点DTO最初遗漏`labels`导致页面发布失败；`public-v0.1`的`Site/navigation`也需同步刷新，否则前端接收器会以未知字段返回409并阻塞内容投递。两处均已按权威模型重新导出并锁定到后端`a4abcf2`/`c660b76`。
+- 仅本地提交，未push。JavaScript钩子仍是管理员同源可信代码，不是沙箱；页面iframe、Shadow DOM与后台不由宿主跨域挂载。
+
 ## 最新同步：SEO 正文静态嵌入（2026-11-10）
 
 - 前端`cd3ce09`将公开主题具名组件改为同步发现，使文章标题、摘要与正文直接进入首次服务端 HTML；术语 Tooltip、阅览量等继续按需加载。后端代码、业务契约、插件、迁移和运行中的 API 均未改变。
