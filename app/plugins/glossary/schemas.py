@@ -300,6 +300,7 @@ class GlossaryHookList(PublicModel):
 class PublicGlossaryHook(PublicModel):
     id: UUID
     selector: str
+    scope: GlossaryHookScope
     priority: int
     term: PublicGlossaryDetail
 

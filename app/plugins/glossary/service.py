@@ -931,6 +931,7 @@ async def public_hooks(
             PublicGlossaryHook(
                 id=row.GlossaryHook.id,
                 selector=row.GlossaryHook.selector,
+                scope=cast(GlossaryHookScope, row.GlossaryHook.scope),
                 priority=row.GlossaryHook.priority,
                 term=term,
             )

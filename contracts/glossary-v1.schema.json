@@ -1120,6 +1120,14 @@
           "title": "Selector",
           "type": "string"
         },
+        "scope": {
+          "enum": [
+            "all",
+            "content"
+          ],
+          "title": "Scope",
+          "type": "string"
+        },
         "priority": {
           "title": "Priority",
           "type": "integer"
@@ -1131,6 +1139,7 @@
       "required": [
         "id",
         "selector",
+        "scope",
         "priority",
         "term"
       ],
