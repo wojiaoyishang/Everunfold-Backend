@@ -73,3 +73,29 @@ class MailTestDelivery(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     lease_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class TranslationRevision(Base):
+    __tablename__ = "translation_revisions"
+    __table_args__ = (CheckConstraint("id = 1 AND revision >= 1", name="singleton_revision"),)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, default=1)
+    revision: Mapped[int] = mapped_column(Integer, default=1)
+
+
+class TranslationOverride(Base):
+    __tablename__ = "translation_overrides"
+    __table_args__ = (
+        UniqueConstraint("scope", "locale", "message_key"),
+        CheckConstraint("revision >= 1", name="positive_revision"),
+    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    scope: Mapped[str] = mapped_column(String(16), index=True)
+    owner: Mapped[str] = mapped_column(String(128))
+    message_key: Mapped[str] = mapped_column(String(512))
+    locale: Mapped[str] = mapped_column(String(32), index=True)
+    source: Mapped[str] = mapped_column(String(4000))
+    source_hash: Mapped[str] = mapped_column(String(64))
+    value: Mapped[str] = mapped_column(String(4000))
+    revision: Mapped[int] = mapped_column(Integer)
+    updated_by: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

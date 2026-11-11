@@ -11,7 +11,7 @@ from app.modules.settings.schemas import SettingsContract
 def build_schema() -> dict[str, Any]:
     schema = SettingsContract.model_json_schema()
     schema["$schema"] = "http://json-schema.org/draft-07/schema#"
-    schema["x-everunfold-contract-version"] = "1.29.0"
+    schema["x-everunfold-contract-version"] = "1.30.0"
     schema["x-everunfold-language-regions"] = LANGUAGE_REGIONS
     schema["x-everunfold-operations"] = [
         {
@@ -237,6 +237,19 @@ def build_schema() -> dict[str, Any]:
             "path": "/v1/admin/frontend-nodes/{node_id}/sync",
             "method": "POST",
             "response": "nodes",
+        },
+        {
+            "name": "readTranslations",
+            "path": "/v1/admin/settings/translations",
+            "method": "GET",
+            "response": "translations",
+        },
+        {
+            "name": "saveTranslations",
+            "path": "/v1/admin/settings/translations",
+            "method": "PATCH",
+            "input": "save_translations",
+            "response": "translations",
         },
     ]
     return schema

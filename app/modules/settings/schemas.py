@@ -44,6 +44,14 @@ from app.modules.settings.mail_schemas import (
     SaveMailSettings,
     SendTestMail,
 )
+from app.modules.settings.translation_schemas import (
+    SaveTranslations,
+    TranslationCatalog,
+    TranslationOverrides,
+)
+from app.modules.settings.translation_schemas import (
+    TranslationState as TranslationSettingsState,
+)
 from app.modules.settings.urls import safe_url as safe_url
 from app.modules.shortcodes.schemas import (
     PreviewShortcode,
@@ -286,6 +294,7 @@ class PublicSettings(SettingsModel):
     theme_options: dict[str, ThemePreferences] = Field(default_factory=dict, max_length=20)
     icon_urls: dict[str, str] = Field(default_factory=dict)
     shortcodes: list[PublicShortcode] = Field(default_factory=list, max_length=100)
+    translations: TranslationOverrides = Field(default_factory=TranslationOverrides)
 
     @model_validator(mode="after")
     def active_theme_projection(self) -> Self:
@@ -422,3 +431,6 @@ class SettingsContract(PublicModel):
     nodes: PublicResponse[NodeList]
     delivery: SettingsDelivery
     receipt: DeliveryReceipt
+    translations: PublicResponse[TranslationSettingsState]
+    translation_catalog: PublicResponse[TranslationCatalog]
+    save_translations: SaveTranslations

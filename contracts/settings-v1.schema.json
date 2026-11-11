@@ -3147,6 +3147,62 @@
       "title": "PublicResponse[TaskProgress]",
       "type": "object"
     },
+    "PublicResponse_TranslationCatalog_": {
+      "additionalProperties": false,
+      "properties": {
+        "success": {
+          "default": true,
+          "title": "Success",
+          "type": "boolean"
+        },
+        "code": {
+          "default": 200,
+          "title": "Code",
+          "type": "integer"
+        },
+        "msg": {
+          "default": "请求成功",
+          "title": "Msg",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/TranslationCatalog"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "title": "PublicResponse[TranslationCatalog]",
+      "type": "object"
+    },
+    "PublicResponse_TranslationState_": {
+      "additionalProperties": false,
+      "properties": {
+        "success": {
+          "default": true,
+          "title": "Success",
+          "type": "boolean"
+        },
+        "code": {
+          "default": 200,
+          "title": "Code",
+          "type": "integer"
+        },
+        "msg": {
+          "default": "请求成功",
+          "title": "Msg",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/TranslationState"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "title": "PublicResponse[TranslationState]",
+      "type": "object"
+    },
     "PublicSettings": {
       "additionalProperties": false,
       "properties": {
@@ -3181,6 +3237,9 @@
           "maxItems": 100,
           "title": "Shortcodes",
           "type": "array"
+        },
+        "translations": {
+          "$ref": "#/$defs/TranslationOverrides"
         }
       },
       "required": [
@@ -3749,6 +3808,30 @@
         "value"
       ],
       "title": "SaveShortcode",
+      "type": "object"
+    },
+    "SaveTranslations": {
+      "additionalProperties": false,
+      "properties": {
+        "expected_revision": {
+          "minimum": 1,
+          "title": "Expected Revision",
+          "type": "integer"
+        },
+        "changes": {
+          "items": {
+            "$ref": "#/$defs/TranslationChange"
+          },
+          "maxItems": 500,
+          "title": "Changes",
+          "type": "array"
+        }
+      },
+      "required": [
+        "expected_revision",
+        "changes"
+      ],
+      "title": "SaveTranslations",
       "type": "object"
     },
     "SearchDiscovery": {
@@ -4593,6 +4676,263 @@
       "title": "ThemePreferences",
       "type": "object"
     },
+    "TranslationCatalog": {
+      "additionalProperties": false,
+      "properties": {
+        "revision": {
+          "minimum": 1,
+          "title": "Revision",
+          "type": "integer"
+        },
+        "items": {
+          "items": {
+            "$ref": "#/$defs/TranslationCatalogEntry"
+          },
+          "title": "Items",
+          "type": "array"
+        }
+      },
+      "required": [
+        "revision",
+        "items"
+      ],
+      "title": "TranslationCatalog",
+      "type": "object"
+    },
+    "TranslationCatalogEntry": {
+      "additionalProperties": false,
+      "properties": {
+        "scope": {
+          "enum": [
+            "public",
+            "admin",
+            "backend"
+          ],
+          "title": "Scope",
+          "type": "string"
+        },
+        "key": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Key",
+          "type": "string"
+        },
+        "owner": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Owner",
+          "type": "string"
+        },
+        "source": {
+          "maxLength": 4000,
+          "minLength": 1,
+          "title": "Source",
+          "type": "string"
+        },
+        "defaults": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Defaults",
+          "type": "object"
+        }
+      },
+      "required": [
+        "scope",
+        "key",
+        "owner",
+        "source"
+      ],
+      "title": "TranslationCatalogEntry",
+      "type": "object"
+    },
+    "TranslationChange": {
+      "additionalProperties": false,
+      "properties": {
+        "scope": {
+          "enum": [
+            "public",
+            "admin",
+            "backend"
+          ],
+          "title": "Scope",
+          "type": "string"
+        },
+        "key": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Key",
+          "type": "string"
+        },
+        "locale": {
+          "maxLength": 32,
+          "minLength": 2,
+          "title": "Locale",
+          "type": "string"
+        },
+        "source": {
+          "maxLength": 4000,
+          "minLength": 1,
+          "title": "Source",
+          "type": "string"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "maxLength": 4000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Value"
+        }
+      },
+      "required": [
+        "scope",
+        "key",
+        "locale",
+        "source"
+      ],
+      "title": "TranslationChange",
+      "type": "object"
+    },
+    "TranslationOverrideItem": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "scope": {
+          "enum": [
+            "public",
+            "admin",
+            "backend"
+          ],
+          "title": "Scope",
+          "type": "string"
+        },
+        "key": {
+          "title": "Key",
+          "type": "string"
+        },
+        "owner": {
+          "title": "Owner",
+          "type": "string"
+        },
+        "locale": {
+          "title": "Locale",
+          "type": "string"
+        },
+        "source": {
+          "title": "Source",
+          "type": "string"
+        },
+        "source_hash": {
+          "title": "Source Hash",
+          "type": "string"
+        },
+        "value": {
+          "title": "Value",
+          "type": "string"
+        },
+        "revision": {
+          "title": "Revision",
+          "type": "integer"
+        },
+        "updated_at": {
+          "format": "date-time",
+          "title": "Updated At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "scope",
+        "key",
+        "owner",
+        "locale",
+        "source",
+        "source_hash",
+        "value",
+        "revision",
+        "updated_at"
+      ],
+      "title": "TranslationOverrideItem",
+      "type": "object"
+    },
+    "TranslationOverrides": {
+      "additionalProperties": false,
+      "properties": {
+        "public": {
+          "additionalProperties": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "title": "Public",
+          "type": "object"
+        },
+        "admin": {
+          "additionalProperties": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "title": "Admin",
+          "type": "object"
+        },
+        "backend": {
+          "additionalProperties": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "title": "Backend",
+          "type": "object"
+        }
+      },
+      "title": "TranslationOverrides",
+      "type": "object"
+    },
+    "TranslationState": {
+      "additionalProperties": false,
+      "properties": {
+        "revision": {
+          "minimum": 1,
+          "title": "Revision",
+          "type": "integer"
+        },
+        "overrides": {
+          "items": {
+            "$ref": "#/$defs/TranslationOverrideItem"
+          },
+          "title": "Overrides",
+          "type": "array"
+        },
+        "backend_catalog": {
+          "items": {
+            "$ref": "#/$defs/TranslationCatalogEntry"
+          },
+          "title": "Backend Catalog",
+          "type": "array"
+        }
+      },
+      "required": [
+        "revision",
+        "overrides",
+        "backend_catalog"
+      ],
+      "title": "TranslationState",
+      "type": "object"
+    },
     "WatchTask": {
       "additionalProperties": false,
       "properties": {
@@ -4767,6 +5107,15 @@
     },
     "receipt": {
       "$ref": "#/$defs/DeliveryReceipt"
+    },
+    "translations": {
+      "$ref": "#/$defs/PublicResponse_TranslationState_"
+    },
+    "translation_catalog": {
+      "$ref": "#/$defs/PublicResponse_TranslationCatalog_"
+    },
+    "save_translations": {
+      "$ref": "#/$defs/SaveTranslations"
     }
   },
   "required": [
@@ -4814,12 +5163,15 @@
     "save_policy",
     "nodes",
     "delivery",
-    "receipt"
+    "receipt",
+    "translations",
+    "translation_catalog",
+    "save_translations"
   ],
   "title": "SettingsContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "1.29.0",
+  "x-everunfold-contract-version": "1.30.0",
   "x-everunfold-language-regions": {
     "zh": "CN",
     "en": "GB",
@@ -5078,6 +5430,19 @@
       "path": "/v1/admin/frontend-nodes/{node_id}/sync",
       "method": "POST",
       "response": "nodes"
+    },
+    {
+      "name": "readTranslations",
+      "path": "/v1/admin/settings/translations",
+      "method": "GET",
+      "response": "translations"
+    },
+    {
+      "name": "saveTranslations",
+      "path": "/v1/admin/settings/translations",
+      "method": "PATCH",
+      "input": "save_translations",
+      "response": "translations"
     }
   ]
 }

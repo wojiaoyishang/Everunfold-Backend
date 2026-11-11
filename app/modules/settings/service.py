@@ -31,6 +31,7 @@ from app.modules.settings.schemas import (
     SettingsDelivery,
     SettingsState,
 )
+from app.modules.settings.translation_service import TranslationService
 
 Resource = Literal["public-settings", "cache-policy", "public-content"]
 
@@ -104,6 +105,7 @@ class SettingsService:
                 "theme": theme,
                 "theme_options": profiles,
                 "icon_urls": await service.resolve_icons(icons),
+                "translations": await TranslationService(self.session, self.config).overrides(),
             }
         )
         # Template media use the same immutable IDs as content; derived addresses

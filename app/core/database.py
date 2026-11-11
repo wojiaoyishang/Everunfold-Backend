@@ -4,7 +4,7 @@ from sqlalchemy import MetaData, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
 
-SCHEMA_REVISION = "0041_glossary_feature_image"
+SCHEMA_REVISION = "0042_translation_overrides"
 
 
 class Base(DeclarativeBase):

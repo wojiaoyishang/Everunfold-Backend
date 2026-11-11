@@ -77,6 +77,18 @@ class I18n:
         key = self._source_keys.get(source)
         return self.t(key) if key else source
 
+    def catalog(self) -> dict[str, dict[str, str]]:
+        """Return a copy of registered program messages for administrative overrides."""
+        self.load()
+        return {
+            key: {
+                locale: messages[key]
+                for locale, messages in self._catalogs.items()
+                if key in messages
+            }
+            for key in self._catalogs.get(DEFAULT_LOCALE, {})
+        }
+
 
 i18n = I18n()
 
