@@ -20,6 +20,7 @@ from app.modules.content.draft_schemas import DraftDetail, DraftSchedule
 from app.modules.content.merge_lock import active_merge
 from app.modules.content.publication import ContentPublication
 from app.modules.media.locking import lock_references
+from app.modules.notifications.service import publish_event
 from app.modules.settings.models import SettingsAudit
 
 
@@ -138,6 +139,25 @@ async def publish_scheduled(session: AsyncSession, config: Settings, draft_id: U
                 "error": error,
             },
         )
+    )
+    event_type = "content.schedule_failed" if error else "content.scheduled_published"
+    await publish_event(
+        session,
+        event_type=event_type,
+        dedupe_key=f"scheduled-publication:{draft_id}:{payload['run_id']}:{event_type}",
+        resource_type="content",
+        resource_id=str(draft_id),
+        actor_id=None,
+        data={
+            "content": {
+                "title": row.title,
+                "type": row.type_id,
+                "url": row.public_path or "",
+            },
+            "schedule": {"planned_at": planned_at.strftime("%Y-%m-%d %H:%M UTC")},
+            "failure": {"reason": error or ""},
+            "admin": {"url": f"/admin/content/{row.type_id}/{row.id}/edit"},
+        },
     )
     await session.commit()
     return int(error is None)

@@ -13,6 +13,7 @@ from app.core.config import Settings
 from app.core.database import Database
 from app.modules.content.models import SiteSettings
 from app.modules.content.publication_schemas import ContentReceipt
+from app.modules.notifications.service import publish_event
 from app.modules.settings.models import SettingsDeliveryEvent
 from app.modules.settings.schemas import DeliveryReceipt
 
@@ -135,6 +136,21 @@ async def deliver_batch(config: Settings) -> int:
                             2 ** min(row.attempts, 16), config.outbox.retry_max_delay_seconds
                         )
                     )
+                    if row.attempts >= config.outbox.max_attempts:
+                        await publish_event(
+                            session,
+                            event_type="settings.delivery_failed",
+                            dedupe_key=f"settings-delivery-failed:{row.id}",
+                            resource_type="settings-delivery",
+                            resource_id=str(row.id),
+                            actor_id=None,
+                            data={
+                                "node": {"id": row.node_id},
+                                "settings": {"resource": row.payload["resource"]},
+                                "failure": {"reason": error},
+                                "admin": {"url": "/admin/settings"},
+                            },
+                        )
                 await session.commit()
         return completed
     finally:
