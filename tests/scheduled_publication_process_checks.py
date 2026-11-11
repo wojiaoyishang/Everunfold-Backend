@@ -110,6 +110,17 @@ def check_scheduled_publication(
         == 1
     )
     assert (
+        asyncio.run(
+            sql(
+                "SELECT count(*) AS n FROM notification_events "
+                "WHERE event_type='content.scheduled_published' AND resource_id=$1 "
+                "AND data->'content'->>'title'='Scheduled publication proof'",
+                row["id"],
+            )
+        )[0]["n"]
+        == 1
+    )
+    assert (
         asyncio.run(sql("SELECT public_generation FROM contents WHERE id=$1", UUID(row["id"])))[0][
             "public_generation"
         ]
@@ -199,6 +210,17 @@ def check_scheduled_publication(
     due(collision)
     wait_for(lambda: read(collision)["schedule_error"] == "path_conflict")
     assert read(collision)["published_revision"] is None
+    assert (
+        asyncio.run(
+            sql(
+                "SELECT count(*) AS n FROM notification_events "
+                "WHERE event_type='content.schedule_failed' AND resource_id=$1 "
+                "AND data->'failure'->>'reason'='path_conflict'",
+                collision["id"],
+            )
+        )[0]["n"]
+        == 1
+    )
     assert (
         client.get("/v1/contents/resolve", params={"path": "/scheduled-collision.html"}).json()[
             "data"

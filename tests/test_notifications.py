@@ -46,7 +46,8 @@ from app.modules.notifications.render import (
     text_html,
 )
 from app.modules.notifications.service import NotificationService, publish_event
-from app.modules.settings.models import SettingsAudit
+from app.modules.settings.delivery import deliver_batch
+from app.modules.settings.models import SettingsAudit, SettingsDeliveryEvent
 from tests.test_accounts import ORIGIN, PASSWORD, headers, signed_in
 from tests.test_settings_processes import toml_text
 from tools.export_notifications_contract import build_schema
@@ -72,6 +73,13 @@ def test_templates_are_restricted_interpolation_and_missing_values_are_safe() ->
     default_email = default_template("comment.pending_review", "email", "zh-CN")
     assert "<table" in default_email.html and "{{actor.name}}" in default_email.html
     assert 'href="{{resource.review_url}}"' in default_email.html
+    for event_type in (
+        "content.scheduled_published",
+        "content.schedule_failed",
+        "settings.delivery_failed",
+    ):
+        template = default_template(event_type, "email", "zh-CN")
+        assert template.subject and template.text and "<table" in template.html
     assert (
         render_html_template(
             "<p>{{actor.name}}</p>",
@@ -487,6 +495,48 @@ def test_routes_templates_inbox_and_uncertain_delivery_are_durable(tmp_path: Pat
                     await database.close()
 
             asyncio.run(stale_result())
+            delivery_event_id = uuid4()
+
+            async def settings_delivery_failure() -> None:
+                database = Database(settings.database.url.get_secret_value())
+                try:
+                    async with database.session_factory() as session:
+                        site = await session.get(SiteSettings, 1)
+                        assert site is not None
+                        now = datetime.now(UTC)
+                        session.add(
+                            SettingsDeliveryEvent(
+                                id=delivery_event_id,
+                                node_id="offline-node",
+                                source_epoch=site.source_epoch,
+                                resource="public-settings",
+                                revision=999,
+                                payload={
+                                    "resource": "public-settings",
+                                    "source_epoch": str(site.source_epoch),
+                                    "revision": 999,
+                                },
+                                attempts=settings.outbox.max_attempts - 1,
+                                next_attempt_at=now,
+                            )
+                        )
+                        await session.commit()
+                    await deliver_batch(settings)
+                    async with database.session_factory() as session:
+                        event = await session.scalar(
+                            select(NotificationEvent).where(
+                                NotificationEvent.dedupe_key
+                                == f"settings-delivery-failed:{delivery_event_id}"
+                            )
+                        )
+                        assert event is not None
+                        assert event.event_type == "settings.delivery_failed"
+                        assert event.data["node"]["id"] == "offline-node"
+                        assert event.data["settings"]["resource"] == "public-settings"
+                finally:
+                    await database.close()
+
+            asyncio.run(settings_delivery_failure())
     finally:
 
         async def clean() -> None:
