@@ -40,6 +40,7 @@ class ContentPresentation(PublicModel):
     content: list[ContentBlock]
     media_urls: dict[str, MediaURL]
     comments_open: bool
+    show_image_viewer: bool = True
     show_glossary_tooltips: bool = True
     show_glossary_footnotes: bool = True
     allow_indexing: bool = True

@@ -68,21 +68,25 @@ def test_glossary_text_matching_ignores_code_links_and_markup() -> None:
     assert "article_footnotes" not in GlossaryPreferences.model_fields
     assert EditorSettings().show_glossary_tooltips is True
     assert EditorSettings().show_glossary_footnotes is True
+    assert EditorSettings().show_image_viewer is True
     per_article = EditorSettings(
         show_glossary_tooltips=False,
         show_glossary_footnotes=False,
     )
     assert per_article.show_glossary_tooltips is False
     assert per_article.show_glossary_footnotes is False
+    assert per_article.show_image_viewer is True
     page = PageValue(title="Page", path="/page")
     assert page.show_glossary_tooltips is True
     assert page.show_glossary_footnotes is True
+    assert page.show_image_viewer is True
     optional_summary = GlossaryFields(
         slug="body-only",
         title="正文即提示",
         body=[GlossaryBlock(id=uuid4(), content="正文说明。")],
     )
     assert optional_summary.summary == ""
+    assert optional_summary.show_image_viewer is True
 
 
 def test_regex_glossary_rules_are_bounded_and_preserve_match_options() -> None:

@@ -70,6 +70,7 @@ class GlossaryFields(PublicModel):
     summary: str = Field(default="", max_length=500)
     body: list[GlossaryBlock] = Field(min_length=1, max_length=128)
     feature_media_id: UUID | None = None
+    show_image_viewer: bool = True
     aliases: list[str] = Field(default_factory=list, max_length=20)
     auto_match_title: bool = True
     match_rules: list[GlossaryMatchRule] | None = Field(default=None, max_length=30)
@@ -144,6 +145,7 @@ class GlossaryListItem(PublicModel):
     summary: str
     feature_media_id: UUID | None = None
     feature_image: MediaURL | None = None
+    show_image_viewer: bool = True
     aliases: list[str]
     auto_match_title: bool
     match_rules: list[GlossaryMatchRule] | None
@@ -183,6 +185,7 @@ class PublicGlossaryTerm(PublicModel):
     title: str
     summary: str
     feature_image: MediaURL | None = None
+    show_image_viewer: bool = True
     aliases: list[str]
     path: str
 

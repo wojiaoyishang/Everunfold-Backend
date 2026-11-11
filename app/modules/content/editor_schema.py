@@ -63,6 +63,7 @@ class EditorSettings(PublicModel):
     tags: list[str] = Field(default_factory=list, max_length=30)
     pinned: bool = False
     comments_open: bool = True
+    show_image_viewer: bool = True
     show_glossary_tooltips: bool = True
     show_glossary_footnotes: bool = True
     captcha_read: CaptchaOverride = "inherit"
@@ -109,6 +110,7 @@ class EditorCatalog(PublicModel):
 
 class PublicEditorSettings(PublicModel):
     comments_open: bool = True
+    show_image_viewer: bool = True
     show_glossary_tooltips: bool = True
     show_glossary_footnotes: bool = True
     allow_indexing: bool = True

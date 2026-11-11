@@ -789,6 +789,11 @@
           "title": "Comments Open",
           "type": "boolean"
         },
+        "show_image_viewer": {
+          "default": true,
+          "title": "Show Image Viewer",
+          "type": "boolean"
+        },
         "show_glossary_tooltips": {
           "default": true,
           "title": "Show Glossary Tooltips",
@@ -900,6 +905,11 @@
         "comments_open": {
           "default": true,
           "title": "Comments Open",
+          "type": "boolean"
+        },
+        "show_image_viewer": {
+          "default": true,
+          "title": "Show Image Viewer",
           "type": "boolean"
         },
         "show_glossary_tooltips": {
@@ -1393,7 +1403,7 @@
   "title": "PagesContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "1.9.0",
+  "x-everunfold-contract-version": "1.10.0",
   "x-everunfold-operations": [
     {
       "name": "setPageEnabled",

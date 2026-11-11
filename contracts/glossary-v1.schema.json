@@ -179,6 +179,11 @@
           ],
           "default": null
         },
+        "show_image_viewer": {
+          "default": true,
+          "title": "Show Image Viewer",
+          "type": "boolean"
+        },
         "aliases": {
           "items": {
             "type": "string"
@@ -337,6 +342,11 @@
           ],
           "default": null,
           "title": "Feature Media Id"
+        },
+        "show_image_viewer": {
+          "default": true,
+          "title": "Show Image Viewer",
+          "type": "boolean"
         },
         "aliases": {
           "items": {
@@ -805,6 +815,11 @@
           ],
           "default": null
         },
+        "show_image_viewer": {
+          "default": true,
+          "title": "Show Image Viewer",
+          "type": "boolean"
+        },
         "aliases": {
           "items": {
             "type": "string"
@@ -1167,6 +1182,11 @@
           ],
           "default": null
         },
+        "show_image_viewer": {
+          "default": true,
+          "title": "Show Image Viewer",
+          "type": "boolean"
+        },
         "aliases": {
           "items": {
             "type": "string"
@@ -1337,6 +1357,11 @@
           ],
           "default": null
         },
+        "show_image_viewer": {
+          "default": true,
+          "title": "Show Image Viewer",
+          "type": "boolean"
+        },
         "aliases": {
           "items": {
             "type": "string"
@@ -1425,6 +1450,11 @@
             }
           ],
           "default": null
+        },
+        "show_image_viewer": {
+          "default": true,
+          "title": "Show Image Viewer",
+          "type": "boolean"
         },
         "aliases": {
           "items": {
@@ -1779,7 +1809,7 @@
   "title": "GlossaryContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "3.6.0",
+  "x-everunfold-contract-version": "3.7.0",
   "x-everunfold-operations": [
     {
       "name": "readGlossaryIndex",

@@ -193,6 +193,7 @@ async def detail(
         title=row.title,
         summary=row.summary,
         feature_media_id=feature_media_id,
+        show_image_viewer=row.show_image_viewer,
         aliases=row.aliases,
         auto_match_title=row.auto_match_title,
         match_rules=[GlossaryMatchRule.model_validate(rule) for rule in row.match_rules]
@@ -221,6 +222,7 @@ def public_item(
         title=row.title,
         summary=row.summary,
         feature_image=feature_image,
+        show_image_viewer=row.show_image_viewer,
         aliases=row.aliases,
         path=f"/glossary/{row.slug}",
     )
@@ -318,6 +320,7 @@ async def create_term(
         title=payload.fields.title,
         summary=payload.fields.summary,
         feature_media_id=str(payload.fields.feature_media_id or ""),
+        show_image_viewer=payload.fields.show_image_viewer,
         body_markdown="",
         body=body,
         aliases=payload.fields.aliases,
@@ -390,6 +393,7 @@ async def update_term(
     row.title = payload.fields.title
     row.summary = payload.fields.summary
     row.feature_media_id = str(payload.fields.feature_media_id or "")
+    row.show_image_viewer = payload.fields.show_image_viewer
     row.body_markdown = ""
     row.body = body
     row.aliases = payload.fields.aliases
@@ -463,6 +467,7 @@ async def list_terms(
                 summary=row.summary,
                 feature_media_id=row_feature_media_id(row),
                 feature_image=features.get(row.feature_media_id) if row.feature_media_id else None,
+                show_image_viewer=row.show_image_viewer,
                 aliases=row.aliases,
                 auto_match_title=row.auto_match_title,
                 match_rules=[GlossaryMatchRule.model_validate(rule) for rule in row.match_rules]

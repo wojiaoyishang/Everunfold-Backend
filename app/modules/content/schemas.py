@@ -155,7 +155,8 @@ class PublicSnapshot(PublicModel):
         "0.8.0",
         "0.9.0",
         "0.10.0",
-    ] = "0.10.0"
+        "0.11.0",
+    ] = "0.11.0"
     source_epoch: str = Field(min_length=1)
     generation: int = Field(ge=1)
     exported_at: datetime

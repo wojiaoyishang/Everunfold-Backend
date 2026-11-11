@@ -81,6 +81,7 @@ class PageValue(PublicModel):
     description: str = Field(default="", max_length=500)
     allow_indexing: bool = True
     comments_open: bool = True
+    show_image_viewer: bool = True
     show_glossary_tooltips: bool = True
     show_glossary_footnotes: bool = True
     enabled: bool = False

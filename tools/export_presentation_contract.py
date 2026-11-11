@@ -9,7 +9,7 @@ from app.modules.content.presentation_schema import ContentPresentation
 def main() -> None:
     schema = ContentPresentation.model_json_schema()
     schema["$schema"] = "http://json-schema.org/draft-07/schema#"
-    schema["x-everunfold-contract-version"] = "0.2.0-preview.4"
+    schema["x-everunfold-contract-version"] = "0.2.0-preview.5"
     schema["description"] = (
         "Draft presentation contract. No HTTP endpoint or database migration is installed. "
         "Locked records omit body, excerpt and media. Viewer-specific state is separate."
