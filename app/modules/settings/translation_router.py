@@ -11,7 +11,9 @@ from app.modules.settings.translation_service import TranslationService
 router = APIRouter(
     prefix="/v1/admin/settings/translations",
     tags=["settings"],
-    responses={status: {"model": ErrorResponse} for status in (401, 403, 409, 422, 500, 503)},
+    responses={
+        status: {"model": ErrorResponse} for status in (401, 403, 404, 409, 413, 415, 422, 500, 503)
+    },
 )
 
 
