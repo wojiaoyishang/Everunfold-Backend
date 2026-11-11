@@ -21,9 +21,11 @@ from app.modules.auth.email_verification_models import EmailVerification
 from app.modules.auth.models import AuthAuditEvent, User
 from app.modules.auth.service import AuthFailure
 from app.modules.content.models import SiteSettings
-from app.modules.settings.mail_schemas import MailPreferences
-from app.modules.settings.mail_service import MAIL_KEY
-from app.modules.settings.mail_test_service import mail_ready
+from app.modules.settings.mail_service import (
+    default_mail_profile,
+    mail_ready,
+    stored_mail_profiles,
+)
 
 CODE_TTL = timedelta(minutes=15)
 
@@ -78,9 +80,10 @@ class EmailVerificationService:
             raise AuthFailure(429, 42972, "验证码请求次数较多，请稍后再试")
 
         site = await self.session.get(SiteSettings, 1)
-        stored = site.data.get(MAIL_KEY, {}) if site else {}
-        mail = MailPreferences.model_validate(stored.get("value", {}))
-        if not mail.enabled or not mail_ready(mail, stored.get("password", "")):
+        data = site.data if site else {}
+        mail_revision, _ = stored_mail_profiles(data)
+        mail = default_mail_profile(data)
+        if mail is None or not mail.enabled or not mail_ready(mail.value, mail.password):
             raise AuthFailure(422, 42272, "请先配置并启用可用的 SMTP 邮件平台")
 
         await self.session.execute(
@@ -100,9 +103,10 @@ class EmailVerificationService:
             salt=salt,
             code_hash=code_digest(payload.operation_id, salt, code),
             delivery_code=code,
+            mail_profile_id=str(mail.id),
             status="queued",
             attempts=0,
-            mail_revision=int(stored.get("revision", 0)),
+            mail_revision=mail_revision,
             profile_revision=actor.revision,
             created_at=now,
             expires_at=now + CODE_TTL,

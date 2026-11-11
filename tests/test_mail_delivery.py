@@ -24,7 +24,12 @@ from app.core.jobs.progress_schemas import WatchTask
 from app.modules.auth.permissions import Actor
 from app.modules.auth.service import AuthFailure
 from app.modules.settings.mail_delivery import deliver_test
-from app.modules.settings.mail_schemas import MailPreferences, SaveMailSettings, SendTestMail
+from app.modules.settings.mail_schemas import (
+    MailPreferences,
+    MailSenderProfileInput,
+    SaveMailSettings,
+    SendTestMail,
+)
 from app.modules.settings.mail_service import MailSettingsService
 from app.modules.settings.mail_test_service import MailTestService
 from app.modules.settings.mail_transport import send_test
@@ -83,6 +88,18 @@ def preferences(port, **changes):
     )
 
 
+def mail_profile(port, profile_id, **changes):
+    name = changes.pop("name", "系统通知")
+    return MailSenderProfileInput(
+        id=profile_id,
+        name=name,
+        enabled=True,
+        is_default=True,
+        value=preferences(port, enabled=True),
+        **changes,
+    )
+
+
 def test_smtp_delivery_acceptance_and_uncertainty():
     with smtp_server() as (port, messages):
         assert send_test(preferences(port), "", "reader@example.test", uuid4()) == ("sent", None)
@@ -137,6 +154,7 @@ def test_scheduler_worker_test_mail_idempotency_and_config_fence(tmp_path):
         env.pop(key, None)
     local = load_settings(path)
     actor, identity = uuid4(), uuid4()
+    profile_id = uuid4()
     try:
         subprocess.run(
             [sys.executable, "init.database.py", "--config", str(path)],
@@ -152,10 +170,17 @@ def test_scheduler_worker_test_mail_idempotency_and_config_fence(tmp_path):
                 try:
                     async with db.session_factory() as session:
                         await MailSettingsService(SettingsService(session, local)).save(
-                            SaveMailSettings(expected_revision=0, value=preferences(port)), actor
+                            SaveMailSettings(
+                                expected_revision=0,
+                                profiles=[mail_profile(port, profile_id)],
+                            ),
+                            actor,
                         )
                     payload = SendTestMail(
-                        request_id=identity, expected_revision=1, recipient="reader@example.test"
+                        request_id=identity,
+                        expected_revision=1,
+                        profile_id=profile_id,
+                        recipient="reader@example.test",
                     )
 
                     async def request():
@@ -253,13 +278,20 @@ def test_scheduler_worker_test_mail_idempotency_and_config_fence(tmp_path):
                             SendTestMail(
                                 request_id=uuid4(),
                                 expected_revision=1,
+                                profile_id=profile_id,
                                 recipient="reader@example.test",
                             ),
                             actor,
                         )
                     async with db.session_factory() as session:
                         await MailSettingsService(SettingsService(session, local)).save(
-                            SaveMailSettings(expected_revision=1, value=preferences(port)), actor
+                            SaveMailSettings(
+                                expected_revision=1,
+                                profiles=[
+                                    mail_profile(port, profile_id, name="系统通知（已更新）")
+                                ],
+                            ),
+                            actor,
                         )
                     await deliver_test(local)
                     async with db.session_factory() as session:

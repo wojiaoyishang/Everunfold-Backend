@@ -20,7 +20,11 @@ from app.core.database import Database
 from app.modules.auth.service import AuthFailure
 from app.modules.content.models import SiteSettings
 from app.modules.settings.defaults import public_settings, stored_settings
-from app.modules.settings.mail_schemas import MailPreferences, SaveMailSettings
+from app.modules.settings.mail_schemas import (
+    MailPreferences,
+    MailSenderProfileInput,
+    SaveMailSettings,
+)
 from app.modules.settings.mail_service import MAIL_KEY, MailSettingsService
 from app.modules.settings.models import SettingsAudit
 from app.modules.settings.service import SettingsService
@@ -53,7 +57,16 @@ def test_mail_secret_never_enters_public_projection_or_repr():
     assert "private.example" not in public.model_dump_json()
     assert stored_settings(original, public)[MAIL_KEY] == original[MAIL_KEY]
     request = SaveMailSettings(
-        expected_revision=0, value=MailPreferences(), password=SecretStr("mail-secret")
+        expected_revision=0,
+        profiles=[
+            MailSenderProfileInput(
+                id=uuid4(),
+                name="系统通知",
+                is_default=True,
+                value=MailPreferences(),
+                password=SecretStr("mail-secret"),
+            )
+        ],
     )
     assert "mail-secret" not in repr(request)
     assert "mail-secret" not in request.model_dump_json()
@@ -103,19 +116,27 @@ def test_mail_password_lifecycle_and_revision_conflict(tmp_path):
             try:
                 async with db.session_factory() as session:
                     state = await MailSettingsService(SettingsService(session, local)).state()
-                    assert (
-                        state.revision == 0
-                        and not state.value.enabled
-                        and not state.password_configured
-                    )
+                    assert state.revision == 0 and state.profiles == []
                 value = MailPreferences(
                     host="smtp.example.com",
                     from_address="sender@example.com",
                     username="sender",
                     enabled=True,
                 )
+                profile_id = uuid4()
+
+                def profile_payload(**changes):
+                    return MailSenderProfileInput(
+                        id=profile_id,
+                        name="系统通知",
+                        is_default=True,
+                        value=value,
+                        password=SecretStr("sentinel-secret"),
+                        **changes,
+                    )
+
                 payload = SaveMailSettings(
-                    expected_revision=0, value=value, password=SecretStr("sentinel-secret")
+                    expected_revision=0, profiles=[profile_payload(enabled=True)]
                 )
                 outcomes = await asyncio.gather(
                     save(payload), save(payload), return_exceptions=True
@@ -123,13 +144,27 @@ def test_mail_password_lifecycle_and_revision_conflict(tmp_path):
                 failures = [x for x in outcomes if isinstance(x, AuthFailure)]
                 assert len(failures) == 1 and failures[0].status == 409
                 state = next(x for x in outcomes if not isinstance(x, Exception))
-                assert state.revision == 1 and state.password_configured
+                assert state.revision == 1 and state.profiles[0].password_configured
                 assert "sentinel-secret" not in state.model_dump_json()
-                state = await save(SaveMailSettings(expected_revision=1, value=value))
-                assert state.password_configured
+                state = await save(
+                    SaveMailSettings(
+                        expected_revision=1,
+                        profiles=[
+                            MailSenderProfileInput(
+                                id=profile_id,
+                                name="系统通知",
+                                enabled=True,
+                                is_default=True,
+                                value=value,
+                            )
+                        ],
+                    )
+                )
+                assert state.profiles[0].password_configured
                 async with db.session_factory() as session:
                     row = await session.get(SiteSettings, 1)
-                    assert row.data[MAIL_KEY]["password"] == "sentinel-secret"
+                    profile = row.data[MAIL_KEY]["profiles"][0]
+                    assert profile["password"] == "sentinel-secret"
                     assert "sentinel-secret" not in public_settings(row.data).model_dump_json()
                     audits = list(
                         await session.scalars(
@@ -140,18 +175,45 @@ def test_mail_password_lifecycle_and_revision_conflict(tmp_path):
                     assert "sentinel-secret" not in json.dumps([a.changes for a in audits])
                 with pytest.raises(AuthFailure):
                     await save(
-                        SaveMailSettings(expected_revision=2, value=value, clear_password=True)
+                        SaveMailSettings(
+                            expected_revision=2,
+                            profiles=[
+                                MailSenderProfileInput(
+                                    id=profile_id,
+                                    name="系统通知",
+                                    enabled=True,
+                                    is_default=True,
+                                    value=value,
+                                    clear_password=True,
+                                )
+                            ],
+                        )
                     )
+                second_id = uuid4()
                 state = await save(
                     SaveMailSettings(
-                        expected_revision=2, value=MailPreferences(), clear_password=True
+                        expected_revision=2,
+                        profiles=[
+                            MailSenderProfileInput(
+                                id=profile_id,
+                                name="系统通知",
+                                enabled=False,
+                                value=MailPreferences(),
+                                clear_password=True,
+                            ),
+                            MailSenderProfileInput(
+                                id=second_id,
+                                name="客服邮箱",
+                                enabled=False,
+                                is_default=True,
+                                value=MailPreferences(from_address="support@example.com"),
+                            ),
+                        ],
                     )
                 )
-                assert (
-                    state.revision == 3
-                    and not state.password_configured
-                    and not state.value.enabled
-                )
+                assert state.revision == 3 and len(state.profiles) == 2
+                assert state.profiles[1].id == second_id and state.profiles[1].is_default
+                assert not state.profiles[0].password_configured
             finally:
                 await db.close()
 

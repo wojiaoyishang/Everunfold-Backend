@@ -61,17 +61,22 @@ class MailPreferences(PublicModel):
         return value
 
 
-class MailSettingsState(PublicModel):
-    revision: int
-    value: MailPreferences
-    password_configured: bool
-
-
-class SaveMailSettings(PublicModel):
-    expected_revision: int = Field(ge=0)
+class MailSenderProfileInput(PublicModel):
+    id: UUID
+    name: str = Field(min_length=1, max_length=80)
+    enabled: bool = False
+    is_default: bool = False
     value: MailPreferences
     password: SecretStr | None = Field(default=None, max_length=2048)
     clear_password: bool = False
+
+    @field_validator("name")
+    @classmethod
+    def profile_name(cls, value: str) -> str:
+        value = MailPreferences.single_line(value).strip()
+        if not value:
+            raise ValueError("Mail profile name cannot be empty")
+        return value
 
     @model_validator(mode="after")
     def password_action(self) -> Self:
@@ -80,9 +85,42 @@ class SaveMailSettings(PublicModel):
         return self
 
 
+class MailSenderProfileView(PublicModel):
+    id: UUID
+    name: str
+    enabled: bool
+    is_default: bool
+    value: MailPreferences
+    password_configured: bool
+
+
+class MailSettingsState(PublicModel):
+    revision: int
+    profiles: list[MailSenderProfileView]
+
+
+class SaveMailSettings(PublicModel):
+    expected_revision: int = Field(ge=0)
+    profiles: list[MailSenderProfileInput] = Field(max_length=20)
+
+    @model_validator(mode="after")
+    def unique_profiles(self) -> Self:
+        ids = [item.id for item in self.profiles]
+        names = [item.name.casefold() for item in self.profiles]
+        if len(set(ids)) != len(ids):
+            raise ValueError("duplicate mail profile id")
+        if len(set(names)) != len(names):
+            raise ValueError("duplicate mail profile name")
+        defaults = [item for item in self.profiles if item.is_default]
+        if self.profiles and len(defaults) != 1:
+            raise ValueError("exactly one mail profile must be the default")
+        return self
+
+
 class SendTestMail(PublicModel):
     request_id: UUID
     expected_revision: int = Field(ge=0)
+    profile_id: UUID
     recipient: str = Field(min_length=3, max_length=254)
 
     @field_validator("recipient")
@@ -97,6 +135,7 @@ class MailTestLookup(PublicModel):
 
 class MailTestState(PublicModel):
     id: UUID
+    profile_id: UUID | None = None
     recipient: str
     status: Literal["queued", "sending", "sent", "failed", "unknown"]
     error: str | None = None

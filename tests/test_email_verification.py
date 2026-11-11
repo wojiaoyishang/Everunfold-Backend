@@ -32,7 +32,7 @@ from app.modules.auth.email_verification_models import EmailVerification
 from app.modules.auth.email_verification_service import EmailVerificationService
 from app.modules.auth.models import User
 from app.modules.auth.service import AuthFailure, AuthService
-from app.modules.settings.mail_schemas import SaveMailSettings
+from app.modules.settings.mail_schemas import MailSenderProfileInput, SaveMailSettings
 from app.modules.settings.mail_service import MailSettingsService
 from app.modules.settings.service import SettingsService
 from tests.test_accounts import PASSWORD
@@ -88,7 +88,15 @@ def test_email_verification_is_one_time_rate_limited_and_clears_after_change(
                         await MailSettingsService(SettingsService(session, settings)).save(
                             SaveMailSettings(
                                 expected_revision=0,
-                                value=preferences(port, enabled=True),
+                                profiles=[
+                                    MailSenderProfileInput(
+                                        id=uuid4(),
+                                        name="系统通知",
+                                        enabled=True,
+                                        is_default=True,
+                                        value=preferences(port, enabled=True),
+                                    )
+                                ],
                             ),
                             user.id,
                         )

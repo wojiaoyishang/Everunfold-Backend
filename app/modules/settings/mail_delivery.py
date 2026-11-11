@@ -10,9 +10,7 @@ from app.core.database import Database
 from app.core.jobs.progress import report_progress
 from app.core.jobs.progress_models import TaskProgressEventRecord
 from app.modules.content.models import SiteSettings
-from app.modules.settings.mail_schemas import MailPreferences
-from app.modules.settings.mail_service import MAIL_KEY
-from app.modules.settings.mail_test_service import mail_ready
+from app.modules.settings.mail_service import mail_profile, mail_ready, stored_mail_profiles
 from app.modules.settings.mail_transport import MailEvent, send_test
 from app.modules.settings.models import MailTestDelivery
 
@@ -65,10 +63,15 @@ async def deliver_test(config: Settings) -> dict[str, int]:
                 await session.commit()
                 return {"processed": 0}
             site = await session.get(SiteSettings, 1)
-            stored = site.data.get(MAIL_KEY, {}) if site else {}
-            value = MailPreferences.model_validate(stored.get("value", {}))
-            password = stored.get("password", "")
-            if stored.get("revision", 0) != row.revision or not mail_ready(value, password):
+            data = site.data if site else {}
+            revision, _ = stored_mail_profiles(data)
+            profile = mail_profile(data, row.profile_id)
+            if (
+                revision != row.revision
+                or profile is None
+                or not profile.enabled
+                or not mail_ready(profile.value, profile.password)
+            ):
                 session.add(
                     TaskProgressEventRecord(
                         resource="mail-test",
@@ -86,6 +89,7 @@ async def deliver_test(config: Settings) -> dict[str, int]:
                 row.status, row.error, row.finished_at = "failed", "configuration_changed", now
                 await session.commit()
                 return {"processed": 1}
+            value, password = profile.value, profile.password
             budget = min(120, max(15, value.timeout_seconds * 4)) + 5
             row.status, row.lease_until = "sending", now + timedelta(seconds=budget + 15)
             identity, recipient, lease = row.id, row.recipient, row.lease_until

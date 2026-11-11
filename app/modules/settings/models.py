@@ -66,6 +66,7 @@ class MailTestDelivery(Base):
     __tablename__ = "mail_test_deliveries"
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
     user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), index=True)
+    profile_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     revision: Mapped[int] = mapped_column(Integer)
     recipient: Mapped[str] = mapped_column(String(254))
     status: Mapped[str] = mapped_column(String(16), default="queued", index=True)

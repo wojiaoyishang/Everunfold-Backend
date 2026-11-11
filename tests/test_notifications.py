@@ -130,6 +130,35 @@ def test_routes_templates_inbox_and_uncertain_delivery_are_durable(tmp_path: Pat
         )
         assert initialized.returncode == 0, initialized.stderr
         asyncio.run(seed_admin(settings, username, PASSWORD))
+        mail_profile_id = uuid4()
+
+        async def configure_disabled_mail_profile() -> None:
+            database = Database(settings.database.url.get_secret_value())
+            try:
+                async with database.session_factory() as session:
+                    site = await session.get(SiteSettings, 1)
+                    assert site is not None
+                    site.data = {
+                        **site.data,
+                        "_mail_private": {
+                            "revision": 1,
+                            "profiles": [
+                                {
+                                    "id": str(mail_profile_id),
+                                    "name": "通知邮箱",
+                                    "enabled": False,
+                                    "is_default": True,
+                                    "value": {"enabled": False},
+                                    "password": "",
+                                }
+                            ],
+                        },
+                    }
+                    await session.commit()
+            finally:
+                await database.close()
+
+        asyncio.run(configure_disabled_mail_profile())
         with ExitStack() as stack:
             client = stack.enter_context(
                 TestClient(create_app(settings), client=("notification-test", 50000))
@@ -143,7 +172,6 @@ def test_routes_templates_inbox_and_uncertain_delivery_are_durable(tmp_path: Pat
             assert state["revision"] == 1
             assert {item["id"] for item in state["platforms"]} >= {"in-app", "email"}
             assert state["routes"][0]["recipient_value"] == "comments:moderate"
-
             routes = {
                 "expected_revision": 1,
                 "routes": [
@@ -168,6 +196,7 @@ def test_routes_templates_inbox_and_uncertain_delivery_are_durable(tmp_path: Pat
                         "recipient_type": "user",
                         "recipient_value": str(actor_id),
                         "platform_id": "email",
+                        "mail_profile_id": str(mail_profile_id),
                         "template_key": "default",
                         "enabled": True,
                     },
@@ -302,7 +331,11 @@ def test_routes_templates_inbox_and_uncertain_delivery_are_durable(tmp_path: Pat
                                 NotificationDelivery.platform_id == "email",
                             )
                         )
-                        assert email is not None and email.status == "suppressed"
+                        assert (
+                            email is not None
+                            and email.status == "suppressed"
+                            and email.mail_profile_id == str(mail_profile_id)
+                        )
                         audits = await session.scalar(
                             select(func.count(SettingsAudit.id)).where(
                                 SettingsAudit.resource.in_(

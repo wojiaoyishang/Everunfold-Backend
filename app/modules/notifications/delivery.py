@@ -15,9 +15,7 @@ from app.modules.content.models import SiteSettings
 from app.modules.notifications.models import NotificationDelivery, NotificationEvent
 from app.modules.notifications.platforms import NotificationDeliveryRequest
 from app.modules.notifications.service import EMAIL, NotificationService
-from app.modules.settings.mail_schemas import MailPreferences
-from app.modules.settings.mail_service import MAIL_KEY
-from app.modules.settings.mail_test_service import mail_ready
+from app.modules.settings.mail_service import mail_profile, mail_ready, stored_mail_profiles
 from app.modules.settings.mail_transport import send_notification
 
 MAX_ATTEMPTS = 5
@@ -116,11 +114,23 @@ async def _deliver_one(config: Settings, identity: UUID, lease: UUID) -> tuple[s
             user = await session.get(User, row.user_id)
             site = await session.get(SiteSettings, 1)
             if row.platform_id == EMAIL:
-                stored = site.data.get(MAIL_KEY, {}) if site else {}
-                value = MailPreferences.model_validate(stored.get("value", {}))
-                password = stored.get("password", "")
-                if not value.enabled or not mail_ready(value, password):
+                data = site.data if site else {}
+                revision, _ = stored_mail_profiles(data)
+                profile = mail_profile(data, row.mail_profile_id)
+                if (
+                    (row.mail_config_revision is not None and revision != row.mail_config_revision)
+                    or profile is None
+                    or not profile.enabled
+                    or not mail_ready(profile.value, profile.password)
+                ):
+                    if (
+                        profile is not None
+                        and row.mail_config_revision is not None
+                        and revision != row.mail_config_revision
+                    ):
+                        return "suppressed", "mail_configuration_changed"
                     return "suppressed", "email_not_configured"
+                value, password = profile.value, profile.password
                 if not row.destination:
                     return "suppressed", "missing_recipient"
                 budget = min(120, max(15, value.timeout_seconds * 4)) + 5

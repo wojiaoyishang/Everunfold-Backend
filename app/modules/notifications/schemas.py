@@ -35,6 +35,7 @@ class NotificationRouteView(PublicModel):
     recipient_type: RecipientType
     recipient_value: str
     platform_id: str
+    mail_profile_id: UUID | None = None
     template_key: str = "default"
     enabled: bool
 
@@ -44,6 +45,7 @@ class NotificationRouteInput(PublicModel):
     recipient_type: RecipientType
     recipient_value: str = Field(min_length=1, max_length=160)
     platform_id: str = Field(min_length=1, max_length=120)
+    mail_profile_id: UUID | None = None
     template_key: str = Field(default="default", pattern=r"^[a-z][a-z0-9_.-]{0,79}$")
     enabled: bool = True
 
@@ -92,6 +94,7 @@ class NotificationDeliveryView(PublicModel):
     user_id: UUID
     user_name: str
     platform_id: str
+    mail_profile_id: UUID | None = None
     locale: str
     status: DeliveryStatus
     attempts: int

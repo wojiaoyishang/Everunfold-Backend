@@ -45,9 +45,12 @@ from app.modules.notifications.schemas import (
     NotificationInbox as InboxState,
 )
 from app.modules.settings.languages import language_catalog
-from app.modules.settings.mail_schemas import MailPreferences
-from app.modules.settings.mail_service import MAIL_KEY
-from app.modules.settings.mail_test_service import mail_ready
+from app.modules.settings.mail_service import (
+    default_mail_profile,
+    mail_profile,
+    mail_ready,
+    stored_mail_profiles,
+)
 from app.modules.settings.models import SettingsAudit
 
 IN_APP = "in-app"
@@ -108,8 +111,8 @@ class NotificationService:
     async def platforms(self) -> list[NotificationPlatformView]:
         site = await self.session.get(SiteSettings, 1)
         data = site.data if site else {}
-        stored = data.get(MAIL_KEY, {})
-        email = MailPreferences.model_validate(stored.get("value", {}))
+        email = default_mail_profile(data)
+        _, profiles = stored_mail_profiles(data)
         installed = {item.id: item for item in installed_info(data)}
         enabled = enabled_ids(data)
         available: list[NotificationPlatformView] = [
@@ -125,10 +128,14 @@ class NotificationService:
             NotificationPlatformView(
                 id=EMAIL,
                 title="邮件",
-                description="使用现有 SMTP 配置发送通知。",
+                description=(
+                    f"使用 {len(profiles)} 套发信配置，默认配置负责未指定的提醒。"
+                    if profiles
+                    else "尚未添加邮件发信配置。"
+                ),
                 kind="direct",
                 builtin=True,
-                available=mail_ready(email, stored.get("password", "")),
+                available=bool(email and email.enabled and mail_ready(email.value, email.password)),
                 delivery_semantics="unknown-no-retry",
             ),
         ]
@@ -191,6 +198,7 @@ class NotificationService:
                 recipient_type=cast(Any, row.recipient_type),
                 recipient_value=row.recipient_value,
                 platform_id=row.platform_id,
+                mail_profile_id=(UUID(row.mail_profile_id) if row.mail_profile_id else None),
                 template_key=row.template_key,
                 enabled=row.enabled,
             )
@@ -232,6 +240,9 @@ class NotificationService:
                     user_id=user.id,
                     user_name=user.display_name,
                     platform_id=delivery.platform_id,
+                    mail_profile_id=(
+                        UUID(delivery.mail_profile_id) if delivery.mail_profile_id else None
+                    ),
                     locale=delivery.locale,
                     status=cast(Any, delivery.status),
                     attempts=delivery.attempts,
@@ -251,11 +262,18 @@ class NotificationService:
         if revision.revision != payload.expected_revision:
             raise AuthFailure(409, 40973, "通知策略已在其他窗口修改，请重新读取")
         platforms = {item.id for item in await self.platforms()}
+        site = await self.session.get(SiteSettings, 1)
+        mail_data = site.data if site else {}
         for item in payload.routes:
             if item.event_type not in EVENT_BY_ID:
                 raise AuthFailure(422, 42299, "未知通知事件")
             if item.platform_id not in platforms:
                 raise AuthFailure(422, 42299, "通知平台不存在")
+            if item.mail_profile_id is not None:
+                if item.platform_id != EMAIL:
+                    raise AuthFailure(422, 42299, "只有邮件平台可以选择发信配置")
+                if mail_profile(mail_data, item.mail_profile_id) is None:
+                    raise AuthFailure(422, 42299, "所选发信配置不存在")
             if item.recipient_type == "permission" and item.recipient_value not in CAPABILITIES:
                 raise AuthFailure(422, 42299, "未知通知权限")
             if item.recipient_type == "role" and item.recipient_value not in {"admin", "user"}:
@@ -281,6 +299,7 @@ class NotificationService:
                     recipient_type=item.recipient_type,
                     recipient_value=item.recipient_value,
                     platform_id=item.platform_id,
+                    mail_profile_id=(str(item.mail_profile_id) if item.mail_profile_id else None),
                     template_key=item.template_key,
                     enabled=item.enabled,
                     revision=revision.revision + 1,
@@ -303,6 +322,9 @@ class NotificationService:
                             "recipient_type": item.recipient_type,
                             "recipient_value": item.recipient_value,
                             "platform_id": item.platform_id,
+                            "mail_profile_id": (
+                                str(item.mail_profile_id) if item.mail_profile_id else None
+                            ),
                             "template_key": item.template_key,
                             "enabled": item.enabled,
                         }
@@ -428,13 +450,16 @@ class NotificationService:
         ).all()
         created = 0
         now = datetime.now(UTC)
+        site = await self.session.get(SiteSettings, 1)
+        mail_data = site.data if site else {}
+        mail_revision, _ = stored_mail_profiles(mail_data)
         for event in events:
             event_routes = [route for route in routes if route.event_type == event.event_type]
             targets: dict[tuple[str, UUID], NotificationRoute] = {}
             for route in event_routes:
                 for user in await self._recipients(route):
                     targets.setdefault((route.platform_id, user.id), route)
-            for (platform_id, user_id), _route in sorted(targets.items()):
+            for (platform_id, user_id), route in sorted(targets.items()):
                 target_user = await self.session.get(User, user_id)
                 if target_user is None or not target_user.active:
                     continue
@@ -444,6 +469,9 @@ class NotificationService:
                 subject = header_value(render_template(subject, event.data))
                 text = render_template(text, event.data)
                 href = render_template(href, event.data)
+                selected_mail_profile = (
+                    mail_profile(mail_data, route.mail_profile_id) if platform_id == EMAIL else None
+                )
                 delivery = NotificationDelivery(
                     id=uuid5(
                         NAMESPACE_URL,
@@ -452,6 +480,10 @@ class NotificationService:
                     event_id=event.id,
                     user_id=target_user.id,
                     platform_id=platform_id,
+                    mail_profile_id=(
+                        str(selected_mail_profile.id) if selected_mail_profile else None
+                    ),
+                    mail_config_revision=(mail_revision if platform_id == EMAIL else None),
                     template_id=template.id if template else None,
                     locale=target_user.preferred_locale,
                     subject=subject,

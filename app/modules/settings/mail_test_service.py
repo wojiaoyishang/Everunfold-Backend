@@ -7,18 +7,10 @@ from sqlalchemy import func, select
 
 from app.core.jobs.progress_models import TaskProgressEventRecord
 from app.modules.auth.service import AuthFailure
-from app.modules.settings.mail_schemas import MailPreferences, MailTestState, SendTestMail
-from app.modules.settings.mail_service import MAIL_KEY
+from app.modules.settings.mail_schemas import MailTestState, SendTestMail
+from app.modules.settings.mail_service import mail_profile, mail_ready, stored_mail_profiles
 from app.modules.settings.models import MailTestDelivery, SettingsAudit
 from app.modules.settings.service import SettingsService
-
-
-def mail_ready(value: MailPreferences, password: str) -> bool:
-    return bool(
-        value.host
-        and value.from_address
-        and (not value.authenticate or (value.username and password))
-    )
 
 
 def test_state(row: MailTestDelivery) -> MailTestState:
@@ -40,14 +32,17 @@ class MailTestService:
                 previous.user_id != actor
                 or previous.recipient != payload.recipient
                 or previous.revision != payload.expected_revision
+                or previous.profile_id != str(payload.profile_id)
             ):
                 raise AuthFailure(409, 40999, "测试请求编号已被使用")
             return test_state(previous)
-        stored = site.data.get(MAIL_KEY, {})
-        if stored.get("revision", 0) != payload.expected_revision:
+        revision, _ = stored_mail_profiles(site.data)
+        if revision != payload.expected_revision:
             raise AuthFailure(409, 40999, "邮件配置已改变，请重新读取后测试")
-        value = MailPreferences.model_validate(stored.get("value", {}))
-        if not mail_ready(value, stored.get("password", "")):
+        profile = mail_profile(site.data, payload.profile_id)
+        if profile is None:
+            raise AuthFailure(422, 42299, "所选发信配置不存在")
+        if not profile.enabled or not mail_ready(profile.value, profile.password):
             raise AuthFailure(422, 42299, "请先保存完整的SMTP服务器、发件邮箱和认证信息")
         now = datetime.now(UTC)
         count = await session.scalar(
@@ -63,6 +58,7 @@ class MailTestService:
         row = MailTestDelivery(
             id=payload.request_id,
             user_id=actor,
+            profile_id=str(payload.profile_id),
             revision=payload.expected_revision,
             recipient=payload.recipient,
             status="queued",
@@ -88,7 +84,11 @@ class MailTestService:
                 user_id=actor,
                 resource="mail",
                 revision=payload.expected_revision,
-                changes={"action": "test_queued", "request_id": str(row.id)},
+                changes={
+                    "action": "test_queued",
+                    "request_id": str(row.id),
+                    "profile_id": str(payload.profile_id),
+                },
             )
         )
         await session.commit()

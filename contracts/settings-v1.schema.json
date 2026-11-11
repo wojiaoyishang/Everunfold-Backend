@@ -1340,12 +1340,81 @@
       "title": "MailPreferences",
       "type": "object"
     },
-    "MailSettingsState": {
+    "MailSenderProfileInput": {
       "additionalProperties": false,
       "properties": {
-        "revision": {
-          "title": "Revision",
-          "type": "integer"
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "name": {
+          "maxLength": 80,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "enabled": {
+          "default": false,
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "is_default": {
+          "default": false,
+          "title": "Is Default",
+          "type": "boolean"
+        },
+        "value": {
+          "$ref": "#/$defs/MailPreferences"
+        },
+        "password": {
+          "anyOf": [
+            {
+              "format": "password",
+              "maxLength": 2048,
+              "type": "string",
+              "writeOnly": true
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Password"
+        },
+        "clear_password": {
+          "default": false,
+          "title": "Clear Password",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "value"
+      ],
+      "title": "MailSenderProfileInput",
+      "type": "object"
+    },
+    "MailSenderProfileView": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "enabled": {
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "is_default": {
+          "title": "Is Default",
+          "type": "boolean"
         },
         "value": {
           "$ref": "#/$defs/MailPreferences"
@@ -1356,9 +1425,34 @@
         }
       },
       "required": [
-        "revision",
+        "id",
+        "name",
+        "enabled",
+        "is_default",
         "value",
         "password_configured"
+      ],
+      "title": "MailSenderProfileView",
+      "type": "object"
+    },
+    "MailSettingsState": {
+      "additionalProperties": false,
+      "properties": {
+        "revision": {
+          "title": "Revision",
+          "type": "integer"
+        },
+        "profiles": {
+          "items": {
+            "$ref": "#/$defs/MailSenderProfileView"
+          },
+          "title": "Profiles",
+          "type": "array"
+        }
+      },
+      "required": [
+        "revision",
+        "profiles"
       ],
       "title": "MailSettingsState",
       "type": "object"
@@ -1385,6 +1479,19 @@
           "format": "uuid",
           "title": "Id",
           "type": "string"
+        },
+        "profile_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Profile Id"
         },
         "recipient": {
           "title": "Recipient",
@@ -3718,33 +3825,18 @@
           "title": "Expected Revision",
           "type": "integer"
         },
-        "value": {
-          "$ref": "#/$defs/MailPreferences"
-        },
-        "password": {
-          "anyOf": [
-            {
-              "format": "password",
-              "maxLength": 2048,
-              "type": "string",
-              "writeOnly": true
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Password"
-        },
-        "clear_password": {
-          "default": false,
-          "title": "Clear Password",
-          "type": "boolean"
+        "profiles": {
+          "items": {
+            "$ref": "#/$defs/MailSenderProfileInput"
+          },
+          "maxItems": 20,
+          "title": "Profiles",
+          "type": "array"
         }
       },
       "required": [
         "expected_revision",
-        "value"
+        "profiles"
       ],
       "title": "SaveMailSettings",
       "type": "object"
@@ -3904,6 +3996,11 @@
           "title": "Expected Revision",
           "type": "integer"
         },
+        "profile_id": {
+          "format": "uuid",
+          "title": "Profile Id",
+          "type": "string"
+        },
         "recipient": {
           "maxLength": 254,
           "minLength": 3,
@@ -3914,6 +4011,7 @@
       "required": [
         "request_id",
         "expected_revision",
+        "profile_id",
         "recipient"
       ],
       "title": "SendTestMail",
@@ -5179,7 +5277,7 @@
   "title": "SettingsContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "1.31.0",
+  "x-everunfold-contract-version": "1.32.0",
   "x-everunfold-language-regions": {
     "zh": "CN",
     "en": "GB",

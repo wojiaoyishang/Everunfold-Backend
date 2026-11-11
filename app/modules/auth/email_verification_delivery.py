@@ -12,9 +12,7 @@ from app.core.jobs.progress import task_progress
 from app.modules.auth.email_verification_models import EmailVerification
 from app.modules.auth.models import User
 from app.modules.content.models import SiteSettings
-from app.modules.settings.mail_schemas import MailPreferences
-from app.modules.settings.mail_service import MAIL_KEY
-from app.modules.settings.mail_test_service import mail_ready
+from app.modules.settings.mail_service import mail_profile, mail_ready, stored_mail_profiles
 from app.modules.settings.mail_transport import send_notification
 
 
@@ -58,13 +56,14 @@ async def deliver(config: Settings) -> dict[str, Any]:
                 await session.commit()
                 return {"processed": 0}
             site = await session.get(SiteSettings, 1)
-            stored = site.data.get(MAIL_KEY, {}) if site else {}
-            value = MailPreferences.model_validate(stored.get("value", {}))
-            password = stored.get("password", "")
+            data = site.data if site else {}
+            revision, _ = stored_mail_profiles(data)
+            profile = mail_profile(data, row.mail_profile_id)
             if (
-                stored.get("revision", 0) != row.mail_revision
-                or not value.enabled
-                or not mail_ready(value, password)
+                revision != row.mail_revision
+                or profile is None
+                or not profile.enabled
+                or not mail_ready(profile.value, profile.password)
                 or not row.delivery_code
             ):
                 row.status = "failed"
@@ -72,6 +71,7 @@ async def deliver(config: Settings) -> dict[str, Any]:
                 row.delivery_code = ""
                 await session.commit()
                 return {"processed": 1}
+            value, password = profile.value, profile.password
             user = await session.get(User, row.user_id)
             if user is None or not user.active:
                 row.status, row.error, row.delivery_code = (

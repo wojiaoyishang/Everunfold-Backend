@@ -26,6 +26,7 @@ class EmailVerification(Base):
     salt: Mapped[str] = mapped_column(String(64))
     code_hash: Mapped[str] = mapped_column(String(64))
     delivery_code: Mapped[str] = mapped_column(Text, default="")
+    mail_profile_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     status: Mapped[str] = mapped_column(String(16), default="queued", index=True)
     attempts: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     mail_revision: Mapped[int] = mapped_column(Integer, default=0, server_default="0")

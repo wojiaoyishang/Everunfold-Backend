@@ -51,6 +51,7 @@ class NotificationRoute(Base):
     recipient_type: Mapped[str] = mapped_column(String(16))
     recipient_value: Mapped[str] = mapped_column(String(160))
     platform_id: Mapped[str] = mapped_column(String(120))
+    mail_profile_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     template_key: Mapped[str] = mapped_column(String(120), default="default")
     enabled: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
     revision: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
@@ -118,6 +119,8 @@ class NotificationDelivery(Base):
     event_id: Mapped[UUID] = mapped_column(ForeignKey("notification_events.id", ondelete="CASCADE"))
     user_id: Mapped[UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
     platform_id: Mapped[str] = mapped_column(String(120))
+    mail_profile_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    mail_config_revision: Mapped[int | None] = mapped_column(Integer, nullable=True)
     template_id: Mapped[UUID | None] = mapped_column(
         ForeignKey("notification_templates.id", ondelete="SET NULL")
     )
