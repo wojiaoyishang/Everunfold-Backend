@@ -99,7 +99,7 @@ async def hooks_for_target(
 
 @read_admin.post("/admin/query", response_model=PublicResponse[GlossaryList])
 async def query(payload: GlossaryQuery, ctx: PluginRequest) -> JSONResponseSuccess:
-    return JSONResponseSuccess(data=await list_terms(ctx.session, payload))
+    return JSONResponseSuccess(data=await list_terms(ctx.session, payload, ctx.runtime.settings))
 
 
 @read_admin.post("/admin/preview", response_model=PublicResponse[GlossaryMatchPreviewOutput])

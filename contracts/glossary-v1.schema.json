@@ -168,6 +168,17 @@
           "default": null,
           "title": "Feature Media Id"
         },
+        "feature_image": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MediaURL"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "aliases": {
           "items": {
             "type": "string"
@@ -229,17 +240,6 @@
           },
           "title": "Body",
           "type": "array"
-        },
-        "feature_image": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/MediaURL"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null
         },
         "media_urls": {
           "additionalProperties": {
@@ -793,6 +793,17 @@
           ],
           "default": null,
           "title": "Feature Media Id"
+        },
+        "feature_image": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MediaURL"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         },
         "aliases": {
           "items": {
@@ -1768,7 +1779,7 @@
   "title": "GlossaryContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "3.5.0",
+  "x-everunfold-contract-version": "3.6.0",
   "x-everunfold-operations": [
     {
       "name": "readGlossaryIndex",

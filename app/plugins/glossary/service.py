@@ -419,7 +419,11 @@ async def update_term(
     return await detail(session, row, config)
 
 
-async def list_terms(session: AsyncSession, query: GlossaryQuery) -> GlossaryList:
+async def list_terms(
+    session: AsyncSession,
+    query: GlossaryQuery,
+    config: Settings | None = None,
+) -> GlossaryList:
     conditions = []
     if query.status != "all":
         conditions.append(GlossaryTerm.status == query.status)
@@ -448,6 +452,7 @@ async def list_terms(session: AsyncSession, query: GlossaryQuery) -> GlossaryLis
             .limit(query.page_size)
         )
     ).all()
+    features = await resolved_feature_images(session, config, list(rows))
     return GlossaryList(
         items=[
             GlossaryListItem(
@@ -457,6 +462,7 @@ async def list_terms(session: AsyncSession, query: GlossaryQuery) -> GlossaryLis
                 title=row.title,
                 summary=row.summary,
                 feature_media_id=row_feature_media_id(row),
+                feature_image=features.get(row.feature_media_id) if row.feature_media_id else None,
                 aliases=row.aliases,
                 auto_match_title=row.auto_match_title,
                 match_rules=[GlossaryMatchRule.model_validate(rule) for rule in row.match_rules]

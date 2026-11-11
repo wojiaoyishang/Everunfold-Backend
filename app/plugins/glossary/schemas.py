@@ -143,6 +143,7 @@ class GlossaryListItem(PublicModel):
     title: str
     summary: str
     feature_media_id: UUID | None = None
+    feature_image: MediaURL | None = None
     aliases: list[str]
     auto_match_title: bool
     match_rules: list[GlossaryMatchRule] | None

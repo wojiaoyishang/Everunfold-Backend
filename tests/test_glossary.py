@@ -330,6 +330,14 @@ def test_glossary_admin_and_article_scoped_public_matching(
     assert detail.status_code == 200, detail.text
     assert [block["type"] for block in detail.json()["data"]["body"]] == ["markdown", "html"]
     assert detail.json()["data"]["feature_image"]["original"] == feature["url"]
+    admin_list = ctx.root.post(
+        base + "/admin/query",
+        headers=headers(ctx.root),
+        json={"status": "all", "page": 1, "page_size": 30},
+    )
+    assert admin_list.status_code == 200, admin_list.text
+    listed = next(item for item in admin_list.json()["data"]["items"] if item["id"] == term_id)
+    assert listed["feature_image"]["original"] == feature["url"]
     assert [
         item["title"] for item in public.get(base + "/index?language=en").json()["data"]["terms"]
     ] == ["金灵"]
