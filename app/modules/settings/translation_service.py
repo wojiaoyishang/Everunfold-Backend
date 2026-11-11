@@ -42,6 +42,18 @@ def placeholders(value: str) -> Counter[str]:
     return Counter(placeholder_pattern.findall(value))
 
 
+async def refresh_translation_cache(session: AsyncSession) -> None:
+    rows = (
+        await session.scalars(
+            select(TranslationOverride).where(TranslationOverride.scope == "backend")
+        )
+    ).all()
+    values: dict[str, dict[str, str]] = {}
+    for row in rows:
+        values.setdefault(row.locale, {})[row.message_key] = row.value
+    i18n.replace_overrides("backend", values)
+
+
 class TranslationService:
     def __init__(self, session: AsyncSession, config: Settings) -> None:
         self.session = session
@@ -220,4 +232,5 @@ class TranslationService:
                     resolved,
                 )
         await self.session.commit()
+        await refresh_translation_cache(self.session)
         return await self.state()

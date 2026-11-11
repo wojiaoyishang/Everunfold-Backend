@@ -47,10 +47,32 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def lifespan(application: FastAPI) -> AsyncIterator[None]:
         runtime = Runtime.create(resolved) if resolved is not None else None
         application.state.runtime = runtime
+        refresh_task: asyncio.Task[None] | None = None
+
+        async def refresh_translations() -> None:
+            if runtime is None:
+                return
+            from app.modules.settings.translation_service import refresh_translation_cache
+
+            while True:
+                try:
+                    async with runtime.database.session_factory() as session:
+                        await refresh_translation_cache(session)
+                except Exception:
+                    logger.warning(
+                        "Translation cache refresh unavailable; built-in messages remain active"
+                    )
+                await asyncio.sleep(30)
+
+        if runtime is not None:
+            refresh_task = asyncio.create_task(refresh_translations())
         try:
             async with plugins.lifespan(PluginRuntime(role="api", runtime=runtime)):
                 yield
         finally:
+            if refresh_task is not None:
+                refresh_task.cancel()
+                await asyncio.gather(refresh_task, return_exceptions=True)
             if runtime is not None:
                 await runtime.close()
 

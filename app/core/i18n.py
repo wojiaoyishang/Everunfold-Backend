@@ -4,6 +4,7 @@ import json
 import logging
 import re
 import tomllib
+from collections.abc import Mapping
 from contextvars import ContextVar
 from pathlib import Path
 from types import MappingProxyType
@@ -22,6 +23,7 @@ class I18n:
     def __init__(self) -> None:
         self._catalogs: dict[str, Any] = {}
         self._source_keys: dict[str, str] = {}
+        self._overrides: dict[str, Mapping[str, Mapping[str, str]]] = {}
 
     def load(self) -> None:
         if self._catalogs:
@@ -57,7 +59,9 @@ class I18n:
     def t(self, key: str, *, locale: str | None = None, **params: object) -> str:
         self.load()
         selected = resolve_locale(locale) if locale else current_locale.get()
-        value = self._catalogs.get(selected, {}).get(key)
+        value = self._overrides.get("backend", {}).get(selected, {}).get(key)
+        if value is None:
+            value = self._catalogs.get(selected, {}).get(key)
         if value is None:
             logger.warning("missing_translation key=%s locale=%s", key, selected)
             value = self._catalogs.get(DEFAULT_LOCALE, {}).get(key, key)
@@ -70,6 +74,11 @@ class I18n:
             logger.warning("invalid_translation_parameters key=%s", key)
             return key
         return str(value).format_map(params)
+
+    def replace_overrides(self, scope: str, values: dict[str, dict[str, str]]) -> None:
+        self._overrides[scope] = MappingProxyType(
+            {locale: MappingProxyType(messages.copy()) for locale, messages in values.items()}
+        )
 
     def message(self, source: str) -> str:
         """Legacy static messages map to registered keys, never database/user text."""

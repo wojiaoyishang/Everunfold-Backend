@@ -85,7 +85,12 @@ class TranslationRevision(Base):
 class TranslationOverride(Base):
     __tablename__ = "translation_overrides"
     __table_args__ = (
-        UniqueConstraint("scope", "locale", "message_key"),
+        UniqueConstraint(
+            "scope",
+            "locale",
+            "message_key",
+            name="uq_translation_overrides_scope_locale_message_key",
+        ),
         CheckConstraint("revision >= 1", name="positive_revision"),
     )
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
