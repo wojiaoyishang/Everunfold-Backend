@@ -77,6 +77,7 @@ class NotificationTemplate(Base):
     subject: Mapped[str] = mapped_column(String(300), default="")
     text: Mapped[str] = mapped_column(Text, default="")
     html: Mapped[str] = mapped_column(Text, default="")
+    html_enabled: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     enabled: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
     revision: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

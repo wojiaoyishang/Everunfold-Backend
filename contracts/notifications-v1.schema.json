@@ -494,6 +494,11 @@
           "title": "Html",
           "type": "string"
         },
+        "html_enabled": {
+          "default": false,
+          "title": "Html Enabled",
+          "type": "boolean"
+        },
         "href": {
           "default": "",
           "title": "Href",
@@ -649,6 +654,11 @@
           "title": "Html",
           "type": "string"
         },
+        "html_enabled": {
+          "default": false,
+          "title": "Html Enabled",
+          "type": "boolean"
+        },
         "enabled": {
           "default": true,
           "title": "Enabled",
@@ -698,7 +708,7 @@
   "title": "NotificationsContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "1.2.0",
+  "x-everunfold-contract-version": "1.3.0",
   "x-everunfold-operations": [
     {
       "name": "readNotificationState",

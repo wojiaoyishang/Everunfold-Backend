@@ -192,6 +192,7 @@ class NotificationService:
                             subject=row.subject if row and row.subject else fallback.subject,
                             text=row.text if row and row.text else fallback.text,
                             html=row.html if row else fallback.html,
+                            html_enabled=(row.html_enabled if row else bool(fallback.html)),
                             href=fallback.href,
                             enabled=row.enabled if row else True,
                             custom=bool(row),
@@ -356,6 +357,7 @@ class NotificationService:
         if payload.html.strip() and payload.platform_id != EMAIL:
             raise AuthFailure(422, 42299, "只有邮件平台支持 HTML 正文")
         body_html = payload.html.strip() if payload.platform_id == EMAIL else ""
+        html_enabled = bool(payload.html_enabled and payload.platform_id == EMAIL)
         row = await self.session.scalar(
             select(NotificationTemplate)
             .where(
@@ -381,6 +383,7 @@ class NotificationService:
                 subject=payload.subject.strip(),
                 text=payload.text.strip(),
                 html=body_html,
+                html_enabled=html_enabled,
                 enabled=payload.enabled,
                 revision=revision.revision + 1,
                 updated_at=datetime.now(UTC),
@@ -390,6 +393,7 @@ class NotificationService:
             row.subject = payload.subject.strip()
             row.text = payload.text.strip()
             row.html = body_html
+            row.html_enabled = html_enabled
             row.enabled = payload.enabled
             row.revision = revision.revision + 1
             row.updated_at = datetime.now(UTC)
@@ -404,6 +408,7 @@ class NotificationService:
                     "event_type": payload.event_type,
                     "platform_id": payload.platform_id,
                     "locale": payload.locale,
+                    "html_enabled": html_enabled,
                     "enabled": payload.enabled,
                 },
             )
@@ -413,7 +418,7 @@ class NotificationService:
 
     async def _template_for(
         self, event_type: str, platform_id: str, locale: str
-    ) -> tuple[NotificationTemplate | None, str, str, str, str]:
+    ) -> tuple[NotificationTemplate | None, str, str, str, bool, str]:
         locales = [locale, locale.split("-", 1)[0], "zh-CN", "en"]
         for candidate in dict.fromkeys(locales):
             row = await self.session.scalar(
@@ -431,10 +436,18 @@ class NotificationService:
                     row.subject or fallback.subject,
                     row.text or fallback.text,
                     row.html,
+                    row.html_enabled,
                     fallback.href,
                 )
         fallback = default_template(event_type, platform_id, locale)
-        return None, fallback.subject, fallback.text, fallback.html, fallback.href
+        return (
+            None,
+            fallback.subject,
+            fallback.text,
+            fallback.html,
+            bool(fallback.html),
+            fallback.href,
+        )
 
     async def _recipients(self, route: NotificationRoute) -> list[User]:
         if route.recipient_type == "user":
@@ -475,7 +488,7 @@ class NotificationService:
                 target_user = await self.session.get(User, user_id)
                 if target_user is None or not target_user.active:
                     continue
-                template, subject, text, html_text, href = await self._template_for(
+                template, subject, text, html_text, html_enabled, href = await self._template_for(
                     event.event_type, platform_id, target_user.preferred_locale
                 )
                 subject = header_value(render_template(subject, event.data))
@@ -483,7 +496,7 @@ class NotificationService:
                 href = render_template(href, event.data)
                 rendered_html = (
                     sanitize_email_html(render_html_template(html_text, event.data))
-                    if platform_id == EMAIL and html_text.strip()
+                    if platform_id == EMAIL and html_enabled and html_text.strip()
                     else ""
                 )
                 selected_mail_profile = (

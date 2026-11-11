@@ -199,6 +199,15 @@ def test_routes_templates_inbox_and_uncertain_delivery_are_durable(tmp_path: Pat
             assert state["revision"] == 1
             assert {item["id"] for item in state["platforms"]} >= {"in-app", "email"}
             assert state["routes"][0]["recipient_value"] == "comments:moderate"
+            default_email = next(
+                item
+                for item in state["templates"]
+                if item["event_type"] == "comment.pending_review"
+                and item["platform_id"] == "email"
+                and item["locale"] == "zh-CN"
+            )
+            assert default_email["html_enabled"] is True
+            assert "<table" in default_email["html"]
             routes = {
                 "expected_revision": 1,
                 "routes": [
@@ -268,6 +277,7 @@ def test_routes_templates_inbox_and_uncertain_delivery_are_durable(tmp_path: Pat
                     "subject": "HTML：{{resource.title}}",
                     "text": "{{actor.name}} 提交了评论",
                     "html": "<p>{{actor.name}}</p><script>alert(1)</script>",
+                    "html_enabled": True,
                     "enabled": True,
                     "reset": False,
                 },

@@ -57,6 +57,7 @@ class NotificationTemplateView(PublicModel):
     subject: str
     text: str
     html: str = ""
+    html_enabled: bool = False
     href: str = ""
     enabled: bool
     custom: bool
@@ -71,6 +72,7 @@ class SaveNotificationTemplate(PublicModel):
     subject: str = Field(default="", max_length=300)
     text: str = Field(default="", max_length=10000)
     html: str = Field(default="", max_length=100000)
+    html_enabled: bool = False
     enabled: bool = True
     reset: bool = False
 

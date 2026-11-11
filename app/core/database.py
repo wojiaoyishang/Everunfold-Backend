@@ -4,7 +4,7 @@ from sqlalchemy import MetaData, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
 
-SCHEMA_REVISION = "0046_multiple_mail_profiles"
+SCHEMA_REVISION = "0047_notification_html_toggle"
 
 
 class Base(DeclarativeBase):
