@@ -69,6 +69,9 @@ def test_templates_are_restricted_interpolation_and_missing_values_are_safe() ->
     assert "&lt;script&gt;" in text_html("<script>")
     assert header_value("Title\r\nBcc: victim@example.test") == "Title Bcc: victim@example.test"
     assert default_template("comment.pending_review", "in-app", "fr").subject == "评论待审核"
+    default_email = default_template("comment.pending_review", "email", "zh-CN")
+    assert "<table" in default_email.html and "{{actor.name}}" in default_email.html
+    assert 'href="{{resource.review_url}}"' in default_email.html
     assert (
         render_html_template(
             "<p>{{actor.name}}</p>",
