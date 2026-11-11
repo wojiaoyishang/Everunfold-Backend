@@ -25,7 +25,6 @@ def check_scoped_accounts(admin: httpx.Client, csrf: dict[str, str], api_b: str)
             "username": "scoped_author",
             "display_name": "作者",
             "password": "Temporary-pass-12345",
-            "current_password": "123456",
             "grants": {
                 "everunfold": {
                     "content:read": "own",

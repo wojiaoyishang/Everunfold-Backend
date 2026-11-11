@@ -62,6 +62,7 @@ def profile(user: User) -> AccountProfile:
         ),
         display_name=user.display_name,
         email=user.email,
+        email_verified=user.email_verified_at is not None,
         avatar_url=user.avatar_url,
         avatar_id=user.avatar_id,
         bio=user.bio,
@@ -191,9 +192,12 @@ class AccountsService:
             if value.avatar_url:
                 raise AuthFailure(422, 42265, "请通过个人头像图库设置头像")
             user.avatar_id, user.avatar_url = None, ""
+        email_changed = value.email != user.email
         for key, item in value.model_dump().items():
             if key not in {"avatar_id", "avatar_url"}:
                 setattr(user, key, item)
+        if email_changed:
+            user.email_verified_at = None
         user.revision += 1
         user.updated_at = datetime.now(UTC)
 
@@ -251,7 +255,6 @@ class AccountsService:
         cached = await self.operations.read(payload.operation_id, actor.id, "user_create", envelope)
         if cached is not None:
             return AccountProfile.model_validate(cached)
-        await self.confirm_password(actor, payload.current_password)
         grants, stamp = payload.grants, None
         if payload.preset is not None:
             from app.modules.auth.preset_service import resolve_preset
@@ -323,8 +326,6 @@ class AccountsService:
             payload.active,
             grants,
         )
-        if auth_changed or "preset" in payload.model_fields_set:
-            await self.confirm_password(actor, payload.current_password)
         if user.active and user.role == "admin" and (not payload.active or payload.role != "admin"):
             remaining = await self.session.scalar(
                 select(func.count())
@@ -361,7 +362,7 @@ class AccountsService:
             "user_save",
             envelope,
             result.model_dump(mode="json"),
-            sensitive=bool(payload.current_password),
+            sensitive=False,
         )
         await self.session.commit()
         return result

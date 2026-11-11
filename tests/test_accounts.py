@@ -77,7 +77,6 @@ def create_user(ctx: AccountsTest, *, role: str = "user", suffix: str = "member"
             "username": ctx.name + "_" + suffix,
             "display_name": "成员",
             "password": TEMPORARY,
-            "current_password": PASSWORD,
             "role": role,
             "grants": {},
         },
@@ -228,7 +227,6 @@ def test_new_account_retries_never_expose_password_and_search_is_literal(
         "username": accounts.name + "_retry",
         "display_name": "Retry%_",
         "password": TEMPORARY,
-        "current_password": PASSWORD,
     }
     first = accounts.root.post("/v1/admin/users", json=payload, headers=headers(accounts.root))
     assert first.status_code == 201
@@ -295,7 +293,6 @@ def test_admin_disable_revokes_existing_sessions_and_conflicting_updates(
         "role": "user",
         "active": False,
         "grants": {},
-        "current_password": PASSWORD,
     }
     response = accounts.root.patch(
         "/v1/admin/users/" + member["id"], json=payload, headers=headers(accounts.root)
@@ -345,7 +342,6 @@ def test_last_admin_guard_inside_a_real_transaction(accounts: AccountsTest) -> N
                             role="user",
                             active=True,
                             grants={},
-                            current_password=PASSWORD,
                         ),
                     )
                 assert error.value.code == 40963

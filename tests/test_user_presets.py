@@ -68,7 +68,6 @@ def test_preset_crud_application_keeps_existing_users_and_legacy_retries(
         "username": ctx.name + "_preset",
         "display_name": "预设成员",
         "password": TEMPORARY,
-        "current_password": PASSWORD,
         "preset": {"id": preset["id"], "expected_revision": preset["revision"]},
         "grants": {"everunfold": {"users:manage": "all"}},
     }
@@ -155,7 +154,6 @@ def test_preset_crud_application_keeps_existing_users_and_legacy_retries(
         "operation_id": str(uuid4()),
         "expected_revision": latest["revision"],
         "preset": None,
-        "current_password": PASSWORD,
     }
     cleared = ctx.root.patch(
         "/v1/admin/users/" + user["id"], json=custom, headers=headers(ctx.root)
@@ -225,7 +223,6 @@ def test_delegated_manager_cannot_apply_or_manage_a_preset_above_own_ceiling(
             "value": fields(manager),
             "role": "user",
             "active": True,
-            "current_password": PASSWORD,
             "grants": {"everunfold": {"users:manage": "all", "content:read": "own"}},
         },
         headers=headers(ctx.root),
@@ -263,7 +260,6 @@ def test_delegated_manager_cannot_apply_or_manage_a_preset_above_own_ceiling(
         "username": ctx.name + "_limited",
         "display_name": "受限",
         "password": TEMPORARY,
-        "current_password": PASSWORD,
         "preset": {"id": upper["id"], "expected_revision": 1},
     }
     assert member.post("/v1/admin/users", json=create, headers=headers(member)).status_code == 403

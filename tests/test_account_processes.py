@@ -353,7 +353,6 @@ def test_live_account_authority_and_child_callbacks(tmp_path: Path) -> None:
                     "username": "second_admin",
                     "display_name": "Second",
                     "password": "Temporary-pass-12345",
-                    "current_password": "123456",
                     "role": "admin",
                 },
             )
@@ -405,7 +404,6 @@ def test_live_account_authority_and_child_callbacks(tmp_path: Path) -> None:
                         "role": "admin",
                         "active": False,
                         "grants": {},
-                        "current_password": password,
                     },
                 )
 

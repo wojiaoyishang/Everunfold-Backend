@@ -15,6 +15,9 @@ from app.modules.auth.accounts_schemas import (
     AccountProfile,
     AccountUserList,
     AccountUserQuery,
+    EmailVerificationConfirm,
+    EmailVerificationRequest,
+    EmailVerificationState,
     PasswordChange,
     PasswordReset,
     PermissionCatalog,
@@ -28,6 +31,7 @@ from app.modules.auth.accounts_service import AccountsService, account_mutation_
 from app.modules.auth.credential_policy import application_scopes, owner_permissions
 from app.modules.auth.credentials_models import ApiApplication
 from app.modules.auth.credentials_schemas import KeyApplication
+from app.modules.auth.email_verification_service import EmailVerificationService
 from app.modules.auth.models import User
 from app.modules.auth.permission_schemas import PermissionDefinition
 from app.modules.auth.permissions import CAPABILITIES, user_permissions
@@ -92,6 +96,30 @@ async def own_profile(ctx: Authorized) -> JSONResponseSuccess:
 @router.patch("/account/profile", response_model=PublicResponse[AccountProfile])
 async def save_profile(payload: ProfileSave, ctx: Authorized) -> JSONResponseSuccess:
     return JSONResponseSuccess(data=await ctx.service.save_profile(ctx.actor, payload))
+
+
+@router.post(
+    "/account/email-verification/request",
+    response_model=PublicResponse[EmailVerificationState],
+)
+async def request_email_verification(
+    payload: EmailVerificationRequest, ctx: Authorized
+) -> JSONResponseSuccess:
+    return JSONResponseSuccess(
+        data=await EmailVerificationService(ctx.service.session).request(ctx.actor, payload)
+    )
+
+
+@router.post(
+    "/account/email-verification/confirm",
+    response_model=PublicResponse[AccountProfile],
+)
+async def confirm_email_verification(
+    payload: EmailVerificationConfirm, ctx: Authorized
+) -> JSONResponseSuccess:
+    return JSONResponseSuccess(
+        data=await EmailVerificationService(ctx.service.session).confirm(ctx.actor, payload)
+    )
 
 
 @router.post("/account/password", response_model=PublicResponse[AuthSessionState])

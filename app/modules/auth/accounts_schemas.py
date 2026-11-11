@@ -83,7 +83,7 @@ class AccountProfile(ProfileFields):
     revision: int
     auth_version: int
     must_change_password: bool
-    email_verified: Literal[False] = False
+    email_verified: bool = False
     grants: dict[str, dict[str, ResourceScope]]
     permission_preset: UserPresetStamp | None = None
     created_at: datetime
@@ -101,7 +101,6 @@ class UserCreate(PublicModel):
     username: str = Field(min_length=2, max_length=64, pattern=r"^[A-Za-z0-9_.-]+$")
     display_name: str = Field(min_length=1, max_length=100)
     password: str = Field(min_length=12, max_length=1024, repr=False)
-    current_password: str = Field(min_length=1, max_length=1024, repr=False)
     role: Literal["admin", "user"] = "user"
     grants: dict[str, dict[str, ResourceScope]] = Field(default_factory=dict)
     preset: UserPresetSelection | None = None
@@ -114,7 +113,6 @@ class UserSave(PublicModel):
     role: Literal["admin", "user"]
     active: bool
     grants: dict[str, dict[str, ResourceScope]] = Field(default_factory=dict)
-    current_password: str = Field(default="", max_length=1024, repr=False)
     preset: UserPresetSelection | None = None
 
 
@@ -147,6 +145,41 @@ class SessionList(PublicModel):
 class SessionRevoke(PublicModel):
     operation_id: UUID
     session_id: str = Field(pattern=r"^(?:[a-f0-9]{64}|others)$")
+
+
+class EmailVerificationRequest(PublicModel):
+    operation_id: UUID
+    email: str = Field(min_length=3, max_length=254)
+
+    @field_validator("email")
+    @classmethod
+    def email_address(cls, value: str) -> str:
+        value = value.strip()
+        if not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", value):
+            raise ValueError("invalid email address")
+        return value
+
+
+class EmailVerificationConfirm(PublicModel):
+    request_id: UUID
+    email: str = Field(min_length=3, max_length=254)
+    code: str = Field(pattern=r"^[0-9]{6}$")
+
+    @field_validator("email")
+    @classmethod
+    def email_address(cls, value: str) -> str:
+        value = value.strip()
+        if not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", value):
+            raise ValueError("invalid email address")
+        return value
+
+
+class EmailVerificationState(PublicModel):
+    request_id: UUID
+    email: str
+    status: Literal["queued", "sending", "sent", "failed", "expired", "verified"]
+    expires_at: datetime
+    retry_after_seconds: int = Field(ge=0)
 
 
 class AccountUserList(PublicModel):
@@ -201,8 +234,11 @@ class AccountContract(PublicModel):
     password_change: PasswordChange
     password_reset: PasswordReset
     session_revoke: SessionRevoke
+    email_verification_request: EmailVerificationRequest
+    email_verification_confirm: EmailVerificationConfirm
     profile: PublicResponse[AccountProfile]
     users: PublicResponse[AccountUserList]
     sessions: PublicResponse[SessionList]
     permissions: PublicResponse[PermissionCatalog]
     session: PublicResponse[AuthSessionState]
+    email_verification: PublicResponse[EmailVerificationState]

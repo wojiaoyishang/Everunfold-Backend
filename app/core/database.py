@@ -4,7 +4,7 @@ from sqlalchemy import MetaData, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
 
-SCHEMA_REVISION = "0044_notifications"
+SCHEMA_REVISION = "0045_email_verification"
 
 
 class Base(DeclarativeBase):

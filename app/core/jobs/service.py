@@ -100,6 +100,7 @@ async def reconcile(session: AsyncSession) -> None:
                     "core.callbacks",
                     "core.publication",
                     "core.mail-test",
+                    "core.email-verification",
                 ]
             ),
             TaskRun.status == "succeeded",

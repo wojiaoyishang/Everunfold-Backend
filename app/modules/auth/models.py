@@ -34,6 +34,7 @@ class User(Base):
     # Provenance only; authorization always uses the user's own role/grants.
     permission_preset: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
     email: Mapped[str] = mapped_column(String(254), default="", server_default="")
+    email_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     avatar_url: Mapped[str] = mapped_column(Text, default="", server_default="")
     avatar_id: Mapped[UUID | None] = mapped_column(
         ForeignKey("account_avatars.id", use_alter=True, name="fk_users_avatar_id_account_avatars")

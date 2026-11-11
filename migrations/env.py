@@ -12,6 +12,7 @@ from app.core.jobs import models as runtime_models  # noqa: F401
 from app.core.jobs import progress_models as progress_models  # noqa: F401
 from app.modules.auth import avatar_models as avatar_models  # noqa: F401
 from app.modules.auth import credentials_models as credentials_models  # noqa: F401
+from app.modules.auth import email_verification_models as email_verification_models  # noqa: F401
 from app.modules.auth import models as auth_models  # noqa: F401 - include module metadata
 from app.modules.auth import preset_models as preset_models  # noqa: F401
 from app.modules.captcha import comments as comments  # noqa: F401

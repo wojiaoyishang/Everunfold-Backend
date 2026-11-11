@@ -57,7 +57,6 @@ def check_user_presets(admin: httpx.Client, csrf: dict[str, str], api_b: str) ->
             "username": "preset-race-" + uuid4().hex,
             "display_name": "P0 preset",
             "password": "Preset-race-password",
-            "current_password": "123456",
         },
     )
     assert created.status_code == 201, created.text
@@ -67,7 +66,6 @@ def check_user_presets(admin: httpx.Client, csrf: dict[str, str], api_b: str) ->
         "expected_revision": user["revision"],
         "role": "user",
         "active": True,
-        "current_password": "123456",
         "preset": {"id": chosen["id"], "expected_revision": chosen["revision"]},
         "value": {"display_name": "P0 preset", "preferred_locale": "zh-CN"},
     }

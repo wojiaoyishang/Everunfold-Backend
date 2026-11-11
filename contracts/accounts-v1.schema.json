@@ -87,7 +87,6 @@
           "type": "boolean"
         },
         "email_verified": {
-          "const": false,
           "default": false,
           "title": "Email Verified",
           "type": "boolean"
@@ -986,6 +985,101 @@
       "title": "CallbackState",
       "type": "object"
     },
+    "EmailVerificationConfirm": {
+      "additionalProperties": false,
+      "properties": {
+        "request_id": {
+          "format": "uuid",
+          "title": "Request Id",
+          "type": "string"
+        },
+        "email": {
+          "maxLength": 254,
+          "minLength": 3,
+          "title": "Email",
+          "type": "string"
+        },
+        "code": {
+          "pattern": "^[0-9]{6}$",
+          "title": "Code",
+          "type": "string"
+        }
+      },
+      "required": [
+        "request_id",
+        "email",
+        "code"
+      ],
+      "title": "EmailVerificationConfirm",
+      "type": "object"
+    },
+    "EmailVerificationRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "operation_id": {
+          "format": "uuid",
+          "title": "Operation Id",
+          "type": "string"
+        },
+        "email": {
+          "maxLength": 254,
+          "minLength": 3,
+          "title": "Email",
+          "type": "string"
+        }
+      },
+      "required": [
+        "operation_id",
+        "email"
+      ],
+      "title": "EmailVerificationRequest",
+      "type": "object"
+    },
+    "EmailVerificationState": {
+      "additionalProperties": false,
+      "properties": {
+        "request_id": {
+          "format": "uuid",
+          "title": "Request Id",
+          "type": "string"
+        },
+        "email": {
+          "title": "Email",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "queued",
+            "sending",
+            "sent",
+            "failed",
+            "expired",
+            "verified"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "expires_at": {
+          "format": "date-time",
+          "title": "Expires At",
+          "type": "string"
+        },
+        "retry_after_seconds": {
+          "minimum": 0,
+          "title": "Retry After Seconds",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "request_id",
+        "email",
+        "status",
+        "expires_at",
+        "retry_after_seconds"
+      ],
+      "title": "EmailVerificationState",
+      "type": "object"
+    },
     "KeyApplication": {
       "additionalProperties": false,
       "properties": {
@@ -1855,6 +1949,34 @@
       "title": "PublicResponse[AvatarPolicyState]",
       "type": "object"
     },
+    "PublicResponse_EmailVerificationState_": {
+      "additionalProperties": false,
+      "properties": {
+        "success": {
+          "default": true,
+          "title": "Success",
+          "type": "boolean"
+        },
+        "code": {
+          "default": 200,
+          "title": "Code",
+          "type": "integer"
+        },
+        "msg": {
+          "default": "请求成功",
+          "title": "Msg",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/EmailVerificationState"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "title": "PublicResponse[EmailVerificationState]",
+      "type": "object"
+    },
     "PublicResponse_KeyList_": {
       "additionalProperties": false,
       "properties": {
@@ -2175,12 +2297,6 @@
           "title": "Password",
           "type": "string"
         },
-        "current_password": {
-          "maxLength": 1024,
-          "minLength": 1,
-          "title": "Current Password",
-          "type": "string"
-        },
         "role": {
           "default": "user",
           "enum": [
@@ -2220,8 +2336,7 @@
         "operation_id",
         "username",
         "display_name",
-        "password",
-        "current_password"
+        "password"
       ],
       "title": "UserCreate",
       "type": "object"
@@ -2517,12 +2632,6 @@
           "title": "Grants",
           "type": "object"
         },
-        "current_password": {
-          "default": "",
-          "maxLength": 1024,
-          "title": "Current Password",
-          "type": "string"
-        },
         "preset": {
           "anyOf": [
             {
@@ -2644,6 +2753,12 @@
     "session_revoke": {
       "$ref": "#/$defs/SessionRevoke"
     },
+    "email_verification_request": {
+      "$ref": "#/$defs/EmailVerificationRequest"
+    },
+    "email_verification_confirm": {
+      "$ref": "#/$defs/EmailVerificationConfirm"
+    },
     "profile": {
       "$ref": "#/$defs/PublicResponse_AccountProfile_"
     },
@@ -2658,6 +2773,9 @@
     },
     "session": {
       "$ref": "#/$defs/PublicResponse_AuthSessionState_"
+    },
+    "email_verification": {
+      "$ref": "#/$defs/PublicResponse_EmailVerificationState_"
     }
   },
   "required": [
@@ -2693,16 +2811,19 @@
     "password_change",
     "password_reset",
     "session_revoke",
+    "email_verification_request",
+    "email_verification_confirm",
     "profile",
     "users",
     "sessions",
     "permissions",
-    "session"
+    "session",
+    "email_verification"
   ],
   "title": "AccountContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "1.5.0",
+  "x-everunfold-contract-version": "1.6.0",
   "x-everunfold-csrf-header": "X-CSRF-Token",
   "x-everunfold-credentials": "include",
   "x-everunfold-operations": [
@@ -2900,6 +3021,20 @@
       "method": "PATCH",
       "response": "profile",
       "input": "profile_save"
+    },
+    {
+      "name": "requestAccountEmailVerification",
+      "path": "/v1/account/email-verification/request",
+      "method": "POST",
+      "response": "email_verification",
+      "input": "email_verification_request"
+    },
+    {
+      "name": "confirmAccountEmailVerification",
+      "path": "/v1/account/email-verification/confirm",
+      "method": "POST",
+      "response": "profile",
+      "input": "email_verification_confirm"
     },
     {
       "name": "changeAccountPassword",
