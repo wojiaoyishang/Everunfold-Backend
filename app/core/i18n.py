@@ -13,10 +13,19 @@ from typing import Any
 from starlette.datastructures import Headers, MutableHeaders
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
-from app.core.locales import DEFAULT_LOCALE, LOCALES, Locale, resolve_locale, supported_locale
+from app.core.locales import (
+    DEFAULT_LOCALE,
+    LOCALES,
+    Locale,
+    request_locale,
+    resolve_locale,
+)
 
 logger = logging.getLogger(__name__)
-current_locale: ContextVar[Locale] = ContextVar("site_locale", default=DEFAULT_LOCALE)
+current_locale: ContextVar[str] = ContextVar("site_locale", default=DEFAULT_LOCALE)
+current_fallback_locale: ContextVar[Locale] = ContextVar(
+    "site_fallback_locale", default=DEFAULT_LOCALE
+)
 
 
 class I18n:
@@ -58,10 +67,13 @@ class I18n:
 
     def t(self, key: str, *, locale: str | None = None, **params: object) -> str:
         self.load()
-        selected = resolve_locale(locale) if locale else current_locale.get()
+        selected = locale or current_locale.get()
+        fallback = resolve_locale(locale) if locale else current_fallback_locale.get()
         value = self._overrides.get("backend", {}).get(selected, {}).get(key)
         if value is None:
             value = self._catalogs.get(selected, {}).get(key)
+        if value is None and fallback != selected:
+            value = self._catalogs.get(fallback, {}).get(key)
         if value is None:
             logger.warning("missing_translation key=%s locale=%s", key, selected)
             value = self._catalogs.get(DEFAULT_LOCALE, {}).get(key, key)
@@ -111,20 +123,22 @@ class LocaleMiddleware:
             await self.app(scope, receive, send)
             return
         headers = Headers(scope=scope)
-        locale = supported_locale(headers.get("X-Site-Locale")) or resolve_locale(
-            headers.get("Accept-Language")
-        )
+        requested = request_locale(headers.get("X-Site-Locale"))
+        fallback = resolve_locale(headers.get("X-Site-UI-Locale") or headers.get("Accept-Language"))
+        locale = requested or fallback
         token = current_locale.set(locale)
+        fallback_token = current_fallback_locale.set(fallback)
         scope.setdefault("state", {})["locale"] = locale
 
         async def localized_send(message: Message) -> None:
             if message["type"] == "http.response.start":
                 response = MutableHeaders(scope=message)
                 response["Content-Language"] = locale
-                response.append("Vary", "X-Site-Locale, Accept-Language")
+                response.append("Vary", "X-Site-Locale, X-Site-UI-Locale, Accept-Language")
             await send(message)
 
         try:
             await self.app(scope, receive, localized_send)
         finally:
             current_locale.reset(token)
+            current_fallback_locale.reset(fallback_token)

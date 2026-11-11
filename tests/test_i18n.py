@@ -53,4 +53,14 @@ def test_api_explicit_locale_and_accept_language_fallback(test_settings: Setting
             "/health/live", headers={"X-Site-Locale": "unsupported", "Accept-Language": "en"}
         )
         assert fallback.json()["msg"] == "Request successful"
+        extended = client.get(
+            "/health/live",
+            headers={
+                "X-Site-Locale": "fr",
+                "X-Site-UI-Locale": "en",
+            },
+        )
+        assert extended.json()["msg"] == "Request successful"
+        assert extended.headers["content-language"] == "fr"
+        assert "X-Site-UI-Locale" in extended.headers["vary"]
         assert client.get("/health/live").json()["msg"] == "请求成功"

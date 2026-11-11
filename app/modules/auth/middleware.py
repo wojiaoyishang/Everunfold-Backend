@@ -32,6 +32,7 @@ class BusinessCORSMiddleware:
                 "Authorization",
                 "X-CSRF-Token",
                 "X-Site-Locale",
+                "X-Site-UI-Locale",
             ],
             expose_headers=["Retry-After"],
         )
@@ -46,6 +47,7 @@ class BusinessCORSMiddleware:
                 "Authorization",
                 "X-Everunfold-Visitor",
                 "X-Site-Locale",
+                "X-Site-UI-Locale",
                 "X-Everunfold-Read-Receipt",
                 "X-Everunfold-Read-Target",
             ],

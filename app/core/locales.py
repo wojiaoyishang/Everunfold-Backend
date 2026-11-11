@@ -1,5 +1,6 @@
 """Shared locale identifiers; interface preferences never rewrite content identity."""
 
+import re
 from typing import Literal
 
 Locale = Literal["zh-CN", "en"]
@@ -31,3 +32,9 @@ def supported_locale(value: str | None) -> Locale | None:
 
 def resolve_locale(value: str | None) -> Locale:
     return supported_locale(value) or DEFAULT_LOCALE
+
+
+def request_locale(value: str | None) -> str | None:
+    """Accept a BCP47 request locale while keeping built-in packages separate."""
+    candidate = (value or "").strip()
+    return candidate if re.fullmatch(r"[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*", candidate) else None
