@@ -90,6 +90,10 @@ def route_permission(path: str, method: str, body: dict[str, object]) -> tuple[s
         return "settings:write", False
     if path == "/v1/admin/workspace":
         return "workspace:read", True
+    if path == "/v1/admin/notifications/inbox":
+        return "workspace:read", True
+    if path.startswith("/v1/admin/notifications/"):
+        return ("settings:read", True) if method == "GET" else ("settings:write", False)
     if path == "/v1/admin/comments/query":
         return "comments:read", True
     if path in {

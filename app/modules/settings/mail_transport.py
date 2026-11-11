@@ -142,11 +142,13 @@ class LoggedSMTPSSL(smtplib.SMTP_SSL):
         super().send(s)
 
 
-def send_test(
+def send_message(
     value: MailPreferences,
     password: str,
     recipient: str,
     identity: UUID,
+    subject: str,
+    content: str,
     on_event: Callable[[MailEvent], None] | None = None,
 ) -> tuple[str, str | None]:
     client: LoggedSMTP | LoggedSMTPSSL | None = None
@@ -210,17 +212,14 @@ def send_test(
         else:
             trace.emit("message", "SMTP authentication is disabled in the saved configuration.")
         message = EmailMessage()
-        message["Subject"] = "Everunfold 邮件发送测试 / Email delivery test"
+        message["Subject"] = subject
         message["From"] = formataddr((value.from_name, value.from_address))
         message["To"] = recipient
         message["Date"] = formatdate(localtime=False)
         message["Message-ID"] = f"<{identity}@everunfold.test>"
         if value.reply_to:
             message["Reply-To"] = value.reply_to
-        message.set_content(
-            "这是一封由管理员主动发起的 Everunfold 测试邮件。\n\n"
-            "This test email was explicitly requested by an administrator.\n"
-        )
+        message.set_content(content)
         remaining()
         trace.phase("envelope", "Submitting the sender and recipient envelope.")
         code, _ = client.mail(value.from_address)
@@ -262,3 +261,35 @@ def send_test(
         if client:
             with suppress(OSError):
                 client.close()
+
+
+def send_test(
+    value: MailPreferences,
+    password: str,
+    recipient: str,
+    identity: UUID,
+    on_event: Callable[[MailEvent], None] | None = None,
+) -> tuple[str, str | None]:
+    return send_message(
+        value,
+        password,
+        recipient,
+        identity,
+        "Everunfold 邮件发送测试 / Email delivery test",
+        (
+            "这是一封由管理员主动发起的 Everunfold 测试邮件。\n\n"
+            "This test email was explicitly requested by an administrator.\n"
+        ),
+        on_event,
+    )
+
+
+def send_notification(
+    value: MailPreferences,
+    password: str,
+    recipient: str,
+    identity: UUID,
+    subject: str,
+    content: str,
+) -> tuple[str, str | None]:
+    return send_message(value, password, recipient, identity, subject, content)

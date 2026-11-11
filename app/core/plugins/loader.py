@@ -18,6 +18,7 @@ from app.core.plugins.definition import Plugin, PluginRuntime
 from app.core.plugins.registry import PluginRegistry
 from app.core.plugins.routes import RouteContribution
 from app.modules.captcha.providers import CaptchaProvider
+from app.modules.notifications.platforms import NotificationPlatform
 from app.modules.settings.extensions_schemas import BackendPluginInfo
 from app.modules.shortcodes.schemas import ShortcodeItem
 
@@ -30,6 +31,7 @@ class LoadedPlugin:
     info: BackendPluginInfo
     shortcodes: tuple[ShortcodeItem, ...]
     captcha: tuple[CaptchaProvider, ...]
+    notifications: tuple[NotificationPlatform, ...]
     locales: Mapping[str, Mapping[str, str]]
 
 
@@ -52,6 +54,17 @@ class PluginCatalog:
                 item.info.id
                 for item in self.plugins
                 if any(provider.id == identity for provider in item.captcha)
+            ),
+            None,
+        )
+
+    def notification_platform(self, identity: str) -> NotificationPlatform | None:
+        return next(
+            (
+                platform
+                for item in self.plugins
+                for platform in item.notifications
+                if platform.id == identity
             ),
             None,
         )
@@ -90,6 +103,7 @@ def collect_plugins(entries: Iterable[tuple[Plugin, str]]) -> PluginCatalog:
     ids: set[str] = set()
     names: set[str] = set()
     providers: set[str] = set()
+    notification_platforms: set[str] = set()
     while pending:
         ready = sorted(
             key
@@ -120,9 +134,14 @@ def collect_plugins(entries: Iterable[tuple[Plugin, str]]) -> PluginCatalog:
                 if provider.id in providers:
                     raise ValueError(f"Duplicate CAPTCHA provider: {provider.id}")
                 providers.add(provider.id)
+            for platform in registry.notifications.items:
+                if platform.id in notification_platforms:
+                    raise ValueError(f"Duplicate notification platform: {platform.id}")
+                notification_platforms.add(platform.id)
             info.tasks = [item.id for item in registry.tasks.items]
             info.shortcodes = [item.source.name for item in registry.shortcodes._items]
             info.captcha_providers = [item.id for item in registry.captcha._items]
+            info.notification_platforms = [item.id for item in registry.notifications.items]
             # Widget names are references to frontend contributions, not backend UI ownership.
             info.widgets = [item.widget for item in registry.captcha._items]
             fingerprint: dict[str, Any] = {
@@ -130,6 +149,16 @@ def collect_plugins(entries: Iterable[tuple[Plugin, str]]) -> PluginCatalog:
                 "info": info.model_dump(mode="json"),
                 "shortcodes": [item.model_dump(mode="json") for item in registry.shortcodes._items],
                 "locales": registry.locales._items,
+                "notification_platforms": [
+                    {
+                        "id": item.id,
+                        "title": item.title,
+                        "description": item.description,
+                        "kind": item.kind,
+                        "delivery_semantics": item.delivery_semantics,
+                    }
+                    for item in registry.notifications.items
+                ],
             }
             if registry.routes.items:
                 fingerprint["routes"] = [item.manifest() for item in registry.routes.items]
@@ -144,6 +173,7 @@ def collect_plugins(entries: Iterable[tuple[Plugin, str]]) -> PluginCatalog:
                     info,
                     tuple(registry.shortcodes._items),
                     tuple(registry.captcha._items),
+                    tuple(registry.notifications.items),
                     MappingProxyType(
                         {
                             locale: MappingProxyType(messages.copy())

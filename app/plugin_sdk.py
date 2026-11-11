@@ -10,6 +10,11 @@ from app.core.responses import JSONResponseFail, JSONResponseSuccess
 from app.core.schemas import PublicModel, PublicResponse
 from app.modules.captcha.providers import CaptchaProvider, verify_site_token
 from app.modules.captcha.schemas import StoredProvider
+from app.modules.notifications.platforms import (
+    NotificationDeliveryRequest,
+    NotificationDeliveryResult,
+    NotificationPlatform,
+)
 from app.modules.shortcodes.schemas import ShortcodeParameter, ShortcodeSource
 
 __all__ = [
@@ -22,6 +27,9 @@ __all__ = [
     "TaskDefinition",
     "task_progress",
     "ResidentContext",
+    "NotificationDeliveryRequest",
+    "NotificationDeliveryResult",
+    "NotificationPlatform",
     "CaptchaProvider",
     "Plugin",
     "PluginRegistry",

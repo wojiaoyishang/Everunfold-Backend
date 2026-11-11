@@ -84,6 +84,7 @@ class BackendPluginInfo(InstalledPlugin):
         default_factory=list, max_length=100
     )
     captcha_providers: list[str] = Field(default_factory=list, max_length=100)
+    notification_platforms: list[str] = Field(default_factory=list, max_length=100)
     widgets: list[str] = Field(default_factory=list, max_length=100)
 
     @model_validator(mode="after")

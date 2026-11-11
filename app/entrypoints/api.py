@@ -17,6 +17,7 @@ from app.core.modules import (
     register_captcha_module,
     register_content_module,
     register_media_module,
+    register_notifications_module,
     register_pages_module,
     register_settings_module,
     register_shortcodes_module,
@@ -98,6 +99,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     register_captcha_module(application)
     register_settings_module(application)
     register_shortcodes_module(application)
+    register_notifications_module(application)
     register_pages_module(application)
     register_media_module(application)
     mount_plugin_routes(application, plugins)

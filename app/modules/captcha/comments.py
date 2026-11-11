@@ -206,6 +206,33 @@ async def submit_comment(payload: SubmitComment, request: Request) -> JSONRespon
                     status="pending",
                 )
             )
+            from app.modules.notifications.service import publish_event
+
+            if item:
+                resource_title, resource_url = item.title, item.path
+            else:
+                page = await session.get(ManagedPage, payload.content_id)
+                assert page is not None
+                published = page.published or {}
+                resource_title = str(published.get("title") or "页面")
+                resource_url = str(published.get("path") or "/")
+            await publish_event(
+                session,
+                event_type="comment.pending_review",
+                dedupe_key=f"comment.pending_review:{payload.operation_id}",
+                resource_type="comment",
+                resource_id=str(payload.operation_id),
+                actor_id=None,
+                data={
+                    "actor": {"name": payload.author.strip()},
+                    "content": {"excerpt": payload.body.strip()[:300]},
+                    "resource": {
+                        "title": resource_title,
+                        "url": resource_url,
+                        "review_url": "/admin/comments",
+                    },
+                },
+            )
             from app.modules.auth.models import AuthAuditEvent
 
             session.add(AuthAuditEvent(action="comment_submit", created_at=datetime.now(UTC)))

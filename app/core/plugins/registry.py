@@ -8,6 +8,7 @@ from uuid import NAMESPACE_URL, UUID, uuid5
 from app.core.jobs.definitions import TaskDefinition
 from app.core.plugins.routes import RouteRegistry
 from app.modules.captcha.providers import CaptchaProvider
+from app.modules.notifications.platforms import NotificationPlatform
 from app.modules.shortcodes.compiler import compile_shortcode
 from app.modules.shortcodes.schemas import ShortcodeItem, ShortcodeSource
 
@@ -101,6 +102,25 @@ class TaskRegistry:
         self.items.append(definition)
 
 
+class NotificationPlatformRegistry:
+    def __init__(self, owner: "PluginRegistry") -> None:
+        self.owner = owner
+        self.items: list[NotificationPlatform] = []
+
+    def register(self, platform: NotificationPlatform) -> None:
+        self.owner.check_open()
+        if (
+            not isinstance(platform, NotificationPlatform)
+            or not re.fullmatch(r"[a-z][a-z0-9_.-]{0,119}", platform.id)
+            or platform.id in {"in-app", "email"}
+            or not platform.title.strip()
+            or not inspect.iscoroutinefunction(platform.deliver)
+            or any(item.id == platform.id for item in self.items)
+        ):
+            raise ValueError("Invalid notification platform")
+        self.items.append(platform)
+
+
 class PluginRegistry:
     def __init__(self, identity: str) -> None:
         self.id = identity
@@ -110,6 +130,7 @@ class PluginRegistry:
         self.locales = LocaleRegistry(self)
         self.tasks = TaskRegistry(self)
         self.routes = RouteRegistry(self)
+        self.notifications = NotificationPlatformRegistry(self)
 
     def check_open(self) -> None:
         if not self._open:

@@ -1,0 +1,687 @@
+{
+  "$defs": {
+    "MarkNotificationsRead": {
+      "additionalProperties": false,
+      "properties": {
+        "ids": {
+          "items": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "maxItems": 100,
+          "title": "Ids",
+          "type": "array"
+        }
+      },
+      "title": "MarkNotificationsRead",
+      "type": "object"
+    },
+    "NotificationDeliveryView": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "event_type": {
+          "title": "Event Type",
+          "type": "string"
+        },
+        "user_id": {
+          "format": "uuid",
+          "title": "User Id",
+          "type": "string"
+        },
+        "user_name": {
+          "title": "User Name",
+          "type": "string"
+        },
+        "platform_id": {
+          "title": "Platform Id",
+          "type": "string"
+        },
+        "locale": {
+          "title": "Locale",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "pending",
+            "sending",
+            "sent",
+            "failed",
+            "unknown",
+            "suppressed"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "attempts": {
+          "title": "Attempts",
+          "type": "integer"
+        },
+        "error": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Error"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "finished_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Finished At"
+        }
+      },
+      "required": [
+        "id",
+        "event_type",
+        "user_id",
+        "user_name",
+        "platform_id",
+        "locale",
+        "status",
+        "attempts",
+        "created_at"
+      ],
+      "title": "NotificationDeliveryView",
+      "type": "object"
+    },
+    "NotificationEventView": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "description": {
+          "title": "Description",
+          "type": "string"
+        },
+        "variables": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Variables",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "description",
+        "variables"
+      ],
+      "title": "NotificationEventView",
+      "type": "object"
+    },
+    "NotificationInbox": {
+      "additionalProperties": false,
+      "properties": {
+        "unread": {
+          "minimum": 0,
+          "title": "Unread",
+          "type": "integer"
+        },
+        "items": {
+          "items": {
+            "$ref": "#/$defs/NotificationInboxItem"
+          },
+          "title": "Items",
+          "type": "array"
+        }
+      },
+      "required": [
+        "unread",
+        "items"
+      ],
+      "title": "NotificationInbox",
+      "type": "object"
+    },
+    "NotificationInboxItem": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "text": {
+          "title": "Text",
+          "type": "string"
+        },
+        "href": {
+          "title": "Href",
+          "type": "string"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "read_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Read At"
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "text",
+        "href",
+        "created_at"
+      ],
+      "title": "NotificationInboxItem",
+      "type": "object"
+    },
+    "NotificationPlatformView": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "description": {
+          "title": "Description",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "direct",
+            "bridge"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "builtin": {
+          "title": "Builtin",
+          "type": "boolean"
+        },
+        "available": {
+          "title": "Available",
+          "type": "boolean"
+        },
+        "delivery_semantics": {
+          "enum": [
+            "idempotent",
+            "retry-safe",
+            "unknown-no-retry"
+          ],
+          "title": "Delivery Semantics",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "description",
+        "kind",
+        "builtin",
+        "available",
+        "delivery_semantics"
+      ],
+      "title": "NotificationPlatformView",
+      "type": "object"
+    },
+    "NotificationRouteInput": {
+      "additionalProperties": false,
+      "properties": {
+        "event_type": {
+          "maxLength": 120,
+          "minLength": 1,
+          "title": "Event Type",
+          "type": "string"
+        },
+        "recipient_type": {
+          "enum": [
+            "user",
+            "role",
+            "permission"
+          ],
+          "title": "Recipient Type",
+          "type": "string"
+        },
+        "recipient_value": {
+          "maxLength": 160,
+          "minLength": 1,
+          "title": "Recipient Value",
+          "type": "string"
+        },
+        "platform_id": {
+          "maxLength": 120,
+          "minLength": 1,
+          "title": "Platform Id",
+          "type": "string"
+        },
+        "template_key": {
+          "default": "default",
+          "pattern": "^[a-z][a-z0-9_.-]{0,79}$",
+          "title": "Template Key",
+          "type": "string"
+        },
+        "enabled": {
+          "default": true,
+          "title": "Enabled",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "event_type",
+        "recipient_type",
+        "recipient_value",
+        "platform_id"
+      ],
+      "title": "NotificationRouteInput",
+      "type": "object"
+    },
+    "NotificationRouteView": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "event_type": {
+          "title": "Event Type",
+          "type": "string"
+        },
+        "recipient_type": {
+          "enum": [
+            "user",
+            "role",
+            "permission"
+          ],
+          "title": "Recipient Type",
+          "type": "string"
+        },
+        "recipient_value": {
+          "title": "Recipient Value",
+          "type": "string"
+        },
+        "platform_id": {
+          "title": "Platform Id",
+          "type": "string"
+        },
+        "template_key": {
+          "default": "default",
+          "title": "Template Key",
+          "type": "string"
+        },
+        "enabled": {
+          "title": "Enabled",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "event_type",
+        "recipient_type",
+        "recipient_value",
+        "platform_id",
+        "enabled"
+      ],
+      "title": "NotificationRouteView",
+      "type": "object"
+    },
+    "NotificationState": {
+      "additionalProperties": false,
+      "properties": {
+        "revision": {
+          "minimum": 1,
+          "title": "Revision",
+          "type": "integer"
+        },
+        "events": {
+          "items": {
+            "$ref": "#/$defs/NotificationEventView"
+          },
+          "title": "Events",
+          "type": "array"
+        },
+        "platforms": {
+          "items": {
+            "$ref": "#/$defs/NotificationPlatformView"
+          },
+          "title": "Platforms",
+          "type": "array"
+        },
+        "routes": {
+          "items": {
+            "$ref": "#/$defs/NotificationRouteView"
+          },
+          "title": "Routes",
+          "type": "array"
+        },
+        "templates": {
+          "items": {
+            "$ref": "#/$defs/NotificationTemplateView"
+          },
+          "title": "Templates",
+          "type": "array"
+        },
+        "deliveries": {
+          "items": {
+            "$ref": "#/$defs/NotificationDeliveryView"
+          },
+          "title": "Deliveries",
+          "type": "array"
+        },
+        "locales": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Locales",
+          "type": "array"
+        }
+      },
+      "required": [
+        "revision",
+        "events",
+        "platforms",
+        "routes",
+        "templates",
+        "deliveries",
+        "locales"
+      ],
+      "title": "NotificationState",
+      "type": "object"
+    },
+    "NotificationTemplateView": {
+      "additionalProperties": false,
+      "properties": {
+        "event_type": {
+          "title": "Event Type",
+          "type": "string"
+        },
+        "platform_id": {
+          "title": "Platform Id",
+          "type": "string"
+        },
+        "locale": {
+          "title": "Locale",
+          "type": "string"
+        },
+        "subject": {
+          "title": "Subject",
+          "type": "string"
+        },
+        "text": {
+          "title": "Text",
+          "type": "string"
+        },
+        "href": {
+          "default": "",
+          "title": "Href",
+          "type": "string"
+        },
+        "enabled": {
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "custom": {
+          "title": "Custom",
+          "type": "boolean"
+        },
+        "revision": {
+          "minimum": 0,
+          "title": "Revision",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "event_type",
+        "platform_id",
+        "locale",
+        "subject",
+        "text",
+        "enabled",
+        "custom",
+        "revision"
+      ],
+      "title": "NotificationTemplateView",
+      "type": "object"
+    },
+    "PublicResponse_NotificationInbox_": {
+      "additionalProperties": false,
+      "properties": {
+        "success": {
+          "default": true,
+          "title": "Success",
+          "type": "boolean"
+        },
+        "code": {
+          "default": 200,
+          "title": "Code",
+          "type": "integer"
+        },
+        "msg": {
+          "default": "请求成功",
+          "title": "Msg",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/NotificationInbox"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "title": "PublicResponse[NotificationInbox]",
+      "type": "object"
+    },
+    "PublicResponse_NotificationState_": {
+      "additionalProperties": false,
+      "properties": {
+        "success": {
+          "default": true,
+          "title": "Success",
+          "type": "boolean"
+        },
+        "code": {
+          "default": 200,
+          "title": "Code",
+          "type": "integer"
+        },
+        "msg": {
+          "default": "请求成功",
+          "title": "Msg",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/NotificationState"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "title": "PublicResponse[NotificationState]",
+      "type": "object"
+    },
+    "SaveNotificationRoutes": {
+      "additionalProperties": false,
+      "properties": {
+        "expected_revision": {
+          "minimum": 1,
+          "title": "Expected Revision",
+          "type": "integer"
+        },
+        "routes": {
+          "items": {
+            "$ref": "#/$defs/NotificationRouteInput"
+          },
+          "maxItems": 100,
+          "title": "Routes",
+          "type": "array"
+        }
+      },
+      "required": [
+        "expected_revision",
+        "routes"
+      ],
+      "title": "SaveNotificationRoutes",
+      "type": "object"
+    },
+    "SaveNotificationTemplate": {
+      "additionalProperties": false,
+      "properties": {
+        "expected_revision": {
+          "minimum": 1,
+          "title": "Expected Revision",
+          "type": "integer"
+        },
+        "event_type": {
+          "maxLength": 120,
+          "minLength": 1,
+          "title": "Event Type",
+          "type": "string"
+        },
+        "platform_id": {
+          "maxLength": 120,
+          "minLength": 1,
+          "title": "Platform Id",
+          "type": "string"
+        },
+        "locale": {
+          "pattern": "^[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*$",
+          "title": "Locale",
+          "type": "string"
+        },
+        "subject": {
+          "default": "",
+          "maxLength": 300,
+          "title": "Subject",
+          "type": "string"
+        },
+        "text": {
+          "default": "",
+          "maxLength": 10000,
+          "title": "Text",
+          "type": "string"
+        },
+        "enabled": {
+          "default": true,
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "reset": {
+          "default": false,
+          "title": "Reset",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "expected_revision",
+        "event_type",
+        "platform_id",
+        "locale"
+      ],
+      "title": "SaveNotificationTemplate",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "state": {
+      "$ref": "#/$defs/PublicResponse_NotificationState_"
+    },
+    "routes": {
+      "$ref": "#/$defs/SaveNotificationRoutes"
+    },
+    "template": {
+      "$ref": "#/$defs/SaveNotificationTemplate"
+    },
+    "inbox": {
+      "$ref": "#/$defs/PublicResponse_NotificationInbox_"
+    },
+    "mark_read": {
+      "$ref": "#/$defs/MarkNotificationsRead"
+    }
+  },
+  "required": [
+    "state",
+    "routes",
+    "template",
+    "inbox",
+    "mark_read"
+  ],
+  "title": "NotificationsContract",
+  "type": "object",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "x-everunfold-contract-version": "1.0.0",
+  "x-everunfold-operations": [
+    {
+      "name": "readNotificationState",
+      "path": "/v1/admin/notifications/state",
+      "method": "GET",
+      "response": "state"
+    },
+    {
+      "name": "saveNotificationRoutes",
+      "path": "/v1/admin/notifications/routes",
+      "method": "PATCH",
+      "input": "routes",
+      "response": "state"
+    },
+    {
+      "name": "saveNotificationTemplate",
+      "path": "/v1/admin/notifications/templates",
+      "method": "PATCH",
+      "input": "template",
+      "response": "state"
+    },
+    {
+      "name": "readNotificationInbox",
+      "path": "/v1/admin/notifications/inbox",
+      "method": "GET",
+      "response": "inbox"
+    },
+    {
+      "name": "markNotificationsRead",
+      "path": "/v1/admin/notifications/inbox",
+      "method": "PATCH",
+      "input": "mark_read",
+      "response": "inbox"
+    }
+  ]
+}

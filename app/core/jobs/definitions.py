@@ -48,6 +48,14 @@ class TaskDefinition:
 
 BUILTINS = (
     TaskDefinition(
+        "core.notifications",
+        "通知投递",
+        "app.modules.notifications.jobs:deliver",
+        interval=3,
+        timeout=180,
+        enabled=True,
+    ),
+    TaskDefinition(
         "core.mail-test",
         "测试邮件发送",
         "app.modules.settings.mail_delivery:deliver_test",

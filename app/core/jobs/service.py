@@ -94,7 +94,13 @@ async def reconcile(session: AsyncSession) -> None:
         select(TaskRun.id)
         .where(
             TaskRun.task_id.in_(
-                ["core.settings", "core.callbacks", "core.publication", "core.mail-test"]
+                [
+                    "core.notifications",
+                    "core.settings",
+                    "core.callbacks",
+                    "core.publication",
+                    "core.mail-test",
+                ]
             ),
             TaskRun.status == "succeeded",
             TaskRun.planned_at < now() - timedelta(hours=1),
