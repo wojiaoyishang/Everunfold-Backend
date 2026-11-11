@@ -22,6 +22,7 @@ from app.core.locales import (
 )
 
 logger = logging.getLogger(__name__)
+placeholder_pattern = re.compile(r"(?<!\{)\{([^{}]+)\}(?!\})")
 current_locale: ContextVar[str] = ContextVar("site_locale", default=DEFAULT_LOCALE)
 current_fallback_locale: ContextVar[Locale] = ContextVar(
     "site_fallback_locale", default=DEFAULT_LOCALE
@@ -69,23 +70,48 @@ class I18n:
         self.load()
         selected = locale or current_locale.get()
         fallback = resolve_locale(locale) if locale else current_fallback_locale.get()
-        value = self._overrides.get("backend", {}).get(selected, {}).get(key)
-        if value is None:
-            value = self._catalogs.get(selected, {}).get(key)
-        if value is None and fallback != selected:
-            value = self._catalogs.get(fallback, {}).get(key)
+        candidates = [
+            self._overrides.get("backend", {}).get(selected, {}).get(key),
+            self._catalogs.get(selected, {}).get(key),
+        ]
+        if fallback != selected:
+            candidates.append(self._catalogs.get(fallback, {}).get(key))
+        value = next(
+            (
+                candidate
+                for candidate in candidates
+                if isinstance(candidate, str) and candidate.strip()
+            ),
+            None,
+        )
         if value is None:
             logger.warning("missing_translation key=%s locale=%s", key, selected)
             value = self._catalogs.get(DEFAULT_LOCALE, {}).get(key, key)
         if not params:
             return str(value)
-        fields = re.findall(r"(?<!\{)\{([^{}]+)\}(?!\})", value)
-        if any(not field.isidentifier() or field not in params for field in fields) or any(
-            not isinstance(value, (str, int, float, bool, type(None))) for value in params.values()
-        ):
-            logger.warning("invalid_translation_parameters key=%s", key)
-            return key
-        return str(value).format_map(params)
+
+        def replace(match: re.Match[str]) -> str:
+            field = match.group(1)
+            if not field.isidentifier() or field not in params:
+                logger.warning(
+                    "missing_translation_parameter key=%s locale=%s field=%s",
+                    key,
+                    selected,
+                    field,
+                )
+                return match.group(0)
+            parameter = params[field]
+            if not isinstance(parameter, (str, int, float, bool, type(None))):
+                logger.warning(
+                    "invalid_translation_parameter key=%s locale=%s field=%s",
+                    key,
+                    selected,
+                    field,
+                )
+                return match.group(0)
+            return str(parameter)
+
+        return placeholder_pattern.sub(replace, str(value))
 
     def replace_overrides(self, scope: str, values: dict[str, dict[str, str]]) -> None:
         self._overrides[scope] = MappingProxyType(

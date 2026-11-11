@@ -169,8 +169,9 @@ class TranslationService:
                 raise AuthFailure(422, 42299, "同一翻译项不能重复提交")
             seen.add(identity)
             value = (change.value or "").strip()
-            if value and placeholders(value) != placeholders(source):
-                raise AuthFailure(422, 42299, "翻译占位符必须与原文一致")
+            expected_placeholders = placeholders(source)
+            if value and any(field not in expected_placeholders for field in placeholders(value)):
+                raise AuthFailure(422, 42299, "翻译包含原文中不存在的占位符")
             row = existing.get(identity)
             if not value:
                 if row is not None:

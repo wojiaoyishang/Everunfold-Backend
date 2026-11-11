@@ -74,18 +74,37 @@ def test_translation_overrides_feed_public_settings_and_reset_cleanly(
                     "locale": "en",
                     "key": "已选 {count} 项",
                     "source": "已选 {count} 项",
-                    "value": "Selected",
+                    "value": "Selected {unknown}",
                 }
             ],
         },
     )
     assert invalid.status_code == 422
 
-    reset = ctx.root.patch(
+    optional = ctx.root.patch(
         base,
         headers=headers(ctx.root),
         json={
             "expected_revision": 2,
+            "changes": [
+                {
+                    "scope": "admin",
+                    "locale": "en",
+                    "key": "已选 {count} 项",
+                    "source": "已选 {count} 项",
+                    "value": "Selected",
+                }
+            ],
+        },
+    )
+    assert optional.status_code == 200, optional.text
+    assert optional.json()["data"]["revision"] == 3
+
+    reset = ctx.root.patch(
+        base,
+        headers=headers(ctx.root),
+        json={
+            "expected_revision": 3,
             "changes": [
                 {
                     "scope": "public",

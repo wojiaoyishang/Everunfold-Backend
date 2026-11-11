@@ -25,6 +25,27 @@ def test_locale_messages_and_missing_fallback(caplog: object) -> None:
         current_locale.reset(token)
 
 
+def test_templates_never_raise_for_missing_or_extra_content() -> None:
+    try:
+        i18n.replace_overrides(
+            "backend",
+            {
+                "en": {
+                    "test.template": "Hello {{name}} {count}",
+                    "core.success": "   ",
+                }
+            },
+        )
+        assert i18n.t("test.template", locale="en") == "Hello {{name}} {count}"
+        assert i18n.t("test.template", locale="en", count=2) == "Hello {{name}} 2"
+        assert i18n.t("core.success", locale="en") == "Request successful"
+        assert (
+            i18n.t("test.template", locale="en", count={"unsafe": True}) == "Hello {{name}} {count}"
+        )
+    finally:
+        i18n.replace_overrides("backend", {})
+
+
 def test_concurrent_locale_contexts_are_isolated() -> None:
     async def job(locale: str) -> str:
         token = current_locale.set(locale)  # type: ignore[arg-type]
