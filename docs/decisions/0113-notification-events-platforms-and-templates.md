@@ -1,6 +1,6 @@
 # ADR0113：通知事件、平台插件与通知模板
 
-日期：2026-11-11。状态：实施中。
+日期：2026-11-11。状态：第一版已实施。
 
 ## 背景
 
@@ -23,7 +23,7 @@
 
 - `notification_events` 保存不可变事件与受限模板数据。
 - `notification_routes` 保存事件、接收人策略、平台和模板键。
-- `notification_templates` 保存事件/平台/语言的草稿与发布变体。
+- `notification_templates` 保存事件/平台/语言的启用状态、受限文本和修订。
 - `notification_deliveries` 保存逐接收人、逐平台投递状态、幂等键、租约与重试。
 - `notification_inbox` 保存站内消息和读取状态。
 

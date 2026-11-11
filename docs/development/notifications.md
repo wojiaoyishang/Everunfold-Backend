@@ -46,7 +46,6 @@ registry.notifications.register(
         id="example.sms",
         title="短信通知",
         kind="direct",
-        input="message",
         delivery_semantics="idempotent",
         deliver=send_sms,
     )
