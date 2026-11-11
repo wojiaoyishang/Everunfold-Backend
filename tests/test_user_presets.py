@@ -106,7 +106,6 @@ def test_preset_crud_application_keeps_existing_users_and_legacy_retries(
             "role": "user",
             "active": True,
             "preset": body["preset"],
-            "current_password": PASSWORD,
         },
     )
     assert stale.status_code == 409 and stale.json()["code"] == 40970
