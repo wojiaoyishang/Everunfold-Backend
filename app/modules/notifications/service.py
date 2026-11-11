@@ -191,7 +191,7 @@ class NotificationService:
                             locale=locale,
                             subject=row.subject if row and row.subject else fallback.subject,
                             text=row.text if row and row.text else fallback.text,
-                            html=row.html if row else "",
+                            html=row.html if row else fallback.html,
                             href=fallback.href,
                             enabled=row.enabled if row else True,
                             custom=bool(row),
@@ -434,7 +434,7 @@ class NotificationService:
                     fallback.href,
                 )
         fallback = default_template(event_type, platform_id, locale)
-        return None, fallback.subject, fallback.text, "", fallback.href
+        return None, fallback.subject, fallback.text, fallback.html, fallback.href
 
     async def _recipients(self, route: NotificationRoute) -> list[User]:
         if route.recipient_type == "user":
