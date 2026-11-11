@@ -10,7 +10,7 @@
 | captcha-v1.schema.json | 1.4.0 | 验证码策略、挑战/阅读/评论校验与受限页面投影 |
 | collaboration-v1.schema.json | 2.6.0 | 持久协同、源码租约、光标/合并暂停及提交回执拥有者字段 |
 | comment-likes-v0.1.schema.json | 0.2.0 | 匿名历史评论点赞 |
-| content-access-v1.schema.json | 1.4.0 | 私有受限正文读取 |
+| content-access-v1.schema.json | 1.5.0 | 私有受限正文读取，包含逐内容图片查看设置 |
 | content-admin-v1.schema.json | 1.20.0 | 草稿、语言/导航、逐内容图片查看/术语设置、修订/分支/合并与页面预览 |
 | glossary-v1.schema.json | 3.7.0 | 术语索引/详情、特色图片/图片查看开关、按内容匹配与跨页面 DOM/脚本触发 |
 | operations-v1.schema.json | 1.0.0 | 设置、任务与邮件等管理操作元数据 |

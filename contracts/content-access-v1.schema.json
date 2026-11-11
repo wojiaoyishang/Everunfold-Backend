@@ -97,6 +97,21 @@
           "title": "Comments Open",
           "type": "boolean"
         },
+        "show_image_viewer": {
+          "default": true,
+          "title": "Show Image Viewer",
+          "type": "boolean"
+        },
+        "show_glossary_tooltips": {
+          "default": true,
+          "title": "Show Glossary Tooltips",
+          "type": "boolean"
+        },
+        "show_glossary_footnotes": {
+          "default": true,
+          "title": "Show Glossary Footnotes",
+          "type": "boolean"
+        },
         "allow_indexing": {
           "default": true,
           "title": "Allow Indexing",
@@ -561,7 +576,7 @@
   "title": "ContentAccessContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "1.4.0",
+  "x-everunfold-contract-version": "1.5.0",
   "x-everunfold-reader-authorization": {
     "optional_api_key": true,
     "audience": "everunfold",
