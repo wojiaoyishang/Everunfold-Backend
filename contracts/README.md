@@ -7,8 +7,8 @@
 | auth-v0.1.schema.json | 0.3.0 | Cookie Session、CSRF、当前身份/授权、强制改密状态 |
 | accounts-v1.schema.json | 1.5.0 | 私有资料、会话/密码、用户/授权、身份预设、Key/应用与受限头像库 |
 | api-key-protocol-v1.schema.json | 1.0.0 | 应用签名校验、最小响应、签名回调/ACK与缓存边界 |
-| captcha-v1.schema.json | 1.4.0 | 验证码策略、挑战/阅读/评论校验与受限页面投影 |
-| collaboration-v1.schema.json | 2.6.0 | 持久协同、源码租约、光标/合并暂停及提交回执拥有者字段 |
+| captcha-v1.schema.json | 1.5.0 | 验证码策略、挑战/阅读/评论校验与受限页面图片查看投影 |
+| collaboration-v1.schema.json | 2.7.0 | 持久协同、逐内容图片查看、源码租约、光标/合并暂停及提交回执拥有者字段 |
 | comment-likes-v0.1.schema.json | 0.2.0 | 匿名历史评论点赞 |
 | content-access-v1.schema.json | 1.5.0 | 私有受限正文读取，包含逐内容图片查看设置 |
 | content-admin-v1.schema.json | 1.20.0 | 草稿、语言/导航、逐内容图片查看/术语设置、修订/分支/合并与页面预览 |
