@@ -255,6 +255,23 @@ def test_routes_templates_inbox_and_uncertain_delivery_are_durable(tmp_path: Pat
                 and item["locale"] == "zh-CN"
             )
             assert custom["subject"] == "新评论：{{resource.title}}" and custom["custom"]
+            html_template = client.patch(
+                "/v1/admin/notifications/templates",
+                json={
+                    "expected_revision": 3,
+                    "event_type": "comment.pending_review",
+                    "platform_id": "email",
+                    "locale": "zh-CN",
+                    "subject": "HTML：{{resource.title}}",
+                    "text": "{{actor.name}} 提交了评论",
+                    "html": "<p>{{actor.name}}</p><script>alert(1)</script>",
+                    "enabled": True,
+                    "reset": False,
+                },
+                headers=headers(client),
+            )
+            assert html_template.status_code == 200, html_template.text
+            assert html_template.json()["data"]["revision"] == 4
 
             async def exercise() -> None:
                 database = Database(settings.database.url.get_secret_value())
@@ -360,6 +377,8 @@ def test_routes_templates_inbox_and_uncertain_delivery_are_durable(tmp_path: Pat
                             and email.status == "suppressed"
                             and email.mail_profile_id == str(mail_profile_id)
                         )
+                        assert email.html == "<p>Reader</p>"
+                        assert "script" not in email.html
                         audits = await session.scalar(
                             select(func.count(SettingsAudit.id)).where(
                                 SettingsAudit.resource.in_(
@@ -367,7 +386,7 @@ def test_routes_templates_inbox_and_uncertain_delivery_are_durable(tmp_path: Pat
                                 )
                             )
                         )
-                        assert audits == 2
+                        assert audits == 3
                 finally:
                     await database.close()
 
