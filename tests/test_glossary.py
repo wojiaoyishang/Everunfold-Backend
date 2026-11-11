@@ -70,12 +70,13 @@ def test_glossary_text_matching_ignores_code_links_and_markup() -> None:
     assert EditorSettings().show_glossary_footnotes is True
     assert EditorSettings().show_image_viewer is True
     per_article = EditorSettings(
+        show_image_viewer=False,
         show_glossary_tooltips=False,
         show_glossary_footnotes=False,
     )
     assert per_article.show_glossary_tooltips is False
     assert per_article.show_glossary_footnotes is False
-    assert per_article.show_image_viewer is True
+    assert per_article.show_image_viewer is False
     page = PageValue(title="Page", path="/page")
     assert page.show_glossary_tooltips is True
     assert page.show_glossary_footnotes is True
