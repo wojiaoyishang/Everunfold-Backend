@@ -150,6 +150,7 @@ def send_message(
     subject: str,
     content: str,
     on_event: Callable[[MailEvent], None] | None = None,
+    html_content: str = "",
 ) -> tuple[str, str | None]:
     client: LoggedSMTP | LoggedSMTPSSL | None = None
     trace = Transcript(value.username, password, on_event)
@@ -220,6 +221,8 @@ def send_message(
         if value.reply_to:
             message["Reply-To"] = value.reply_to
         message.set_content(content)
+        if html_content:
+            message.add_alternative(html_content, subtype="html")
         remaining()
         trace.phase("envelope", "Submitting the sender and recipient envelope.")
         code, _ = client.mail(value.from_address)
@@ -291,5 +294,14 @@ def send_notification(
     identity: UUID,
     subject: str,
     content: str,
+    html_content: str = "",
 ) -> tuple[str, str | None]:
-    return send_message(value, password, recipient, identity, subject, content)
+    return send_message(
+        value,
+        password,
+        recipient,
+        identity,
+        subject,
+        content,
+        html_content=html_content,
+    )

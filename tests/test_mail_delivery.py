@@ -32,7 +32,7 @@ from app.modules.settings.mail_schemas import (
 )
 from app.modules.settings.mail_service import MailSettingsService
 from app.modules.settings.mail_test_service import MailTestService
-from app.modules.settings.mail_transport import send_test
+from app.modules.settings.mail_transport import send_notification, send_test
 from app.modules.settings.models import MailTestDelivery
 from app.modules.settings.service import SettingsService
 from tests.test_settings_processes import background, toml_text, wait_for
@@ -127,6 +127,23 @@ def test_starttls_never_falls_back_to_plaintext():
             "unsupported",
         )
         assert messages == []
+
+
+def test_html_notification_is_multipart_with_plain_text_fallback():
+    with smtp_server() as (port, messages):
+        assert send_notification(
+            preferences(port),
+            "",
+            "reader@example.test",
+            uuid4(),
+            "HTML notification",
+            "Plain fallback",
+            "<p><strong>HTML body</strong></p>",
+        ) == ("sent", None)
+        assert len(messages) == 1
+        assert b"multipart/alternative" in messages[0]
+        assert b"text/plain" in messages[0] and b"Plain fallback" in messages[0]
+        assert b"text/html" in messages[0] and b"<strong>HTML body</strong>" in messages[0]
 
 
 @pytest.mark.skipif(

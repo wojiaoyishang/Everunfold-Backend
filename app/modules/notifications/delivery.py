@@ -144,6 +144,7 @@ async def _deliver_one(config: Settings, identity: UUID, lease: UUID) -> tuple[s
                             row.id,
                             row.subject,
                             row.text,
+                            row.html,
                         ),
                         timeout=budget,
                     )

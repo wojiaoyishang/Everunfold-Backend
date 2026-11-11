@@ -38,7 +38,13 @@ from app.modules.notifications.platforms import (
     NotificationDeliveryResult,
     NotificationPlatform,
 )
-from app.modules.notifications.render import header_value, render_template, text_html
+from app.modules.notifications.render import (
+    header_value,
+    render_html_template,
+    render_template,
+    sanitize_email_html,
+    text_html,
+)
 from app.modules.notifications.service import NotificationService, publish_event
 from app.modules.settings.models import SettingsAudit
 from tests.test_accounts import ORIGIN, PASSWORD, headers, signed_in
@@ -63,6 +69,24 @@ def test_templates_are_restricted_interpolation_and_missing_values_are_safe() ->
     assert "&lt;script&gt;" in text_html("<script>")
     assert header_value("Title\r\nBcc: victim@example.test") == "Title Bcc: victim@example.test"
     assert default_template("comment.pending_review", "in-app", "fr").subject == "评论待审核"
+    assert (
+        render_html_template(
+            "<p>{{actor.name}}</p>",
+            {"actor": {"name": "<strong>Reader</strong>"}},
+        )
+        == "<p>&lt;strong&gt;Reader&lt;/strong&gt;</p>"
+    )
+    sanitized = sanitize_email_html(
+        '<p onclick="alert(1)" style="color:red">Hello'
+        "<script>alert(1)</script>"
+        '<a href="javascript:alert(1)">link</a>'
+        '<img src="https://example.test/image.png" onerror="alert(1)">'
+        "</p>"
+    )
+    assert 'style="color:red"' in sanitized
+    assert "onclick" not in sanitized and "onerror" not in sanitized
+    assert "javascript:" not in sanitized and "<script" not in sanitized
+    assert 'src="https://example.test/image.png"' in sanitized
 
 
 def test_plugin_notification_platform_registration_is_atomic_and_namespaced(

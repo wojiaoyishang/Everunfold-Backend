@@ -56,6 +56,7 @@ class NotificationTemplateView(PublicModel):
     locale: str
     subject: str
     text: str
+    html: str = ""
     href: str = ""
     enabled: bool
     custom: bool
@@ -69,6 +70,7 @@ class SaveNotificationTemplate(PublicModel):
     locale: str = Field(pattern=r"^[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*$")
     subject: str = Field(default="", max_length=300)
     text: str = Field(default="", max_length=10000)
+    html: str = Field(default="", max_length=100000)
     enabled: bool = True
     reset: bool = False
 
