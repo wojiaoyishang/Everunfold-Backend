@@ -1,12 +1,13 @@
 # 后端交接状态
 
-## 最新交付：后台信息架构、主题导航与术语特色图片（2026-11-10）
+## 最新交付：后台信息架构、主题导航与术语特色图片（2026-11-11）
 
-- 后端`e904723`、前端`42ba9d5`/`3245b4d`。`ThemePreferences` 新增可选 `navigation`，当前主题通过 `theme_options[themeId].navigation` 保存独立菜单；公开站点优先使用当前主题导航，`site.navigation` 仅作旧数据兼容回退。`settings-v1`升至`1.29.0`。后台设置组直接展示各入口，不再使用父/子菜单。
+- 后端`e904723`、前端`42ba9d5`/`3245b4d`/`66bb668`。`ThemePreferences` 新增可选 `navigation`，当前主题通过 `theme_options[themeId].navigation` 保存独立菜单；公开站点优先使用当前主题导航，`site.navigation` 仅作旧数据兼容回退。`settings-v1`升至`1.29.0`。后台设置组直接展示各入口，不再使用父/子菜单。
 - 术语新增 `feature_media_id`，仅接受媒体库中可用图片并返回解析后的 `feature_image`；公开索引批量解析图片。迁移`0041_glossary_feature_image`已显式应用开发库与隔离测试库，数据库头升级为0041；正文媒体和特色图都纳入媒体删除引用检查。`glossary-v1`升至`3.5.0`，插件升至1.6.0。
 - 后台菜单在可信前端注册表中重排，后端路由、权限和地址保持不变；设置分组新增 `/admin/settings/navigation` 的前端入口，由主题设置 profile 承载数据。
 - 后端真实库完整342项通过，包含主题导航公开投影、特色图片上传/创建/更新、公开目录/详情/文章命中；Ruff、638文件格式、223文件mypy、`alembic check`通过。前端359项与读者/管理端隔离生产验收通过。
 - 插件目录已重新登记并排队设置投递，六个服务与四端口HTTP就绪。仅本地提交，未push；未迁移文章或WordPress。多语言自定义字符串与邮件模板仅记录为后续信息架构，不创建空实现。
+- 排查“同步待重试”：`public-settings` revision 51因receiver仍加载旧设置契约连续返回409；当前载荷已用新契约验证通过。重启receiver与Worker后revision 51已应用，`cache-policy` revision 1也已应用，错误为空。
 
 ## 最新交付：多语言导航、术语页面钩子与逐内容设置（2026-11-10）
 
