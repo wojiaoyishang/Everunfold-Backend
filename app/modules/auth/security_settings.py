@@ -23,7 +23,11 @@ ACCESS_KEY = "_access_private"
 
 
 def configured_sender(data: dict[str, Any]) -> str | None:
-    return data.get(ACCESS_KEY, {}).get("mail_profile_id")
+    config = data.get(ACCESS_KEY)
+    if not isinstance(config, dict):
+        return None
+    sender = config.get("mail_profile_id")
+    return sender if isinstance(sender, str) else None
 
 
 def access_state(data: dict[str, Any]) -> AccessSettingsState:

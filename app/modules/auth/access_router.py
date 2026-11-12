@@ -19,7 +19,7 @@ from app.modules.auth.service import AuthFailure
 router = APIRouter(
     prefix="/v1/admin/access",
     tags=["access"],
-    responses={code: {"model": ErrorResponse} for code in (401, 403, 409, 422, 500, 503)},
+    responses={code: {"model": ErrorResponse} for code in (401, 403, 404, 409, 422, 500, 503)},
 )
 
 

@@ -4,6 +4,7 @@ import hashlib
 import hmac
 import secrets
 from datetime import UTC, datetime, timedelta
+from math import ceil
 from typing import cast
 from uuid import UUID
 
@@ -30,6 +31,7 @@ from app.modules.settings.mail_service import (
 
 CODE_TTL = timedelta(minutes=15)
 SEND_COOLDOWN = timedelta(seconds=60)
+SEND_WINDOW = timedelta(hours=1)
 ACTIVE_STATES = ("queued", "sending", "sent")
 
 
@@ -44,14 +46,14 @@ def verification_state(row: EmailVerification) -> EmailVerificationState:
         status = "expired"
     elif status == "failed" and row.error in {"interrupted", "delivery_unknown"}:
         status = "unknown"
+    elif status == "failed" and row.error == "too_many_attempts":
+        status = "expired"
     return EmailVerificationState(
         request_id=row.id,
         email=row.email,
         status=cast(EmailVerificationStatus, status),
         expires_at=row.expires_at,
-        retry_after_seconds=max(
-            0, int((row.created_at + SEND_COOLDOWN - now).total_seconds() + 0.999)
-        ),
+        retry_after_seconds=max(0, ceil((row.created_at + SEND_COOLDOWN - now).total_seconds())),
     )
 
 
@@ -94,16 +96,23 @@ class EmailVerificationService:
                 "验证码发送过于频繁，请稍后再试",
                 verification_state(latest).retry_after_seconds,
             )
-        count = await self.session.scalar(
-            select(func.count())
-            .select_from(EmailVerification)
-            .where(
-                EmailVerification.user_id == actor.id,
-                EmailVerification.created_at >= now - timedelta(hours=1),
+        count, oldest = (
+            await self.session.execute(
+                select(func.count(), func.min(EmailVerification.created_at))
+                .select_from(EmailVerification)
+                .where(
+                    EmailVerification.user_id == actor.id,
+                    EmailVerification.created_at > now - SEND_WINDOW,
+                )
             )
-        )
-        if count and count >= 5:
-            raise AuthFailure(429, 42972, "验证码请求次数较多，请稍后再试")
+        ).one()
+        if count >= 5 and oldest is not None:
+            raise AuthFailure(
+                429,
+                42972,
+                "验证码请求次数较多，请稍后再试",
+                ceil((oldest + SEND_WINDOW - now).total_seconds()),
+            )
 
         site = await self.session.get(SiteSettings, 1)
         data = site.data if site else {}

@@ -5,6 +5,7 @@ import os
 import subprocess
 import sys
 import tomllib
+from datetime import UTC, datetime, timedelta
 from email import message_from_bytes
 from email import policy as email_policy
 from pathlib import Path
@@ -13,11 +14,13 @@ from uuid import uuid4
 import asyncpg  # type: ignore[import-untyped]
 import pytest
 from anyio import CapacityLimiter
-from sqlalchemy import select
+from fastapi.testclient import TestClient
+from sqlalchemy import select, update
 from sqlalchemy.engine import make_url
 
 from app.core.config import load_settings
 from app.core.database import Database
+from app.entrypoints.api import create_app
 from app.modules.auth.accounts_schemas import (
     AccountProfile,
     EmailVerificationConfirm,
@@ -30,12 +33,12 @@ from app.modules.auth.bootstrap import seed_admin
 from app.modules.auth.email_verification_delivery import deliver
 from app.modules.auth.email_verification_models import EmailVerification
 from app.modules.auth.email_verification_service import EmailVerificationService
-from app.modules.auth.models import User
+from app.modules.auth.models import AuthAuditEvent, User
 from app.modules.auth.service import AuthFailure, AuthService
 from app.modules.settings.mail_schemas import MailSenderProfileInput, SaveMailSettings
 from app.modules.settings.mail_service import MailSettingsService
 from app.modules.settings.service import SettingsService
-from tests.test_accounts import PASSWORD
+from tests.test_accounts import ORIGIN, PASSWORD, headers, signed_in
 from tests.test_mail_delivery import preferences, smtp_server
 from tests.test_settings_processes import toml_text
 
@@ -48,6 +51,7 @@ ROOT = Path(__file__).resolve().parents[1]
 )
 def test_email_verification_is_one_time_rate_limited_and_clears_after_change(
     tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     original = load_settings(ROOT / "config.test.local.toml")
     original_url = make_url(original.database.url.get_secret_value())
@@ -57,6 +61,7 @@ def test_email_verification_is_one_time_rate_limited_and_clears_after_change(
     raw["database"]["url"] = original_url.set(database=name).render_as_string(hide_password=False)
     raw["redis"]["namespace_scope"] = "email-verify-" + uuid4().hex
     raw["frontends"] = {}
+    raw["cors"]["allowed_origins"] = [ORIGIN]
     config_file = tmp_path / "backend.local.toml"
     config_file.write_text(toml_text(raw))
     env = {
@@ -66,6 +71,7 @@ def test_email_verification_is_one_time_rate_limited_and_clears_after_change(
     }
     settings = load_settings(config_file)
     username = "verify_" + uuid4().hex
+    delegated_name = username + "_manager"
     try:
         initialized = subprocess.run(
             [sys.executable, "init.database.py", "--config", str(config_file)],
@@ -77,7 +83,36 @@ def test_email_verification_is_one_time_rate_limited_and_clears_after_change(
         )
         assert initialized.returncode == 0, initialized.stderr
         asyncio.run(seed_admin(settings, username, PASSWORD))
-        with smtp_server() as (port, messages):
+        asyncio.run(seed_admin(settings, delegated_name, PASSWORD))
+        monkeypatch.setattr(
+            "app.modules.captcha.service.generate_image",
+            lambda: ("QA42", "data:image/png;base64,AA=="),
+        )
+        with (
+            smtp_server() as (port, messages),
+            TestClient(create_app(settings)) as client,
+        ):
+            signed_in(client, username)
+            access_path = "/v1/admin/access/settings"
+            request_path = "/v1/account/email-verification/request"
+            request_prefix = "/v1/account/email-verification/"
+            captcha_path = "/v1/reader/captcha/challenge"
+
+            def email_captcha() -> dict[str, str]:
+                client_id = str(uuid4())
+                response = client.post(
+                    captcha_path,
+                    json={"action": "email_verification", "client_id": client_id},
+                    headers={"Origin": ORIGIN},
+                )
+                assert response.status_code == 200
+                data = response.json()["data"]
+                assert data["required"] is True
+                return {
+                    "challenge_id": data["challenge_id"],
+                    "client_id": client_id,
+                    "answer": "QA42",
+                }
 
             async def exercise() -> None:
                 database = Database(settings.database.url.get_secret_value())
@@ -100,7 +135,46 @@ def test_email_verification_is_one_time_rate_limited_and_clears_after_change(
                             ),
                             user.id,
                         )
+                        await session.execute(
+                            update(User)
+                            .where(User.username == delegated_name)
+                            .values(role="user", grants={"everunfold": {"users:manage": "all"}})
+                        )
+                        await session.commit()
                     operation_id = uuid4()
+                    access = client.get(access_path).json()["data"]
+                    sender = access["mail_profiles"][0]["id"]
+                    policy = {
+                        "expected_revision": access["revision"],
+                        "login_captcha": False,
+                        "email_verification_captcha": True,
+                        "mail_profile_id": sender,
+                    }
+                    saved = client.patch(access_path, json=policy, headers=headers(client))
+                    assert saved.status_code == 200
+                    assert saved.json()["data"]["mail_profile_id"] == sender
+                    assert (
+                        client.patch(access_path, json=policy, headers=headers(client)).status_code
+                        == 409
+                    )
+                    payload = {"operation_id": str(operation_id), "email": "verified@example.test"}
+                    refused = client.post(request_path, json=payload, headers=headers(client))
+                    assert refused.status_code == 403
+                    queued = client.post(
+                        request_path,
+                        json={**payload, "captcha": email_captcha()},
+                        headers=headers(client),
+                    )
+                    assert queued.status_code == 200
+                    assert queued.json()["data"]["status"] == "queued"
+                    status_path = request_prefix + str(operation_id)
+                    assert client.get(status_path).json()["data"]["status"] == "queued"
+                    retry = client.post(
+                        request_path,
+                        json={**payload, "operation_id": str(uuid4()), "captcha": email_captcha()},
+                        headers=headers(client),
+                    )
+                    assert retry.status_code == 429 and 0 < int(retry.headers["Retry-After"]) <= 60
                     async with database.session_factory() as session:
                         user = await session.scalar(select(User).where(User.username == username))
                         assert user is not None
@@ -126,6 +200,7 @@ def test_email_verification_is_one_time_rate_limited_and_clears_after_change(
                         assert limited.value.status == 429
                     await deliver(settings)
                     assert len(messages) == 1
+                    assert client.get(status_path).json()["data"]["status"] == "sent"
                     message = message_from_bytes(messages[0], policy=email_policy.default)
                     assert code in message.get_content()
                     async with database.session_factory() as session:
@@ -158,6 +233,7 @@ def test_email_verification_is_one_time_rate_limited_and_clears_after_change(
                         assert isinstance(verified, AccountProfile)
                         assert verified.email == "verified@example.test"
                         assert verified.email_verified is True
+                        assert verified.email_verification_source == "mailbox"
                     async with database.session_factory() as session:
                         user = await session.scalar(select(User).where(User.username == username))
                         assert user is not None
@@ -178,6 +254,79 @@ def test_email_verification_is_one_time_rate_limited_and_clears_after_change(
                             ),
                         )
                         assert changed.email_verified is False
+                    review = f"/v1/admin/users/{changed.id}/email-verification"
+                    with TestClient(create_app(settings)) as delegated:
+                        member = signed_in(delegated, delegated_name)["user"]
+                        assert delegated.get("/v1/admin/users").status_code == 200
+                        assert delegated.get(access_path).status_code == 403
+                        member_path = f"/v1/admin/users/{member['id']}"
+                        member_revision = delegated.get(member_path).json()["data"]["revision"]
+                        forbidden = delegated.post(
+                            member_path + "/email-verification",
+                            json={
+                                "operation_id": str(uuid4()),
+                                "expected_revision": member_revision,
+                                "action": "approve",
+                                "reason": "Ordinary user management does not permit this",
+                            },
+                            headers=headers(delegated),
+                        )
+                        assert forbidden.status_code == 403
+                        assert forbidden.json()["code"] == 40374
+                    approved = client.post(
+                        review,
+                        json={
+                            "operation_id": str(uuid4()),
+                            "expected_revision": changed.revision,
+                            "action": "approve",
+                            "reason": "Verified through support",
+                        },
+                        headers=headers(client),
+                    )
+                    assert approved.status_code == 200
+                    approval = approved.json()["data"]
+                    assert approval["email_verification_source"] == "admin"
+                    assert approval["email_verified"] is False
+                    async with database.session_factory() as session:
+                        await session.execute(
+                            update(EmailVerification)
+                            .where(EmailVerification.id == operation_id)
+                            .values(created_at=datetime.now(UTC) - timedelta(minutes=2))
+                        )
+                        await session.commit()
+                    replacement = client.post(
+                        request_path,
+                        json={**payload, "operation_id": str(uuid4()), "captcha": email_captcha()},
+                        headers=headers(client),
+                    )
+                    assert replacement.status_code == 200
+                    revoked = client.post(
+                        review,
+                        json={
+                            "operation_id": str(uuid4()),
+                            "expected_revision": approval["revision"],
+                            "action": "revoke",
+                            "reason": "Mailbox control lost",
+                        },
+                        headers=headers(client),
+                    )
+                    assert revoked.status_code == 200
+                    assert revoked.json()["data"]["email_verification_source"] is None
+                    replacement_id = replacement.json()["data"]["request_id"]
+                    assert (
+                        client.get(request_prefix + replacement_id).json()["data"]["status"]
+                        == "expired"
+                    )
+                    assert await deliver(settings) == {"processed": 0}
+                    async with database.session_factory() as session:
+                        audit = await session.scalar(
+                            select(AuthAuditEvent).where(
+                                AuthAuditEvent.target_user_id == changed.id,
+                                AuthAuditEvent.action == "email_review_revoke",
+                            )
+                        )
+                        assert audit is not None and audit.user_id == changed.id
+                        assert audit.details["reason"] == "Mailbox control lost"
                 finally:
                     await database.close()
 
