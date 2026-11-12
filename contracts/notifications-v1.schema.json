@@ -171,6 +171,16 @@
           },
           "title": "Variables",
           "type": "array"
+        },
+        "email_only": {
+          "default": false,
+          "title": "Email Only",
+          "type": "boolean"
+        },
+        "requires_code": {
+          "default": false,
+          "title": "Requires Code",
+          "type": "boolean"
         }
       },
       "required": [
@@ -822,7 +832,7 @@
   "title": "NotificationsContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "1.4.0",
+  "x-everunfold-contract-version": "1.5.0",
   "x-everunfold-operations": [
     {
       "name": "saveMailBrand",

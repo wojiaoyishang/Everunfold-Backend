@@ -35,6 +35,7 @@ from app.modules.auth.email_verification_delivery import deliver
 from app.modules.auth.email_verification_models import EmailVerification
 from app.modules.auth.email_verification_service import EmailVerificationService
 from app.modules.auth.models import AuthAuditEvent, User
+from app.modules.auth.recovery_delivery import deliver as deliver_recovery
 from app.modules.auth.registration_delivery import deliver as deliver_registration
 from app.modules.auth.service import AuthFailure, AuthService
 from app.modules.settings.mail_schemas import MailSenderProfileInput, SaveMailSettings
@@ -49,8 +50,10 @@ ROOT = Path(__file__).resolve().parents[1]
 
 async def verify_invitation_registration(
     admin: TestClient, settings: Settings, messages: list[bytes]
-) -> None:
+) -> str:
     registration = "/v1/auth/registration"
+    save_security_template(admin, "security.registration_verification", "注册自定义模板")
+
     invitations = "/v1/admin/access/invitations"
     access_path = "/v1/admin/access/settings"
     captcha_path = "/v1/admin/captcha"
@@ -147,6 +150,7 @@ async def verify_invitation_registration(
             status = browser.get(registration + "/status").json()["data"]
             assert status["status"] == "sent"
             content = message_from_bytes(messages[-1], policy=email_policy.default)
+            assert content["Subject"] == "注册自定义模板"
             code = re.search(r"[0-9]{6}", content.get_body(preferencelist=("plain",)).get_content())
             assert code is not None
             codes.append({"request_id": status["request_id"], "code": code.group()})
@@ -232,6 +236,192 @@ async def verify_invitation_registration(
             headers=req_headers,
         )
         assert created.status_code == 200 and created.json()["data"]["user"]["role"] == "user"
+
+    return f"qa_{suffix}_{winner}"
+
+
+def save_security_template(admin: TestClient, event: str, subject: str) -> None:
+    state = admin.get("/v1/admin/notifications/state").json()["data"]
+    row = next(
+        item
+        for item in state["templates"]
+        if item["event_type"] == event and item["locale"] == "zh-CN"
+    )
+    assert row["platform_id"] == "email"
+    payload = {
+        "expected_revision": state["revision"],
+        "event_type": event,
+        "platform_id": "email",
+        "locale": "zh-CN",
+        "subject": subject,
+        "text": "重置码：{{verification.code}}"
+        if event != "security.password_reset_completed"
+        else "密码已重置",
+        "html": "<p>{{verification.code}}</p>"
+        if event != "security.password_reset_completed"
+        else "<p>密码已重置</p>",
+        "html_enabled": True,
+        "enabled": True,
+    }
+    if event == "security.password_recovery":
+        rejected = admin.patch(
+            "/v1/admin/notifications/templates",
+            json={**payload, "subject": "{{verification.code}}"},
+            headers=headers(admin),
+        )
+        assert rejected.status_code == 422
+    saved = admin.patch("/v1/admin/notifications/templates", json=payload, headers=headers(admin))
+    assert saved.status_code == 200, saved.text
+
+
+async def verify_password_recovery(
+    admin: TestClient, settings: Settings, messages: list[bytes], username: str
+) -> None:
+    recovery = "/v1/auth/password-recovery"
+    access = "/v1/admin/access/settings"
+    save_security_template(admin, "security.password_recovery", "找回密码自定义模板")
+    save_security_template(admin, "security.password_reset_completed", "密码已重置自定义模板")
+
+    def policy(enabled: bool) -> None:
+        state = admin.get(access).json()["data"]
+        changed = admin.patch(
+            access,
+            json={"expected_revision": state["revision"], "password_recovery_enabled": enabled},
+            headers=headers(admin),
+        )
+        assert changed.status_code == 200, changed.text
+        assert changed.json()["data"]["password_recovery_enabled"] == enabled
+
+    with (
+        TestClient(create_app(settings)) as browser,
+        TestClient(create_app(settings)) as unrelated,
+        TestClient(create_app(settings)) as active,
+        TestClient(create_app(settings)) as retry,
+    ):
+        assert browser.get(recovery + "/options").json()["data"]["enabled"] is False
+        assert (
+            browser.post(
+                recovery + "/request", json={"identifier": username}, headers=headers(browser)
+            ).status_code
+            == 403
+        )
+        policy(True)
+        assert browser.get(recovery + "/options").json()["data"]["enabled"] is True
+        assert (
+            browser.post(
+                recovery + "/request", json={"identifier": username}, headers={"Origin": ORIGIN}
+            ).status_code
+            == 403
+        )
+        previous = len(messages)
+        missing = unrelated.post(
+            recovery + "/request",
+            json={"identifier": "missing@example.test"},
+            headers=headers(unrelated),
+        )
+        unverified = retry.post(
+            recovery + "/request",
+            json={"identifier": "changed@example.test"},
+            headers=headers(retry),
+        )
+        assert missing.status_code == unverified.status_code == 200
+        assert await deliver_recovery(settings) == {"processed": 0}
+        assert len(messages) == previous
+
+        signed_in(active, username)
+        queued = browser.post(
+            recovery + "/request", json={"identifier": username}, headers=headers(browser)
+        )
+        assert queued.status_code == 200 and queued.json() == missing.json() == unverified.json()
+        assert (
+            browser.post(
+                recovery + "/request", json={"identifier": username}, headers=headers(browser)
+            ).status_code
+            == 429
+        )
+        assert await deliver_recovery(settings) == {"processed": 1}
+        mail = message_from_bytes(messages[-1], policy=email_policy.default)
+        assert mail["Subject"] == "找回密码自定义模板"
+        code = re.search(
+            r"重置码：([A-Za-z0-9_-]{32})", mail.get_body(preferencelist=("plain",)).get_content()
+        )
+        assert code is not None
+        assert code.group(1) in mail.get_body(preferencelist=("html",)).get_content()
+        new_password = "QA-recovered-password-2026!"
+        data = {"code": code.group(1), "new_password": new_password}
+        assert (
+            unrelated.post(recovery + "/confirm", json=data, headers=headers(unrelated)).status_code
+            == 422
+        )
+        assert (
+            browser.post(
+                recovery + "/confirm", json={**data, "code": "x" * 32}, headers=headers(browser)
+            ).status_code
+            == 422
+        )
+        reset = browser.post(recovery + "/confirm", json=data, headers=headers(browser))
+        assert reset.status_code == 200, reset.text
+        assert (
+            browser.post(recovery + "/confirm", json=data, headers=headers(browser)).status_code
+            == 422
+        )
+        assert active.get("/v1/auth/session").json()["data"]["authenticated"] is False
+        assert browser.get("/v1/auth/session").json()["data"]["authenticated"] is False
+        assert await deliver_recovery(settings) == {"processed": 1}
+        notice = message_from_bytes(messages[-1], policy=email_policy.default)
+        assert notice["Subject"] == "密码已重置自定义模板"
+        assert notice["Message-ID"] != mail["Message-ID"]
+        assert code.group(1) not in notice.as_string()
+        assert (
+            active.post(
+                "/v1/auth/login",
+                json={"username": username, "password": PASSWORD},
+                headers=headers(active),
+            ).status_code
+            == 401
+        )
+        signed_in(active, username, password=new_password)
+
+        with TestClient(create_app(settings)) as fresh:
+            assert (
+                fresh.post(
+                    recovery + "/request", json={"identifier": username}, headers=headers(fresh)
+                ).status_code
+                == 200
+            )
+            assert await deliver_recovery(settings) == {"processed": 1}
+            second = message_from_bytes(messages[-1], policy=email_policy.default)
+            code = re.search(
+                r"重置码：([A-Za-z0-9_-]{32})",
+                second.get_body(preferencelist=("plain",)).get_content(),
+            )
+            assert code is not None
+            policy(False)
+            assert (
+                fresh.post(
+                    recovery + "/confirm",
+                    json={**data, "code": code.group(1)},
+                    headers=headers(fresh),
+                ).status_code
+                == 403
+            )
+            policy(True)
+            assert (
+                fresh.post(
+                    recovery + "/confirm",
+                    json={**data, "code": code.group(1)},
+                    headers=headers(fresh),
+                ).status_code
+                == 422
+            )
+
+    database = Database(settings.database.url.get_secret_value())
+    try:
+        async with database.session_factory() as session:
+            user = await session.scalar(select(User).where(User.username == username))
+            assert user is not None and user.key_epoch == 2 and user.auth_version == 2
+    finally:
+        await database.close()
 
 
 @pytest.mark.skipif(
@@ -599,7 +789,8 @@ def test_email_verification_is_one_time_rate_limited_and_clears_after_change(
                     await database.close()
 
             asyncio.run(exercise())
-            asyncio.run(verify_invitation_registration(client, settings, messages))
+            registered = asyncio.run(verify_invitation_registration(client, settings, messages))
+            asyncio.run(verify_password_recovery(client, settings, messages, registered))
     finally:
 
         async def clean() -> None:

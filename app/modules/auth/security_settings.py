@@ -33,6 +33,14 @@ def registration_mode(data: dict[str, Any]) -> RegistrationMode:
     return "closed"
 
 
+def recovery_policy(data: dict[str, Any]) -> tuple[bool, int]:
+    config = data.get(ACCESS_KEY, {})
+    if not isinstance(config, dict):
+        return False, 0
+    epoch = config.get("password_recovery_epoch", 0)
+    return config.get("password_recovery_enabled") is True, epoch if isinstance(epoch, int) else 0
+
+
 def configured_sender(data: dict[str, Any]) -> str | None:
     config = data.get(ACCESS_KEY)
     if not isinstance(config, dict):
@@ -50,6 +58,7 @@ def access_state(data: dict[str, Any]) -> AccessSettingsState:
         revision=captcha.revision,
         login_captcha=captcha.rules.login,
         registration_mode=registration_mode(data),
+        password_recovery_enabled=recovery_policy(data)[0],
         registration_captcha=captcha.rules.registration,
         email_verification_captcha=captcha.rules.email_verification,
         mail_profile_id=UUID(sender) if sender else None,
@@ -86,6 +95,13 @@ async def save_access_settings(
             or not mail_ready(selected.value, selected.password)
         ):
             raise AuthFailure(422, 42272, "请选择已启用且配置完整的发信配置")
+    recovery_enabled, recovery_epoch = recovery_policy(site.data)
+    if (
+        payload.password_recovery_enabled is not None
+        and payload.password_recovery_enabled != recovery_enabled
+    ):
+        recovery_enabled = payload.password_recovery_enabled
+        recovery_epoch += 1
     captcha.revision += 1
     if payload.login_captcha is not None:
         captcha.rules.login = payload.login_captcha
@@ -104,6 +120,8 @@ async def save_access_settings(
                 else configured_sender(site.data)
             ),
             "registration_mode": payload.registration_mode or registration_mode(site.data),
+            "password_recovery_enabled": recovery_enabled,
+            "password_recovery_epoch": recovery_epoch,
         },
     }
     session.add(

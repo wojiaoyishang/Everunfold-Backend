@@ -10,10 +10,32 @@ from app.modules.auth.schemas import AuthContract
 def build_schema() -> dict[str, Any]:
     schema = AuthContract.model_json_schema()
     schema["$schema"] = "http://json-schema.org/draft-07/schema#"
-    schema["x-everunfold-contract-version"] = "0.6.0"
+    schema["x-everunfold-contract-version"] = "0.7.0"
     schema["x-everunfold-csrf-header"] = "X-CSRF-Token"
     schema["x-everunfold-credentials"] = "include"
     schema["x-everunfold-operations"] = [
+        {
+            "name": "readRecoveryOptions",
+            "path": "/v1/auth/password-recovery/options",
+            "method": "GET",
+            "response": "recovery_options",
+        },
+        {
+            "name": "requestPasswordRecovery",
+            "path": "/v1/auth/password-recovery/request",
+            "method": "POST",
+            "input": "recovery_request",
+            "response": "recovery_accepted",
+            "csrf": True,
+        },
+        {
+            "name": "confirmPasswordRecovery",
+            "path": "/v1/auth/password-recovery/confirm",
+            "method": "POST",
+            "input": "recovery_confirm",
+            "response": "recovery_accepted",
+            "csrf": True,
+        },
         {
             "name": "readRegistrationOptions",
             "path": "/v1/auth/registration/options",

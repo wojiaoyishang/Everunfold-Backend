@@ -7,6 +7,12 @@ from uuid import UUID
 from pydantic import Field
 
 from app.core.schemas import ErrorResponse, PublicModel, PublicResponse
+from app.modules.auth.recovery_schemas import (
+    RecoveryAccepted,
+    RecoveryConfirm,
+    RecoveryOptions,
+    RecoveryRequest,
+)
 from app.modules.auth.registration_schemas import (
     RegistrationConfirm,
     RegistrationOptions,
@@ -50,6 +56,10 @@ class AuthSessionState(PublicModel):
 
 
 class AuthContract(PublicModel):
+    recovery_options: PublicResponse[RecoveryOptions]
+    recovery_request: RecoveryRequest
+    recovery_confirm: RecoveryConfirm
+    recovery_accepted: PublicResponse[RecoveryAccepted]
     registration_options: PublicResponse[RegistrationOptions]
     registration_request: RegistrationRequest
     registration_confirm: RegistrationConfirm

@@ -1,5 +1,7 @@
 # Everunfold 文档入口
 
+[账户邮件模板与自助找回密码](decisions/0124-account-mail-and-password-recovery.md)说明模板、全站开关和恢复流程。
+
 [批量邀请码与自定义有效期](decisions/0123-registration-invitation-batches.md)说明有效期选项、一次性核销及迁移顺序。
 
 [站点邮件品牌与评论审核确认](decisions/0122-branded-mail-and-comment-confirmation.md)说明内置邮件布局、模板变量和邮件内审核入口。

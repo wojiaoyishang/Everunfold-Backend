@@ -220,6 +220,62 @@
       "title": "PublicResponse[AuthSessionState]",
       "type": "object"
     },
+    "PublicResponse_RecoveryAccepted_": {
+      "additionalProperties": false,
+      "properties": {
+        "success": {
+          "default": true,
+          "title": "Success",
+          "type": "boolean"
+        },
+        "code": {
+          "default": 200,
+          "title": "Code",
+          "type": "integer"
+        },
+        "msg": {
+          "default": "请求成功",
+          "title": "Msg",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/RecoveryAccepted"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "title": "PublicResponse[RecoveryAccepted]",
+      "type": "object"
+    },
+    "PublicResponse_RecoveryOptions_": {
+      "additionalProperties": false,
+      "properties": {
+        "success": {
+          "default": true,
+          "title": "Success",
+          "type": "boolean"
+        },
+        "code": {
+          "default": 200,
+          "title": "Code",
+          "type": "integer"
+        },
+        "msg": {
+          "default": "请求成功",
+          "title": "Msg",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/RecoveryOptions"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "title": "PublicResponse[RecoveryOptions]",
+      "type": "object"
+    },
     "PublicResponse_RegistrationOptions_": {
       "additionalProperties": false,
       "properties": {
@@ -358,6 +414,70 @@
         "data"
       ],
       "title": "PublicResponse[TwoFactorState]",
+      "type": "object"
+    },
+    "RecoveryAccepted": {
+      "additionalProperties": false,
+      "properties": {
+        "accepted": {
+          "default": true,
+          "title": "Accepted",
+          "type": "boolean"
+        }
+      },
+      "title": "RecoveryAccepted",
+      "type": "object"
+    },
+    "RecoveryConfirm": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "pattern": "^[A-Za-z0-9_-]{32}$",
+          "title": "Code",
+          "type": "string"
+        },
+        "new_password": {
+          "maxLength": 1024,
+          "minLength": 12,
+          "title": "New Password",
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "new_password"
+      ],
+      "title": "RecoveryConfirm",
+      "type": "object"
+    },
+    "RecoveryOptions": {
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "title": "Enabled",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "enabled"
+      ],
+      "title": "RecoveryOptions",
+      "type": "object"
+    },
+    "RecoveryRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "identifier": {
+          "maxLength": 254,
+          "minLength": 1,
+          "title": "Identifier",
+          "type": "string"
+        }
+      },
+      "required": [
+        "identifier"
+      ],
+      "title": "RecoveryRequest",
       "type": "object"
     },
     "RegistrationConfirm": {
@@ -653,6 +773,18 @@
   },
   "additionalProperties": false,
   "properties": {
+    "recovery_options": {
+      "$ref": "#/$defs/PublicResponse_RecoveryOptions_"
+    },
+    "recovery_request": {
+      "$ref": "#/$defs/RecoveryRequest"
+    },
+    "recovery_confirm": {
+      "$ref": "#/$defs/RecoveryConfirm"
+    },
+    "recovery_accepted": {
+      "$ref": "#/$defs/PublicResponse_RecoveryAccepted_"
+    },
     "registration_options": {
       "$ref": "#/$defs/PublicResponse_RegistrationOptions_"
     },
@@ -694,6 +826,10 @@
     }
   },
   "required": [
+    "recovery_options",
+    "recovery_request",
+    "recovery_confirm",
+    "recovery_accepted",
     "registration_options",
     "registration_request",
     "registration_confirm",
@@ -711,10 +847,32 @@
   "title": "AuthContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "0.6.0",
+  "x-everunfold-contract-version": "0.7.0",
   "x-everunfold-csrf-header": "X-CSRF-Token",
   "x-everunfold-credentials": "include",
   "x-everunfold-operations": [
+    {
+      "name": "readRecoveryOptions",
+      "path": "/v1/auth/password-recovery/options",
+      "method": "GET",
+      "response": "recovery_options"
+    },
+    {
+      "name": "requestPasswordRecovery",
+      "path": "/v1/auth/password-recovery/request",
+      "method": "POST",
+      "input": "recovery_request",
+      "response": "recovery_accepted",
+      "csrf": true
+    },
+    {
+      "name": "confirmPasswordRecovery",
+      "path": "/v1/auth/password-recovery/confirm",
+      "method": "POST",
+      "input": "recovery_confirm",
+      "response": "recovery_accepted",
+      "csrf": true
+    },
     {
       "name": "readRegistrationOptions",
       "path": "/v1/auth/registration/options",

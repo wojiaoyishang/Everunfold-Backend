@@ -204,6 +204,7 @@ class AccessSettingsInput(PublicModel):
     expected_revision: int = Field(ge=1)
     login_captcha: bool | None = None
     registration_mode: RegistrationMode | None = None
+    password_recovery_enabled: bool | None = None
     registration_captcha: bool | None = None
     email_verification_captcha: bool | None = None
     mail_profile_id: UUID | None = None
@@ -218,6 +219,7 @@ class AccessSettingsState(PublicModel):
     revision: int
     login_captcha: bool
     registration_mode: RegistrationMode
+    password_recovery_enabled: bool
     registration_captcha: bool
     email_verification_captcha: bool
     mail_profile_id: UUID | None

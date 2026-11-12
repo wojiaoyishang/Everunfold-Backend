@@ -1,13 +1,14 @@
 """Render and send security mail without recording codes or recipient data in task logs."""
 
 import asyncio
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
 from app.modules.content.models import SiteSettings
-from app.modules.notifications.catalog import EMAIL_VERIFICATION
+from app.modules.notifications.catalog import EMAIL_VERIFICATION, VERIFICATION_PURPOSES
 from app.modules.notifications.email_context import (
     english,
     mail_reason,
@@ -25,6 +26,40 @@ from app.modules.settings.mail_service import MailProfile
 from app.modules.settings.mail_transport import send_notification
 
 
+async def security_message(
+    session: AsyncSession,
+    config: Settings,
+    event: str,
+    locale: str,
+    *,
+    display_name: str,
+    verification: tuple[str, int] | None = None,
+) -> tuple[str, str, str]:
+    template, subject, text, html, html_enabled, _ = await NotificationService(
+        session, config
+    )._template_for(event, "email", locale)
+    language = template.locale if template else locale
+    site = await session.get(SiteSettings, 1)
+    data = site.data if site else {}
+    variables: dict[str, Any] = {
+        "site": await site_variables(session, config, data, stored_brand(data)),
+        "recipient": {"display_name": display_name},
+        "mail": {"reason": mail_reason(event, language)},
+    }
+    if verification is not None:
+        code, minutes = verification
+        variables["verification"] = {
+            "code": code,
+            "expires_minutes": minutes,
+            "purpose": VERIFICATION_PURPOSES[event][english(language)],
+        }
+    return (
+        header_value(render_template(subject, variables)),
+        render_template(text, variables),
+        sanitize_email_html(render_html_template(html, variables)) if html_enabled else "",
+    )
+
+
 async def verification_message(
     session: AsyncSession,
     config: Settings,
@@ -33,31 +68,10 @@ async def verification_message(
     minutes: int,
     *,
     display_name: str,
-    registration: bool = False,
+    event: str = EMAIL_VERIFICATION,
 ) -> tuple[str, str, str]:
-    template, subject, text, html, html_enabled, _ = await NotificationService(
-        session, config
-    )._template_for(EMAIL_VERIFICATION, "email", locale)
-    language = template.locale if template else locale
-    purpose = (
-        ("注册账号", "Account registration") if registration else ("验证邮箱", "Email verification")
-    )
-    site = await session.get(SiteSettings, 1)
-    data = site.data if site else {}
-    variables = {
-        "verification": {
-            "code": code,
-            "expires_minutes": minutes,
-            "purpose": purpose[english(language)],
-        },
-        "site": await site_variables(session, config, data, stored_brand(data)),
-        "recipient": {"display_name": display_name},
-        "mail": {"reason": mail_reason(EMAIL_VERIFICATION, language)},
-    }
-    return (
-        header_value(render_template(subject, variables)),
-        render_template(text, variables),
-        sanitize_email_html(render_html_template(html, variables)) if html_enabled else "",
+    return await security_message(
+        session, config, event, locale, display_name=display_name, verification=(code, minutes)
     )
 
 

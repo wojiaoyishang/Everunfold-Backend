@@ -57,6 +57,18 @@
           "default": null,
           "title": "Registration Mode"
         },
+        "password_recovery_enabled": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Password Recovery Enabled"
+        },
         "registration_captcha": {
           "anyOf": [
             {
@@ -121,6 +133,10 @@
           "title": "Registration Mode",
           "type": "string"
         },
+        "password_recovery_enabled": {
+          "title": "Password Recovery Enabled",
+          "type": "boolean"
+        },
         "registration_captcha": {
           "title": "Registration Captcha",
           "type": "boolean"
@@ -157,6 +173,7 @@
         "revision",
         "login_captcha",
         "registration_mode",
+        "password_recovery_enabled",
         "registration_captcha",
         "email_verification_captcha",
         "mail_profile_id",
@@ -3433,7 +3450,7 @@
   "title": "AccountContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "1.10.0",
+  "x-everunfold-contract-version": "1.11.0",
   "x-everunfold-csrf-header": "X-CSRF-Token",
   "x-everunfold-credentials": "include",
   "x-everunfold-operations": [

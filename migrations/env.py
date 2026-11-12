@@ -15,6 +15,7 @@ from app.modules.auth import credentials_models as credentials_models  # noqa: F
 from app.modules.auth import email_verification_models as email_verification_models  # noqa: F401
 from app.modules.auth import models as auth_models  # noqa: F401 - include module metadata
 from app.modules.auth import preset_models as preset_models  # noqa: F401
+from app.modules.auth import recovery_models as recovery_models  # noqa: F401
 from app.modules.auth import registration_models as registration_models  # noqa: F401
 from app.modules.captcha import comments as comments  # noqa: F401
 from app.modules.content import (

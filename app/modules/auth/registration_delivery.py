@@ -14,6 +14,7 @@ from app.modules.auth.registration_service import available
 from app.modules.auth.security_delivery import send_security_mail, verification_message
 from app.modules.auth.security_settings import registration_mode
 from app.modules.content.models import SiteSettings
+from app.modules.notifications.catalog import REGISTRATION_VERIFICATION
 from app.modules.settings.mail_service import mail_profile, mail_ready, stored_mail_profiles
 
 
@@ -70,7 +71,7 @@ async def deliver(config: Settings) -> dict[str, Any]:
                 row.delivery_code,
                 minutes,
                 display_name=row.display_name,
-                registration=True,
+                event=REGISTRATION_VERIFICATION,
             )
             row.delivery_code = ""
             await session.commit()

@@ -13,6 +13,7 @@ class EventDefinition:
     title: str
     description: str
     variables: tuple[str, ...]
+    requires_code: bool = False
 
 
 @dataclass(frozen=True)
@@ -40,11 +41,41 @@ def alert_email(
     )
 
 
-def verification_email(locale: str) -> DefaultTemplate:
+EMAIL_VERIFICATION = "security.email_verification"
+REGISTRATION_VERIFICATION = "security.registration_verification"
+PASSWORD_RECOVERY = "security.password_recovery"
+PASSWORD_RESET_COMPLETED = "security.password_reset_completed"
+
+VERIFICATION_PURPOSES = {
+    EMAIL_VERIFICATION: ("验证邮箱", "Email verification"),
+    REGISTRATION_VERIFICATION: ("注册账号", "Account registration"),
+    PASSWORD_RECOVERY: ("找回密码", "Password recovery"),
+}
+
+
+def verification_email(locale: str, event: str = EMAIL_VERIFICATION) -> DefaultTemplate:
     zh = locale == "zh-CN"
-    title = "验证你的邮箱" if zh else "Verify your email address"
+    titles = {
+        EMAIL_VERIFICATION: ("验证你的邮箱", "Verify your email address"),
+        REGISTRATION_VERIFICATION: ("验证注册邮箱", "Verify your registration email"),
+        PASSWORD_RECOVERY: ("找回账号密码", "Recover your account password"),
+    }
+    title = titles[event][not zh]
     purpose = "用途：{{verification.purpose}}" if zh else "Purpose: {{verification.purpose}}"
-    lead = "请输入以下验证码：" if zh else "Enter this verification code:"
+    recovery = event == PASSWORD_RECOVERY
+    if recovery:
+        lead = (
+            "请将以下重置码粘贴到发起找回密码的浏览器中："
+            if zh
+            else "Paste this reset code into the browser where you requested it:"
+        )
+    else:
+        lead = "请输入以下验证码：" if zh else "Enter this verification code:"
+    code_style = (
+        "font-size:18px;overflow-wrap:anywhere;word-break:break-all"
+        if recovery
+        else "font-size:30px;letter-spacing:0.18em"
+    )
     note = (
         "验证码 {{verification.expires_minutes}} 分钟内有效，请勿向他人透露。"
         "如果这不是你的操作，可以忽略这封邮件。"
@@ -61,7 +92,7 @@ def verification_email(locale: str) -> DefaultTemplate:
             dedent(
                 f"""\
                 <p style="margin:0;font-size:15px">{lead}</p>
-                <p style="margin:14px 0;padding:16px;background:#f3f5f9;border-radius:8px;text-align:center;color:#202631;font-family:monospace;font-size:30px;letter-spacing:0.18em">
+                <p style="margin:14px 0;padding:16px;background:#f3f5f9;border-radius:8px;text-align:center;color:#202631;font-family:monospace;{code_style}">
                   <strong>{{{{verification.code}}}}</strong>
                 </p>
                 <p style="margin:0;font-size:14px;line-height:1.7">{note}</p>"""
@@ -69,6 +100,22 @@ def verification_email(locale: str) -> DefaultTemplate:
             "",
             locale,
         ),
+    )
+
+
+def password_reset_email(locale: str) -> DefaultTemplate:
+    zh = locale == "zh-CN"
+    title = "你的密码已重置" if zh else "Your password was reset"
+    message = (
+        "你的账号密码已重置，旧会话和 API 密钥已撤销。如果这不是你的操作，请联系站点管理员。"
+        if zh
+        else "Your account password was reset. Previous sessions and API keys were revoked. "
+        "If you did not do this, contact the site administrator."
+    )
+    return DefaultTemplate(
+        subject=f"[{{{{site.name}}}}] {title}",
+        text=message,
+        html=email_layout(title, title, f"<p>{message}</p>", "", locale),
     )
 
 
@@ -174,19 +221,45 @@ EVENTS = (
 
 EVENT_BY_ID = {item.id: item for item in EVENTS}
 
-EMAIL_VERIFICATION = "security.email_verification"
 SECURITY_TEMPLATES = (
     EventDefinition(
         id=EMAIL_VERIFICATION,
         title="验证邮箱",
         description="向用户发送邮箱验证验证码。",
         variables=("verification.code", "verification.expires_minutes", "verification.purpose"),
+        requires_code=True,
+    ),
+    EventDefinition(
+        id=REGISTRATION_VERIFICATION,
+        title="注册验证码",
+        description="向申请注册的用户发送邮箱验证码。",
+        variables=("verification.code", "verification.expires_minutes", "verification.purpose"),
+        requires_code=True,
+    ),
+    EventDefinition(
+        id=PASSWORD_RECOVERY,
+        title="找回密码验证码",
+        description="向已验证邮箱发送一次性密码重置码。",
+        variables=("verification.code", "verification.expires_minutes", "verification.purpose"),
+        requires_code=True,
+    ),
+    EventDefinition(
+        id=PASSWORD_RESET_COMPLETED,
+        title="密码已重置",
+        description="自助找回密码成功后发送安全提醒。",
+        variables=(),
     ),
 )
+SECURITY_BY_ID = {event.id: event for event in SECURITY_TEMPLATES}
+
 
 DEFAULT_TEMPLATES = {
-    EMAIL_VERIFICATION: {
-        "email": {"zh-CN": verification_email("zh-CN"), "en": verification_email("en")},
+    **{
+        event: {"email": {locale: verification_email(locale, event) for locale in ("zh-CN", "en")}}
+        for event in VERIFICATION_PURPOSES
+    },
+    PASSWORD_RESET_COMPLETED: {
+        "email": {locale: password_reset_email(locale) for locale in ("zh-CN", "en")}
     },
     "comment.pending_review": {
         "in-app": {

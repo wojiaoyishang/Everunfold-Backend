@@ -19,6 +19,8 @@ class NotificationEventView(PublicModel):
     title: str
     description: str
     variables: list[str]
+    email_only: bool = False
+    requires_code: bool = False
 
 
 class NotificationPlatformView(PublicModel):

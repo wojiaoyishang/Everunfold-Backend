@@ -17,9 +17,9 @@ from app.modules.auth.permissions import CAPABILITIES, user_permissions
 from app.modules.auth.service import AuthFailure
 from app.modules.content.models import SiteSettings
 from app.modules.notifications.catalog import (
-    EMAIL_VERIFICATION,
     EVENT_BY_ID,
     EVENTS,
+    SECURITY_BY_ID,
     SECURITY_TEMPLATES,
     default_template,
 )
@@ -200,7 +200,7 @@ class NotificationService:
         templates: list[NotificationTemplateView] = []
         for event in (*EVENTS, *SECURITY_TEMPLATES):
             for platform in platforms:
-                if event.id == EMAIL_VERIFICATION and platform.id != EMAIL:
+                if event.id in SECURITY_BY_ID and platform.id != EMAIL:
                     continue
                 for locale in locales:
                     row = custom.get((event.id, platform.id, locale))
@@ -263,6 +263,8 @@ class NotificationService:
                     id=item.id,
                     title=item.title,
                     description=item.description,
+                    email_only=item.id in SECURITY_BY_ID,
+                    requires_code=item.requires_code,
                     variables=[
                         *item.variables,
                         *(NOTIFICATION_EVENT_VARIABLES if item.id in EVENT_BY_ID else ()),
@@ -385,12 +387,13 @@ class NotificationService:
         revision = await self.revision(locked=True)
         if revision.revision != payload.expected_revision:
             raise AuthFailure(409, 40973, "通知模板已在其他窗口修改，请重新读取")
-        if payload.event_type not in EVENT_BY_ID and payload.event_type != EMAIL_VERIFICATION:
+        security = SECURITY_BY_ID.get(payload.event_type)
+        if payload.event_type not in EVENT_BY_ID and security is None:
             raise AuthFailure(422, 42299, "未知通知事件")
-        if payload.event_type == EMAIL_VERIFICATION:
+        if security is not None:
             if payload.platform_id != EMAIL:
-                raise AuthFailure(422, 42299, "邮箱验证仅支持邮件模板")
-            if not payload.reset:
+                raise AuthFailure(422, 42299, "账户安全事件仅支持邮件模板")
+            if security.requires_code and not payload.reset:
 
                 def includes_code(value: str) -> bool:
                     return any(

@@ -147,6 +147,18 @@ MAIL_REASONS = {
         "你收到这封邮件是因为有人请求验证此邮箱。",
         "You received this email because verification was requested for this address.",
     ),
+    "security.registration_verification": (
+        "你收到这封邮件是因为有人使用此邮箱申请注册。",
+        "You received this email because registration was requested for this address.",
+    ),
+    "security.password_recovery": (
+        "你收到这封邮件是因为有人请求重置账号密码。",
+        "You received this email because a password reset was requested.",
+    ),
+    "security.password_reset_completed": (
+        "这封邮件用于通知你账号密码已重置。",
+        "You received this email to confirm that your password was reset.",
+    ),
     "comment.pending_review": (
         "你收到这封邮件是因为站点为你配置了评论审核通知。",
         "You received this email because the site sends you comment moderation notifications.",
