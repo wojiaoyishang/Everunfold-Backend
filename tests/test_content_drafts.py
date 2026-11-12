@@ -83,3 +83,24 @@ def test_editor_normalizes_terms_and_preserves_block_formats() -> None:
         DraftBlock(id=uuid4(), content="正文"),
     ]
     assert DraftFields(body=blocks).body == blocks
+
+
+def test_custom_article_permalink_preserves_prefix_and_rejects_reserved_templates() -> None:
+    from datetime import UTC, datetime
+
+    from app.modules.settings.publishing_preferences import WritingPreferences
+
+    template = WritingPreferences(permalink="/notes/%year%/%monthnum%/%postname%").permalink
+    assert (
+        title_path(
+            "A new post",
+            uuid4(),
+            prefix="/en",
+            template=template,
+            date=datetime(2026, 11, 1, tzinfo=UTC),
+        )
+        == "/en/notes/2026/11/A-new-post"
+    )
+    for invalid in ("/%year%", "/admin/%postname%", "/%postname%/%unknown%", "//%postname%"):
+        with pytest.raises(ValidationError):
+            WritingPreferences(permalink=invalid)

@@ -4,7 +4,7 @@
 
 - 站点图标与博主头像分开。公开阅读可配置时区、日期格式、静态首页、独立文章列表、订阅摘要或全文。新文章可配置默认分类、评论与固定链接格式。
 - 主题和单篇显示配置走现有 JSON 设置与发布投影。分享图只向可阅读内容投影，公开署名不改变作者权限。新增字段可从旧记录的默认值读取。
-- settings-v1 1.33.0、content-admin-v1 1.21.0、content-access-v1 1.6.0、collaboration-v1 2.8.0、public-v0.1 0.15.0、presentation-v0.2 0.2.0-preview.6。定向测试通过 43 项，无数据库结构迁移。见 [ADR0125](../decisions/0125-site-reading-and-article-presentation.md)。
+- settings-v1 1.33.0、content-admin-v1 1.21.0、content-access-v1 1.6.0、collaboration-v1 2.8.0、public-v0.1 0.15.0、presentation-v0.2 0.2.0-preview.6。定向测试通过 44 项，无数据库结构迁移。见 [ADR0125](../decisions/0125-site-reading-and-article-presentation.md)。
 
 ## 账户邮件与自助找回密码
 

@@ -284,6 +284,12 @@ class SettingsService:
                     or (page.published.get("access", "public") != "public")
                 ):
                     raise AuthFailure(422, 42236, "请选择已公开发布的自定义页面")
+        reading = payload.value.site.reading
+        if reading != before.site.reading and reading.home_page_id and reading.posts_page_id:
+            home = await self.session.get(ManagedPage, reading.home_page_id)
+            posts = await self.session.get(ManagedPage, reading.posts_page_id)
+            if home and posts and home.translation_group_id == posts.translation_group_id:
+                raise AuthFailure(422, 42236, "首页和文章列表页须使用不同的页面")
         category_id = payload.value.site.writing.default_category_id
         if category_id and category_id != before.site.writing.default_category_id:
             category = await self.session.get(Taxonomy, category_id)
