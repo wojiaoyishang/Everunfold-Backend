@@ -101,6 +101,12 @@ class PublicContentService:
                 if key in PublicEditorSettings.model_fields
             }
         ).model_dump()
+        if readable:
+            share_id = (item.editor_settings or {}).get("share_image_media_id")
+            if share_id:
+                public_settings["share_image_url"] = (
+                    (item.media_urls or {}).get(str(share_id), {}).get("original")
+                )
         return ContentSummary(
             access="public"
             if readable

@@ -3,6 +3,90 @@
     "ArticleDisplayPreferences": {
       "additionalProperties": false,
       "properties": {
+        "show_updated": {
+          "default": false,
+          "title": "Show Updated",
+          "type": "boolean"
+        },
+        "show_toc": {
+          "default": true,
+          "title": "Show Toc",
+          "type": "boolean"
+        },
+        "meta_order": {
+          "items": {
+            "enum": [
+              "author",
+              "published",
+              "updated",
+              "words",
+              "reading",
+              "comments",
+              "views"
+            ],
+            "type": "string"
+          },
+          "maxItems": 7,
+          "title": "Meta Order",
+          "type": "array"
+        },
+        "cover_position": {
+          "default": "above",
+          "enum": [
+            "above",
+            "below",
+            "hidden"
+          ],
+          "title": "Cover Position",
+          "type": "string"
+        },
+        "words_per_minute": {
+          "default": 200,
+          "maximum": 1500,
+          "minimum": 30,
+          "title": "Words Per Minute",
+          "type": "integer"
+        },
+        "han_per_minute": {
+          "default": 400,
+          "maximum": 2000,
+          "minimum": 50,
+          "title": "Han Per Minute",
+          "type": "integer"
+        },
+        "stale_days": {
+          "default": 0,
+          "maximum": 3650,
+          "minimum": 0,
+          "title": "Stale Days",
+          "type": "integer"
+        },
+        "stale_basis": {
+          "default": "updated",
+          "enum": [
+            "updated",
+            "published"
+          ],
+          "title": "Stale Basis",
+          "type": "string"
+        },
+        "related_basis": {
+          "default": "both",
+          "enum": [
+            "both",
+            "category",
+            "tag",
+            "recent"
+          ],
+          "title": "Related Basis",
+          "type": "string"
+        },
+        "afterword": {
+          "default": "",
+          "maxLength": 2000,
+          "title": "Afterword",
+          "type": "string"
+        },
         "show_author": {
           "default": true,
           "title": "Show Author",
@@ -3439,6 +3523,57 @@
       "title": "PublicShortcode",
       "type": "object"
     },
+    "ReadingPreferences": {
+      "additionalProperties": false,
+      "properties": {
+        "time_zone": {
+          "default": "Asia/Shanghai",
+          "maxLength": 64,
+          "title": "Time Zone",
+          "type": "string"
+        },
+        "date_format": {
+          "default": "ymd-slash",
+          "enum": [
+            "ymd-slash",
+            "ymd-dash",
+            "localized",
+            "dmy",
+            "mdy"
+          ],
+          "title": "Date Format",
+          "type": "string"
+        },
+        "home_page_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Home Page Id"
+        },
+        "posts_page_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Posts Page Id"
+        }
+      },
+      "title": "ReadingPreferences",
+      "type": "object"
+    },
     "RestoreShortcode": {
       "additionalProperties": false,
       "properties": {
@@ -3947,6 +4082,15 @@
           "title": "Feeds Enabled",
           "type": "boolean"
         },
+        "feed_content": {
+          "default": "excerpt",
+          "enum": [
+            "excerpt",
+            "full"
+          ],
+          "title": "Feed Content",
+          "type": "string"
+        },
         "feed_limit": {
           "default": 30,
           "maximum": 100,
@@ -4361,6 +4505,24 @@
     "SitePreferences": {
       "additionalProperties": false,
       "properties": {
+        "reading": {
+          "$ref": "#/$defs/ReadingPreferences"
+        },
+        "writing": {
+          "$ref": "#/$defs/WritingPreferences"
+        },
+        "icon_media_id": {
+          "default": "",
+          "pattern": "^(?:|media:[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})$",
+          "title": "Icon Media Id",
+          "type": "string"
+        },
+        "icon_url": {
+          "default": "",
+          "maxLength": 2048,
+          "title": "Icon Url",
+          "type": "string"
+        },
         "discovery": {
           "$ref": "#/$defs/SearchDiscovery"
         },
@@ -4664,6 +4826,37 @@
     "ThemePreferences": {
       "additionalProperties": false,
       "properties": {
+        "author_avatar_media_id": {
+          "default": "",
+          "pattern": "^(?:|media:[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})$",
+          "title": "Author Avatar Media Id",
+          "type": "string"
+        },
+        "author_avatar_url": {
+          "anyOf": [
+            {
+              "maxLength": 2048,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Author Avatar Url"
+        },
+        "header_logo_media_id": {
+          "default": "",
+          "pattern": "^(?:|media:[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})$",
+          "title": "Header Logo Media Id",
+          "type": "string"
+        },
+        "header_logo_url": {
+          "default": "",
+          "maxLength": 2048,
+          "title": "Header Logo Url",
+          "type": "string"
+        },
         "article": {
           "$ref": "#/$defs/ArticleDisplayPreferences"
         },
@@ -5075,6 +5268,38 @@
       ],
       "title": "WatchTask",
       "type": "object"
+    },
+    "WritingPreferences": {
+      "additionalProperties": false,
+      "properties": {
+        "default_category_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Default Category Id"
+        },
+        "comments_open": {
+          "default": true,
+          "title": "Comments Open",
+          "type": "boolean"
+        },
+        "permalink": {
+          "default": "/%postname%.html",
+          "maxLength": 160,
+          "minLength": 3,
+          "title": "Permalink",
+          "type": "string"
+        }
+      },
+      "title": "WritingPreferences",
+      "type": "object"
     }
   },
   "additionalProperties": false,
@@ -5277,7 +5502,7 @@
   "title": "SettingsContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "1.32.0",
+  "x-everunfold-contract-version": "1.33.0",
   "x-everunfold-language-regions": {
     "zh": "CN",
     "en": "GB",

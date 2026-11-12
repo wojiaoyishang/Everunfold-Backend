@@ -309,6 +309,76 @@
     "ContentDetail": {
       "additionalProperties": false,
       "properties": {
+        "article_layout": {
+          "default": "inherit",
+          "enum": [
+            "inherit",
+            "wide",
+            "sidebar"
+          ],
+          "title": "Article Layout",
+          "type": "string"
+        },
+        "show_toc": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Show Toc"
+        },
+        "show_share": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Show Share"
+        },
+        "show_related": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Show Related"
+        },
+        "show_afterword": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Show Afterword"
+        },
+        "share_image_url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Share Image Url"
+        },
         "comments_open": {
           "default": true,
           "title": "Comments Open",
@@ -1058,5 +1128,5 @@
       "type": "object"
     }
   },
-  "x-everunfold-contract-version": "0.14.0"
+  "x-everunfold-contract-version": "0.15.0"
 }

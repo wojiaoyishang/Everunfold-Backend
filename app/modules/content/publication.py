@@ -45,7 +45,14 @@ class ContentPublication:
         path = (
             settings.path
             or draft.public_path
-            or await initial_path(self.session, draft.title, draft.id, language=draft.language)
+            or await initial_path(
+                self.session,
+                draft.title,
+                draft.id,
+                language=draft.language,
+                type_id=draft.type_id,
+                date=settings.display_published_at or now,
+            )
         )
         from app.modules.pages.paths import page_path_taken
 
@@ -85,7 +92,7 @@ class ContentPublication:
             path=draft.public_path,
             language=draft.language,
             translation_group_id=draft.translation_group_id,
-            author=draft.author,
+            author=settings.byline or draft.author,
             published_at=draft.published_at,
             updated_at=now,
             reading_minutes=max(1, (len(body) + 399) // 400),

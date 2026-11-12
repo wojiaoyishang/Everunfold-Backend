@@ -14,7 +14,7 @@ from app.modules.content.editor_schema import (
     EditorTerm,
     EditorTermCreate,
 )
-from app.modules.content.models import Content, ContentTaxonomy, Taxonomy
+from app.modules.content.models import Content, ContentTaxonomy, SiteSettings, Taxonomy
 from app.modules.content.schemas import MediaURL
 from app.modules.media.models import MediaAsset
 from app.modules.media.schemas import FontInfo
@@ -36,8 +36,8 @@ async def editor_media(
             ids.add(UUID(value))
         except ValueError as exc:
             raise AuthFailure(422, 42257, "媒体引用格式不正确") from exc
-    if settings.cover_media_id:
-        ids.add(settings.cover_media_id)
+    images = {key for key in (settings.cover_media_id, settings.share_image_media_id) if key}
+    ids.update(images)
     if not ids or config is None:
         return {}
     rows = list(await session.scalars(select(MediaAsset).where(MediaAsset.id.in_(ids))))
@@ -50,13 +50,9 @@ async def editor_media(
         and not row.purge_pending
     }
     if strict and (
-        set(available) != ids
-        or (
-            settings.cover_media_id
-            and not available[settings.cover_media_id].mime.startswith("image/")
-        )
+        set(available) != ids or any(not available[key].mime.startswith("image/") for key in images)
     ):
-        raise AuthFailure(409, 40953, "引用的媒体不可用，封面必须是图片")
+        raise AuthFailure(409, 40953, "引用的媒体不可用，封面和分享图必须是图片")
     font_ids = {UUID(value) for value in re.findall(r"ef-font-([0-9a-fA-F-]{36})", body)}
     if strict and any(key not in available or not available[key].font_info for key in font_ids):
         raise AuthFailure(409, 40953, "引用的字体不可用，请重新选择")
@@ -86,7 +82,18 @@ async def editor_catalog(session: AsyncSession) -> EditorCatalog:
             )
         ).all()
     )
+    from app.modules.settings.defaults import public_settings
+
+    site = await session.get(SiteSettings, 1)
+    defaults = public_settings(site.data if site else {}).site.writing
+    category = (
+        await session.get(Taxonomy, defaults.default_category_id)
+        if defaults.default_category_id
+        else None
+    )
     return EditorCatalog(
+        default_article_category=category.name if category and not category.retired else "",
+        default_article_comments=defaults.comments_open,
         terms=[
             EditorTerm(
                 id=row.id,
@@ -96,7 +103,7 @@ async def editor_catalog(session: AsyncSession) -> EditorCatalog:
                 count=counts.get(row.id, 0),
             )
             for row in rows
-        ]
+        ],
     )
 
 

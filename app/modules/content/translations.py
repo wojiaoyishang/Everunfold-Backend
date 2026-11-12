@@ -124,7 +124,11 @@ class Translations:
             )
             identity = uuid4()
             settings.path = await initial_path(
-                self.session, source.title, identity, language=payload.language
+                self.session,
+                source.title,
+                identity,
+                language=payload.language,
+                type_id=source.type_id,
             )
             settings.seo_title, settings.seo_description = "", ""
             settings.opens_at = None

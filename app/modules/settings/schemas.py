@@ -44,6 +44,7 @@ from app.modules.settings.mail_schemas import (
     SaveMailSettings,
     SendTestMail,
 )
+from app.modules.settings.publishing_preferences import ReadingPreferences, WritingPreferences
 from app.modules.settings.translation_schemas import (
     SaveTranslations,
     TranslationCatalog,
@@ -131,6 +132,7 @@ MediaReference = r"^(?:|media:[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})$"
 class SearchDiscovery(SettingsModel):
     sitemap_enabled: bool = True
     feeds_enabled: bool = True
+    feed_content: Literal["excerpt", "full"] = "excerpt"
     feed_limit: int = Field(default=30, ge=1, le=100)
     structured_data: bool = True
     share_image: str = Field(default="", max_length=2048)
@@ -168,6 +170,11 @@ class FooterPreferences(SettingsModel):
 
 
 class SitePreferences(SettingsModel):
+    reading: ReadingPreferences = Field(default_factory=ReadingPreferences)
+    writing: WritingPreferences = Field(default_factory=WritingPreferences)
+    icon_media_id: str = Field(default="", pattern=MediaReference)
+    icon_url: str = Field(default="", max_length=2048)
+    _site_icon = field_validator("icon_url")(safe_url)
     discovery: SearchDiscovery = Field(default_factory=SearchDiscovery)
     footer: FooterPreferences = Field(default_factory=FooterPreferences)
     glossary: GlossaryPreferences = Field(default_factory=GlossaryPreferences)
@@ -229,7 +236,37 @@ class CodePreferences(SettingsModel):
     font_info: FontInfo | None = None
 
 
+ArticleMetaKey = Literal["author", "published", "updated", "words", "reading", "comments", "views"]
+ARTICLE_META_ORDER: tuple[ArticleMetaKey, ...] = (
+    "author",
+    "published",
+    "updated",
+    "words",
+    "reading",
+    "comments",
+    "views",
+)
+
+
 class ArticleDisplayPreferences(SettingsModel):
+    show_updated: bool = False
+    show_toc: bool = True
+    meta_order: list[ArticleMetaKey] = Field(
+        default_factory=lambda: list(ARTICLE_META_ORDER), max_length=7
+    )
+    cover_position: Literal["above", "below", "hidden"] = "above"
+    words_per_minute: int = Field(default=200, ge=30, le=1500)
+    han_per_minute: int = Field(default=400, ge=50, le=2000)
+    stale_days: int = Field(default=0, ge=0, le=3650)
+    stale_basis: Literal["updated", "published"] = "updated"
+    related_basis: Literal["both", "category", "tag", "recent"] = "both"
+    afterword: str = Field(default="", max_length=2000)
+
+    @field_validator("meta_order")
+    @classmethod
+    def unique_meta(cls, values: list[ArticleMetaKey]) -> list[ArticleMetaKey]:
+        return list(dict.fromkeys(values))
+
     show_author: bool = True
     show_date: bool = True
     show_word_count: bool = True
@@ -249,6 +286,16 @@ class FeedPreferences(SettingsModel):
 
 
 class ThemePreferences(SettingsModel):
+    author_avatar_media_id: str = Field(default="", pattern=MediaReference)
+    author_avatar_url: str | None = Field(default=None, max_length=2048)
+    header_logo_media_id: str = Field(default="", pattern=MediaReference)
+    header_logo_url: str = Field(default="", max_length=2048)
+
+    @field_validator("author_avatar_url", "header_logo_url")
+    @classmethod
+    def valid_brand_image(cls, value: str | None) -> str | None:
+        return safe_url(value) if value is not None else None
+
     article: ArticleDisplayPreferences = Field(default_factory=ArticleDisplayPreferences)
     code: CodePreferences = Field(default_factory=CodePreferences)
     feed: FeedPreferences = Field(default_factory=FeedPreferences)

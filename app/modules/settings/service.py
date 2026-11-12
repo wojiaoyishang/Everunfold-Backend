@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import Settings
 from app.modules.auth.service import AuthFailure
 from app.modules.content.draft_models import ContentDraft
-from app.modules.content.models import Content, SiteSettings
+from app.modules.content.models import Content, SiteSettings, Taxonomy
 from app.modules.media.locking import lock_references
 from app.modules.media.service import MediaService
 from app.modules.pages.models import ManagedPage
@@ -65,6 +65,9 @@ class SettingsService:
         profiles.setdefault(active_theme, value.theme.model_copy(deep=True))
         for reference, kind in [
             (value.site.avatar_media_id, "image"),
+            (value.site.icon_media_id, "image"),
+            *[(profile.author_avatar_media_id, "image") for profile in profiles.values()],
+            *[(profile.header_logo_media_id, "image") for profile in profiles.values()],
             *[(profile.font_media_id, "font") for profile in profiles.values()],
             *[(profile.code.font_media_id, "font") for profile in profiles.values()],
             *[(profile.background_media_id, "image") for profile in profiles.values()],
@@ -96,6 +99,12 @@ class SettingsService:
                 profile.background_url = urls[profile.background_media_id]
             if profile.background_video_media_id:
                 profile.background_video_url = urls[profile.background_video_media_id]
+            if profile.author_avatar_media_id:
+                profile.author_avatar_url = urls[profile.author_avatar_media_id]
+            if profile.header_logo_media_id:
+                profile.header_logo_url = urls[profile.header_logo_media_id]
+        if site.icon_media_id:
+            site.icon_url = urls[site.icon_media_id]
         if site.avatar_media_id:
             site.avatar_url = urls[site.avatar_media_id]
         theme = profiles[active_theme]
@@ -263,6 +272,23 @@ class SettingsService:
             await validate_activation(
                 self.session, self.config, payload.value.extensions, before.extensions
             )
+        for field in ("home_page_id", "posts_page_id"):
+            page_id = getattr(payload.value.site.reading, field)
+            if page_id and page_id != getattr(before.site.reading, field):
+                page = await self.session.get(ManagedPage, page_id)
+                if (
+                    not page
+                    or page.deleted_at
+                    or page.source != "custom"
+                    or not page.published
+                    or (page.published.get("access", "public") != "public")
+                ):
+                    raise AuthFailure(422, 42236, "请选择已公开发布的自定义页面")
+        category_id = payload.value.site.writing.default_category_id
+        if category_id and category_id != before.site.writing.default_category_id:
+            category = await self.session.get(Taxonomy, category_id)
+            if not category or category.kind != "category" or category.retired:
+                raise AuthFailure(422, 42237, "请选择仍可使用的文章分类")
         if before.site.language_catalog != payload.value.site.language_catalog:
             pattern = language_route_pattern(payload.value.site.language_catalog)
             if pattern and (

@@ -55,7 +55,23 @@ def content_path(value: str) -> str:
     return value
 
 
-class EditorSettings(PublicModel):
+class ArticleOverrides(PublicModel):
+    article_layout: Literal["inherit", "wide", "sidebar"] = "inherit"
+    show_toc: bool | None = None
+    show_share: bool | None = None
+    show_related: bool | None = None
+    show_afterword: bool | None = None
+
+
+class EditorSettings(ArticleOverrides):
+    byline: str = Field(default="", max_length=100)
+    share_image_media_id: UUID | None = None
+
+    @field_validator("byline")
+    @classmethod
+    def normalize_byline(cls, value: str) -> str:
+        return " ".join(value.split())
+
     path: str = Field(default="", max_length=500)
     display_published_at: AwareDatetime | None = None
     cover_media_id: UUID | None = None
@@ -105,10 +121,13 @@ class EditorTermCreate(PublicModel):
 
 
 class EditorCatalog(PublicModel):
+    default_article_category: str = ""
+    default_article_comments: bool = True
     terms: list[EditorTerm]
 
 
-class PublicEditorSettings(PublicModel):
+class PublicEditorSettings(ArticleOverrides):
+    share_image_url: str | None = None
     comments_open: bool = True
     show_image_viewer: bool = True
     show_glossary_tooltips: bool = True

@@ -190,6 +190,76 @@
   },
   "additionalProperties": false,
   "properties": {
+    "article_layout": {
+      "default": "inherit",
+      "enum": [
+        "inherit",
+        "wide",
+        "sidebar"
+      ],
+      "title": "Article Layout",
+      "type": "string"
+    },
+    "show_toc": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Show Toc"
+    },
+    "show_share": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Show Share"
+    },
+    "show_related": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Show Related"
+    },
+    "show_afterword": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Show Afterword"
+    },
+    "share_image_url": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Share Image Url"
+    },
     "id": {
       "minLength": 1,
       "title": "Id",
@@ -401,6 +471,6 @@
   "title": "ContentPresentation",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "0.2.0-preview.5",
+  "x-everunfold-contract-version": "0.2.0-preview.6",
   "description": "Draft presentation contract. No HTTP endpoint or database migration is installed. Locked records omit body, excerpt and media. Viewer-specific state is separate."
 }

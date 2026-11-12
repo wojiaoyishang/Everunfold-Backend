@@ -9,16 +9,17 @@ from typing import Literal, Self
 
 from pydantic import Field, model_validator
 
+from app.modules.content.editor_schema import ArticleOverrides
 from app.modules.content.schemas import (
     ContentBlock,
     ContentTranslation,
     MediaURL,
-    PublicModel,
     TaxonomyDTO,
 )
 
 
-class ContentPresentation(PublicModel):
+class ContentPresentation(ArticleOverrides):
+    share_image_url: str | None = None
     id: str = Field(min_length=1)
     type: Literal["article", "shuoshuo", "page"]
     title: str

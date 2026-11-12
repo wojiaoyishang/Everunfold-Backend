@@ -35,7 +35,7 @@ from app.modules.content.draft_schemas import (
 )
 from app.modules.content.editor_schema import EditorSettings
 from app.modules.content.editor_service import editor_media
-from app.modules.content.models import Content
+from app.modules.content.models import Content, SiteSettings, Taxonomy
 from app.modules.content.publication import ContentPublication
 from app.modules.content.type_registry import ContentTypeDefinition, content_types
 from app.modules.media.locking import lock_references
@@ -187,13 +187,31 @@ class DraftService:
                 json.dumps([block.model_dump(mode="json") for block in fields.body])
             )
             settings = fields.settings or EditorSettings.model_validate(row.editor_settings or {})
+            if isinstance(payload, DraftCreate) and row.type_id == "article":
+                from app.modules.settings.defaults import public_settings
+
+                site = await self.session.get(SiteSettings, 1)
+                defaults = public_settings(site.data if site else {}).site.writing
+                changes: dict[str, bool | list[str]] = {}
+                if "comments_open" not in settings.model_fields_set:
+                    changes["comments_open"] = defaults.comments_open
+                if "categories" not in settings.model_fields_set and defaults.default_category_id:
+                    term = await self.session.get(Taxonomy, defaults.default_category_id)
+                    if term and term.kind == "category" and not term.retired:
+                        changes["categories"] = [term.name]
+                settings = settings.model_copy(update=changes)
             from app.modules.content.taxonomy_names import TermDirectory, register_draft_terms
 
             settings = (await TermDirectory.load(self.session)).normalize(settings)
             await register_draft_terms(self.session, settings)
             if not settings.path:
                 settings.path = row.public_path or await initial_path(
-                    self.session, fields.title, row.id, language=row.language
+                    self.session,
+                    fields.title,
+                    row.id,
+                    language=row.language,
+                    type_id=row.type_id,
+                    date=settings.display_published_at or now,
                 )
             if fields.access_password:
                 row.access_password_hash = await to_thread.run_sync(

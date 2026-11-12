@@ -93,6 +93,76 @@
     "ContentDetail": {
       "additionalProperties": false,
       "properties": {
+        "article_layout": {
+          "default": "inherit",
+          "enum": [
+            "inherit",
+            "wide",
+            "sidebar"
+          ],
+          "title": "Article Layout",
+          "type": "string"
+        },
+        "show_toc": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Show Toc"
+        },
+        "show_share": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Show Share"
+        },
+        "show_related": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Show Related"
+        },
+        "show_afterword": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Show Afterword"
+        },
+        "share_image_url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Share Image Url"
+        },
         "comments_open": {
           "default": true,
           "title": "Comments Open",
@@ -1561,6 +1631,16 @@
     "EditorCatalog": {
       "additionalProperties": false,
       "properties": {
+        "default_article_category": {
+          "default": "",
+          "title": "Default Article Category",
+          "type": "string"
+        },
+        "default_article_comments": {
+          "default": true,
+          "title": "Default Article Comments",
+          "type": "boolean"
+        },
         "terms": {
           "items": {
             "$ref": "#/$defs/EditorTerm"
@@ -1578,6 +1658,83 @@
     "EditorSettings": {
       "additionalProperties": false,
       "properties": {
+        "article_layout": {
+          "default": "inherit",
+          "enum": [
+            "inherit",
+            "wide",
+            "sidebar"
+          ],
+          "title": "Article Layout",
+          "type": "string"
+        },
+        "show_toc": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Show Toc"
+        },
+        "show_share": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Show Share"
+        },
+        "show_related": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Show Related"
+        },
+        "show_afterword": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Show Afterword"
+        },
+        "byline": {
+          "default": "",
+          "maxLength": 100,
+          "title": "Byline",
+          "type": "string"
+        },
+        "share_image_media_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Share Image Media Id"
+        },
         "path": {
           "default": "",
           "maxLength": 500,
@@ -3719,7 +3876,7 @@
   "title": "ContentAdminContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "1.20.0",
+  "x-everunfold-contract-version": "1.21.0",
   "x-everunfold-content-types": [
     {
       "id": "article",

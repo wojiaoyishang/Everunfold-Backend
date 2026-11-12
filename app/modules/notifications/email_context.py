@@ -86,12 +86,12 @@ async def site_variables(
     site = public.site
     origin = brand.site_url or site_origin(config)
     icon = brand.icon_url
-    if not icon and site.avatar_media_id:
+    if not icon and site.icon_media_id:
         try:
             icons = await MediaService(session, config).resolve_resources(
-                {site.avatar_media_id: "image"}
+                {site.icon_media_id: "image"}
             )
-            icon = icons[site.avatar_media_id]
+            icon = icons[site.icon_media_id]
         except AuthFailure as exc:
             if exc.status != 422:
                 raise
@@ -100,7 +100,7 @@ async def site_variables(
         "name": site.name,
         "description": site.description,
         "author": site.author,
-        "icon_url": absolute_url(icon or site.avatar_url, origin),
+        "icon_url": absolute_url(icon or site.icon_url, origin),
         "url": origin,
         "support_url": brand.support_url,
         "accent_color": accent,
