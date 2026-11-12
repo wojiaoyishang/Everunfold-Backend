@@ -73,7 +73,7 @@ async def deliver(config: Settings) -> dict[str, Any]:
                 return {"processed": 1}
             value, password = profile.value, profile.password
             user = await session.get(User, row.user_id)
-            if user is None or not user.active:
+            if user is None or not user.active or user.revision != row.profile_revision:
                 row.status, row.error, row.delivery_code = (
                     "failed",
                     "recipient_unavailable",
@@ -127,7 +127,7 @@ async def deliver(config: Settings) -> dict[str, Any]:
                 )
                 .values(
                     status="sent" if status == "sent" else "failed",
-                    error=error,
+                    error="delivery_unknown" if status == "unknown" else error,
                     delivery_code="",
                     sent_at=datetime.now(UTC) if status == "sent" else None,
                     lease_until=None,

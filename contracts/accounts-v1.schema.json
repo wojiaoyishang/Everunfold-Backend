@@ -1,5 +1,113 @@
 {
   "$defs": {
+    "AccessSenderOption": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "name"
+      ],
+      "title": "AccessSenderOption",
+      "type": "object"
+    },
+    "AccessSettingsInput": {
+      "additionalProperties": false,
+      "properties": {
+        "expected_revision": {
+          "minimum": 1,
+          "title": "Expected Revision",
+          "type": "integer"
+        },
+        "login_captcha": {
+          "title": "Login Captcha",
+          "type": "boolean"
+        },
+        "email_verification_captcha": {
+          "title": "Email Verification Captcha",
+          "type": "boolean"
+        },
+        "mail_profile_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Mail Profile Id"
+        }
+      },
+      "required": [
+        "expected_revision",
+        "login_captcha",
+        "email_verification_captcha"
+      ],
+      "title": "AccessSettingsInput",
+      "type": "object"
+    },
+    "AccessSettingsState": {
+      "additionalProperties": false,
+      "properties": {
+        "revision": {
+          "title": "Revision",
+          "type": "integer"
+        },
+        "login_captcha": {
+          "title": "Login Captcha",
+          "type": "boolean"
+        },
+        "email_verification_captcha": {
+          "title": "Email Verification Captcha",
+          "type": "boolean"
+        },
+        "mail_profile_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Mail Profile Id"
+        },
+        "mail_ready": {
+          "title": "Mail Ready",
+          "type": "boolean"
+        },
+        "mail_profiles": {
+          "items": {
+            "$ref": "#/$defs/AccessSenderOption"
+          },
+          "title": "Mail Profiles",
+          "type": "array"
+        }
+      },
+      "required": [
+        "revision",
+        "login_captcha",
+        "email_verification_captcha",
+        "mail_profile_id",
+        "mail_ready",
+        "mail_profiles"
+      ],
+      "title": "AccessSettingsState",
+      "type": "object"
+    },
     "AccountProfile": {
       "additionalProperties": false,
       "properties": {
@@ -90,6 +198,35 @@
           "default": false,
           "title": "Email Verified",
           "type": "boolean"
+        },
+        "email_verification_source": {
+          "anyOf": [
+            {
+              "enum": [
+                "mailbox",
+                "admin"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Email Verification Source"
+        },
+        "email_verification_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Email Verification At"
         },
         "grants": {
           "additionalProperties": {
@@ -985,6 +1122,34 @@
       "title": "CallbackState",
       "type": "object"
     },
+    "CaptchaAnswer": {
+      "additionalProperties": false,
+      "properties": {
+        "challenge_id": {
+          "format": "uuid",
+          "title": "Challenge Id",
+          "type": "string"
+        },
+        "client_id": {
+          "format": "uuid",
+          "title": "Client Id",
+          "type": "string"
+        },
+        "answer": {
+          "maxLength": 4096,
+          "minLength": 1,
+          "title": "Answer",
+          "type": "string"
+        }
+      },
+      "required": [
+        "challenge_id",
+        "client_id",
+        "answer"
+      ],
+      "title": "CaptchaAnswer",
+      "type": "object"
+    },
     "EmailVerificationConfirm": {
       "additionalProperties": false,
       "properties": {
@@ -1021,6 +1186,17 @@
           "title": "Operation Id",
           "type": "string"
         },
+        "captcha": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CaptchaAnswer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "email": {
           "maxLength": 254,
           "minLength": 3,
@@ -1053,6 +1229,7 @@
             "sending",
             "sent",
             "failed",
+            "unknown",
             "expired",
             "verified"
           ],
@@ -1697,6 +1874,34 @@
       "title": "ProfileSave",
       "type": "object"
     },
+    "PublicResponse_AccessSettingsState_": {
+      "additionalProperties": false,
+      "properties": {
+        "success": {
+          "default": true,
+          "title": "Success",
+          "type": "boolean"
+        },
+        "code": {
+          "default": 200,
+          "title": "Code",
+          "type": "integer"
+        },
+        "msg": {
+          "default": "请求成功",
+          "title": "Msg",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/AccessSettingsState"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "title": "PublicResponse[AccessSettingsState]",
+      "type": "object"
+    },
     "PublicResponse_AccountProfile_": {
       "additionalProperties": false,
       "properties": {
@@ -2199,6 +2404,43 @@
         "data"
       ],
       "title": "PublicResponse[UserPreset]",
+      "type": "object"
+    },
+    "ReviewAccountEmail": {
+      "additionalProperties": false,
+      "properties": {
+        "operation_id": {
+          "format": "uuid",
+          "title": "Operation Id",
+          "type": "string"
+        },
+        "expected_revision": {
+          "minimum": 1,
+          "title": "Expected Revision",
+          "type": "integer"
+        },
+        "action": {
+          "enum": [
+            "approve",
+            "revoke"
+          ],
+          "title": "Action",
+          "type": "string"
+        },
+        "reason": {
+          "maxLength": 500,
+          "minLength": 1,
+          "title": "Reason",
+          "type": "string"
+        }
+      },
+      "required": [
+        "operation_id",
+        "expected_revision",
+        "action",
+        "reason"
+      ],
+      "title": "ReviewAccountEmail",
       "type": "object"
     },
     "SessionItem": {
@@ -2753,6 +2995,15 @@
     "session_revoke": {
       "$ref": "#/$defs/SessionRevoke"
     },
+    "access_settings": {
+      "$ref": "#/$defs/PublicResponse_AccessSettingsState_"
+    },
+    "save_access_settings": {
+      "$ref": "#/$defs/AccessSettingsInput"
+    },
+    "email_review": {
+      "$ref": "#/$defs/ReviewAccountEmail"
+    },
     "email_verification_request": {
       "$ref": "#/$defs/EmailVerificationRequest"
     },
@@ -2811,6 +3062,9 @@
     "password_change",
     "password_reset",
     "session_revoke",
+    "access_settings",
+    "save_access_settings",
+    "email_review",
     "email_verification_request",
     "email_verification_confirm",
     "profile",
@@ -2823,7 +3077,7 @@
   "title": "AccountContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "1.6.0",
+  "x-everunfold-contract-version": "1.7.0",
   "x-everunfold-csrf-header": "X-CSRF-Token",
   "x-everunfold-credentials": "include",
   "x-everunfold-operations": [
@@ -3021,6 +3275,38 @@
       "method": "PATCH",
       "response": "profile",
       "input": "profile_save"
+    },
+    {
+      "name": "readAccessSettings",
+      "path": "/v1/admin/access/settings",
+      "method": "GET",
+      "response": "access_settings"
+    },
+    {
+      "name": "saveAccessSettings",
+      "path": "/v1/admin/access/settings",
+      "method": "PATCH",
+      "response": "access_settings",
+      "input": "save_access_settings"
+    },
+    {
+      "name": "readAccountEmailVerification",
+      "path": "/v1/account/email-verification/{request_id}",
+      "method": "GET",
+      "response": "email_verification",
+      "path_params": [
+        "request_id"
+      ]
+    },
+    {
+      "name": "reviewAccountEmail",
+      "path": "/v1/admin/users/{user_id}/email-verification",
+      "method": "POST",
+      "response": "profile",
+      "input": "email_review",
+      "path_params": [
+        "user_id"
+      ]
     },
     {
       "name": "requestAccountEmailVerification",

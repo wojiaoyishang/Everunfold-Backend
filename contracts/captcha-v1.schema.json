@@ -88,6 +88,11 @@
           "title": "Login",
           "type": "boolean"
         },
+        "email_verification": {
+          "default": false,
+          "title": "Email Verification",
+          "type": "boolean"
+        },
         "read": {
           "$ref": "#/$defs/ContentRules"
         },
@@ -153,6 +158,7 @@
         "action": {
           "enum": [
             "login",
+            "email_verification",
             "read",
             "comment"
           ],
@@ -1020,7 +1026,7 @@
   "title": "CaptchaAPIContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "1.5.0",
+  "x-everunfold-contract-version": "1.6.0",
   "x-everunfold-reader-authorization": {
     "header": "Authorization: Bearer <API Key>",
     "audience": "everunfold",

@@ -44,6 +44,7 @@ from app.modules.auth.preset_schemas import (
     UserPresetStamp,
 )
 from app.modules.auth.schemas import AuthSessionState
+from app.modules.captcha.schemas import CaptchaAnswer
 from app.modules.settings.languages import LanguageCatalog
 from app.modules.settings.schemas import safe_url
 
@@ -84,6 +85,8 @@ class AccountProfile(ProfileFields):
     auth_version: int
     must_change_password: bool
     email_verified: bool = False
+    email_verification_source: Literal["mailbox", "admin"] | None = None
+    email_verification_at: datetime | None = None
     grants: dict[str, dict[str, ResourceScope]]
     permission_preset: UserPresetStamp | None = None
     created_at: datetime
@@ -149,6 +152,7 @@ class SessionRevoke(PublicModel):
 
 class EmailVerificationRequest(PublicModel):
     operation_id: UUID
+    captcha: CaptchaAnswer | None = None
     email: str = Field(min_length=3, max_length=254)
 
     @field_validator("email")
@@ -163,7 +167,7 @@ class EmailVerificationRequest(PublicModel):
 class EmailVerificationConfirm(PublicModel):
     request_id: UUID
     email: str = Field(min_length=3, max_length=254)
-    code: str = Field(pattern=r"^[0-9]{6}$")
+    code: str = Field(pattern=r"^[0-9]{6}$", repr=False)
 
     @field_validator("email")
     @classmethod
@@ -174,12 +178,52 @@ class EmailVerificationConfirm(PublicModel):
         return value
 
 
+EmailVerificationStatus = Literal[
+    "queued", "sending", "sent", "failed", "unknown", "expired", "verified"
+]
+
+
 class EmailVerificationState(PublicModel):
     request_id: UUID
     email: str
-    status: Literal["queued", "sending", "sent", "failed", "expired", "verified"]
+    status: EmailVerificationStatus
     expires_at: datetime
     retry_after_seconds: int = Field(ge=0)
+
+
+class AccessSettingsInput(PublicModel):
+    expected_revision: int = Field(ge=1)
+    login_captcha: bool
+    email_verification_captcha: bool
+    mail_profile_id: UUID | None = None
+
+
+class AccessSenderOption(PublicModel):
+    id: UUID
+    name: str
+
+
+class AccessSettingsState(PublicModel):
+    revision: int
+    login_captcha: bool
+    email_verification_captcha: bool
+    mail_profile_id: UUID | None
+    mail_ready: bool
+    mail_profiles: list[AccessSenderOption]
+
+
+class ReviewAccountEmail(PublicModel):
+    operation_id: UUID
+    expected_revision: int = Field(ge=1)
+    action: Literal["approve", "revoke"]
+    reason: str = Field(min_length=1, max_length=500)
+
+    @field_validator("reason")
+    @classmethod
+    def nonblank_reason(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("reason must not be blank")
+        return value.strip()
 
 
 class AccountUserList(PublicModel):
@@ -234,6 +278,9 @@ class AccountContract(PublicModel):
     password_change: PasswordChange
     password_reset: PasswordReset
     session_revoke: SessionRevoke
+    access_settings: PublicResponse[AccessSettingsState]
+    save_access_settings: AccessSettingsInput
+    email_review: ReviewAccountEmail
     email_verification_request: EmailVerificationRequest
     email_verification_confirm: EmailVerificationConfirm
     profile: PublicResponse[AccountProfile]

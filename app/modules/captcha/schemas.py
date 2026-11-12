@@ -7,7 +7,8 @@ from pydantic import Field, field_validator, model_validator
 
 from app.core.schemas import PublicModel, PublicResponse
 
-CaptchaAction = Literal["login", "read", "comment"]
+CaptchaAction = Literal["login", "email_verification", "read", "comment"]
+ACCOUNT_ACTIONS = frozenset({"login", "email_verification"})
 CaptchaOverride = Literal["inherit", "required", "off"]
 
 
@@ -19,6 +20,7 @@ class ContentRules(PublicModel):
 
 class CaptchaRules(PublicModel):
     login: bool = False
+    email_verification: bool = False
     read: ContentRules = Field(default_factory=ContentRules)
     comment: ContentRules = Field(default_factory=ContentRules)
 
@@ -99,8 +101,8 @@ class ChallengeRequest(PublicModel):
 
     @model_validator(mode="after")
     def target(self) -> Self:
-        if (self.action == "login") != (self.content_id is None):
-            raise ValueError("login has no content; other actions require content")
+        if (self.action in ACCOUNT_ACTIONS) != (self.content_id is None):
+            raise ValueError("account actions have no content; reader actions require content")
         return self
 
 

@@ -63,6 +63,10 @@ def profile(user: User) -> AccountProfile:
         display_name=user.display_name,
         email=user.email,
         email_verified=user.email_verified_at is not None,
+        email_verification_source=(
+            "mailbox" if user.email_verified_at else "admin" if user.email_reviewed_at else None
+        ),
+        email_verification_at=user.email_verified_at or user.email_reviewed_at,
         avatar_url=user.avatar_url,
         avatar_id=user.avatar_id,
         bio=user.bio,
@@ -198,6 +202,7 @@ class AccountsService:
                 setattr(user, key, item)
         if email_changed:
             user.email_verified_at = None
+            user.email_reviewed_at = None
         user.revision += 1
         user.updated_at = datetime.now(UTC)
 

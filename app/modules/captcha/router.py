@@ -53,4 +53,8 @@ async def write_settings(payload: SaveCaptchaSettings, request: Request) -> JSON
     runtime = auth_runtime(request)
     async with runtime.database.session_factory() as session:
         actor, _ = await authorize_business(request, session, runtime)
-        return JSONResponseSuccess(data=await save_settings(session, runtime, payload, actor.id))
+        return JSONResponseSuccess(
+            data=await save_settings(
+                session, runtime, payload, actor.id, can_manage_access=actor.has("access:manage")
+            )
+        )

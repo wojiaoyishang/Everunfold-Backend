@@ -11,7 +11,7 @@ from app.modules.auth.accounts_schemas import AccountContract
 def build_schema() -> dict[str, Any]:
     schema = AccountContract.model_json_schema()
     schema["$schema"] = "http://json-schema.org/draft-07/schema#"
-    schema["x-everunfold-contract-version"] = "1.6.0"
+    schema["x-everunfold-contract-version"] = "1.7.0"
     schema["x-everunfold-csrf-header"] = "X-CSRF-Token"
     schema["x-everunfold-credentials"] = "include"
     operations: list[dict[str, Any]] = []
@@ -107,6 +107,28 @@ def build_schema() -> dict[str, Any]:
         ),
         ("readAccountProfile", "/v1/account/profile", "GET", "profile", None),
         ("saveAccountProfile", "/v1/account/profile", "PATCH", "profile", "profile_save"),
+        ("readAccessSettings", "/v1/admin/access/settings", "GET", "access_settings", None),
+        (
+            "saveAccessSettings",
+            "/v1/admin/access/settings",
+            "PATCH",
+            "access_settings",
+            "save_access_settings",
+        ),
+        (
+            "readAccountEmailVerification",
+            "/v1/account/email-verification/{request_id}",
+            "GET",
+            "email_verification",
+            None,
+        ),
+        (
+            "reviewAccountEmail",
+            "/v1/admin/users/{user_id}/email-verification",
+            "POST",
+            "profile",
+            "email_review",
+        ),
         (
             "requestAccountEmailVerification",
             "/v1/account/email-verification/request",

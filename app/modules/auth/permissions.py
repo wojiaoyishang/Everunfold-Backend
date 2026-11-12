@@ -28,6 +28,8 @@ CAPABILITIES: dict[str, tuple[str, bool, bool]] = {
     "shortcodes:write": ("管理短代码", True, False),
     "settings:read": ("读取站点设置", True, False),
     "settings:write": ("修改站点设置", True, False),
+    "access:manage": ("管理站点认证策略", False, False),
+    "users:verify_email": ("审核与撤销用户邮箱验证", False, False),
     "users:manage": ("管理用户与授权", False, False),
     "applications:manage": ("管理API Key接入应用", False, False),
 }

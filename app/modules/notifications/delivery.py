@@ -133,6 +133,10 @@ async def _deliver_one(config: Settings, identity: UUID, lease: UUID) -> tuple[s
                 value, password = profile.value, profile.password
                 if not row.destination:
                     return "suppressed", "missing_recipient"
+                if user is None or not user.active or user.email != row.destination:
+                    return "suppressed", "recipient_changed"
+                if user.email_verified_at is None:
+                    return "suppressed", "unverified_recipient"
                 budget = min(120, max(15, value.timeout_seconds * 4)) + 5
                 try:
                     status, error = await asyncio.wait_for(

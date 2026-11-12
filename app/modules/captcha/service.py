@@ -21,6 +21,7 @@ from app.modules.captcha.credentials import ReaderCredential, authenticate, fenc
 from app.modules.captcha.image import generate_image
 from app.modules.captcha.providers import provider_catalog
 from app.modules.captcha.schemas import (
+    ACCOUNT_ACTIONS,
     CaptchaAnswer,
     CaptchaChallenge,
     CaptchaConfig,
@@ -49,6 +50,8 @@ def required(config: CaptchaConfig, action: str, kind: str, value: dict[str, obj
         return override == "required"
     if action == "login":
         return config.rules.login
+    if action == "email_verification":
+        return config.rules.email_verification
     rules = config.rules.read if action == "read" else config.rules.comment
     return bool(getattr(rules, kind, False))
 
@@ -142,8 +145,8 @@ class CaptchaService:
             async with self.runtime.database.session_factory() as session:
                 identity = None
                 if self.authorization is not None:
-                    if action == "login":
-                        raise AuthFailure(403, 40364, "API Key不能用于浏览器登录")
+                    if action in ACCOUNT_ACTIONS:
+                        raise AuthFailure(403, 40364, "API Key不能用于浏览器身份验证")
                     try:
                         identity = await authenticate(session, self.authorization)
                     except AuthFailure:
@@ -301,7 +304,12 @@ def settings_state(config: CaptchaConfig) -> CaptchaSettingsState:
 
 
 async def save_settings(
-    session: AsyncSession, runtime: Runtime, payload: SaveCaptchaSettings, actor_id: UUID
+    session: AsyncSession,
+    runtime: Runtime,
+    payload: SaveCaptchaSettings,
+    actor_id: UUID,
+    *,
+    can_manage_access: bool = True,
 ) -> CaptchaSettingsState:
     from app.modules.content.publication import ContentPublication
     from app.modules.media.locking import lock_references
@@ -313,6 +321,8 @@ async def save_settings(
     before = config_from_data(site.data)
     if payload.expected_revision != before.revision:
         raise AuthFailure(409, 40986, "验证码设置已更新，请重新读取后再保存")
+    if payload.rules.login != before.rules.login and not can_manage_access:
+        raise AuthFailure(403, 40374, "没有管理访问与安全的权限")
     if payload.provider != "local" and payload.provider not in provider_catalog():
         raise AuthFailure(422, 42286, "验证码提供方未注册")
     from app.core.plugins.state import provider_state
@@ -343,7 +353,9 @@ async def save_settings(
         revision=before.revision + 1,
         provider=payload.provider,
         providers=providers,
-        rules=payload.rules,
+        rules=payload.rules.model_copy(
+            update={"email_verification": before.rules.email_verification}
+        ),
         api_key_bypass=(
             payload.api_key_bypass if payload.api_key_bypass is not None else before.api_key_bypass
         ),

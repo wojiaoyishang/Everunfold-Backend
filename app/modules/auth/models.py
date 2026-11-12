@@ -4,7 +4,17 @@ from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID, uuid4
 
-from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, Integer, String, Text, func
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+    func,
+)
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -35,6 +45,7 @@ class User(Base):
     permission_preset: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
     email: Mapped[str] = mapped_column(String(254), default="", server_default="")
     email_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    email_reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     avatar_url: Mapped[str] = mapped_column(Text, default="", server_default="")
     avatar_id: Mapped[UUID | None] = mapped_column(
         ForeignKey("account_avatars.id", use_alter=True, name="fk_users_avatar_id_account_avatars")
@@ -50,6 +61,14 @@ class User(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC), server_default=func.now()
     )
+
+
+Index(
+    "uq_users_verified_email",
+    func.lower(func.btrim(User.email)),
+    unique=True,
+    postgresql_where=User.email_verified_at.is_not(None),
+)
 
 
 class BrowserSession(Base):

@@ -22,6 +22,7 @@ from app.modules.auth.accounts_schemas import (
     PasswordReset,
     PermissionCatalog,
     ProfileSave,
+    ReviewAccountEmail,
     SessionList,
     SessionRevoke,
     UserCreate,
@@ -35,7 +36,7 @@ from app.modules.auth.email_verification_service import EmailVerificationService
 from app.modules.auth.models import User
 from app.modules.auth.permission_schemas import PermissionDefinition
 from app.modules.auth.permissions import CAPABILITIES, user_permissions
-from app.modules.auth.router import auth_runtime, cookie, cookie_response
+from app.modules.auth.router import auth_runtime, cookie, cookie_response, peer
 from app.modules.auth.schemas import AuthSessionState
 from app.modules.auth.service import AuthFailure, AuthService
 from app.modules.settings.languages import LanguageCatalog, language_catalog
@@ -103,11 +104,27 @@ async def save_profile(payload: ProfileSave, ctx: Authorized) -> JSONResponseSuc
     response_model=PublicResponse[EmailVerificationState],
 )
 async def request_email_verification(
-    payload: EmailVerificationRequest, ctx: Authorized
+    payload: EmailVerificationRequest, request: Request, ctx: Authorized
 ) -> JSONResponseSuccess:
-    return JSONResponseSuccess(
-        data=await EmailVerificationService(ctx.service.session).request(ctx.actor, payload)
+    from app.modules.captcha.service import CaptchaService, guard
+
+    service = EmailVerificationService(ctx.service.session)
+    if existing := await service.replay(ctx.actor, payload):
+        return JSONResponseSuccess(data=existing)
+    permit = await CaptchaService(auth_runtime(request), peer(request)).enforce(
+        "email_verification", None, payload.captcha
     )
+    await guard(ctx.service.session, permit)
+    return JSONResponseSuccess(data=await service.request(ctx.actor, payload))
+
+
+@router.get(
+    "/account/email-verification/{request_id}",
+    response_model=PublicResponse[EmailVerificationState],
+)
+async def email_verification_status(request_id: UUID, ctx: Authorized) -> JSONResponseSuccess:
+    service = EmailVerificationService(ctx.service.session)
+    return JSONResponseSuccess(data=await service.status(ctx.actor, request_id))
 
 
 @router.post(
@@ -168,6 +185,17 @@ async def create_user(payload: UserCreate, ctx: Manager) -> JSONResponseSuccess:
 @router.patch("/admin/users/{user_id}", response_model=PublicResponse[AccountProfile])
 async def save_user(user_id: UUID, payload: UserSave, ctx: Manager) -> JSONResponseSuccess:
     return JSONResponseSuccess(data=await ctx.service.save_user(ctx.actor, user_id, payload))
+
+
+@router.post(
+    "/admin/users/{user_id}/email-verification", response_model=PublicResponse[AccountProfile]
+)
+async def review_user_email(
+    user_id: UUID, payload: ReviewAccountEmail, ctx: Manager
+) -> JSONResponseSuccess:
+    from app.modules.auth.email_review import review_email
+
+    return JSONResponseSuccess(data=await review_email(ctx.service, ctx.actor, user_id, payload))
 
 
 @router.post("/admin/users/{user_id}/password", response_model=PublicResponse[AccountProfile])
