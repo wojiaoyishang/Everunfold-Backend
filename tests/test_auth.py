@@ -254,6 +254,69 @@ def test_verified_email_login_accepts_case_insensitive_address(
     assert login(client, email.upper())["user"]["username"] == name
 
 
+def test_email_login_requires_current_mailbox_proof(
+    auth_client: tuple[TestClient, Settings, str, str],
+) -> None:
+    client, settings, name, _ = auth_client
+    email = name + "@example.test"
+
+    async def set_state(*, verified: bool, reviewed: bool) -> None:
+        database = Database(settings.database.url.get_secret_value())
+        try:
+            async with database.session_factory() as session:
+                await session.execute(
+                    update(User)
+                    .where(User.username == name)
+                    .values(
+                        email=email,
+                        email_verified_at=datetime.now(UTC) if verified else None,
+                        email_reviewed_at=datetime.now(UTC) if reviewed else None,
+                    )
+                )
+                await session.commit()
+        finally:
+            await database.close()
+
+    async def clear_limit() -> None:
+        database = Database(settings.database.url.get_secret_value())
+        try:
+            async with database.session_factory() as session:
+                keys = ["login-account:" + name, "login-account:" + email]
+                await session.execute(
+                    delete(AuthRateLimit).where(
+                        AuthRateLimit.key_hash.in_(
+                            [hashlib.sha256(key.encode()).hexdigest() for key in keys]
+                        )
+                    )
+                )
+                await session.commit()
+        finally:
+            await database.close()
+
+    asyncio.run(set_state(verified=False, reviewed=True))
+    csrf = client.get("/v1/auth/session").json()["data"]["csrf_token"]
+    response = client.post(
+        "/v1/auth/login",
+        json={"username": email, "password": "123456"},
+        headers={"Origin": ORIGIN, "X-CSRF-Token": csrf},
+    )
+    assert response.status_code == 401
+    asyncio.run(clear_limit())
+    asyncio.run(set_state(verified=True, reviewed=False))
+    state = login(client, email)
+    assert state["authenticated"] is True
+    client.post("/v1/auth/logout", headers={"Origin": ORIGIN, "X-CSRF-Token": state["csrf_token"]})
+    asyncio.run(clear_limit())
+    asyncio.run(set_state(verified=False, reviewed=False))
+    csrf = client.get("/v1/auth/session").json()["data"]["csrf_token"]
+    response = client.post(
+        "/v1/auth/login",
+        json={"username": email, "password": "123456"},
+        headers={"Origin": ORIGIN, "X-CSRF-Token": csrf},
+    )
+    assert response.status_code == 401
+
+
 def test_login_rotates_cookie_csrf_and_logout_revokes(
     auth_client: tuple[TestClient, Settings, str, str],
 ) -> None:
