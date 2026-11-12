@@ -12,7 +12,7 @@ from app.modules.captcha.schemas import CaptchaAnswer
 
 class LoginInput(PublicModel):
     captcha: CaptchaAnswer | None = None
-    username: str = Field(min_length=1, max_length=64)
+    username: str = Field(min_length=1, max_length=254)
     password: str = Field(min_length=1, max_length=1024)
 
 

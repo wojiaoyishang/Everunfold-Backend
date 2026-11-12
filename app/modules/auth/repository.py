@@ -3,7 +3,7 @@
 import hashlib
 from datetime import datetime, timedelta
 
-from sqlalchemy import case, delete, or_, select
+from sqlalchemy import case, delete, func, or_, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -26,6 +26,17 @@ class AuthRepository:
     async def user_by_name(self, username: str, *, lock: bool = False) -> User | None:
         statement = (
             select(User).where(User.username == username).execution_options(populate_existing=True)
+        )
+        return await self.session.scalar(statement.with_for_update() if lock else statement)
+
+    async def user_by_verified_email(self, email: str, *, lock: bool = False) -> User | None:
+        statement = (
+            select(User)
+            .where(
+                User.email_verified_at.is_not(None),
+                func.lower(func.btrim(User.email)) == email,
+            )
+            .execution_options(populate_existing=True)
         )
         return await self.session.scalar(statement.with_for_update() if lock else statement)
 

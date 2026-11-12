@@ -174,14 +174,22 @@ class AuthService:
         record, _ = await self._write_session(raw_token, supplied_csrf, lock=False)
         now = datetime.now(UTC)
         name = normalize_username(username)
+        is_email = "@" in name
         ip_allowed = await self.repo.consume_limit(
             "login-ip:" + peer,
             self.config.login_attempts_per_ip,
             self.config.login_window_seconds,
             now,
         )
+        # Lock the verified address before using its canonical username for rate limiting.
+        user = None
+        if ip_allowed:
+            if is_email:
+                user = await self.repo.user_by_verified_email(name, lock=True)
+            else:
+                user = await self.repo.user_by_name(name, lock=True)
         account_allowed = ip_allowed and await self.repo.consume_limit(
-            "login-account:" + name,
+            "login-account:" + (user.username if user else name),
             self.config.login_attempts_per_account,
             self.config.login_window_seconds,
             now,
@@ -193,7 +201,6 @@ class AuthService:
             )
         # Lock credentials before touching authenticated sessions. A concurrent
         # password reset/disable cannot be followed by a login using the old hash.
-        user = await self.repo.user_by_name(name, lock=True)
         encoded = user.password_hash if user is not None else DUMMY_PASSWORD_HASH
         valid = await to_thread.run_sync(
             verify_password, encoded, password, limiter=self.password_limiter

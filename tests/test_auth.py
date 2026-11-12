@@ -159,7 +159,12 @@ def auth_client() -> Iterator[tuple[TestClient, Settings, str, str]]:
                         delete(AuthAuditEvent).where(AuthAuditEvent.user_id == user_id)
                     )
                     await session.execute(delete(User).where(User.id == user_id))
-                    keys = ["bootstrap:" + peer, "login-ip:" + peer, "login-account:" + name]
+                    keys = [
+                        "bootstrap:" + peer,
+                        "login-ip:" + peer,
+                        "login-account:" + name,
+                        "login-account:" + name + "@example.test",
+                    ]
                     await session.execute(
                         delete(AuthRateLimit).where(
                             AuthRateLimit.key_hash.in_(
@@ -184,6 +189,69 @@ def login(client: TestClient, name: str) -> dict[str, Any]:
     )
     assert response.status_code == 200
     return dict(response.json()["data"])
+
+
+def test_verified_email_login_and_shared_account_limit(
+    auth_client: tuple[TestClient, Settings, str, str],
+) -> None:
+    client, settings, name, _ = auth_client
+    email = name + "@example.test"
+
+    async def set_email(verified: bool) -> None:
+        database = Database(settings.database.url.get_secret_value())
+        try:
+            async with database.session_factory() as session:
+                await session.execute(
+                    update(User)
+                    .where(User.username == name)
+                    .values(email=email, email_verified_at=datetime.now(UTC) if verified else None)
+                )
+                await session.commit()
+        finally:
+            await database.close()
+
+    asyncio.run(set_email(False))
+    csrf = client.get("/v1/auth/session").json()["data"]["csrf_token"]
+    headers = {"Origin": ORIGIN, "X-CSRF-Token": csrf}
+    denied = client.post(
+        "/v1/auth/login", json={"username": email, "password": "123456"}, headers=headers
+    )
+    assert denied.status_code == 401
+    asyncio.run(set_email(True))
+    for identifier in (name, email.upper(), name):
+        response = client.post(
+            "/v1/auth/login",
+            json={"username": identifier, "password": "incorrect"},
+            headers=headers,
+        )
+        assert response.status_code == 401
+    blocked = client.post(
+        "/v1/auth/login", json={"username": email, "password": "123456"}, headers=headers
+    )
+    assert blocked.status_code == 429
+
+
+def test_verified_email_login_accepts_case_insensitive_address(
+    auth_client: tuple[TestClient, Settings, str, str],
+) -> None:
+    client, settings, name, _ = auth_client
+    email = name + "@example.test"
+
+    async def set_email() -> None:
+        database = Database(settings.database.url.get_secret_value())
+        try:
+            async with database.session_factory() as session:
+                await session.execute(
+                    update(User)
+                    .where(User.username == name)
+                    .values(email=email, email_verified_at=datetime.now(UTC))
+                )
+                await session.commit()
+        finally:
+            await database.close()
+
+    asyncio.run(set_email())
+    assert login(client, email.upper())["user"]["username"] == name
 
 
 def test_login_rotates_cookie_csrf_and_logout_revokes(
