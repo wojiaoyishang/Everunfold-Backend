@@ -11,6 +11,7 @@ from app.core.runtime import Runtime
 from app.core.schemas import ErrorResponse, PublicResponse
 from app.modules.auth.schemas import AuthSessionState, LoginInput
 from app.modules.auth.service import AuthService, SessionResult
+from app.modules.auth.two_factor_schemas import TwoFactorCode
 
 router = APIRouter(
     prefix="/v1",
@@ -95,6 +96,18 @@ async def logout(request: Request, service: Service) -> JSONResponseSuccess:
     return cookie_response(
         await service.logout(cookie(request), request.headers.get("X-CSRF-Token")), request
     )
+
+
+@router.post("/auth/login/second-factor", response_model=PublicResponse[AuthSessionState])
+async def complete_second_factor(
+    payload: TwoFactorCode, request: Request, service: Service
+) -> JSONResponseSuccess:
+    from app.modules.auth.two_factor_service import TwoFactorService
+
+    result = await TwoFactorService(service).complete_login(
+        cookie(request), request.headers.get("X-CSRF-Token"), payload.code
+    )
+    return cookie_response(result, request)
 
 
 @router.get("/admin/session", response_model=PublicResponse[AuthSessionState])

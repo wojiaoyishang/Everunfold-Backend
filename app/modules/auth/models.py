@@ -101,6 +101,31 @@ class AuthAuditEvent(Base):
     details: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict, server_default="{}")
 
 
+class TwoFactorCredential(Base):
+    __tablename__ = "two_factor_credentials"
+
+    user_id: Mapped[UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    secret_ciphertext: Mapped[str] = mapped_column(Text)
+    enabled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    setup_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_counter: Mapped[int] = mapped_column(Integer, default=-1, server_default="-1")
+    recovery_hashes: Mapped[list[str]] = mapped_column(JSONB, default=list, server_default="[]")
+
+
+class LoginChallenge(Base):
+    __tablename__ = "login_challenges"
+
+    session_hash: Mapped[str] = mapped_column(
+        ForeignKey("browser_sessions.token_hash", ondelete="CASCADE"), primary_key=True
+    )
+    user_id: Mapped[UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    auth_version: Mapped[int] = mapped_column(Integer)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    attempts: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+
+
 class AccountOperation(Base):
     """Retry receipts contain responses without credentials and salted input fingerprints."""
 

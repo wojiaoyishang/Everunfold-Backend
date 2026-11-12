@@ -7,6 +7,14 @@ from uuid import UUID
 from pydantic import Field
 
 from app.core.schemas import ErrorResponse, PublicModel, PublicResponse
+from app.modules.auth.two_factor_schemas import (
+    TwoFactorActivated,
+    TwoFactorBegin,
+    TwoFactorChange,
+    TwoFactorCode,
+    TwoFactorSetup,
+    TwoFactorState,
+)
 from app.modules.captcha.schemas import CaptchaAnswer
 
 
@@ -29,6 +37,7 @@ class AuthUser(PublicModel):
 
 class AuthSessionState(PublicModel):
     authenticated: bool
+    mfa_required: bool = False
     user: AuthUser | None
     csrf_token: str
     expires_at: datetime
@@ -36,5 +45,11 @@ class AuthSessionState(PublicModel):
 
 class AuthContract(PublicModel):
     login: LoginInput
+    second_factor: TwoFactorCode
     session: PublicResponse[AuthSessionState]
+    two_factor_begin: TwoFactorBegin
+    two_factor_change: TwoFactorChange
+    two_factor_setup: PublicResponse[TwoFactorSetup]
+    two_factor_state: PublicResponse[TwoFactorState]
+    two_factor_activated: PublicResponse[TwoFactorActivated]
     error: ErrorResponse

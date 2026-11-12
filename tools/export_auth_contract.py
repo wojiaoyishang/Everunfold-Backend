@@ -10,7 +10,7 @@ from app.modules.auth.schemas import AuthContract
 def build_schema() -> dict[str, Any]:
     schema = AuthContract.model_json_schema()
     schema["$schema"] = "http://json-schema.org/draft-07/schema#"
-    schema["x-everunfold-contract-version"] = "0.4.0"
+    schema["x-everunfold-contract-version"] = "0.5.0"
     schema["x-everunfold-csrf-header"] = "X-CSRF-Token"
     schema["x-everunfold-credentials"] = "include"
     schema["x-everunfold-operations"] = [
@@ -26,6 +26,52 @@ def build_schema() -> dict[str, Any]:
             "method": "POST",
             "input": "login",
             "response": "session",
+            "csrf": True,
+        },
+        {
+            "name": "completeSecondFactor",
+            "path": "/v1/auth/login/second-factor",
+            "method": "POST",
+            "input": "second_factor",
+            "response": "session",
+            "csrf": True,
+        },
+        {
+            "name": "readTwoFactor",
+            "path": "/v1/account/two-factor",
+            "method": "GET",
+            "response": "two_factor_state",
+        },
+        {
+            "name": "beginTwoFactor",
+            "path": "/v1/account/two-factor/setup",
+            "method": "POST",
+            "input": "two_factor_begin",
+            "response": "two_factor_setup",
+            "csrf": True,
+        },
+        {
+            "name": "activateTwoFactor",
+            "path": "/v1/account/two-factor/activate",
+            "method": "POST",
+            "input": "second_factor",
+            "response": "two_factor_activated",
+            "csrf": True,
+        },
+        {
+            "name": "disableTwoFactor",
+            "path": "/v1/account/two-factor/disable",
+            "method": "POST",
+            "input": "two_factor_change",
+            "response": "two_factor_state",
+            "csrf": True,
+        },
+        {
+            "name": "rotateRecoveryCodes",
+            "path": "/v1/account/two-factor/recovery-codes",
+            "method": "POST",
+            "input": "two_factor_change",
+            "response": "two_factor_activated",
             "csrf": True,
         },
         {

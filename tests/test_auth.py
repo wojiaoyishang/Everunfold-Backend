@@ -33,6 +33,7 @@ from app.modules.auth.security import (
     valid_csrf,
     verify_password,
 )
+from app.modules.auth.two_factor_service import totp
 from tools.export_auth_contract import build_schema
 
 ORIGIN = "http://127.0.0.1:3000"
@@ -189,6 +190,55 @@ def login(client: TestClient, name: str) -> dict[str, Any]:
     )
     assert response.status_code == 200
     return dict(response.json()["data"])
+
+
+def test_totp_login_recovery_and_replay(
+    auth_client: tuple[TestClient, Settings, str, str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    client, settings, name, _ = auth_client
+    monkeypatch.setenv(settings.auth.totp_master_key_env, "t" * 43)
+    state = login(client, name)
+    headers = {"Origin": ORIGIN, "X-CSRF-Token": state["csrf_token"]}
+    setup = client.post(
+        "/v1/account/two-factor/setup",
+        json={"current_password": "123456"},
+        headers=headers,
+    )
+    assert setup.status_code == 200
+    secret = setup.json()["data"]["secret"]
+    code = totp(secret, int(__import__("time").time()) // 30)
+    activated = client.post("/v1/account/two-factor/activate", json={"code": code}, headers=headers)
+    assert activated.status_code == 200
+    recovery = activated.json()["data"]["recovery_codes"][0]
+    assert len(activated.json()["data"]["recovery_codes"]) == 10
+    factor_state = client.get("/v1/account/two-factor", headers={"Origin": ORIGIN})
+    assert factor_state.json()["data"]["enabled"]
+    client.post("/v1/auth/logout", headers=headers)
+    pending = login(client, name)
+    assert pending["authenticated"] is False and pending["mfa_required"] is True
+    assert client.get("/v1/admin/session", headers={"Origin": ORIGIN}).status_code == 401
+    challenge_headers = {"Origin": ORIGIN, "X-CSRF-Token": pending["csrf_token"]}
+    failed = client.post(
+        "/v1/auth/login/second-factor", json={"code": "000000"}, headers=challenge_headers
+    )
+    assert failed.status_code == 401
+    completed = client.post(
+        "/v1/auth/login/second-factor", json={"code": recovery}, headers=challenge_headers
+    )
+    assert completed.status_code == 200 and completed.json()["data"]["authenticated"]
+    replay = client.post(
+        "/v1/auth/login/second-factor", json={"code": recovery}, headers=challenge_headers
+    )
+    assert replay.status_code == 403
+    active = completed.json()["data"]
+    client.post("/v1/auth/logout", headers={"Origin": ORIGIN, "X-CSRF-Token": active["csrf_token"]})
+    second = login(client, name)
+    used = client.post(
+        "/v1/auth/login/second-factor",
+        json={"code": recovery},
+        headers={"Origin": ORIGIN, "X-CSRF-Token": second["csrf_token"]},
+    )
+    assert used.status_code == 401
 
 
 def test_verified_email_login_and_shared_account_limit(

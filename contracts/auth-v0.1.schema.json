@@ -7,6 +7,11 @@
           "title": "Authenticated",
           "type": "boolean"
         },
+        "mfa_required": {
+          "default": false,
+          "title": "Mfa Required",
+          "type": "boolean"
+        },
         "user": {
           "anyOf": [
             {
@@ -214,6 +219,224 @@
       ],
       "title": "PublicResponse[AuthSessionState]",
       "type": "object"
+    },
+    "PublicResponse_TwoFactorActivated_": {
+      "additionalProperties": false,
+      "properties": {
+        "success": {
+          "default": true,
+          "title": "Success",
+          "type": "boolean"
+        },
+        "code": {
+          "default": 200,
+          "title": "Code",
+          "type": "integer"
+        },
+        "msg": {
+          "default": "请求成功",
+          "title": "Msg",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/TwoFactorActivated"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "title": "PublicResponse[TwoFactorActivated]",
+      "type": "object"
+    },
+    "PublicResponse_TwoFactorSetup_": {
+      "additionalProperties": false,
+      "properties": {
+        "success": {
+          "default": true,
+          "title": "Success",
+          "type": "boolean"
+        },
+        "code": {
+          "default": 200,
+          "title": "Code",
+          "type": "integer"
+        },
+        "msg": {
+          "default": "请求成功",
+          "title": "Msg",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/TwoFactorSetup"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "title": "PublicResponse[TwoFactorSetup]",
+      "type": "object"
+    },
+    "PublicResponse_TwoFactorState_": {
+      "additionalProperties": false,
+      "properties": {
+        "success": {
+          "default": true,
+          "title": "Success",
+          "type": "boolean"
+        },
+        "code": {
+          "default": 200,
+          "title": "Code",
+          "type": "integer"
+        },
+        "msg": {
+          "default": "请求成功",
+          "title": "Msg",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/TwoFactorState"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "title": "PublicResponse[TwoFactorState]",
+      "type": "object"
+    },
+    "TwoFactorActivated": {
+      "additionalProperties": false,
+      "properties": {
+        "recovery_codes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Recovery Codes",
+          "type": "array"
+        }
+      },
+      "required": [
+        "recovery_codes"
+      ],
+      "title": "TwoFactorActivated",
+      "type": "object"
+    },
+    "TwoFactorBegin": {
+      "additionalProperties": false,
+      "properties": {
+        "current_password": {
+          "maxLength": 1024,
+          "minLength": 1,
+          "title": "Current Password",
+          "type": "string"
+        }
+      },
+      "required": [
+        "current_password"
+      ],
+      "title": "TwoFactorBegin",
+      "type": "object"
+    },
+    "TwoFactorChange": {
+      "additionalProperties": false,
+      "properties": {
+        "current_password": {
+          "maxLength": 1024,
+          "minLength": 1,
+          "title": "Current Password",
+          "type": "string"
+        },
+        "code": {
+          "maxLength": 32,
+          "minLength": 6,
+          "title": "Code",
+          "type": "string"
+        }
+      },
+      "required": [
+        "current_password",
+        "code"
+      ],
+      "title": "TwoFactorChange",
+      "type": "object"
+    },
+    "TwoFactorCode": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "maxLength": 32,
+          "minLength": 6,
+          "title": "Code",
+          "type": "string"
+        }
+      },
+      "required": [
+        "code"
+      ],
+      "title": "TwoFactorCode",
+      "type": "object"
+    },
+    "TwoFactorSetup": {
+      "additionalProperties": false,
+      "properties": {
+        "secret": {
+          "title": "Secret",
+          "type": "string"
+        },
+        "otpauth_uri": {
+          "title": "Otpauth Uri",
+          "type": "string"
+        },
+        "expires_at": {
+          "format": "date-time",
+          "title": "Expires At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "secret",
+        "otpauth_uri",
+        "expires_at"
+      ],
+      "title": "TwoFactorSetup",
+      "type": "object"
+    },
+    "TwoFactorState": {
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "enabled_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Enabled At"
+        },
+        "recovery_codes_remaining": {
+          "title": "Recovery Codes Remaining",
+          "type": "integer"
+        },
+        "available": {
+          "title": "Available",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "enabled",
+        "enabled_at",
+        "recovery_codes_remaining",
+        "available"
+      ],
+      "title": "TwoFactorState",
+      "type": "object"
     }
   },
   "additionalProperties": false,
@@ -221,8 +444,26 @@
     "login": {
       "$ref": "#/$defs/LoginInput"
     },
+    "second_factor": {
+      "$ref": "#/$defs/TwoFactorCode"
+    },
     "session": {
       "$ref": "#/$defs/PublicResponse_AuthSessionState_"
+    },
+    "two_factor_begin": {
+      "$ref": "#/$defs/TwoFactorBegin"
+    },
+    "two_factor_change": {
+      "$ref": "#/$defs/TwoFactorChange"
+    },
+    "two_factor_setup": {
+      "$ref": "#/$defs/PublicResponse_TwoFactorSetup_"
+    },
+    "two_factor_state": {
+      "$ref": "#/$defs/PublicResponse_TwoFactorState_"
+    },
+    "two_factor_activated": {
+      "$ref": "#/$defs/PublicResponse_TwoFactorActivated_"
     },
     "error": {
       "$ref": "#/$defs/ErrorResponse"
@@ -230,13 +471,19 @@
   },
   "required": [
     "login",
+    "second_factor",
     "session",
+    "two_factor_begin",
+    "two_factor_change",
+    "two_factor_setup",
+    "two_factor_state",
+    "two_factor_activated",
     "error"
   ],
   "title": "AuthContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "0.4.0",
+  "x-everunfold-contract-version": "0.5.0",
   "x-everunfold-csrf-header": "X-CSRF-Token",
   "x-everunfold-credentials": "include",
   "x-everunfold-operations": [
@@ -252,6 +499,52 @@
       "method": "POST",
       "input": "login",
       "response": "session",
+      "csrf": true
+    },
+    {
+      "name": "completeSecondFactor",
+      "path": "/v1/auth/login/second-factor",
+      "method": "POST",
+      "input": "second_factor",
+      "response": "session",
+      "csrf": true
+    },
+    {
+      "name": "readTwoFactor",
+      "path": "/v1/account/two-factor",
+      "method": "GET",
+      "response": "two_factor_state"
+    },
+    {
+      "name": "beginTwoFactor",
+      "path": "/v1/account/two-factor/setup",
+      "method": "POST",
+      "input": "two_factor_begin",
+      "response": "two_factor_setup",
+      "csrf": true
+    },
+    {
+      "name": "activateTwoFactor",
+      "path": "/v1/account/two-factor/activate",
+      "method": "POST",
+      "input": "second_factor",
+      "response": "two_factor_activated",
+      "csrf": true
+    },
+    {
+      "name": "disableTwoFactor",
+      "path": "/v1/account/two-factor/disable",
+      "method": "POST",
+      "input": "two_factor_change",
+      "response": "two_factor_state",
+      "csrf": true
+    },
+    {
+      "name": "rotateRecoveryCodes",
+      "path": "/v1/account/two-factor/recovery-codes",
+      "method": "POST",
+      "input": "two_factor_change",
+      "response": "two_factor_activated",
       "csrf": true
     },
     {

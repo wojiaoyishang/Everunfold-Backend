@@ -39,6 +39,14 @@ from app.modules.auth.permissions import CAPABILITIES, user_permissions
 from app.modules.auth.router import auth_runtime, cookie, cookie_response, peer
 from app.modules.auth.schemas import AuthSessionState
 from app.modules.auth.service import AuthFailure, AuthService
+from app.modules.auth.two_factor_schemas import (
+    TwoFactorActivated,
+    TwoFactorBegin,
+    TwoFactorChange,
+    TwoFactorCode,
+    TwoFactorSetup,
+    TwoFactorState,
+)
 from app.modules.settings.languages import LanguageCatalog, language_catalog
 
 router = APIRouter(
@@ -82,6 +90,57 @@ async def user_manager(ctx: Authorized) -> AccountAccess:
 
 
 Manager = Annotated[AccountAccess, Depends(user_manager)]
+
+
+@router.get("/account/two-factor", response_model=PublicResponse[TwoFactorState])
+async def two_factor_state(ctx: Authorized) -> JSONResponseSuccess:
+    from app.modules.auth.two_factor_service import TwoFactorService
+
+    return JSONResponseSuccess(data=await TwoFactorService(ctx.service.auth).state(ctx.actor))
+
+
+@router.post("/account/two-factor/setup", response_model=PublicResponse[TwoFactorSetup])
+async def setup_two_factor(payload: TwoFactorBegin, ctx: Authorized) -> JSONResponseSuccess:
+    from app.modules.auth.two_factor_service import TwoFactorService
+
+    return JSONResponseSuccess(
+        data=await TwoFactorService(ctx.service.auth).begin(ctx.actor, payload.current_password)
+    )
+
+
+@router.post("/account/two-factor/activate", response_model=PublicResponse[TwoFactorActivated])
+async def activate_two_factor(payload: TwoFactorCode, ctx: Authorized) -> JSONResponseSuccess:
+    from app.modules.auth.two_factor_service import TwoFactorService
+
+    return JSONResponseSuccess(
+        data=await TwoFactorService(ctx.service.auth).activate(ctx.actor, payload.code, ctx.token)
+    )
+
+
+@router.post("/account/two-factor/disable", response_model=PublicResponse[TwoFactorState])
+async def disable_two_factor(payload: TwoFactorChange, ctx: Authorized) -> JSONResponseSuccess:
+    from app.modules.auth.two_factor_service import TwoFactorService
+
+    return JSONResponseSuccess(
+        data=await TwoFactorService(ctx.service.auth).change(
+            ctx.actor, payload.current_password, payload.code, ctx.token, disable=True
+        )
+    )
+
+
+@router.post(
+    "/account/two-factor/recovery-codes", response_model=PublicResponse[TwoFactorActivated]
+)
+async def regenerate_recovery_codes(
+    payload: TwoFactorChange, ctx: Authorized
+) -> JSONResponseSuccess:
+    from app.modules.auth.two_factor_service import TwoFactorService
+
+    return JSONResponseSuccess(
+        data=await TwoFactorService(ctx.service.auth).change(
+            ctx.actor, payload.current_password, payload.code, ctx.token, disable=False
+        )
+    )
 
 
 @router.get("/account/languages", response_model=PublicResponse[LanguageCatalog])

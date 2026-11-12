@@ -5,10 +5,17 @@ from datetime import UTC, datetime, timedelta
 from typing import Literal, cast
 
 from anyio import CapacityLimiter, to_thread
+from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import AuthConfig
-from app.modules.auth.models import AuthAuditEvent, BrowserSession, User
+from app.modules.auth.models import (
+    AuthAuditEvent,
+    BrowserSession,
+    LoginChallenge,
+    TwoFactorCredential,
+    User,
+)
 from app.modules.auth.permissions import user_permissions
 from app.modules.auth.repository import AuthRepository
 from app.modules.auth.schemas import AuthSessionState, AuthUser
@@ -47,9 +54,12 @@ class AuthService:
         self.repo = AuthRepository(session)
         self.password_limiter = limiter
 
-    def _state(self, record: BrowserSession, token: str, user: User | None) -> AuthSessionState:
+    def _state(
+        self, record: BrowserSession, token: str, user: User | None, *, mfa_required: bool = False
+    ) -> AuthSessionState:
         return AuthSessionState(
             authenticated=user is not None,
+            mfa_required=mfa_required,
             user=AuthUser(
                 id=user.id,
                 username=user.username,
@@ -147,7 +157,15 @@ class AuthService:
             record, token = self._new(now)
             cookie = token
         assert token is not None
-        state = self._state(record, token, user)
+        pending = (
+            await self.session.get(LoginChallenge, record.token_hash) if user is None else None
+        )
+        state = self._state(
+            record,
+            token,
+            user,
+            mfa_required=bool(pending and pending.expires_at > now and pending.attempts < 5),
+        )
         await self.session.commit()
         return SessionResult(state, cookie)
 
@@ -213,6 +231,34 @@ class AuthService:
             )
             await self.session.commit()
             raise AuthFailure(401, 40110, "账号或密码不正确")
+        factor = await self.session.get(TwoFactorCredential, user.id)
+        if factor is not None and factor.enabled_at is not None:
+            from app.modules.auth.two_factor_service import CHALLENGE_TTL, cipher
+
+            cipher(self.config)  # Fail closed if the encryption key is unavailable.
+            await self.session.execute(
+                delete(LoginChallenge).where(LoginChallenge.session_hash == record.token_hash)
+            )
+            record.user_id = None
+            self.session.add(
+                LoginChallenge(
+                    session_hash=record.token_hash,
+                    user_id=user.id,
+                    auth_version=user.auth_version,
+                    expires_at=now + CHALLENGE_TTL,
+                    attempts=0,
+                )
+            )
+            self.session.add(
+                AuthAuditEvent(
+                    action="login_second_factor_required", user_id=user.id, created_at=now
+                )
+            )
+            result = SessionResult(
+                self._state(record, valid_session_token(raw_token) or "", None, mfa_required=True)
+            )
+            await self.session.commit()
+            return result
         await self.session.delete(record)
         new_record, token = self._new(now, user)
         self.session.add(AuthAuditEvent(action="login", user_id=user.id, created_at=now))
