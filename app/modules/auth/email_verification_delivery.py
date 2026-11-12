@@ -12,6 +12,14 @@ from app.core.jobs.progress import task_progress
 from app.modules.auth.email_verification_models import EmailVerification
 from app.modules.auth.models import User
 from app.modules.content.models import SiteSettings
+from app.modules.notifications.catalog import EMAIL_VERIFICATION
+from app.modules.notifications.render import (
+    header_value,
+    render_html_template,
+    render_template,
+    sanitize_email_html,
+)
+from app.modules.notifications.service import NotificationService
 from app.modules.settings.mail_service import mail_profile, mail_ready, stored_mail_profiles
 from app.modules.settings.mail_transport import send_notification
 
@@ -88,20 +96,27 @@ async def deliver(config: Settings) -> dict[str, Any]:
             recipient = row.email
             code = row.delivery_code
             locale = user.preferred_locale
+            (
+                _,
+                template_subject,
+                template_text,
+                template_html,
+                html_enabled,
+                _,
+            ) = await NotificationService(session, config)._template_for(
+                EMAIL_VERIFICATION, "email", locale
+            )
             await session.commit()
 
         await task_progress(stage="email-verification", message="Sending verification email")
         budget = min(120, max(15, value.timeout_seconds * 4)) + 5
-        subject = (
-            "验证你的邮箱 / Verify your email address"
-            if locale.startswith("en")
-            else "验证你的邮箱"
-        )
-        text = (
-            "你的 Everunfold 邮箱验证码是："
-            f"{code}\n\n验证码 15 分钟内有效。若不是你发起的，请忽略这封邮件。\n\n"
-            "Your Everunfold email verification code is: "
-            f"{code}\n\nIt expires in 15 minutes. Ignore this message if you did not request it."
+        variables = {"verification": {"code": code, "expires_minutes": 15}}
+        subject = header_value(render_template(template_subject, variables))
+        text = render_template(template_text, variables)
+        html = (
+            sanitize_email_html(render_html_template(template_html, variables))
+            if html_enabled
+            else ""
         )
         try:
             status, error = await asyncio.wait_for(
@@ -113,6 +128,7 @@ async def deliver(config: Settings) -> dict[str, Any]:
                     identity,
                     subject,
                     text,
+                    html,
                 ),
                 timeout=budget,
             )

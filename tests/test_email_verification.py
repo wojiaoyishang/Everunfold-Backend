@@ -142,6 +142,45 @@ def test_email_verification_is_one_time_rate_limited_and_clears_after_change(
                         )
                         await session.commit()
                     operation_id = uuid4()
+                    template_state = client.get("/v1/admin/notifications/state").json()["data"]
+                    assert any(
+                        item["id"] == "security.email_verification"
+                        for item in template_state["events"]
+                    )
+                    template = {
+                        "expected_revision": template_state["revision"],
+                        "event_type": "security.email_verification",
+                        "platform_id": "email",
+                        "locale": "zh-CN",
+                        "subject": "自定义邮箱验证",
+                        "text": "本地测试码：{{verification.code}}",
+                        "html": "<p>测试码：<strong>{{verification.code}}</strong></p>",
+                        "html_enabled": True,
+                        "enabled": True,
+                    }
+                    invalid = client.patch(
+                        "/v1/admin/notifications/templates",
+                        json={**template, "text": "没有验证码"},
+                        headers=headers(client),
+                    )
+                    assert invalid.status_code == 422
+                    for unsafe_html in (
+                        "<p>没有验证码</p>",
+                        '<img src="https://example.test/{{verification.code}}">',
+                        "<script>{{verification.code}}</script>",
+                    ):
+                        invalid = client.patch(
+                            "/v1/admin/notifications/templates",
+                            json={**template, "html": unsafe_html},
+                            headers=headers(client),
+                        )
+                        assert invalid.status_code == 422
+                    saved_template = client.patch(
+                        "/v1/admin/notifications/templates",
+                        json=template,
+                        headers=headers(client),
+                    )
+                    assert saved_template.status_code == 200, saved_template.text
                     access = client.get(access_path).json()["data"]
                     sender = access["mail_profiles"][0]["id"]
                     policy = {
@@ -202,7 +241,9 @@ def test_email_verification_is_one_time_rate_limited_and_clears_after_change(
                     assert len(messages) == 1
                     assert client.get(status_path).json()["data"]["status"] == "sent"
                     message = message_from_bytes(messages[0], policy=email_policy.default)
-                    assert code in message.get_content()
+                    assert message["Subject"] == "自定义邮箱验证"
+                    assert code in message.get_body(preferencelist=("plain",)).get_content()
+                    assert code in message.get_body(preferencelist=("html",)).get_content()
                     async with database.session_factory() as session:
                         row = await session.get(EmailVerification, operation_id)
                         assert row is not None

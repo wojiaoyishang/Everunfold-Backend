@@ -114,7 +114,31 @@ EVENTS = (
 
 EVENT_BY_ID = {item.id: item for item in EVENTS}
 
+EMAIL_VERIFICATION = "security.email_verification"
+SECURITY_TEMPLATES = (
+    EventDefinition(
+        id=EMAIL_VERIFICATION,
+        title="验证邮箱",
+        description="向用户发送邮箱验证验证码。",
+        variables=("verification.code", "verification.expires_minutes"),
+    ),
+)
+
 DEFAULT_TEMPLATES = {
+    EMAIL_VERIFICATION: {
+        "email": {
+            "zh-CN": DefaultTemplate(
+                subject="验证你的邮箱",
+                text="你的邮箱验证码是：{{verification.code}}\n\n验证码 {{verification.expires_minutes}} 分钟内有效。若不是你发起的，请忽略此邮件。",
+                html="<p>你的邮箱验证码是：</p><p><strong>{{verification.code}}</strong></p><p>验证码 {{verification.expires_minutes}} 分钟内有效。若不是你发起的，请忽略此邮件。</p>",
+            ),
+            "en": DefaultTemplate(
+                subject="Verify your email address",
+                text="Your verification code is: {{verification.code}}\n\nIt expires in {{verification.expires_minutes}} minutes. Ignore this message if you did not request it.",
+                html="<p>Your verification code is:</p><p><strong>{{verification.code}}</strong></p><p>It expires in {{verification.expires_minutes}} minutes. Ignore this message if you did not request it.</p>",
+            ),
+        },
+    },
     "comment.pending_review": {
         "in-app": {
             "zh-CN": DefaultTemplate(

@@ -1,5 +1,6 @@
 """Notification configuration, recipient routing, rendering and inbox."""
 
+import re
 from datetime import UTC, datetime
 from typing import Any, cast
 from uuid import NAMESPACE_URL, UUID, uuid5
@@ -16,8 +17,10 @@ from app.modules.auth.permissions import CAPABILITIES, user_permissions
 from app.modules.auth.service import AuthFailure
 from app.modules.content.models import SiteSettings
 from app.modules.notifications.catalog import (
+    EMAIL_VERIFICATION,
     EVENT_BY_ID,
     EVENTS,
+    SECURITY_TEMPLATES,
     default_template,
 )
 from app.modules.notifications.models import (
@@ -29,6 +32,7 @@ from app.modules.notifications.models import (
     NotificationTemplate,
 )
 from app.modules.notifications.render import (
+    TOKEN,
     header_value,
     render_html_template,
     render_template,
@@ -179,8 +183,10 @@ class NotificationService:
             for row in (await self.session.scalars(select(NotificationTemplate))).all()
         }
         templates: list[NotificationTemplateView] = []
-        for event in EVENTS:
+        for event in (*EVENTS, *SECURITY_TEMPLATES):
             for platform in platforms:
+                if event.id == EMAIL_VERIFICATION and platform.id != EMAIL:
+                    continue
                 for locale in locales:
                     row = custom.get((event.id, platform.id, locale))
                     fallback = default_template(event.id, platform.id, locale)
@@ -236,7 +242,7 @@ class NotificationService:
                     description=item.description,
                     variables=list(item.variables),
                 )
-                for item in EVENTS
+                for item in (*EVENTS, *SECURITY_TEMPLATES)
             ],
             platforms=platforms,
             routes=routes,
@@ -350,8 +356,31 @@ class NotificationService:
         revision = await self.revision(locked=True)
         if revision.revision != payload.expected_revision:
             raise AuthFailure(409, 40973, "通知模板已在其他窗口修改，请重新读取")
-        if payload.event_type not in EVENT_BY_ID:
+        if payload.event_type not in EVENT_BY_ID and payload.event_type != EMAIL_VERIFICATION:
             raise AuthFailure(422, 42299, "未知通知事件")
+        if payload.event_type == EMAIL_VERIFICATION:
+            if payload.platform_id != EMAIL:
+                raise AuthFailure(422, 42299, "邮箱验证仅支持邮件模板")
+            if not payload.reset:
+
+                def includes_code(value: str) -> bool:
+                    return any(
+                        match.group(1) == "verification.code" for match in TOKEN.finditer(value)
+                    )
+
+                html_tags = re.findall(r"<[^>]*>", payload.html)
+                if (
+                    not includes_code(payload.text)
+                    or includes_code(payload.subject)
+                    or any(includes_code(tag) for tag in html_tags)
+                    or (
+                        payload.html_enabled
+                        and not includes_code(sanitize_email_html(payload.html))
+                    )
+                ):
+                    raise AuthFailure(
+                        422, 42299, "正文必须包含验证码，主题和 HTML 属性不能包含验证码"
+                    )
         if payload.platform_id not in {item.id for item in await self.platforms()}:
             raise AuthFailure(422, 42299, "通知平台不存在")
         if payload.html.strip() and payload.platform_id != EMAIL:
