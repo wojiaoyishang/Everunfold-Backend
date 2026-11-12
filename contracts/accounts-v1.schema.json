@@ -1320,6 +1320,52 @@
       "title": "EmailVerificationState",
       "type": "object"
     },
+    "InvitationBatchCreate": {
+      "additionalProperties": false,
+      "properties": {
+        "count": {
+          "maximum": 100,
+          "minimum": 1,
+          "title": "Count",
+          "type": "integer"
+        },
+        "expires_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Expires At"
+        }
+      },
+      "required": [
+        "count",
+        "expires_at"
+      ],
+      "title": "InvitationBatchCreate",
+      "type": "object"
+    },
+    "InvitationBatchCreated": {
+      "additionalProperties": false,
+      "properties": {
+        "items": {
+          "items": {
+            "$ref": "#/$defs/InvitationCreated"
+          },
+          "title": "Items",
+          "type": "array"
+        }
+      },
+      "required": [
+        "items"
+      ],
+      "title": "InvitationBatchCreated",
+      "type": "object"
+    },
     "InvitationCreate": {
       "additionalProperties": false,
       "properties": {
@@ -1347,9 +1393,16 @@
           "type": "string"
         },
         "expires_at": {
-          "format": "date-time",
-          "title": "Expires At",
-          "type": "string"
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Expires At"
         }
       },
       "required": [
@@ -1374,9 +1427,16 @@
           "type": "string"
         },
         "expires_at": {
-          "format": "date-time",
-          "title": "Expires At",
-          "type": "string"
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Expires At"
         },
         "consumed_at": {
           "anyOf": [
@@ -2370,6 +2430,34 @@
       "title": "PublicResponse[EmailVerificationState]",
       "type": "object"
     },
+    "PublicResponse_InvitationBatchCreated_": {
+      "additionalProperties": false,
+      "properties": {
+        "success": {
+          "default": true,
+          "title": "Success",
+          "type": "boolean"
+        },
+        "code": {
+          "default": 200,
+          "title": "Code",
+          "type": "integer"
+        },
+        "msg": {
+          "default": "请求成功",
+          "title": "Msg",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/InvitationBatchCreated"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "title": "PublicResponse[InvitationBatchCreated]",
+      "type": "object"
+    },
     "PublicResponse_InvitationCreated_": {
       "additionalProperties": false,
       "properties": {
@@ -3251,6 +3339,12 @@
     "invitation_created": {
       "$ref": "#/$defs/PublicResponse_InvitationCreated_"
     },
+    "invitation_batch_create": {
+      "$ref": "#/$defs/InvitationBatchCreate"
+    },
+    "invitation_batch_created": {
+      "$ref": "#/$defs/PublicResponse_InvitationBatchCreated_"
+    },
     "invitation_list": {
       "$ref": "#/$defs/PublicResponse_InvitationList_"
     },
@@ -3322,6 +3416,8 @@
     "save_access_settings",
     "invitation_create",
     "invitation_created",
+    "invitation_batch_create",
+    "invitation_batch_created",
     "invitation_list",
     "invitation_revoke",
     "email_review",
@@ -3337,7 +3433,7 @@
   "title": "AccountContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "1.9.0",
+  "x-everunfold-contract-version": "1.10.0",
   "x-everunfold-csrf-header": "X-CSRF-Token",
   "x-everunfold-credentials": "include",
   "x-everunfold-operations": [
@@ -3554,6 +3650,13 @@
       "method": "POST",
       "response": "invitation_created",
       "input": "invitation_create"
+    },
+    {
+      "name": "createInvitationBatch",
+      "path": "/v1/admin/access/invitations/batch",
+      "method": "POST",
+      "response": "invitation_batch_created",
+      "input": "invitation_batch_create"
     },
     {
       "name": "revokeInvitation",

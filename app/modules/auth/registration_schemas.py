@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Literal
 from uuid import UUID
 
-from pydantic import Field, field_validator
+from pydantic import AwareDatetime, Field, field_validator
 
 from app.core.schemas import PublicModel
 from app.modules.captcha.schemas import CaptchaAnswer
@@ -61,16 +61,25 @@ class InvitationCreate(PublicModel):
     days_valid: int = Field(default=7, ge=1, le=30)
 
 
+class InvitationBatchCreate(PublicModel):
+    count: int = Field(ge=1, le=100)
+    expires_at: AwareDatetime | None
+
+
 class InvitationCreated(PublicModel):
     id: UUID
     code: str = Field(repr=False)
-    expires_at: datetime
+    expires_at: datetime | None
+
+
+class InvitationBatchCreated(PublicModel):
+    items: list[InvitationCreated]
 
 
 class InvitationItem(PublicModel):
     id: UUID
     created_at: datetime
-    expires_at: datetime
+    expires_at: datetime | None
     consumed_at: datetime | None
     revoked_at: datetime | None
 

@@ -10,6 +10,8 @@ from app.modules.auth.accounts_router import AccountAccess, Authorized
 from app.modules.auth.accounts_schemas import AccessSettingsInput, AccessSettingsState
 from app.modules.auth.permissions import user_permissions
 from app.modules.auth.registration_schemas import (
+    InvitationBatchCreate,
+    InvitationBatchCreated,
     InvitationCreate,
     InvitationCreated,
     InvitationList,
@@ -64,6 +66,17 @@ async def list_invitations(ctx: Manager) -> JSONResponseSuccess:
 async def create_invitation(payload: InvitationCreate, ctx: Manager) -> JSONResponseSuccess:
     return JSONResponseSuccess(
         data=await RegistrationService(ctx.service.auth).invite(ctx.actor, payload.days_valid)
+    )
+
+
+@router.post("/invitations/batch", response_model=PublicResponse[InvitationBatchCreated])
+async def create_invitation_batch(
+    payload: InvitationBatchCreate, ctx: Manager
+) -> JSONResponseSuccess:
+    return JSONResponseSuccess(
+        data=await RegistrationService(ctx.service.auth).invite_batch(
+            ctx.actor, payload.count, payload.expires_at
+        )
     )
 
 

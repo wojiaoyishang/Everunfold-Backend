@@ -1,5 +1,7 @@
 # Everunfold 文档入口
 
+[批量邀请码与自定义有效期](decisions/0123-registration-invitation-batches.md)说明有效期选项、一次性核销及迁移顺序。
+
 [站点邮件品牌与评论审核确认](decisions/0122-branded-mail-and-comment-confirmation.md)说明内置邮件布局、模板变量和邮件内审核入口。
 
 [邮箱验证与访问策略](development/accounts.md#资料与账号安全)、[ADR0120](decisions/0120-account-email-ownership-and-access-policy.md)：账号中心在同一弹窗确认发信状态并重发，后台分离站点认证策略和用户邮箱审核权限。

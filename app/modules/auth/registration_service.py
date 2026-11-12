@@ -15,6 +15,7 @@ from app.modules.auth.email_verification_service import CODE_TTL, SEND_COOLDOWN,
 from app.modules.auth.models import AuthAuditEvent, User
 from app.modules.auth.registration_models import PendingRegistration, RegistrationInvite
 from app.modules.auth.registration_schemas import (
+    InvitationBatchCreated,
     InvitationCreated,
     InvitationItem,
     InvitationList,
@@ -48,7 +49,10 @@ def state(row: PendingRegistration, now: datetime) -> RegistrationState:
 
 def available(invite: RegistrationInvite | None, now: datetime) -> bool:
     return bool(
-        invite and invite.expires_at > now and not invite.consumed_at and not invite.revoked_at
+        invite
+        and (invite.expires_at is None or invite.expires_at > now)
+        and not invite.consumed_at
+        and not invite.revoked_at
     )
 
 
@@ -242,7 +246,9 @@ class RegistrationService:
 
     async def invitations(self) -> InvitationList:
         rows = await self.session.scalars(
-            select(RegistrationInvite).order_by(RegistrationInvite.created_at.desc()).limit(100)
+            select(RegistrationInvite)
+            .order_by(RegistrationInvite.created_at.desc(), RegistrationInvite.id)
+            .limit(100)
         )
         return InvitationList(
             items=[
@@ -258,27 +264,38 @@ class RegistrationService:
         )
 
     async def invite(self, actor: User, days: int) -> InvitationCreated:
-        code = secrets.token_urlsafe(32)
+        batch = await self.invite_batch(actor, 1, datetime.now(UTC) + timedelta(days=days))
+        return batch.items[0]
+
+    async def invite_batch(
+        self, actor: User, count: int, expires_at: datetime | None
+    ) -> InvitationBatchCreated:
         now = datetime.now(UTC)
-        row = RegistrationInvite(
-            id=uuid4(),
-            token_hash=token_digest(code),
-            created_by=actor.id,
-            created_at=now,
-            expires_at=now + timedelta(days=days),
-        )
-        self.session.add(row)
-        self.session.add(
-            AuthAuditEvent(
-                action="registration_invite_created",
-                user_id=actor.id,
+        if expires_at is not None and expires_at <= now:
+            raise AuthFailure(422, 42278, "邀请码到期时间必须晚于当前时间")
+
+        items = []
+        for _ in range(count):
+            code = secrets.token_urlsafe(32)
+            row = RegistrationInvite(
+                id=uuid4(),
+                token_hash=token_digest(code),
+                created_by=actor.id,
                 created_at=now,
-                details={"invite_id": str(row.id)},
+                expires_at=expires_at,
             )
-        )
-        result = InvitationCreated(id=row.id, code=code, expires_at=row.expires_at)
+            self.session.add(row)
+            self.session.add(
+                AuthAuditEvent(
+                    action="registration_invite_created",
+                    user_id=actor.id,
+                    created_at=now,
+                    details={"invite_id": str(row.id)},
+                )
+            )
+            items.append(InvitationCreated(id=row.id, code=code, expires_at=expires_at))
         await self.session.commit()
-        return result
+        return InvitationBatchCreated(items=items)
 
     async def revoke(self, actor: User, identity: UUID) -> InvitationList:
         row = await self.session.get(RegistrationInvite, identity, with_for_update=True)

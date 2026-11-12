@@ -44,6 +44,8 @@ from app.modules.auth.preset_schemas import (
     UserPresetStamp,
 )
 from app.modules.auth.registration_schemas import (
+    InvitationBatchCreate,
+    InvitationBatchCreated,
     InvitationCreate,
     InvitationCreated,
     InvitationList,
@@ -293,6 +295,8 @@ class AccountContract(PublicModel):
     save_access_settings: AccessSettingsInput
     invitation_create: InvitationCreate
     invitation_created: PublicResponse[InvitationCreated]
+    invitation_batch_create: InvitationBatchCreate
+    invitation_batch_created: PublicResponse[InvitationBatchCreated]
     invitation_list: PublicResponse[InvitationList]
     invitation_revoke: InvitationRevoke
     email_review: ReviewAccountEmail

@@ -76,8 +76,31 @@ async def verify_invitation_registration(
     assert changed.status_code == 200, changed.text
     issued = admin.post(invitations, json={"days_valid": 1}, headers=headers(admin))
     assert issued.status_code == 200
-    invite = issued.json()["data"]
-    assert invite["code"] not in admin.get(invitations).text
+    assert issued.json()["data"]["expires_at"] is not None
+    batch = invitations + "/batch"
+    for payload in (
+        {"count": 0, "expires_at": None},
+        {"count": 101, "expires_at": None},
+        {"count": 1, "expires_at": "2020-01-01T00:00:00Z"},
+        {"count": 1, "expires_at": "2099-01-01T00:00:00"},
+    ):
+        assert admin.post(batch, json=payload, headers=headers(admin)).status_code == 422
+    deadline = (datetime.now(UTC) + timedelta(hours=5, minutes=20)).replace(microsecond=0)
+    timed = admin.post(
+        batch, json={"count": 2, "expires_at": deadline.isoformat()}, headers=headers(admin)
+    )
+    assert timed.status_code == 200
+    timed_items = timed.json()["data"]["items"]
+    assert len({item["code"] for item in timed_items}) == 2
+    assert all(datetime.fromisoformat(item["expires_at"]) == deadline for item in timed_items)
+    issued = admin.post(batch, json={"count": 3, "expires_at": None}, headers=headers(admin))
+    assert issued.status_code == 200
+    permanent = issued.json()["data"]["items"]
+    assert len({item["code"] for item in permanent}) == 3
+    assert all(item["expires_at"] is None for item in permanent)
+    invite = permanent[0]
+    listing = admin.get(invitations)
+    assert all(item["code"] not in listing.text for item in [*permanent, *timed_items])
     suffix = uuid4().hex[:10]
     with (
         TestClient(create_app(settings)) as first,
@@ -149,7 +172,9 @@ async def verify_invitation_registration(
             ).status_code
             == 422
         )
-    assert admin.get(invitations).json()["data"]["items"][0]["consumed_at"] is not None
+    listed = {item["id"]: item for item in admin.get(invitations).json()["data"]["items"]}
+    assert listed[invite["id"]]["consumed_at"] is not None
+    assert listed[invite["id"]]["expires_at"] is None
 
     policy.update(
         expected_revision=changed.json()["data"]["revision"],
