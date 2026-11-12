@@ -85,7 +85,7 @@ class TwoFactorService:
             enabled=bool(row and row.enabled_at),
             enabled_at=row.enabled_at if row else None,
             recovery_codes_remaining=len(row.recovery_hashes) if row and row.enabled_at else 0,
-            available=bool(os.environ.get(self.auth.config.totp_master_key_env)),
+            available=43 <= len(os.environ.get(self.auth.config.totp_master_key_env, "")) <= 256,
         )
 
     async def begin(self, actor: User, password: str) -> TwoFactorSetup:
@@ -228,6 +228,8 @@ class TwoFactorService:
             or not credential
             or not credential.enabled_at
         ):
+            await self.session.delete(row)
+            await self.session.commit()
             raise AuthFailure(401, 40177, "登录状态已失效，请重新登录")
         row.attempts += 1
         if not self._verify(credential, code, allow_recovery=True):

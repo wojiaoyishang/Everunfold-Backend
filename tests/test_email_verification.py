@@ -142,6 +142,60 @@ async def verify_invitation_registration(
         )
     assert admin.get(invitations).json()["data"]["items"][0]["consumed_at"] is not None
 
+    policy.update(
+        expected_revision=saved.json()["data"]["revision"],
+        registration_mode="open",
+        registration_captcha=False,
+    )
+    assert admin.patch(access_path, json=policy, headers=headers(admin)).status_code == 200
+    with TestClient(create_app(settings)) as browser:
+        # In open mode a new address can sign up without an invitation. A duplicate
+        # gets the same request response until mailbox ownership has been proven.
+        payload = {
+            "username": f"qa_open_{suffix}",
+            "display_name": "Open registration QA",
+            "email": f"QA_{suffix}_{winner}@example.test",
+            "password": PASSWORD,
+        }
+        req_headers = headers(browser)
+        assert (
+            browser.post(
+                registration + "/request", json={**payload, "role": "admin"}, headers=req_headers
+            ).status_code
+            == 422
+        )
+        queued = browser.post(registration + "/request", json=payload, headers=req_headers)
+        assert queued.status_code == 200 and queued.json()["data"]["status"] == "queued"
+        assert await deliver_registration(settings) == {"processed": 1}
+        message = message_from_bytes(messages[-1], policy=email_policy.default)
+        code = re.search(r"[0-9]{6}", message.get_body(preferencelist=("plain",)).get_content())
+        assert code is not None
+        result = browser.post(
+            registration + "/confirm",
+            json={"request_id": queued.json()["data"]["request_id"], "code": code.group()},
+            headers=req_headers,
+        )
+        assert result.status_code == 409
+        assert browser.get("/v1/auth/session").json()["data"]["authenticated"] is False
+    with TestClient(create_app(settings)) as browser:
+        req_headers = headers(browser)
+        queued = browser.post(
+            registration + "/request",
+            json={**payload, "email": f"open_{suffix}@example.test"},
+            headers=req_headers,
+        )
+        assert queued.status_code == 200
+        assert await deliver_registration(settings) == {"processed": 1}
+        message = message_from_bytes(messages[-1], policy=email_policy.default)
+        code = re.search(r"[0-9]{6}", message.get_body(preferencelist=("plain",)).get_content())
+        assert code is not None
+        created = browser.post(
+            registration + "/confirm",
+            json={"request_id": queued.json()["data"]["request_id"], "code": code.group()},
+            headers=req_headers,
+        )
+        assert created.status_code == 200 and created.json()["data"]["user"]["role"] == "user"
+
 
 @pytest.mark.skipif(
     os.environ.get("RUN_DATABASE_TESTS") != "1",

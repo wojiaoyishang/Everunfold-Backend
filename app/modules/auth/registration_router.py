@@ -19,7 +19,7 @@ from app.modules.captcha.service import CaptchaService, guard
 router = APIRouter(
     prefix="/v1/auth/registration",
     tags=["registration"],
-    responses={code: {"model": ErrorResponse} for code in (403, 404, 409, 422, 429, 503)},
+    responses={code: {"model": ErrorResponse} for code in (403, 404, 409, 422, 429, 500, 503)},
 )
 
 
