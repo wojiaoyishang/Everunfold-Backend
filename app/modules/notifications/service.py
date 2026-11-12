@@ -23,6 +23,16 @@ from app.modules.notifications.catalog import (
     SECURITY_TEMPLATES,
     default_template,
 )
+from app.modules.notifications.email_context import (
+    BRAND_KEY,
+    EMAIL_VARIABLES,
+    NOTIFICATION_EVENT_VARIABLES,
+    comment_data,
+    email_urls,
+    mail_reason,
+    site_variables,
+    stored_brand,
+)
 from app.modules.notifications.models import (
     NotificationDelivery,
     NotificationEvent,
@@ -37,7 +47,6 @@ from app.modules.notifications.render import (
     render_html_template,
     render_template,
     sanitize_email_html,
-    text_html,
 )
 from app.modules.notifications.schemas import (
     MarkNotificationsRead,
@@ -47,7 +56,9 @@ from app.modules.notifications.schemas import (
     NotificationPlatformView,
     NotificationRouteView,
     NotificationState,
+    NotificationTemplateContent,
     NotificationTemplateView,
+    SaveMailBrand,
     SaveNotificationRoutes,
     SaveNotificationTemplate,
 )
@@ -62,6 +73,7 @@ from app.modules.settings.mail_service import (
     stored_mail_profiles,
 )
 from app.modules.settings.models import SettingsAudit
+from app.modules.settings.service import SettingsService
 
 IN_APP = "in-app"
 EMAIL = "email"
@@ -171,6 +183,9 @@ class NotificationService:
 
     async def state(self) -> NotificationState:
         revision = await self.revision()
+        site = await self.session.get(SiteSettings, 1)
+        data = site.data if site else {}
+        brand = stored_brand(data)
         locales = [
             item.code for item in (await language_catalog(self.session)).languages if item.enabled
         ]
@@ -203,6 +218,14 @@ class NotificationService:
                             enabled=row.enabled if row else True,
                             custom=bool(row),
                             revision=row.revision if row else 0,
+                            builtin=NotificationTemplateContent(
+                                subject=fallback.subject,
+                                text=fallback.text,
+                                html=fallback.html,
+                                html_enabled=bool(fallback.html),
+                            )
+                            if row and platform.id == EMAIL
+                            else None,
                         )
                     )
         routes = [
@@ -240,13 +263,19 @@ class NotificationService:
                     id=item.id,
                     title=item.title,
                     description=item.description,
-                    variables=list(item.variables),
+                    variables=[
+                        *item.variables,
+                        *(NOTIFICATION_EVENT_VARIABLES if item.id in EVENT_BY_ID else ()),
+                    ],
                 )
                 for item in (*EVENTS, *SECURITY_TEMPLATES)
             ],
             platforms=platforms,
             routes=routes,
             templates=templates,
+            mail_brand=brand,
+            site_variables=await site_variables(self.session, self.config, data, brand),
+            email_variables=list(EMAIL_VARIABLES),
             deliveries=[
                 NotificationDeliveryView(
                     id=delivery.id,
@@ -445,6 +474,24 @@ class NotificationService:
         await self.session.commit()
         return await self.state()
 
+    async def save_brand(self, payload: SaveMailBrand, actor_id: UUID) -> NotificationState:
+        site = await SettingsService(self.session, self.config).site(locked=True)
+        revision = await self.revision(locked=True)
+        if revision.revision != payload.expected_revision:
+            raise AuthFailure(409, 40973, "邮件品牌设置已在其他窗口修改，请重新读取")
+        site.data = {**site.data, BRAND_KEY: payload.brand.model_dump()}
+        revision.revision += 1
+        self.session.add(
+            SettingsAudit(
+                user_id=actor_id,
+                resource="notification-mail-brand",
+                revision=revision.revision,
+                changes={"action": "save"},
+            )
+        )
+        await self.session.commit()
+        return await self.state()
+
     async def _template_for(
         self, event_type: str, platform_id: str, locale: str
     ) -> tuple[NotificationTemplate | None, str, str, str, bool, str]:
@@ -507,7 +554,17 @@ class NotificationService:
         site = await self.session.get(SiteSettings, 1)
         mail_data = site.data if site else {}
         mail_revision, _ = stored_mail_profiles(mail_data)
+        brand_variables = None
         for event in events:
+            event_data = (
+                comment_data(event.data, event.resource_id)
+                if event.event_type == "comment.pending_review"
+                else event.data
+            )
+            variables = {
+                **event_data,
+                "event": {"id": str(event.id), "occurred_at": event.occurred_at.isoformat()},
+            }
             event_routes = [route for route in routes if route.event_type == event.event_type]
             targets: dict[tuple[str, UUID], NotificationRoute] = {}
             for route in event_routes:
@@ -520,11 +577,28 @@ class NotificationService:
                 template, subject, text, html_text, html_enabled, href = await self._template_for(
                     event.event_type, platform_id, target_user.preferred_locale
                 )
-                subject = header_value(render_template(subject, event.data))
-                text = render_template(text, event.data)
-                href = render_template(href, event.data)
+                href = render_template(href, variables)
+                values = variables
+                if platform_id == EMAIL:
+                    if brand_variables is None:
+                        brand_variables = await site_variables(
+                            self.session, self.config, mail_data, stored_brand(mail_data)
+                        )
+                    values = {
+                        **email_urls(variables, brand_variables["url"]),
+                        "site": brand_variables,
+                        "recipient": {"display_name": target_user.display_name},
+                        "mail": {
+                            "reason": mail_reason(
+                                event.event_type,
+                                template.locale if template else target_user.preferred_locale,
+                            )
+                        },
+                    }
+                subject = header_value(render_template(subject, values))
+                text = render_template(text, values)
                 rendered_html = (
-                    sanitize_email_html(render_html_template(html_text, event.data))
+                    sanitize_email_html(render_html_template(html_text, values))
                     if platform_id == EMAIL and html_enabled and html_text.strip()
                     else ""
                 )
@@ -547,11 +621,7 @@ class NotificationService:
                     locale=target_user.preferred_locale,
                     subject=subject,
                     text=text,
-                    html=(
-                        rendered_html
-                        if rendered_html
-                        else (text_html(text) if platform_id == EMAIL else "")
-                    ),
+                    html=rendered_html,
                     href=href,
                     destination=target_user.email if platform_id == EMAIL else "",
                     status="pending",

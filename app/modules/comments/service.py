@@ -89,6 +89,8 @@ class CommentService:
             statement = statement.where(
                 or_(Comment.content_id == query.content_id, Comment.page_id == query.content_id)
             )
+        if query.comment_id:
+            statement = statement.where(Comment.id == query.comment_id)
         if query.search.strip():
             term = (
                 query.search.strip().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
@@ -158,6 +160,12 @@ class CommentService:
             raise AuthFailure(404, 40489, "评论不存在")
         if any(row.revision != expected[row.id] for row in rows):
             raise AuthFailure(409, 40989, "评论已被修改，请刷新后重新选择")
+        if (
+            isinstance(payload, ModerateComments)
+            and payload.pending_only
+            and any(row.status != "pending" for row in rows)
+        ):
+            raise AuthFailure(409, 40989, "评论已处理，请刷新后查看")
         changed = []
         now = datetime.now(UTC)
         if kind == "reply" and isinstance(payload, EditComment):

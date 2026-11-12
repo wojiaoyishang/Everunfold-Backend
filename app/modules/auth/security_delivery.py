@@ -6,7 +6,14 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
+from app.modules.content.models import SiteSettings
 from app.modules.notifications.catalog import EMAIL_VERIFICATION
+from app.modules.notifications.email_context import (
+    english,
+    mail_reason,
+    site_variables,
+    stored_brand,
+)
 from app.modules.notifications.render import (
     header_value,
     render_html_template,
@@ -19,12 +26,34 @@ from app.modules.settings.mail_transport import send_notification
 
 
 async def verification_message(
-    session: AsyncSession, config: Settings, locale: str, code: str, minutes: int = 15
+    session: AsyncSession,
+    config: Settings,
+    locale: str,
+    code: str,
+    minutes: int,
+    *,
+    display_name: str,
+    registration: bool = False,
 ) -> tuple[str, str, str]:
-    _, subject, text, html, html_enabled, _ = await NotificationService(
+    template, subject, text, html, html_enabled, _ = await NotificationService(
         session, config
     )._template_for(EMAIL_VERIFICATION, "email", locale)
-    variables = {"verification": {"code": code, "expires_minutes": minutes}}
+    language = template.locale if template else locale
+    purpose = (
+        ("注册账号", "Account registration") if registration else ("验证邮箱", "Email verification")
+    )
+    site = await session.get(SiteSettings, 1)
+    data = site.data if site else {}
+    variables = {
+        "verification": {
+            "code": code,
+            "expires_minutes": minutes,
+            "purpose": purpose[english(language)],
+        },
+        "site": await site_variables(session, config, data, stored_brand(data)),
+        "recipient": {"display_name": display_name},
+        "mail": {"reason": mail_reason(EMAIL_VERIFICATION, language)},
+    }
     return (
         header_value(render_template(subject, variables)),
         render_template(text, variables),

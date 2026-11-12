@@ -64,7 +64,13 @@ async def deliver(config: Settings) -> dict[str, Any]:
             identity, recipient = row.id, row.email
             minutes = max(1, ceil((row.expires_at - now).total_seconds() / 60))
             message = await verification_message(
-                session, config, row.locale, row.delivery_code, minutes
+                session,
+                config,
+                row.locale,
+                row.delivery_code,
+                minutes,
+                display_name=row.display_name,
+                registration=True,
             )
             row.delivery_code = ""
             await session.commit()

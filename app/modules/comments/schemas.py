@@ -15,6 +15,7 @@ class CommentQuery(PublicModel):
     status: CommentStatus | None = None
     search: str = Field(default="", max_length=200)
     content_id: UUID | None = None
+    comment_id: UUID | None = None
     page: int = Field(default=1, ge=1)
     page_size: int = Field(default=20, ge=1, le=100)
 
@@ -52,6 +53,8 @@ class ModerateComments(PublicModel):
     operation_id: UUID
     items: list[CommentVersion] = Field(min_length=1, max_length=100)
     action: Literal["approve", "pending", "reject", "spam", "trash", "restore"]
+    # Omit the default so receipts created before this field still match retries.
+    pending_only: bool = Field(default=False, exclude_if=lambda value: not value)
 
     @field_validator("items")
     @classmethod

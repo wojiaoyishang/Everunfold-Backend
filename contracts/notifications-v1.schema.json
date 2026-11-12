@@ -1,5 +1,36 @@
 {
   "$defs": {
+    "MailBrand": {
+      "additionalProperties": false,
+      "properties": {
+        "site_url": {
+          "default": "",
+          "maxLength": 2048,
+          "title": "Site Url",
+          "type": "string"
+        },
+        "icon_url": {
+          "default": "",
+          "maxLength": 2048,
+          "title": "Icon Url",
+          "type": "string"
+        },
+        "support_url": {
+          "default": "",
+          "maxLength": 2048,
+          "title": "Support Url",
+          "type": "string"
+        },
+        "accent_color": {
+          "default": "",
+          "pattern": "^(?:#[a-fA-F0-9]{6})?$",
+          "title": "Accent Color",
+          "type": "string"
+        }
+      },
+      "title": "MailBrand",
+      "type": "object"
+    },
     "MarkNotificationsRead": {
       "additionalProperties": false,
       "properties": {
@@ -452,6 +483,23 @@
           },
           "title": "Locales",
           "type": "array"
+        },
+        "mail_brand": {
+          "$ref": "#/$defs/MailBrand"
+        },
+        "site_variables": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Site Variables",
+          "type": "object"
+        },
+        "email_variables": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Email Variables",
+          "type": "array"
         }
       },
       "required": [
@@ -461,26 +509,46 @@
         "routes",
         "templates",
         "deliveries",
-        "locales"
+        "locales",
+        "mail_brand",
+        "site_variables",
+        "email_variables"
       ],
       "title": "NotificationState",
+      "type": "object"
+    },
+    "NotificationTemplateContent": {
+      "additionalProperties": false,
+      "properties": {
+        "subject": {
+          "title": "Subject",
+          "type": "string"
+        },
+        "text": {
+          "title": "Text",
+          "type": "string"
+        },
+        "html": {
+          "default": "",
+          "title": "Html",
+          "type": "string"
+        },
+        "html_enabled": {
+          "default": false,
+          "title": "Html Enabled",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "subject",
+        "text"
+      ],
+      "title": "NotificationTemplateContent",
       "type": "object"
     },
     "NotificationTemplateView": {
       "additionalProperties": false,
       "properties": {
-        "event_type": {
-          "title": "Event Type",
-          "type": "string"
-        },
-        "platform_id": {
-          "title": "Platform Id",
-          "type": "string"
-        },
-        "locale": {
-          "title": "Locale",
-          "type": "string"
-        },
         "subject": {
           "title": "Subject",
           "type": "string"
@@ -499,6 +567,18 @@
           "title": "Html Enabled",
           "type": "boolean"
         },
+        "event_type": {
+          "title": "Event Type",
+          "type": "string"
+        },
+        "platform_id": {
+          "title": "Platform Id",
+          "type": "string"
+        },
+        "locale": {
+          "title": "Locale",
+          "type": "string"
+        },
         "href": {
           "default": "",
           "title": "Href",
@@ -516,14 +596,25 @@
           "minimum": 0,
           "title": "Revision",
           "type": "integer"
+        },
+        "builtin": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NotificationTemplateContent"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
+        "subject",
+        "text",
         "event_type",
         "platform_id",
         "locale",
-        "subject",
-        "text",
         "enabled",
         "custom",
         "revision"
@@ -585,6 +676,25 @@
         "data"
       ],
       "title": "PublicResponse[NotificationState]",
+      "type": "object"
+    },
+    "SaveMailBrand": {
+      "additionalProperties": false,
+      "properties": {
+        "expected_revision": {
+          "minimum": 1,
+          "title": "Expected Revision",
+          "type": "integer"
+        },
+        "brand": {
+          "$ref": "#/$defs/MailBrand"
+        }
+      },
+      "required": [
+        "expected_revision",
+        "brand"
+      ],
+      "title": "SaveMailBrand",
       "type": "object"
     },
     "SaveNotificationRoutes": {
@@ -691,6 +801,9 @@
     "template": {
       "$ref": "#/$defs/SaveNotificationTemplate"
     },
+    "brand": {
+      "$ref": "#/$defs/SaveMailBrand"
+    },
     "inbox": {
       "$ref": "#/$defs/PublicResponse_NotificationInbox_"
     },
@@ -702,14 +815,22 @@
     "state",
     "routes",
     "template",
+    "brand",
     "inbox",
     "mark_read"
   ],
   "title": "NotificationsContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "1.3.0",
+  "x-everunfold-contract-version": "1.4.0",
   "x-everunfold-operations": [
+    {
+      "name": "saveMailBrand",
+      "path": "/v1/admin/notifications/mail-brand",
+      "method": "PATCH",
+      "input": "brand",
+      "response": "state"
+    },
     {
       "name": "readNotificationState",
       "path": "/v1/admin/notifications/state",

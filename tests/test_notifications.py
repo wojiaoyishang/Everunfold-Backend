@@ -28,6 +28,7 @@ from app.modules.auth.models import User
 from app.modules.content.models import SiteSettings
 from app.modules.notifications.catalog import default_template
 from app.modules.notifications.delivery import deliver_notifications
+from app.modules.notifications.email_context import comment_data, email_urls
 from app.modules.notifications.models import (
     NotificationDelivery,
     NotificationEvent,
@@ -43,7 +44,6 @@ from app.modules.notifications.render import (
     render_html_template,
     render_template,
     sanitize_email_html,
-    text_html,
 )
 from app.modules.notifications.service import NotificationService, publish_event
 from app.modules.settings.delivery import deliver_batch
@@ -67,7 +67,6 @@ def test_templates_are_restricted_interpolation_and_missing_values_are_safe() ->
     assert render_template("{{resource.url}}", {"resource": {"url": "javascript:alert(1)"}}) == (
         "javascript:alert(1)"
     )
-    assert "&lt;script&gt;" in text_html("<script>")
     assert header_value("Title\r\nBcc: victim@example.test") == "Title Bcc: victim@example.test"
     assert default_template("comment.pending_review", "in-app", "fr").subject == "评论待审核"
     default_email = default_template("comment.pending_review", "email", "zh-CN")
@@ -98,6 +97,35 @@ def test_templates_are_restricted_interpolation_and_missing_values_are_safe() ->
     assert "onclick" not in sanitized and "onerror" not in sanitized
     assert "javascript:" not in sanitized and "<script" not in sanitized
     assert 'src="https://example.test/image.png"' in sanitized
+
+
+def test_built_in_comment_mail_uses_absolute_confirmation_links_and_optional_branding() -> None:
+    identity = uuid4()
+    origin = "https://blog.example.test"
+    values = comment_data(
+        {"actor": {"name": "<Reader>"}, "resource": {"title": "An article"}},
+        str(identity),
+    )
+    assert values["resource"]["review_url"] == f"/admin/comments?comment={identity}"
+    template = default_template("comment.pending_review", "email", "en")
+    site = {
+        "name": "My blog",
+        "icon_url": f"{origin}/icon.png",
+        "url": origin,
+        "accent_color": "#3154d9",
+    }
+    body = sanitize_email_html(
+        render_html_template(template.html, {**email_urls(values, origin), "site": site})
+    )
+    assert 'src="https://blog.example.test/icon.png"' in body
+    assert "My blog" in body and "&lt;Reader&gt;" in body
+    assert f'href="{origin}/admin/comments?comment={identity}&amp;action=approve"' in body
+    assert f'href="{origin}/admin/comments?comment={identity}&amp;action=reject"' in body
+    assert ">Help</a>" not in body
+    fallback = sanitize_email_html(
+        render_html_template(template.html, {**email_urls(values, ""), "site": {"name": "My blog"}})
+    )
+    assert "My blog" in fallback and "<img" not in fallback and "<a " not in fallback
 
 
 def test_plugin_notification_platform_registration_is_atomic_and_namespaced(
@@ -293,6 +321,26 @@ def test_routes_templates_inbox_and_uncertain_delivery_are_durable(tmp_path: Pat
             )
             assert html_template.status_code == 200, html_template.text
             assert html_template.json()["data"]["revision"] == 4
+            brand_path = "/v1/admin/notifications/mail-brand"
+            brand = {
+                "site_url": "https://blog.example.test",
+                "icon_url": "https://blog.example.test/icon.png",
+            }
+            branding = client.patch(
+                brand_path, json={"expected_revision": 4, "brand": brand}, headers=headers(client)
+            )
+            assert branding.status_code == 200, branding.text
+            brand_state = branding.json()["data"]
+            assert brand_state["site_variables"]["icon_url"] == brand["icon_url"]
+            existing = next(
+                item
+                for item in brand_state["templates"]
+                if item["event_type"] == "comment.pending_review"
+                and item["platform_id"] == "email"
+                and item["locale"] == "zh-CN"
+            )
+            assert existing["html"].startswith("<p>{{actor.name}}</p>")
+            assert "{{site.name}}" in existing["builtin"]["html"]
 
             async def exercise() -> None:
                 database = Database(settings.database.url.get_secret_value())

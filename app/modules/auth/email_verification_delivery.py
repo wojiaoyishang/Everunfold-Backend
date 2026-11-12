@@ -1,6 +1,7 @@
 """Worker-only delivery for short-lived account email verification codes."""
 
 from datetime import UTC, datetime, timedelta
+from math import ceil
 from typing import Any
 
 from sqlalchemy import delete, select, update
@@ -85,7 +86,12 @@ async def deliver(config: Settings) -> dict[str, Any]:
             identity = row.id
             recipient = row.email
             message = await verification_message(
-                session, config, user.preferred_locale, row.delivery_code
+                session,
+                config,
+                user.preferred_locale,
+                row.delivery_code,
+                max(1, ceil((row.expires_at - now).total_seconds() / 60)),
+                display_name=user.display_name,
             )
             await session.commit()
 

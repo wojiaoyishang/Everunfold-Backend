@@ -9,6 +9,7 @@ from app.modules.notifications.schemas import (
     MarkNotificationsRead,
     NotificationInbox,
     NotificationState,
+    SaveMailBrand,
     SaveNotificationRoutes,
     SaveNotificationTemplate,
 )
@@ -45,6 +46,13 @@ async def save_template(payload: SaveNotificationTemplate, ctx: Authorized) -> J
     if not ctx.actor.has("settings:write"):
         raise AuthFailure(403, 40373, "无权修改通知模板")
     return JSONResponseSuccess(data=await service(ctx).save_template(payload, ctx.actor.id))
+
+
+@router.patch("/mail-brand", response_model=PublicResponse[NotificationState])
+async def save_brand(payload: SaveMailBrand, ctx: Authorized) -> JSONResponseSuccess:
+    if not ctx.actor.has("settings:write"):
+        raise AuthFailure(403, 40373, "无权修改邮件品牌")
+    return JSONResponseSuccess(data=await service(ctx).save_brand(payload, ctx.actor.id))
 
 
 @router.get("/inbox", response_model=PublicResponse[NotificationInbox])

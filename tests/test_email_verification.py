@@ -320,14 +320,15 @@ def test_email_verification_is_one_time_rate_limited_and_clears_after_change(
                         item["id"] == "security.email_verification"
                         for item in template_state["events"]
                     )
+                    site_name = template_state["site_variables"]["name"]
                     template = {
                         "expected_revision": template_state["revision"],
                         "event_type": "security.email_verification",
                         "platform_id": "email",
                         "locale": "zh-CN",
-                        "subject": "自定义邮箱验证",
-                        "text": "本地测试码：{{verification.code}}",
-                        "html": "<p>测试码：<strong>{{verification.code}}</strong></p>",
+                        "subject": "{{site.name}} · 自定义邮箱验证",
+                        "text": "本地测试码：{{verification.code}}（{{verification.purpose}}）",
+                        "html": "<p>{{site.name}}：<strong>{{verification.code}}</strong></p>",
                         "html_enabled": True,
                         "enabled": True,
                     }
@@ -424,9 +425,11 @@ def test_email_verification_is_one_time_rate_limited_and_clears_after_change(
                     assert len(messages) == 1
                     assert client.get(status_path).json()["data"]["status"] == "sent"
                     message = message_from_bytes(messages[0], policy=email_policy.default)
-                    assert message["Subject"] == "自定义邮箱验证"
-                    assert code in message.get_body(preferencelist=("plain",)).get_content()
-                    assert code in message.get_body(preferencelist=("html",)).get_content()
+                    assert message["Subject"] == f"{site_name} · 自定义邮箱验证"
+                    plain = message.get_body(preferencelist=("plain",)).get_content()
+                    html = message.get_body(preferencelist=("html",)).get_content()
+                    assert code in plain and "验证邮箱" in plain
+                    assert code in html and site_name in html
                     async with database.session_factory() as session:
                         row = await session.get(EmailVerification, operation_id)
                         assert row is not None

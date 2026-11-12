@@ -4,6 +4,8 @@
 from dataclasses import dataclass
 from textwrap import dedent
 
+from app.modules.notifications.email_layout import button, email_layout
+
 
 @dataclass(frozen=True)
 class EventDefinition:
@@ -29,36 +31,89 @@ def alert_email(
     action_url: str,
     locale: str,
 ) -> str:
-    footer = (
-        "此邮件由 Everunfold 自动发送。"
-        if locale == "zh-CN"
-        else "This message was sent automatically by Everunfold."
+    return email_layout(
+        eyebrow,
+        title,
+        f'<p style="margin:0;font-size:15px;line-height:1.7">{body}</p>',
+        button(action_label, action_url),
+        locale,
     )
-    return dedent(
-        f"""\
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
-          style="margin:0;padding:24px 12px;background:#f6f7f9;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;color:#202631">
-          <tr>
-            <td align="center">
-              <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
-                style="max-width:620px;border:1px solid #e3e6ec;border-radius:8px;background:#ffffff;overflow:hidden">
-                <tr>
-                  <td style="padding:26px 28px 24px">
-                    <p style="margin:0 0 8px;color:#6b7381;font-size:11px;font-weight:600">{eyebrow}</p>
-                    <h1 style="margin:0 0 14px;color:#202631;font-size:21px;line-height:1.4">{title}</h1>
-                    <p style="margin:0;color:#596273;font-size:14px;line-height:1.75">{body}</p>
-                    <a href="{action_url}"
-                      style="display:inline-block;margin-top:20px;padding:10px 16px;border-radius:6px;background:#3154d9;color:#ffffff;font-size:14px;font-weight:600;text-decoration:none">{action_label}</a>
-                  </td>
-                </tr>
-                <tr>
-                  <td style="padding:14px 28px;border-top:1px solid #edf0f3;color:#8a93a3;font-size:11px;line-height:1.6">{footer}</td>
-                </tr>
-              </table>
-            </td>
-          </tr>
-        </table>
-        """
+
+
+def verification_email(locale: str) -> DefaultTemplate:
+    zh = locale == "zh-CN"
+    title = "验证你的邮箱" if zh else "Verify your email address"
+    purpose = "用途：{{verification.purpose}}" if zh else "Purpose: {{verification.purpose}}"
+    lead = "请输入以下验证码：" if zh else "Enter this verification code:"
+    note = (
+        "验证码 {{verification.expires_minutes}} 分钟内有效，请勿向他人透露。"
+        "如果这不是你的操作，可以忽略这封邮件。"
+        if zh
+        else "This code expires in {{verification.expires_minutes}} minutes. "
+        "Keep it private. If you did not request it, you can ignore this email."
+    )
+    return DefaultTemplate(
+        subject=f"[{{{{site.name}}}}] {title}",
+        text=f"{purpose}\n\n{lead}\n{{{{verification.code}}}}\n\n{note}",
+        html=email_layout(
+            "{{verification.purpose}}",
+            title,
+            dedent(
+                f"""\
+                <p style="margin:0;font-size:15px">{lead}</p>
+                <p style="margin:14px 0;padding:16px;background:#f3f5f9;border-radius:8px;text-align:center;color:#202631;font-family:monospace;font-size:30px;letter-spacing:0.18em">
+                  <strong>{{{{verification.code}}}}</strong>
+                </p>
+                <p style="margin:0;font-size:14px;line-height:1.7">{note}</p>"""
+            ),
+            "",
+            locale,
+        ),
+    )
+
+
+def comment_email(locale: str) -> DefaultTemplate:
+    zh = locale == "zh-CN"
+    title = "评论待审核" if zh else "Comment awaiting review"
+    author = "评论作者" if zh else "Comment by"
+    approve = "通过评论" if zh else "Approve comment"
+    reject = "拒绝评论" if zh else "Reject comment"
+    review = "查看评论" if zh else "Review comment"
+    note = (
+        "请登录后台，在评论管理中确认审核操作。"
+        if zh
+        else "Sign in to the dashboard to confirm the moderation action."
+    )
+    return DefaultTemplate(
+        subject=f"[{{{{site.name}}}}] {title} · {{{{resource.title}}}}",
+        text=(
+            f"{{{{resource.title}}}}\n{author}: {{{{actor.name}}}}\n\n"
+            f"{{{{content.excerpt}}}}\n\n{note}\n"
+            f"{approve}: {{{{comment.approve_url}}}}\n"
+            f"{reject}: {{{{comment.reject_url}}}}\n"
+            f"{review}: {{{{resource.review_url}}}}"
+        ),
+        html=email_layout(
+            title,
+            "{{resource.title}}",
+            dedent(
+                f"""\
+                <blockquote style="margin:0;padding:14px 16px;background:#f3f5f9;border-radius:8px">
+                  <strong>{author} · {{{{actor.name}}}}</strong>
+                  <p style="margin:8px 0 0;line-height:1.7">{{{{content.excerpt}}}}</p>
+                </blockquote>
+                <p style="margin:16px 0 0;font-size:14px;line-height:1.7">{note}</p>"""
+            ),
+            "\n".join(
+                (
+                    button(approve, "{{comment.approve_url}}"),
+                    button(reject, "{{comment.reject_url}}", secondary=True),
+                    button(review, "{{resource.review_url}}", secondary=True),
+                )
+            ),
+            locale,
+        ),
+        href="{{resource.review_url}}",
     )
 
 
@@ -73,6 +128,11 @@ EVENTS = (
             "resource.title",
             "resource.url",
             "resource.review_url",
+            "comment.author_name",
+            "comment.excerpt",
+            "comment.review_url",
+            "comment.approve_url",
+            "comment.reject_url",
         ),
     ),
     EventDefinition(
@@ -120,24 +180,13 @@ SECURITY_TEMPLATES = (
         id=EMAIL_VERIFICATION,
         title="验证邮箱",
         description="向用户发送邮箱验证验证码。",
-        variables=("verification.code", "verification.expires_minutes"),
+        variables=("verification.code", "verification.expires_minutes", "verification.purpose"),
     ),
 )
 
 DEFAULT_TEMPLATES = {
     EMAIL_VERIFICATION: {
-        "email": {
-            "zh-CN": DefaultTemplate(
-                subject="验证你的邮箱",
-                text="你的邮箱验证码是：{{verification.code}}\n\n验证码 {{verification.expires_minutes}} 分钟内有效。若不是你发起的，请忽略此邮件。",
-                html="<p>你的邮箱验证码是：</p><p><strong>{{verification.code}}</strong></p><p>验证码 {{verification.expires_minutes}} 分钟内有效。若不是你发起的，请忽略此邮件。</p>",
-            ),
-            "en": DefaultTemplate(
-                subject="Verify your email address",
-                text="Your verification code is: {{verification.code}}\n\nIt expires in {{verification.expires_minutes}} minutes. Ignore this message if you did not request it.",
-                html="<p>Your verification code is:</p><p><strong>{{verification.code}}</strong></p><p>It expires in {{verification.expires_minutes}} minutes. Ignore this message if you did not request it.</p>",
-            ),
-        },
+        "email": {"zh-CN": verification_email("zh-CN"), "en": verification_email("en")},
     },
     "comment.pending_review": {
         "in-app": {
@@ -152,104 +201,7 @@ DEFAULT_TEMPLATES = {
                 href="{{resource.review_url}}",
             ),
         },
-        "email": {
-            "zh-CN": DefaultTemplate(
-                subject="评论待审核 · {{resource.title}}",
-                text=(
-                    "{{actor.name}} 在「{{resource.title}}」提交了一条待审核评论。\n\n"
-                    "{{content.excerpt}}\n\n审核：{{resource.review_url}}"
-                ),
-                html=dedent(
-                    """\
-                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
-                      style="margin:0;padding:24px 12px;background:#f6f7f9;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;color:#202631">
-                      <tr>
-                        <td align="center">
-                          <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
-                            style="max-width:620px;border:1px solid #e3e6ec;border-radius:8px;background:#ffffff;overflow:hidden">
-                            <tr>
-                              <td style="padding:26px 28px 8px">
-                                <table role="presentation" cellpadding="0" cellspacing="0">
-                                  <tr>
-                                    <td width="34" height="34" align="center" valign="middle"
-                                      style="border-radius:6px;background:#eef2ff;color:#3154d9;font-size:18px;font-weight:700">E</td>
-                                    <td style="padding-left:12px;font-size:12px;letter-spacing:1.5px;color:#7b8495">EVERUNFOLD</td>
-                                  </tr>
-                                </table>
-                                <p style="margin:20px 0 6px;color:#6b7381;font-size:11px;font-weight:600">评论待审核</p>
-                                <h1 style="margin:0;color:#202631;font-size:21px;line-height:1.4">{{resource.title}}</h1>
-                              </td>
-                            </tr>
-                            <tr>
-                              <td style="padding:8px 28px 24px">
-                                <div style="margin-top:8px;padding:16px 18px;border-left:3px solid #3154d9;border-radius:0 6px 6px 0;background:#f8f9fb">
-                                  <p style="margin:0 0 8px;color:#202631;font-size:14px;font-weight:700">{{actor.name}}</p>
-                                  <p style="margin:0;color:#596273;font-size:14px;line-height:1.75">{{content.excerpt}}</p>
-                                </div>
-                                <a href="{{resource.review_url}}"
-                                  style="display:inline-block;margin-top:20px;padding:10px 16px;border-radius:6px;background:#3154d9;color:#ffffff;font-size:14px;font-weight:600;text-decoration:none">查看并审核 →</a>
-                              </td>
-                            </tr>
-                            <tr>
-                              <td style="padding:14px 28px;border-top:1px solid #edf0f3;color:#8a93a3;font-size:11px;line-height:1.6">此邮件由 Everunfold 评论审核提醒自动发送。</td>
-                            </tr>
-                          </table>
-                        </td>
-                      </tr>
-                    </table>
-                    """
-                ),
-                href="{{resource.review_url}}",
-            ),
-            "en": DefaultTemplate(
-                subject="Comment awaiting review · {{resource.title}}",
-                text=(
-                    '{{actor.name}} submitted a comment on "{{resource.title}}".\n\n'
-                    "{{content.excerpt}}\n\nReview: {{resource.review_url}}"
-                ),
-                html=dedent(
-                    """\
-                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
-                      style="margin:0;padding:24px 12px;background:#f6f7f9;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;color:#202631">
-                      <tr>
-                        <td align="center">
-                          <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
-                            style="max-width:620px;border:1px solid #e3e6ec;border-radius:8px;background:#ffffff;overflow:hidden">
-                            <tr>
-                              <td style="padding:26px 28px 8px">
-                                <table role="presentation" cellpadding="0" cellspacing="0">
-                                  <tr>
-                                    <td width="34" height="34" align="center" valign="middle"
-                                      style="border-radius:6px;background:#eef2ff;color:#3154d9;font-size:18px;font-weight:700">E</td>
-                                    <td style="padding-left:12px;font-size:12px;letter-spacing:1.5px;color:#7b8495">EVERUNFOLD</td>
-                                  </tr>
-                                </table>
-                                <p style="margin:20px 0 6px;color:#6b7381;font-size:11px;font-weight:600">COMMENT REVIEW</p>
-                                <h1 style="margin:0;color:#202631;font-size:21px;line-height:1.4">{{resource.title}}</h1>
-                              </td>
-                            </tr>
-                            <tr>
-                              <td style="padding:8px 28px 24px">
-                                <div style="margin-top:8px;padding:16px 18px;border-left:3px solid #3154d9;border-radius:0 6px 6px 0;background:#f8f9fb">
-                                  <p style="margin:0 0 8px;color:#202631;font-size:14px;font-weight:700">{{actor.name}}</p>
-                                  <p style="margin:0;color:#596273;font-size:14px;line-height:1.75">{{content.excerpt}}</p>
-                                </div>
-                                <a href="{{resource.review_url}}"
-                                  style="display:inline-block;margin-top:20px;padding:10px 16px;border-radius:6px;background:#3154d9;color:#ffffff;font-size:14px;font-weight:600;text-decoration:none">Review comment →</a>
-                              </td>
-                            </tr>
-                            <tr>
-                              <td style="padding:14px 28px;border-top:1px solid #edf0f3;color:#8a93a3;font-size:11px;line-height:1.6">This message was sent automatically by Everunfold.</td>
-                            </tr>
-                          </table>
-                        </td>
-                      </tr>
-                    </table>
-                    """
-                ),
-                href="{{resource.review_url}}",
-            ),
-        },
+        "email": {"zh-CN": comment_email("zh-CN"), "en": comment_email("en")},
     },
     "content.scheduled_published": {
         "in-app": {

@@ -2,10 +2,12 @@
 
 from datetime import datetime
 from typing import Literal
+from urllib.parse import urlsplit
 from uuid import UUID
 
-from pydantic import Field, model_validator
+from pydantic import Field, field_validator, model_validator
 
+from app.core.config import validate_http_base
 from app.core.schemas import PublicModel, PublicResponse
 
 RecipientType = Literal["user", "role", "permission"]
@@ -50,18 +52,58 @@ class NotificationRouteInput(PublicModel):
     enabled: bool = True
 
 
-class NotificationTemplateView(PublicModel):
-    event_type: str
-    platform_id: str
-    locale: str
+class NotificationTemplateContent(PublicModel):
     subject: str
     text: str
     html: str = ""
     html_enabled: bool = False
+
+
+class NotificationTemplateView(NotificationTemplateContent):
+    event_type: str
+    platform_id: str
+    locale: str
     href: str = ""
     enabled: bool
     custom: bool
     revision: int = Field(ge=0)
+    builtin: NotificationTemplateContent | None = None
+
+
+class MailBrand(PublicModel):
+    site_url: str = Field(default="", max_length=2048)
+    icon_url: str = Field(default="", max_length=2048)
+    support_url: str = Field(default="", max_length=2048)
+    accent_color: str = Field(default="", pattern=r"^(?:#[a-fA-F0-9]{6})?$")
+
+    @field_validator("site_url", "icon_url", "support_url")
+    @classmethod
+    def valid_url(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            return ""
+        if any(char.isspace() or ord(char) < 32 or char == "\\" for char in value):
+            raise ValueError("requires an HTTP(S) URL")
+        parsed = urlsplit(value)
+        if (
+            parsed.scheme not in {"http", "https"}
+            or not parsed.hostname
+            or parsed.username is not None
+            or parsed.password is not None
+        ):
+            raise ValueError("requires an HTTP(S) URL without credentials")
+        _ = parsed.port
+        return value
+
+    @field_validator("site_url")
+    @classmethod
+    def site_origin(cls, value: str) -> str:
+        return validate_http_base(value) if value else ""
+
+
+class SaveMailBrand(PublicModel):
+    expected_revision: int = Field(ge=1)
+    brand: MailBrand
 
 
 class SaveNotificationTemplate(PublicModel):
@@ -115,6 +157,9 @@ class NotificationState(PublicModel):
     templates: list[NotificationTemplateView]
     deliveries: list[NotificationDeliveryView]
     locales: list[str]
+    mail_brand: MailBrand
+    site_variables: dict[str, str]
+    email_variables: list[str]
 
 
 class NotificationInboxItem(PublicModel):
@@ -139,5 +184,6 @@ class NotificationsContract(PublicModel):
     state: PublicResponse[NotificationState]
     routes: SaveNotificationRoutes
     template: SaveNotificationTemplate
+    brand: SaveMailBrand
     inbox: PublicResponse[NotificationInbox]
     mark_read: MarkNotificationsRead

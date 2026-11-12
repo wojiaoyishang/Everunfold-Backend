@@ -7,6 +7,11 @@ from html.parser import HTMLParser
 from typing import Any
 
 TOKEN = re.compile(r"\{\{\s*([a-zA-Z_][a-zA-Z0-9_.]*)\s*\}\}")
+OPTIONAL_EMAIL_ELEMENT = re.compile(
+    r'<(img|a)\b[^<>]*?\bdata-mail-optional="([a-zA-Z_][a-zA-Z0-9_.]*)"'
+    r"[^<>]*>",
+)
+OPTIONAL_EMAIL_LINK_END = re.compile(r"[^<]*</a>")
 
 
 def value_at(data: Mapping[str, Any], path: str) -> str:
@@ -24,19 +29,30 @@ def render_template(template: str, data: Mapping[str, Any]) -> str:
 
 def render_html_template(template: str, data: Mapping[str, Any]) -> str:
     """Interpolate HTML templates without allowing event data to introduce markup."""
+    # Built-in optional links contain only a text label. Images have no closing tag.
+    parts: list[str] = []
+    offset = 0
+    for match in OPTIONAL_EMAIL_ELEMENT.finditer(template):
+        end = match.end()
+        if match.group(1) == "a":
+            closing = OPTIONAL_EMAIL_LINK_END.match(template, end)
+            if closing is None:
+                continue
+            end = closing.end()
+        parts.append(template[offset : match.start()])
+        if value_at(data, match.group(2)):
+            parts.append(template[match.start() : end])
+        offset = end
+    parts.append(template[offset:])
     return TOKEN.sub(
         lambda match: html.escape(value_at(data, match.group(1)), quote=True),
-        template,
+        "".join(parts),
     )
 
 
 def header_value(value: str, limit: int = 300) -> str:
     """Prevent event data from injecting additional mail headers."""
     return " ".join(value.replace("\r", " ").replace("\n", " ").split())[:limit]
-
-
-def text_html(value: str) -> str:
-    return "<pre>" + html.escape(value) + "</pre>"
 
 
 ALLOWED_TAGS = {
@@ -128,7 +144,7 @@ class EmailHTMLSanitizer(HTMLParser):
                 value = safe_style(value)
             elif name == "target" and value != "_blank":
                 value = ""
-            if value:
+            if value or name == "alt":
                 values.append(f' {name}="{html.escape(value, quote=True)}"')
         rendered = f"<{tag}{''.join(values)}>"
         self.parts.append(rendered)

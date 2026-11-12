@@ -42,15 +42,17 @@ def check_comments(client: Any, csrf: Any, api_b: str, snapshot: Any, wait_for: 
     assert not any(c["id"] == cid for c in snapshot()["comments"].get(target, []))
     found = client.post(
         "/v1/admin/comments/query",
-        json={"status": "pending", "search": "Moderation original"},
+        json={"comment_id": cid},
         headers=csrf,
     )
     assert found.status_code == 200, found.text
     item = found.json()["data"]["items"][0]
+    assert item["id"] == cid and item["status"] == "pending"
     operation = {
         "operation_id": str(uuid4()),
         "items": [{"id": cid, "revision": item["revision"]}],
         "action": "approve",
+        "pending_only": True,
     }
     result = client.post("/v1/admin/comments/moderate", json=operation, headers=csrf)
     assert result.status_code == 200, result.text
@@ -61,6 +63,19 @@ def check_comments(client: Any, csrf: Any, api_b: str, snapshot: Any, wait_for: 
         cookies=client.cookies,
     )
     assert duplicate.status_code == 200 and duplicate.json() == result.json(), duplicate.text
+    assert (
+        client.post(
+            "/v1/admin/comments/moderate",
+            json={
+                **operation,
+                "operation_id": str(uuid4()),
+                "items": [{"id": cid, "revision": 2}],
+                "action": "reject",
+            },
+            headers=csrf,
+        ).status_code
+        == 409
+    )
     assert (
         client.post(
             "/v1/admin/comments/moderate",
@@ -91,6 +106,7 @@ def check_comments(client: Any, csrf: Any, api_b: str, snapshot: Any, wait_for: 
             "operation_id": str(uuid4()),
             "items": [{"id": cid, "revision": 2}],
             "action": "trash",
+            "pending_only": False,
         },
         headers=csrf,
     )
