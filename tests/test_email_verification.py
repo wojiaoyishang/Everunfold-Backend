@@ -2,6 +2,7 @@
 
 import asyncio
 import os
+import re
 import subprocess
 import sys
 import tomllib
@@ -18,7 +19,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select, update
 from sqlalchemy.engine import make_url
 
-from app.core.config import load_settings
+from app.core.config import Settings, load_settings
 from app.core.database import Database
 from app.entrypoints.api import create_app
 from app.modules.auth.accounts_schemas import (
@@ -34,6 +35,7 @@ from app.modules.auth.email_verification_delivery import deliver
 from app.modules.auth.email_verification_models import EmailVerification
 from app.modules.auth.email_verification_service import EmailVerificationService
 from app.modules.auth.models import AuthAuditEvent, User
+from app.modules.auth.registration_delivery import deliver as deliver_registration
 from app.modules.auth.service import AuthFailure, AuthService
 from app.modules.settings.mail_schemas import MailSenderProfileInput, SaveMailSettings
 from app.modules.settings.mail_service import MailSettingsService
@@ -43,6 +45,102 @@ from tests.test_mail_delivery import preferences, smtp_server
 from tests.test_settings_processes import toml_text
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+async def verify_invitation_registration(
+    admin: TestClient, settings: Settings, messages: list[bytes]
+) -> None:
+    registration = "/v1/auth/registration"
+    invitations = "/v1/admin/access/invitations"
+    access_path = "/v1/admin/access/settings"
+    access = admin.get(access_path).json()["data"]
+    assert admin.get(registration + "/options").json()["data"]["mode"] == "closed"
+    policy = {
+        "expected_revision": access["revision"],
+        "login_captcha": access["login_captcha"],
+        "email_verification_captcha": access["email_verification_captcha"],
+        "mail_profile_id": access["mail_profile_id"],
+        "registration_mode": "invite",
+        "registration_captcha": True,
+    }
+    saved = admin.patch(access_path, json=policy, headers=headers(admin))
+    assert saved.status_code == 200, saved.text
+    issued = admin.post(invitations, json={"days_valid": 1}, headers=headers(admin))
+    assert issued.status_code == 200
+    invite = issued.json()["data"]
+    assert invite["code"] not in admin.get(invitations).text
+    suffix = uuid4().hex[:10]
+    with (
+        TestClient(create_app(settings)) as first,
+        TestClient(create_app(settings)) as second,
+    ):
+        codes = []
+        for index, browser in enumerate((first, second)):
+            payload = {
+                "username": f"QA_{suffix}_{index}",
+                "display_name": "Registration QA",
+                "email": f"QA_{suffix}_{index}@example.test",
+                "password": PASSWORD,
+                "invite_code": invite["code"],
+            }
+            req_headers = headers(browser)
+            assert (
+                browser.post(
+                    registration + "/request", json=payload, headers=req_headers
+                ).status_code
+                == 403
+            )
+            client_id = str(uuid4())
+            challenge = browser.post(
+                "/v1/reader/captcha/challenge",
+                json={"action": "registration", "client_id": client_id},
+                headers={"Origin": ORIGIN},
+            ).json()["data"]
+            queued = browser.post(
+                registration + "/request",
+                json={
+                    **payload,
+                    "captcha": {
+                        "challenge_id": challenge["challenge_id"],
+                        "client_id": client_id,
+                        "answer": "QA42",
+                    },
+                },
+                headers=req_headers,
+            )
+            assert queued.status_code == 200, queued.text
+            assert queued.json()["data"]["status"] == "queued"
+            assert not browser.get("/v1/auth/session").json()["data"]["authenticated"]
+            assert await deliver_registration(settings) == {"processed": 1}
+            status = browser.get(registration + "/status").json()["data"]
+            assert status["status"] == "sent"
+            content = message_from_bytes(messages[-1], policy=email_policy.default)
+            code = re.search(r"[0-9]{6}", content.get_body(preferencelist=("plain",)).get_content())
+            assert code is not None
+            codes.append({"request_id": status["request_id"], "code": code.group()})
+        results = await asyncio.gather(
+            asyncio.to_thread(
+                first.post, registration + "/confirm", json=codes[0], headers=headers(first)
+            ),
+            asyncio.to_thread(
+                second.post, registration + "/confirm", json=codes[1], headers=headers(second)
+            ),
+        )
+        assert sorted(response.status_code for response in results) == [200, 422]
+        winner = next(i for i, response in enumerate(results) if response.status_code == 200)
+        user = results[winner].json()["data"]["user"]
+        assert user["username"] == f"qa_{suffix}_{winner}"
+        assert user["role"] == "user" and user["permissions"] == {}
+        browser = (first, second)[winner]
+        assert browser.get("/v1/account/profile").json()["data"]["email_verified"] is True
+        assert browser.get("/v1/admin/session").status_code == 403
+        assert (
+            browser.post(
+                registration + "/confirm", json=codes[winner], headers=headers(browser)
+            ).status_code
+            == 422
+        )
+    assert admin.get(invitations).json()["data"]["items"][0]["consumed_at"] is not None
 
 
 @pytest.mark.skipif(
@@ -372,6 +470,7 @@ def test_email_verification_is_one_time_rate_limited_and_clears_after_change(
                     await database.close()
 
             asyncio.run(exercise())
+            asyncio.run(verify_invitation_registration(client, settings, messages))
     finally:
 
         async def clean() -> None:

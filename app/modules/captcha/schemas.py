@@ -7,8 +7,8 @@ from pydantic import Field, field_validator, model_validator
 
 from app.core.schemas import PublicModel, PublicResponse
 
-CaptchaAction = Literal["login", "email_verification", "read", "comment"]
-ACCOUNT_ACTIONS = frozenset({"login", "email_verification"})
+CaptchaAction = Literal["login", "registration", "email_verification", "read", "comment"]
+ACCOUNT_ACTIONS = frozenset({"login", "registration", "email_verification"})
 CaptchaOverride = Literal["inherit", "required", "off"]
 
 
@@ -20,6 +20,7 @@ class ContentRules(PublicModel):
 
 class CaptchaRules(PublicModel):
     login: bool = False
+    registration: bool = False
     email_verification: bool = False
     read: ContentRules = Field(default_factory=ContentRules)
     comment: ContentRules = Field(default_factory=ContentRules)

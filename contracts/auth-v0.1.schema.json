@@ -220,6 +220,62 @@
       "title": "PublicResponse[AuthSessionState]",
       "type": "object"
     },
+    "PublicResponse_RegistrationOptions_": {
+      "additionalProperties": false,
+      "properties": {
+        "success": {
+          "default": true,
+          "title": "Success",
+          "type": "boolean"
+        },
+        "code": {
+          "default": 200,
+          "title": "Code",
+          "type": "integer"
+        },
+        "msg": {
+          "default": "请求成功",
+          "title": "Msg",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/RegistrationOptions"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "title": "PublicResponse[RegistrationOptions]",
+      "type": "object"
+    },
+    "PublicResponse_RegistrationState_": {
+      "additionalProperties": false,
+      "properties": {
+        "success": {
+          "default": true,
+          "title": "Success",
+          "type": "boolean"
+        },
+        "code": {
+          "default": 200,
+          "title": "Code",
+          "type": "integer"
+        },
+        "msg": {
+          "default": "请求成功",
+          "title": "Msg",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/RegistrationState"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "title": "PublicResponse[RegistrationState]",
+      "type": "object"
+    },
     "PublicResponse_TwoFactorActivated_": {
       "additionalProperties": false,
       "properties": {
@@ -302,6 +358,162 @@
         "data"
       ],
       "title": "PublicResponse[TwoFactorState]",
+      "type": "object"
+    },
+    "RegistrationConfirm": {
+      "additionalProperties": false,
+      "properties": {
+        "request_id": {
+          "format": "uuid",
+          "title": "Request Id",
+          "type": "string"
+        },
+        "code": {
+          "pattern": "^[0-9]{6}$",
+          "title": "Code",
+          "type": "string"
+        }
+      },
+      "required": [
+        "request_id",
+        "code"
+      ],
+      "title": "RegistrationConfirm",
+      "type": "object"
+    },
+    "RegistrationOptions": {
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "enum": [
+            "closed",
+            "invite",
+            "open"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "mail_ready": {
+          "title": "Mail Ready",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "mode",
+        "mail_ready"
+      ],
+      "title": "RegistrationOptions",
+      "type": "object"
+    },
+    "RegistrationRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "username": {
+          "maxLength": 64,
+          "minLength": 2,
+          "pattern": "^[A-Za-z0-9_.-]+$",
+          "title": "Username",
+          "type": "string"
+        },
+        "display_name": {
+          "maxLength": 100,
+          "minLength": 1,
+          "title": "Display Name",
+          "type": "string"
+        },
+        "email": {
+          "maxLength": 254,
+          "minLength": 3,
+          "title": "Email",
+          "type": "string"
+        },
+        "password": {
+          "maxLength": 1024,
+          "minLength": 12,
+          "title": "Password",
+          "type": "string"
+        },
+        "invite_code": {
+          "anyOf": [
+            {
+              "maxLength": 100,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Invite Code"
+        },
+        "locale": {
+          "default": "zh-CN",
+          "enum": [
+            "zh-CN",
+            "en"
+          ],
+          "title": "Locale",
+          "type": "string"
+        },
+        "captcha": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CaptchaAnswer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "username",
+        "display_name",
+        "email",
+        "password"
+      ],
+      "title": "RegistrationRequest",
+      "type": "object"
+    },
+    "RegistrationState": {
+      "additionalProperties": false,
+      "properties": {
+        "request_id": {
+          "format": "uuid",
+          "title": "Request Id",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "queued",
+            "sending",
+            "sent",
+            "failed",
+            "unknown",
+            "expired"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "expires_at": {
+          "format": "date-time",
+          "title": "Expires At",
+          "type": "string"
+        },
+        "retry_after_seconds": {
+          "minimum": 0,
+          "title": "Retry After Seconds",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "request_id",
+        "status",
+        "expires_at",
+        "retry_after_seconds"
+      ],
+      "title": "RegistrationState",
       "type": "object"
     },
     "TwoFactorActivated": {
@@ -441,6 +653,18 @@
   },
   "additionalProperties": false,
   "properties": {
+    "registration_options": {
+      "$ref": "#/$defs/PublicResponse_RegistrationOptions_"
+    },
+    "registration_request": {
+      "$ref": "#/$defs/RegistrationRequest"
+    },
+    "registration_confirm": {
+      "$ref": "#/$defs/RegistrationConfirm"
+    },
+    "registration_state": {
+      "$ref": "#/$defs/PublicResponse_RegistrationState_"
+    },
     "login": {
       "$ref": "#/$defs/LoginInput"
     },
@@ -470,6 +694,10 @@
     }
   },
   "required": [
+    "registration_options",
+    "registration_request",
+    "registration_confirm",
+    "registration_state",
     "login",
     "second_factor",
     "session",
@@ -483,10 +711,38 @@
   "title": "AuthContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "0.5.0",
+  "x-everunfold-contract-version": "0.6.0",
   "x-everunfold-csrf-header": "X-CSRF-Token",
   "x-everunfold-credentials": "include",
   "x-everunfold-operations": [
+    {
+      "name": "readRegistrationOptions",
+      "path": "/v1/auth/registration/options",
+      "method": "GET",
+      "response": "registration_options"
+    },
+    {
+      "name": "readRegistrationStatus",
+      "path": "/v1/auth/registration/status",
+      "method": "GET",
+      "response": "registration_state"
+    },
+    {
+      "name": "requestRegistration",
+      "path": "/v1/auth/registration/request",
+      "method": "POST",
+      "input": "registration_request",
+      "response": "registration_state",
+      "csrf": true
+    },
+    {
+      "name": "confirmRegistration",
+      "path": "/v1/auth/registration/confirm",
+      "method": "POST",
+      "input": "registration_confirm",
+      "response": "session",
+      "csrf": true
+    },
     {
       "name": "readAuthSession",
       "path": "/v1/auth/session",

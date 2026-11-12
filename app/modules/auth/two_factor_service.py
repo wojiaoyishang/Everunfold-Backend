@@ -9,6 +9,7 @@ import struct
 import time
 from datetime import UTC, datetime, timedelta
 from urllib.parse import quote
+from uuid import UUID
 
 from cryptography.fernet import Fernet, InvalidToken
 from sqlalchemy import delete, select
@@ -63,9 +64,7 @@ class TwoFactorService:
         self.auth = auth
         self.session: AsyncSession = auth.session
 
-    async def credential(
-        self, user_id: object, *, lock: bool = False
-    ) -> TwoFactorCredential | None:
+    async def credential(self, user_id: UUID, *, lock: bool = False) -> TwoFactorCredential | None:
         statement = select(TwoFactorCredential).where(TwoFactorCredential.user_id == user_id)
         return await self.session.scalar(statement.with_for_update() if lock else statement)
 
@@ -137,6 +136,7 @@ class TwoFactorService:
         return False
 
     async def activate(self, actor: User, code: str, current_token: str) -> TwoFactorActivated:
+        actor = await AccountsService(self.session, self.auth).target(actor.id, lock=True)
         await self._attempt(actor)
         row = await self.credential(actor.id, lock=True)
         if (
@@ -162,6 +162,7 @@ class TwoFactorService:
     async def change(
         self, actor: User, password: str, code: str, current_token: str, *, disable: bool
     ) -> TwoFactorActivated | TwoFactorState:
+        actor = await AccountsService(self.session, self.auth).target(actor.id, lock=True)
         await AccountsService(self.session, self.auth).confirm_password(actor, password)
         await self._attempt(actor)
         row = await self.credential(actor.id, lock=True)

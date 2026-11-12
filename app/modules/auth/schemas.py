@@ -7,6 +7,12 @@ from uuid import UUID
 from pydantic import Field
 
 from app.core.schemas import ErrorResponse, PublicModel, PublicResponse
+from app.modules.auth.registration_schemas import (
+    RegistrationConfirm,
+    RegistrationOptions,
+    RegistrationRequest,
+    RegistrationState,
+)
 from app.modules.auth.two_factor_schemas import (
     TwoFactorActivated,
     TwoFactorBegin,
@@ -44,6 +50,10 @@ class AuthSessionState(PublicModel):
 
 
 class AuthContract(PublicModel):
+    registration_options: PublicResponse[RegistrationOptions]
+    registration_request: RegistrationRequest
+    registration_confirm: RegistrationConfirm
+    registration_state: PublicResponse[RegistrationState]
     login: LoginInput
     second_factor: TwoFactorCode
     session: PublicResponse[AuthSessionState]

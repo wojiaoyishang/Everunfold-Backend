@@ -43,6 +43,13 @@ from app.modules.auth.preset_schemas import (
     UserPresetSelection,
     UserPresetStamp,
 )
+from app.modules.auth.registration_schemas import (
+    InvitationCreate,
+    InvitationCreated,
+    InvitationList,
+    InvitationRevoke,
+    RegistrationMode,
+)
 from app.modules.auth.schemas import AuthSessionState
 from app.modules.captcha.schemas import CaptchaAnswer
 from app.modules.settings.languages import LanguageCatalog
@@ -194,6 +201,8 @@ class EmailVerificationState(PublicModel):
 class AccessSettingsInput(PublicModel):
     expected_revision: int = Field(ge=1)
     login_captcha: bool
+    registration_mode: RegistrationMode | None = None
+    registration_captcha: bool | None = None
     email_verification_captcha: bool
     mail_profile_id: UUID | None = None
 
@@ -206,6 +215,8 @@ class AccessSenderOption(PublicModel):
 class AccessSettingsState(PublicModel):
     revision: int
     login_captcha: bool
+    registration_mode: RegistrationMode
+    registration_captcha: bool
     email_verification_captcha: bool
     mail_profile_id: UUID | None
     mail_ready: bool
@@ -280,6 +291,10 @@ class AccountContract(PublicModel):
     session_revoke: SessionRevoke
     access_settings: PublicResponse[AccessSettingsState]
     save_access_settings: AccessSettingsInput
+    invitation_create: InvitationCreate
+    invitation_created: PublicResponse[InvitationCreated]
+    invitation_list: PublicResponse[InvitationList]
+    invitation_revoke: InvitationRevoke
     email_review: ReviewAccountEmail
     email_verification_request: EmailVerificationRequest
     email_verification_confirm: EmailVerificationConfirm

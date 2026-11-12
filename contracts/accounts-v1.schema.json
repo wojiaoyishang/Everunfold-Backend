@@ -32,6 +32,35 @@
           "title": "Login Captcha",
           "type": "boolean"
         },
+        "registration_mode": {
+          "anyOf": [
+            {
+              "enum": [
+                "closed",
+                "invite",
+                "open"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Registration Mode"
+        },
+        "registration_captcha": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Registration Captcha"
+        },
         "email_verification_captcha": {
           "title": "Email Verification Captcha",
           "type": "boolean"
@@ -69,6 +98,19 @@
           "title": "Login Captcha",
           "type": "boolean"
         },
+        "registration_mode": {
+          "enum": [
+            "closed",
+            "invite",
+            "open"
+          ],
+          "title": "Registration Mode",
+          "type": "string"
+        },
+        "registration_captcha": {
+          "title": "Registration Captcha",
+          "type": "boolean"
+        },
         "email_verification_captcha": {
           "title": "Email Verification Captcha",
           "type": "boolean"
@@ -100,6 +142,8 @@
       "required": [
         "revision",
         "login_captcha",
+        "registration_mode",
+        "registration_captcha",
         "email_verification_captcha",
         "mail_profile_id",
         "mail_ready",
@@ -693,6 +737,11 @@
           "title": "Authenticated",
           "type": "boolean"
         },
+        "mfa_required": {
+          "default": false,
+          "title": "Mfa Required",
+          "type": "boolean"
+        },
         "user": {
           "anyOf": [
             {
@@ -1255,6 +1304,131 @@
         "retry_after_seconds"
       ],
       "title": "EmailVerificationState",
+      "type": "object"
+    },
+    "InvitationCreate": {
+      "additionalProperties": false,
+      "properties": {
+        "days_valid": {
+          "default": 7,
+          "maximum": 30,
+          "minimum": 1,
+          "title": "Days Valid",
+          "type": "integer"
+        }
+      },
+      "title": "InvitationCreate",
+      "type": "object"
+    },
+    "InvitationCreated": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "code": {
+          "title": "Code",
+          "type": "string"
+        },
+        "expires_at": {
+          "format": "date-time",
+          "title": "Expires At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "code",
+        "expires_at"
+      ],
+      "title": "InvitationCreated",
+      "type": "object"
+    },
+    "InvitationItem": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "expires_at": {
+          "format": "date-time",
+          "title": "Expires At",
+          "type": "string"
+        },
+        "consumed_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Consumed At"
+        },
+        "revoked_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Revoked At"
+        }
+      },
+      "required": [
+        "id",
+        "created_at",
+        "expires_at",
+        "consumed_at",
+        "revoked_at"
+      ],
+      "title": "InvitationItem",
+      "type": "object"
+    },
+    "InvitationList": {
+      "additionalProperties": false,
+      "properties": {
+        "items": {
+          "items": {
+            "$ref": "#/$defs/InvitationItem"
+          },
+          "title": "Items",
+          "type": "array"
+        }
+      },
+      "required": [
+        "items"
+      ],
+      "title": "InvitationList",
+      "type": "object"
+    },
+    "InvitationRevoke": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "title": "InvitationRevoke",
       "type": "object"
     },
     "KeyApplication": {
@@ -2182,6 +2356,62 @@
       "title": "PublicResponse[EmailVerificationState]",
       "type": "object"
     },
+    "PublicResponse_InvitationCreated_": {
+      "additionalProperties": false,
+      "properties": {
+        "success": {
+          "default": true,
+          "title": "Success",
+          "type": "boolean"
+        },
+        "code": {
+          "default": 200,
+          "title": "Code",
+          "type": "integer"
+        },
+        "msg": {
+          "default": "请求成功",
+          "title": "Msg",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/InvitationCreated"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "title": "PublicResponse[InvitationCreated]",
+      "type": "object"
+    },
+    "PublicResponse_InvitationList_": {
+      "additionalProperties": false,
+      "properties": {
+        "success": {
+          "default": true,
+          "title": "Success",
+          "type": "boolean"
+        },
+        "code": {
+          "default": 200,
+          "title": "Code",
+          "type": "integer"
+        },
+        "msg": {
+          "default": "请求成功",
+          "title": "Msg",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/InvitationList"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "title": "PublicResponse[InvitationList]",
+      "type": "object"
+    },
     "PublicResponse_KeyList_": {
       "additionalProperties": false,
       "properties": {
@@ -3001,6 +3231,18 @@
     "save_access_settings": {
       "$ref": "#/$defs/AccessSettingsInput"
     },
+    "invitation_create": {
+      "$ref": "#/$defs/InvitationCreate"
+    },
+    "invitation_created": {
+      "$ref": "#/$defs/PublicResponse_InvitationCreated_"
+    },
+    "invitation_list": {
+      "$ref": "#/$defs/PublicResponse_InvitationList_"
+    },
+    "invitation_revoke": {
+      "$ref": "#/$defs/InvitationRevoke"
+    },
     "email_review": {
       "$ref": "#/$defs/ReviewAccountEmail"
     },
@@ -3064,6 +3306,10 @@
     "session_revoke",
     "access_settings",
     "save_access_settings",
+    "invitation_create",
+    "invitation_created",
+    "invitation_list",
+    "invitation_revoke",
     "email_review",
     "email_verification_request",
     "email_verification_confirm",
@@ -3077,7 +3323,7 @@
   "title": "AccountContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "1.7.0",
+  "x-everunfold-contract-version": "1.8.0",
   "x-everunfold-csrf-header": "X-CSRF-Token",
   "x-everunfold-credentials": "include",
   "x-everunfold-operations": [
@@ -3281,6 +3527,26 @@
       "path": "/v1/admin/access/settings",
       "method": "GET",
       "response": "access_settings"
+    },
+    {
+      "name": "listInvitations",
+      "path": "/v1/admin/access/invitations",
+      "method": "GET",
+      "response": "invitation_list"
+    },
+    {
+      "name": "createInvitation",
+      "path": "/v1/admin/access/invitations",
+      "method": "POST",
+      "response": "invitation_created",
+      "input": "invitation_create"
+    },
+    {
+      "name": "revokeInvitation",
+      "path": "/v1/admin/access/invitations/revoke",
+      "method": "POST",
+      "response": "invitation_list",
+      "input": "invitation_revoke"
     },
     {
       "name": "saveAccessSettings",

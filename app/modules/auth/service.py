@@ -189,7 +189,9 @@ class AuthService:
         password: str,
         peer: str,
     ) -> SessionResult:
-        record, _ = await self._write_session(raw_token, supplied_csrf, lock=False)
+        record, current = await self._write_session(raw_token, supplied_csrf)
+        if current is not None:
+            raise AuthFailure(409, 40977, "已登录，请先退出")
         now = datetime.now(UTC)
         name = normalize_username(username)
         is_email = "@" in name
@@ -239,7 +241,6 @@ class AuthService:
             await self.session.execute(
                 delete(LoginChallenge).where(LoginChallenge.session_hash == record.token_hash)
             )
-            record.user_id = None
             self.session.add(
                 LoginChallenge(
                     session_hash=record.token_hash,

@@ -12,6 +12,7 @@ from app.modules.auth.accounts_schemas import (
     AccessSettingsInput,
     AccessSettingsState,
 )
+from app.modules.auth.registration_schemas import RegistrationMode
 from app.modules.auth.service import AuthFailure
 from app.modules.captcha.service import CONFIG_KEY, config_from_data
 from app.modules.content.models import SiteSettings
@@ -20,6 +21,16 @@ from app.modules.settings.models import SettingsAudit
 from app.modules.settings.service import SettingsService
 
 ACCESS_KEY = "_access_private"
+
+
+def registration_mode(data: dict[str, Any]) -> RegistrationMode:
+    value = data.get(ACCESS_KEY, {})
+    mode = value.get("registration_mode") if isinstance(value, dict) else None
+    if mode == "invite":
+        return "invite"
+    if mode == "open":
+        return "open"
+    return "closed"
 
 
 def configured_sender(data: dict[str, Any]) -> str | None:
@@ -38,6 +49,8 @@ def access_state(data: dict[str, Any]) -> AccessSettingsState:
     return AccessSettingsState(
         revision=captcha.revision,
         login_captcha=captcha.rules.login,
+        registration_mode=registration_mode(data),
+        registration_captcha=captcha.rules.registration,
         email_verification_captcha=captcha.rules.email_verification,
         mail_profile_id=UUID(sender) if sender else None,
         mail_ready=bool(
@@ -74,6 +87,8 @@ async def save_access_settings(
             raise AuthFailure(422, 42272, "请选择已启用且配置完整的发信配置")
     captcha.revision += 1
     captcha.rules.login = payload.login_captcha
+    if payload.registration_captcha is not None:
+        captcha.rules.registration = payload.registration_captcha
     captcha.rules.email_verification = payload.email_verification_captcha
     site.data = {
         **site.data,
@@ -81,6 +96,7 @@ async def save_access_settings(
         ACCESS_KEY: {
             **site.data.get(ACCESS_KEY, {}),
             "mail_profile_id": str(sender) if sender else None,
+            "registration_mode": payload.registration_mode or registration_mode(site.data),
         },
     }
     session.add(

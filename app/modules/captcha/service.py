@@ -50,6 +50,8 @@ def required(config: CaptchaConfig, action: str, kind: str, value: dict[str, obj
         return override == "required"
     if action == "login":
         return config.rules.login
+    if action == "registration":
+        return config.rules.registration
     if action == "email_verification":
         return config.rules.email_verification
     rules = config.rules.read if action == "read" else config.rules.comment
@@ -354,7 +356,10 @@ async def save_settings(
         provider=payload.provider,
         providers=providers,
         rules=payload.rules.model_copy(
-            update={"email_verification": before.rules.email_verification}
+            update={
+                "email_verification": before.rules.email_verification,
+                "registration": before.rules.registration,
+            }
         ),
         api_key_bypass=(
             payload.api_key_bypass if payload.api_key_bypass is not None else before.api_key_bypass

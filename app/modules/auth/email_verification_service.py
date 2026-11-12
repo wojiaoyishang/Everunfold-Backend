@@ -194,7 +194,6 @@ class EmailVerificationService:
             select(User.id)
             .where(
                 User.id != user.id,
-                User.email_verified_at.is_not(None),
                 func.lower(func.btrim(User.email)) == func.lower(payload.email),
             )
             .limit(1)

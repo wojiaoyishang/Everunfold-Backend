@@ -197,6 +197,15 @@ class AccountsService:
                 raise AuthFailure(422, 42265, "请通过个人头像图库设置头像")
             user.avatar_id, user.avatar_url = None, ""
         email_changed = value.email != user.email
+        if email_changed and value.email:
+            existing = await self.session.scalar(
+                select(User.id).where(
+                    User.id != user.id,
+                    func.lower(func.btrim(User.email)) == value.email.strip().lower(),
+                )
+            )
+            if existing is not None:
+                raise AuthFailure(409, 40975, "邮箱无法绑定，请使用其他邮箱")
         for key, item in value.model_dump().items():
             if key not in {"avatar_id", "avatar_url"}:
                 setattr(user, key, item)

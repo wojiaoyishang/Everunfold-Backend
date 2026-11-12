@@ -9,6 +9,13 @@ from app.core.schemas import ErrorResponse, PublicResponse
 from app.modules.auth.accounts_router import AccountAccess, Authorized
 from app.modules.auth.accounts_schemas import AccessSettingsInput, AccessSettingsState
 from app.modules.auth.permissions import user_permissions
+from app.modules.auth.registration_schemas import (
+    InvitationCreate,
+    InvitationCreated,
+    InvitationList,
+    InvitationRevoke,
+)
+from app.modules.auth.registration_service import RegistrationService
 from app.modules.auth.router import auth_runtime
 from app.modules.auth.security_settings import (
     read_access_settings,
@@ -45,4 +52,23 @@ async def set_settings(
         data=await save_access_settings(
             ctx.service.session, auth_runtime(request), ctx.actor.id, payload
         )
+    )
+
+
+@router.get("/invitations", response_model=PublicResponse[InvitationList])
+async def list_invitations(ctx: Manager) -> JSONResponseSuccess:
+    return JSONResponseSuccess(data=await RegistrationService(ctx.service.auth).invitations())
+
+
+@router.post("/invitations", response_model=PublicResponse[InvitationCreated])
+async def create_invitation(payload: InvitationCreate, ctx: Manager) -> JSONResponseSuccess:
+    return JSONResponseSuccess(
+        data=await RegistrationService(ctx.service.auth).invite(ctx.actor, payload.days_valid)
+    )
+
+
+@router.post("/invitations/revoke", response_model=PublicResponse[InvitationList])
+async def revoke_invitation(payload: InvitationRevoke, ctx: Manager) -> JSONResponseSuccess:
+    return JSONResponseSuccess(
+        data=await RegistrationService(ctx.service.auth).revoke(ctx.actor, payload.id)
     )

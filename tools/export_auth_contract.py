@@ -10,10 +10,38 @@ from app.modules.auth.schemas import AuthContract
 def build_schema() -> dict[str, Any]:
     schema = AuthContract.model_json_schema()
     schema["$schema"] = "http://json-schema.org/draft-07/schema#"
-    schema["x-everunfold-contract-version"] = "0.5.0"
+    schema["x-everunfold-contract-version"] = "0.6.0"
     schema["x-everunfold-csrf-header"] = "X-CSRF-Token"
     schema["x-everunfold-credentials"] = "include"
     schema["x-everunfold-operations"] = [
+        {
+            "name": "readRegistrationOptions",
+            "path": "/v1/auth/registration/options",
+            "method": "GET",
+            "response": "registration_options",
+        },
+        {
+            "name": "readRegistrationStatus",
+            "path": "/v1/auth/registration/status",
+            "method": "GET",
+            "response": "registration_state",
+        },
+        {
+            "name": "requestRegistration",
+            "path": "/v1/auth/registration/request",
+            "method": "POST",
+            "input": "registration_request",
+            "response": "registration_state",
+            "csrf": True,
+        },
+        {
+            "name": "confirmRegistration",
+            "path": "/v1/auth/registration/confirm",
+            "method": "POST",
+            "input": "registration_confirm",
+            "response": "session",
+            "csrf": True,
+        },
         {
             "name": "readAuthSession",
             "path": "/v1/auth/session",

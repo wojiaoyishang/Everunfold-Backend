@@ -70,6 +70,13 @@ Index(
     postgresql_where=User.email_verified_at.is_not(None),
 )
 
+Index(
+    "uq_users_email_normalized",
+    func.lower(func.btrim(User.email)),
+    unique=True,
+    postgresql_where=func.btrim(User.email) != "",
+)
+
 
 class BrowserSession(Base):
     __tablename__ = "browser_sessions"

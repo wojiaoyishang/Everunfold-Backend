@@ -72,6 +72,14 @@ BUILTINS = (
         enabled=True,
     ),
     TaskDefinition(
+        "core.registration",
+        "注册验证邮件发送",
+        "app.modules.auth.registration_delivery:deliver",
+        interval=3,
+        timeout=180,
+        enabled=True,
+    ),
+    TaskDefinition(
         "core.settings",
         "设置与内容同步",
         "app.core.jobs.handlers:settings",
