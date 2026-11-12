@@ -77,7 +77,8 @@ async def save_access_settings(
     if payload.expected_revision != captcha.revision:
         raise AuthFailure(409, 40986, "验证码或认证设置已更新，请重新读取后保存")
     sender = payload.mail_profile_id
-    if sender is not None:
+    updates_sender = "mail_profile_id" in payload.model_fields_set
+    if updates_sender and sender is not None:
         selected = mail_profile(site.data, sender)
         if (
             not selected
@@ -86,16 +87,22 @@ async def save_access_settings(
         ):
             raise AuthFailure(422, 42272, "请选择已启用且配置完整的发信配置")
     captcha.revision += 1
-    captcha.rules.login = payload.login_captcha
+    if payload.login_captcha is not None:
+        captcha.rules.login = payload.login_captcha
     if payload.registration_captcha is not None:
         captcha.rules.registration = payload.registration_captcha
-    captcha.rules.email_verification = payload.email_verification_captcha
+    if payload.email_verification_captcha is not None:
+        captcha.rules.email_verification = payload.email_verification_captcha
     site.data = {
         **site.data,
         CONFIG_KEY: captcha.model_dump(mode="json"),
         ACCESS_KEY: {
             **site.data.get(ACCESS_KEY, {}),
-            "mail_profile_id": str(sender) if sender else None,
+            "mail_profile_id": (
+                (str(sender) if sender else None)
+                if updates_sender
+                else configured_sender(site.data)
+            ),
             "registration_mode": payload.registration_mode or registration_mode(site.data),
         },
     }
@@ -104,7 +111,9 @@ async def save_access_settings(
             user_id=actor_id,
             resource="access",
             revision=captcha.revision,
-            changes=payload.model_dump(mode="json", exclude={"expected_revision"}),
+            changes=payload.model_dump(
+                mode="json", exclude={"expected_revision"}, exclude_unset=True
+            ),
         )
     )
     await session.commit()

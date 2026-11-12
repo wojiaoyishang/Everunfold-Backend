@@ -200,10 +200,10 @@ class EmailVerificationState(PublicModel):
 
 class AccessSettingsInput(PublicModel):
     expected_revision: int = Field(ge=1)
-    login_captcha: bool
+    login_captcha: bool | None = None
     registration_mode: RegistrationMode | None = None
     registration_captcha: bool | None = None
-    email_verification_captcha: bool
+    email_verification_captcha: bool | None = None
     mail_profile_id: UUID | None = None
 
 

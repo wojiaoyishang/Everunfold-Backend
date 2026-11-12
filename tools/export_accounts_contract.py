@@ -11,7 +11,7 @@ from app.modules.auth.accounts_schemas import AccountContract
 def build_schema() -> dict[str, Any]:
     schema = AccountContract.model_json_schema()
     schema["$schema"] = "http://json-schema.org/draft-07/schema#"
-    schema["x-everunfold-contract-version"] = "1.8.0"
+    schema["x-everunfold-contract-version"] = "1.9.0"
     schema["x-everunfold-csrf-header"] = "X-CSRF-Token"
     schema["x-everunfold-credentials"] = "include"
     operations: list[dict[str, Any]] = []

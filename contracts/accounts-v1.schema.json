@@ -29,8 +29,16 @@
           "type": "integer"
         },
         "login_captcha": {
-          "title": "Login Captcha",
-          "type": "boolean"
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Login Captcha"
         },
         "registration_mode": {
           "anyOf": [
@@ -62,8 +70,16 @@
           "title": "Registration Captcha"
         },
         "email_verification_captcha": {
-          "title": "Email Verification Captcha",
-          "type": "boolean"
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Email Verification Captcha"
         },
         "mail_profile_id": {
           "anyOf": [
@@ -80,9 +96,7 @@
         }
       },
       "required": [
-        "expected_revision",
-        "login_captcha",
-        "email_verification_captcha"
+        "expected_revision"
       ],
       "title": "AccessSettingsInput",
       "type": "object"
@@ -3323,7 +3337,7 @@
   "title": "AccountContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "1.8.0",
+  "x-everunfold-contract-version": "1.9.0",
   "x-everunfold-csrf-header": "X-CSRF-Token",
   "x-everunfold-credentials": "include",
   "x-everunfold-operations": [

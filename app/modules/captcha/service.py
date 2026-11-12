@@ -311,7 +311,7 @@ async def save_settings(
     payload: SaveCaptchaSettings,
     actor_id: UUID,
     *,
-    can_manage_access: bool = True,
+    can_manage_access: bool,
 ) -> CaptchaSettingsState:
     from app.modules.content.publication import ContentPublication
     from app.modules.media.locking import lock_references
@@ -323,7 +323,10 @@ async def save_settings(
     before = config_from_data(site.data)
     if payload.expected_revision != before.revision:
         raise AuthFailure(409, 40986, "验证码设置已更新，请重新读取后再保存")
-    if payload.rules.login != before.rules.login and not can_manage_access:
+    account_rules = payload.rules.model_dump(include=set(ACCOUNT_ACTIONS), exclude_unset=True)
+    if not can_manage_access and any(
+        value != getattr(before.rules, action) for action, value in account_rules.items()
+    ):
         raise AuthFailure(403, 40374, "没有管理访问与安全的权限")
     if payload.provider != "local" and payload.provider not in provider_catalog():
         raise AuthFailure(422, 42286, "验证码提供方未注册")
@@ -355,11 +358,8 @@ async def save_settings(
         revision=before.revision + 1,
         provider=payload.provider,
         providers=providers,
-        rules=payload.rules.model_copy(
-            update={
-                "email_verification": before.rules.email_verification,
-                "registration": before.rules.registration,
-            }
+        rules=before.rules.model_copy(
+            update={**account_rules, "read": payload.rules.read, "comment": payload.rules.comment}
         ),
         api_key_bypass=(
             payload.api_key_bypass if payload.api_key_bypass is not None else before.api_key_bypass

@@ -53,18 +53,27 @@ async def verify_invitation_registration(
     registration = "/v1/auth/registration"
     invitations = "/v1/admin/access/invitations"
     access_path = "/v1/admin/access/settings"
+    captcha_path = "/v1/admin/captcha"
     access = admin.get(access_path).json()["data"]
     assert admin.get(registration + "/options").json()["data"]["mode"] == "closed"
     policy = {
         "expected_revision": access["revision"],
-        "login_captcha": access["login_captcha"],
-        "email_verification_captcha": access["email_verification_captcha"],
-        "mail_profile_id": access["mail_profile_id"],
         "registration_mode": "invite",
-        "registration_captcha": True,
     }
     saved = admin.patch(access_path, json=policy, headers=headers(admin))
     assert saved.status_code == 200, saved.text
+    captcha = admin.get(captcha_path).json()["data"]
+    changed = admin.patch(
+        captcha_path,
+        json={
+            "expected_revision": captcha["revision"],
+            "provider": captcha["provider"],
+            "providers": {},
+            "rules": {**captcha["rules"], "registration": True},
+        },
+        headers=headers(admin),
+    )
+    assert changed.status_code == 200, changed.text
     issued = admin.post(invitations, json={"days_valid": 1}, headers=headers(admin))
     assert issued.status_code == 200
     invite = issued.json()["data"]
@@ -143,11 +152,14 @@ async def verify_invitation_registration(
     assert admin.get(invitations).json()["data"]["items"][0]["consumed_at"] is not None
 
     policy.update(
-        expected_revision=saved.json()["data"]["revision"],
+        expected_revision=changed.json()["data"]["revision"],
         registration_mode="open",
         registration_captcha=False,
     )
-    assert admin.patch(access_path, json=policy, headers=headers(admin)).status_code == 200
+    opened = admin.patch(access_path, json=policy, headers=headers(admin))
+    assert opened.status_code == 200
+    assert opened.json()["data"]["mail_profile_id"] == access["mail_profile_id"]
+    assert opened.json()["data"]["email_verification_captcha"] is True
     with TestClient(create_app(settings)) as browser:
         # In open mode a new address can sign up without an invitation. A duplicate
         # gets the same request response until mailbox ownership has been proven.
@@ -290,7 +302,16 @@ def test_email_verification_is_one_time_rate_limited_and_clears_after_change(
                         await session.execute(
                             update(User)
                             .where(User.username == delegated_name)
-                            .values(role="user", grants={"everunfold": {"users:manage": "all"}})
+                            .values(
+                                role="user",
+                                grants={
+                                    "everunfold": {
+                                        "users:manage": "all",
+                                        "settings:read": "all",
+                                        "settings:write": "all",
+                                    }
+                                },
+                            )
                         )
                         await session.commit()
                     operation_id = uuid4()
@@ -337,8 +358,6 @@ def test_email_verification_is_one_time_rate_limited_and_clears_after_change(
                     sender = access["mail_profiles"][0]["id"]
                     policy = {
                         "expected_revision": access["revision"],
-                        "login_captcha": False,
-                        "email_verification_captcha": True,
                         "mail_profile_id": sender,
                     }
                     saved = client.patch(access_path, json=policy, headers=headers(client))
@@ -348,6 +367,18 @@ def test_email_verification_is_one_time_rate_limited_and_clears_after_change(
                         client.patch(access_path, json=policy, headers=headers(client)).status_code
                         == 409
                     )
+                    captcha_path = "/v1/admin/captcha"
+                    captcha = client.get(captcha_path).json()["data"]
+                    change_rule = {
+                        "expected_revision": captcha["revision"],
+                        "provider": captcha["provider"],
+                        "providers": {},
+                        "rules": {**captcha["rules"], "email_verification": True},
+                    }
+                    configured = client.patch(
+                        captcha_path, json=change_rule, headers=headers(client)
+                    )
+                    assert configured.status_code == 200, configured.text
                     payload = {"operation_id": str(operation_id), "email": "verified@example.test"}
                     refused = client.post(request_path, json=payload, headers=headers(client))
                     assert refused.status_code == 403
@@ -452,6 +483,22 @@ def test_email_verification_is_one_time_rate_limited_and_clears_after_change(
                         member = signed_in(delegated, delegated_name)["user"]
                         assert delegated.get("/v1/admin/users").status_code == 200
                         assert delegated.get(access_path).status_code == 403
+                        current = delegated.get("/v1/admin/captcha").json()["data"]
+                        for action in ("login", "registration", "email_verification"):
+                            denied = delegated.patch(
+                                "/v1/admin/captcha",
+                                json={
+                                    "expected_revision": current["revision"],
+                                    "provider": current["provider"],
+                                    "providers": {},
+                                    "rules": {
+                                        **current["rules"],
+                                        action: not current["rules"][action],
+                                    },
+                                },
+                                headers=headers(delegated),
+                            )
+                            assert denied.status_code == 403 and denied.json()["code"] == 40374
                         member_path = f"/v1/admin/users/{member['id']}"
                         member_revision = delegated.get(member_path).json()["data"]["revision"]
                         forbidden = delegated.post(
