@@ -1,5 +1,11 @@
 # 后端交接状态
 
+## 节点缓存与发布事件
+
+- settings-v1 1.39.0 新增缓存状态、单项或整节点重发、旧版本清理。磁盘状态来自所选前端接收器，投递历史另列；鉴权沿用会话、权限和内部节点绑定，重发与清理记入设置审计。见[操作指南](../development/cache-management.md)和 [ADR0131](../decisions/0131-node-cache-management-and-backend-events.md)。
+- 后端在生成公开版本时登记 `cache-event-1`，由 Worker 通知启用的插件；普通草稿保存没有发布事件。同一事件的重试保持 ID。已升级开发库至 `0054_cache_events`，Alembic 结构检查通过，API、Worker、Scheduler、前端、接收器和代理已重启。
+- 隔离 PostgreSQL、两套 API、Worker、Scheduler 和两个实际接收器通过联测：发布事务回滚、重复发布请求、定时发布与到时开放、订阅重试、节点实盘与回执不一致、单项重建和单节点清理。开发节点未执行清理。Ruff、应用 mypy 和常规回归通过（291 通过、70 跳过、1 项既有 OpenAPI 声明问题另列）。未配置第三方 CDN 或清理插件。
+
 ## 开发节点诊断的回环入口
 
 - 开发实例允许精确的 `http://127.0.0.1:3000` Origin。Nginx 将同源 `/v1/*` 转发至 FastAPI 8001，沿用 `Path=/v1` 会话。已重启 API，实测回环与原测试入口均可获取会话，其他未授权 Origin 仍返回 403。见[容器部署](../development/container-deployment.md)。

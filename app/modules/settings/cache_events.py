@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import Settings
 from app.core.database import Database
 from app.core.plugins.loader import plugin_catalog
-from app.core.plugins.state import cache_event_subscribers, enabled_ids, installed_info
+from app.core.plugins.state import cache_event_subscribers, installed_info
 from app.modules.content.models import SiteSettings
 from app.modules.settings.cache_event_schema import (
     CacheChange,
@@ -105,7 +105,7 @@ async def claim_delivery(session: AsyncSession, config: Settings) -> tuple[bool,
     if (
         site is None
         or site.source_epoch != event.source_epoch
-        or row.plugin_id not in enabled_ids(site.data)
+        or row.plugin_id not in cache_event_subscribers(site.data)
     ):
         row.status, row.error = "skipped", "inactive_source_or_plugin"
     elif row.attempts >= config.outbox.max_attempts:

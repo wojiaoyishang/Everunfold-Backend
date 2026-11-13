@@ -51,7 +51,7 @@ BUILTINS = (
         "core.cache-events",
         "缓存事件投递",
         "app.modules.settings.cache_events:deliver_cache_events",
-        interval=3,
+        interval=10,
         enabled=True,
     ),
     TaskDefinition(

@@ -95,6 +95,7 @@ async def reconcile(session: AsyncSession) -> None:
         .where(
             TaskRun.task_id.in_(
                 [
+                    "core.cache-events",
                     "core.notifications",
                     "core.settings",
                     "core.callbacks",
