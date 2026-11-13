@@ -15,6 +15,7 @@ from app.modules.notifications.platforms import (
     NotificationDeliveryResult,
     NotificationPlatform,
 )
+from app.modules.settings.cache_event_schema import CacheEvent
 from app.modules.shortcodes.schemas import ShortcodeParameter, ShortcodeSource
 
 __all__ = [
@@ -30,6 +31,7 @@ __all__ = [
     "NotificationDeliveryRequest",
     "NotificationDeliveryResult",
     "NotificationPlatform",
+    "CacheEvent",
     "CaptchaProvider",
     "Plugin",
     "PluginRegistry",

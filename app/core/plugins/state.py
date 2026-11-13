@@ -37,6 +37,15 @@ def shortcode_items(data: dict[str, Any], disabled: list[str] | None = None) -> 
     ]
 
 
+def cache_event_subscribers(data: dict[str, Any]) -> list[str]:
+    active = enabled_ids(data)
+    return [
+        item["info"]["id"]
+        for item in data.get(CATALOG_KEY, [])
+        if item.get("cache_events") == "cache-event-1" and item["info"]["id"] in active
+    ]
+
+
 def public_shortcodes(
     data: dict[str, Any], disabled: list[str] | None = None
 ) -> list[PublicShortcode]:

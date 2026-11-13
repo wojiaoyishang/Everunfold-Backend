@@ -4,7 +4,16 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Integer, String, UniqueConstraint
+from sqlalchemy import (
+    CheckConstraint,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    UniqueConstraint,
+    text,
+)
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -77,11 +86,18 @@ class CacheEventRecord(Base):
 
 class CacheEventDelivery(Base):
     __tablename__ = "cache_event_deliveries"
+    __table_args__ = (
+        Index(
+            "ix_cache_event_deliveries_pending_at",
+            "available_at",
+            postgresql_where=text("status = 'pending'"),
+        ),
+    )
     event_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("cache_events.id"), primary_key=True)
     plugin_id: Mapped[str] = mapped_column(String(128), primary_key=True)
     status: Mapped[str] = mapped_column(String(16), default="pending")
     attempts: Mapped[int] = mapped_column(Integer, default=0)
-    available_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    available_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     lease_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
     lease_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     error: Mapped[str | None] = mapped_column(String(48))

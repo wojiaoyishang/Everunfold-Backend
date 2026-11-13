@@ -46,6 +46,7 @@ class PluginCatalog:
             {
                 "info": item.info.model_dump(mode="json"),
                 "shortcodes": [code.model_dump(mode="json") for code in item.shortcodes],
+                **({"cache_events": "cache-event-1"} if item.cache_event_handler else {}),
             }
             for item in self.plugins
         ]

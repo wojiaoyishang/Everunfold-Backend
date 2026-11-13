@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import Settings
 from app.core.database import Database
 from app.core.plugins.loader import plugin_catalog
-from app.core.plugins.state import enabled_ids, installed_info
+from app.core.plugins.state import cache_event_subscribers, enabled_ids, installed_info
 from app.modules.content.models import SiteSettings
 from app.modules.settings.cache_event_schema import (
     CacheChange,
@@ -32,10 +32,8 @@ async def stage_cache_events(
     *,
     node_id: str | None = None,
 ) -> None:
-    active = enabled_ids(site.data)
-    subscribers = [
-        p.info.id for p in plugin_catalog().plugins if p.cache_event_handler and p.info.id in active
-    ]
+    # Use the committed catalog so API replicas on different builds stage the same deliveries.
+    subscribers = cache_event_subscribers(site.data)
     now = datetime.now(UTC)
     for change in changes:
         identity = uuid5(
@@ -80,7 +78,7 @@ class Claim:
     handler: CacheEventHandler
 
 
-async def claim_delivery(session: AsyncSession, config: Settings) -> Claim | None:
+async def claim_delivery(session: AsyncSession, config: Settings) -> tuple[bool, Claim | None]:
     now = datetime.now(UTC)
     row = await session.scalar(
         select(CacheEventDelivery)
@@ -98,7 +96,7 @@ async def claim_delivery(session: AsyncSession, config: Settings) -> Claim | Non
         .with_for_update(skip_locked=True)
     )
     if row is None:
-        return None
+        return False, None
     record = await session.get(CacheEventRecord, row.event_id)
     assert record is not None
     event = CacheEvent.model_validate(record.data)
@@ -129,10 +127,10 @@ async def claim_delivery(session: AsyncSession, config: Settings) -> Claim | Non
         row.lease_id = lease
         row.lease_until = now + timedelta(seconds=30)
         await session.commit()
-        return Claim(event, row.plugin_id, lease, plugin.cache_event_handler)
+        return True, Claim(event, row.plugin_id, lease, plugin.cache_event_handler)
     row.lease_id = row.lease_until = None
     await session.commit()
-    return None
+    return True, None
 
 
 async def deliver_cache_events(config: Settings) -> dict[str, int]:
@@ -141,9 +139,11 @@ async def deliver_cache_events(config: Settings) -> dict[str, int]:
     try:
         for _ in range(min(config.outbox.batch_size, 8)):
             async with database.session() as session:
-                claim = await claim_delivery(session, config)
-            if claim is None:
+                found, claim = await claim_delivery(session, config)
+            if not found:
                 break
+            if claim is None:
+                continue
             error = None
             try:
                 async with asyncio.timeout(10):

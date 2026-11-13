@@ -307,6 +307,8 @@
         "revision": {
           "anyOf": [
             {
+              "maximum": 9007199254740991,
+              "minimum": 1,
               "type": "integer"
             },
             {
@@ -316,21 +318,43 @@
           "title": "Revision"
         },
         "files": {
-          "minimum": 0,
-          "title": "Files",
-          "type": "integer"
+          "anyOf": [
+            {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Files"
         },
         "bytes": {
-          "maximum": 9007199254740991,
-          "minimum": 0,
-          "title": "Bytes",
-          "type": "integer"
+          "anyOf": [
+            {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Bytes"
         },
         "reclaimable_bytes": {
-          "maximum": 9007199254740991,
-          "minimum": 0,
-          "title": "Reclaimable Bytes",
-          "type": "integer"
+          "anyOf": [
+            {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Reclaimable Bytes"
         }
       },
       "required": [
@@ -637,6 +661,7 @@
             "$ref": "#/$defs/CacheDiskResource"
           },
           "maxItems": 3,
+          "minItems": 3,
           "title": "Resources",
           "type": "array"
         },

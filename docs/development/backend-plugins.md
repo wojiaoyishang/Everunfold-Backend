@@ -40,6 +40,7 @@ plugin = MyPlugin()
 | registry.captcha.register(provider) | CaptchaProvider(id,title,widget,verify)，verify为真实异步服务端校验 |
 | registry.routes.register(router, prefix="", access="session", permission=None, scope="all") | 原生HTTP Router、插件命名空间、实时启停/鉴权及请求事务；详见[路由指南](backend-plugin-routes.md) |
 | registry.locales.register(locale, messages) | 任意来源的字典；key自动加插件ID前缀，不规定语言文件位置 |
+| registry.cache_events.register(handler) | 每插件一个异步函数，接收已提交公开版本的缓存事件 |
 
 当前宿主界面提供zh-CN/en语言包；插件可登记其他字典，但不会自行扩展宿主界面语言列表。文案通过i18n.t("插件ID.key", locale=...)读取。任务通过registry.tasks.register(TaskDefinition)登记，包含Worker有限任务及Scheduler所属常驻子进程，见[任务指南](runtime-tasks.md)。HTTP路由已按[ADR0098](../decisions/0098-backend-plugin-http-routes.md)交付，通用插件资源/配置接口仍未交付。
 
@@ -54,6 +55,14 @@ plugin = MyPlugin()
 
 {{< example:badge text="更新" >}}
 ```
+
+## 缓存事件
+
+从 `app.plugin_sdk` 导入 `CacheEvent`。在 `setup` 中调用 `registry.cache_events.register(on_cache_event)`，其中 `on_cache_event` 是接受一个 `CacheEvent` 参数的异步函数。部署相同插件版本到 API 与 Worker，重启后显式同步插件目录。Scheduler 通过 `core.cache-events` 唤醒 Worker。
+
+事件包含 ID、来源 epoch、资源、版本、原因及时间，可能带节点 ID、公开内容 ID 和受影响路径。变更路径时可能同时带旧路径和新路径。某些站点范围事件没有路径，应根据资源和原因处理。事件不包含草稿或正文，也不表示某个接收器已经落盘。
+
+成功返回即确认。异常或超过 10 秒会重试，达到重试上限后标为失败。进程可能在执行回调后、确认前停止，因此用 `event.id` 去重。事件可能乱序，用 `(source_epoch, resource, node_id, revision)` 判断版本；批量路径清理仍需处理各事件包含的路径。回调不使用 API 的生命周期资源，也不在发布事务中执行。新订阅只接收登记且启用后的版本事件，旧记录不补发。
 
 ## 生命周期与发布
 

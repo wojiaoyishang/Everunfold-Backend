@@ -34,7 +34,7 @@ from app.modules.settings.sync_status import read_history
 router = APIRouter(
     prefix="/v1/admin/frontend-nodes",
     tags=["cache"],
-    responses={code: {"model": ErrorResponse} for code in (401, 403, 404, 409, 422, 502, 503)},
+    responses={code: {"model": ErrorResponse} for code in (401, 403, 404, 409, 422, 500, 502, 503)},
 )
 
 ReceiverError = Literal[

@@ -30,7 +30,10 @@ def upgrade() -> None:
         sa.Column("error", sa.String(48)),
     )
     op.create_index(
-        "ix_cache_event_deliveries_available_at", "cache_event_deliveries", ["available_at"]
+        "ix_cache_event_deliveries_pending_at",
+        "cache_event_deliveries",
+        ["available_at"],
+        postgresql_where=sa.text("status = 'pending'"),
     )
 
 
