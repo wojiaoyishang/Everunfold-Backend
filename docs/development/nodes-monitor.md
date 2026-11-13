@@ -9,7 +9,11 @@ FastAPI 直接提供 `/_nodes`。页面按稳定节点 ID 显示前端上报、�
 3. `origin` 留空时取 `BACKEND_BASE_URL`。生产使用 HTTPS。若终止 TLS 的代理与后端分离，限制后端端口只接受受信代理的流量，并配置 ASGI 仅从受信代理识别 HTTPS；不要信任任意转发头。当前容器 HTTP 配置仅接受回环，入口为 `http://127.0.0.1:3000/_nodes`。现有独立接收器端口和 `/internal/*` 继续对外关闭。
 4. 修改节点清单后同步重启 API、Worker 和 Scheduler。前端接收器升级后也需重启以启用只读探测。Nginx 代理使用仓库模板的 `/_nodes` 规则。
 
-开发实例初始密码在后端忽略目录 `var/container/nodes-monitor-credentials.json`，权限为 0600。会话默认 30 分钟。更换密码哈希或签名密钥并重启 API 后，原有会话失效。退出会清除当前浏览器的节点会话。登录限流在每个 API 进程独立维护，多个 API 副本可在代理层按来源进一步限流。
+## 更换密码
+
+开发实例的初始密码在本地 `var/container/nodes-monitor-credentials.json` 的 `password` 字段，权限为 0600。要换成自选密码，在后端目录运行 `.venv/bin/python -m tools.nodes_monitor_password`，按提示输入两次新密码。将输出的整行 `password_hash = "…"` 替换进 `config.toml` 的 `[nodes_monitor]`，执行 `./deploy/container-dev.sh restart api`。更换时无需知道旧密码。用新密码登录成功后，可以删除保存旧密码的本地凭据文件。
+
+会话默认 30 分钟。更换密码哈希或签名密钥并重启 API 后，原有会话失效。退出会清除当前浏览器的节点会话。登录限流在每个 API 进程独立维护，多个 API 副本可在代理层按来源进一步限流。
 
 ## 读懂状态
 

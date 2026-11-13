@@ -22,8 +22,11 @@
     [hidden], body[data-mode="login"] .dashboard, body[data-mode="dashboard"] .login { display: none; }
     body { margin: 0; background: var(--page); color: var(--text); }
     main { width: min(100% - 2rem, 68rem); margin: clamp(1.5rem, 5vw, 4rem) auto; }
+    body[data-mode="login"] { min-height: 100dvh; display: grid; place-items: center; padding: 1rem; }
+    body[data-mode="login"] main { width: min(100%, 25rem); margin: 0; }
     .top, .node-heading, .actions { display: flex; gap: .8rem; align-items: center; flex-wrap: wrap; }
     .top, .node-heading { justify-content: space-between; }
+    body[data-mode="login"] .top { justify-content: center; text-align: center; }
     h1, h2, p { margin: 0; }
     h1 { font-size: clamp(1.5rem, 4vw, 2rem); }
     h2 { font-size: 1.12rem; overflow-wrap: anywhere; }
@@ -35,7 +38,7 @@
     :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
     .primary { background: var(--accent); color: var(--panel); }
     .panel, .health > div { border: 1px solid var(--line); background: var(--panel); border-radius: .75rem; }
-    .login { max-width: 25rem; margin-top: 1.2rem; padding: 1.2rem; }
+    .login { margin-top: 1.2rem; padding: 1.2rem; }
     .login form { display: grid; gap: .6rem; }
     input { min-width: 0; padding: .6rem .7rem; color: var(--text); background: var(--page); }
     #message:not(:empty), #notice:not(:empty) { margin: .8rem 0; }
