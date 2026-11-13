@@ -71,20 +71,22 @@ def check_pages(
         timeout=20,
     )
     assert registered.returncode == 0, registered.stderr
-    row = next(
-        r
-        for r in client.get(prefix).json()["data"]["items"]
-        if r["implementation_id"] == "core.people"
+    page_type = next(
+        item
+        for item in client.get(prefix + "/types").json()["data"]["items"]
+        if item["id"] == "core.people"
     )
-    row = client.get(prefix + "/" + row["id"]).json()["data"]
-    assert row["available"] and not row["enabled"]
+    assert page_type["available"] and page_type["page_count"] == 0
+    registered_id = str(uuid4())
     code = {
-        "id": row["id"],
-        "expected_revision": row["revision"],
+        "id": registered_id,
+        "type_id": page_type["id"],
+        "expected_revision": 0,
         "operation_id": str(uuid4()),
         "apply": True,
         "value": {
-            **row["value"],
+            "title": "P0 People page",
+            "path": "/p0-people-" + uuid4().hex,
             "enabled": True,
             "options": {
                 "people": [{"name": "P0 Person", "group": "P0", "message": "Visible message"}],
@@ -96,13 +98,13 @@ def check_pages(
     assert enabled.status_code == 200, enabled.text
     wait_for(delivered)
     assert (
-        next(p for p in snapshot()["pages"] if p["id"] == row["id"])["options"]["people"][0][
+        next(p for p in snapshot()["pages"] if p["id"] == registered_id)["options"]["people"][0][
             "message"
         ]
         == "Visible message"
     )
     assert (
-        next(p for p in snapshot()["pages"] if p["id"] == row["id"])["options"]["plugin_config"]
+        next(p for p in snapshot()["pages"] if p["id"] == registered_id)["options"]["plugin_config"]
         == code["value"]["options"]["plugin_config"]
     )
 

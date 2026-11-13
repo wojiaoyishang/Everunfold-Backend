@@ -80,6 +80,7 @@ def test_usage_scans_applied_pages_and_frozen_schedules_once_per_content(
                 assert actor is not None
                 for suffix, applied, deleted in (
                     ("", True, False),
+                    ("", True, False),
                     (".empty", False, False),
                     (".deleted", True, True),
                 ):
@@ -87,7 +88,7 @@ def test_usage_scans_applied_pages_and_frozen_schedules_once_per_content(
                         ManagedPage(
                             id=uuid4(),
                             source="registered",
-                            implementation_id=identity + suffix,
+                            type_id=identity + suffix,
                             data={"title": "Private title"},
                             applied_snapshot={} if applied else None,
                             deleted_at=now if deleted else None,
@@ -138,7 +139,7 @@ def test_usage_scans_applied_pages_and_frozen_schedules_once_per_content(
                 )
                 used = next(plugin for plugin in result.plugins if plugin.plugin_id == identity)
                 assert (used.applied_pages, used.published_contents, used.scheduled_contents) == (
-                    1,
+                    2,
                     2,
                     1,
                 )

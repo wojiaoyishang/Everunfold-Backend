@@ -11,7 +11,7 @@ from collections.abc import Iterator
 from contextlib import ExitStack
 from pathlib import Path
 from typing import Any
-from uuid import NAMESPACE_URL, uuid4, uuid5
+from uuid import uuid4
 
 import asyncpg  # type: ignore[import-untyped]
 import pytest
@@ -138,7 +138,9 @@ def save(
     return dict(response.json()["data"])
 
 
-def registered(ctx: AccountsTest, *, comments_open: bool) -> dict[str, Any]:
+def registered(
+    ctx: AccountsTest, *, comments_open: bool, existing_id: str | None = None
+) -> dict[str, Any]:
     identity = "test.people"
     manifest = PageManifest.model_validate(
         {
@@ -172,8 +174,17 @@ def registered(ctx: AccountsTest, *, comments_open: bool) -> dict[str, Any]:
             await database.close()
 
     asyncio.run(install())
-    identity_id = str(uuid5(NAMESPACE_URL, "everunfold:pages:" + identity))
-    response = ctx.root.get("/v1/admin/pages/" + identity_id)
+    if existing_id:
+        response = ctx.root.get("/v1/admin/pages/" + existing_id)
+    else:
+        response = ctx.root.post(
+            "/v1/admin/pages/save",
+            json={
+                **body(ctx, path="/people", html="", comments_open=comments_open),
+                "type_id": identity,
+            },
+            headers=headers(ctx.root),
+        )
     assert response.status_code == 200, response.text
     return dict(response.json()["data"])
 
@@ -283,7 +294,7 @@ def test_page_comment_switch_applies_only_with_published_snapshot(
         assert row["value"]["comments_open"]
     if source == "registered":
         # Refreshing plugin defaults must not undo the administrator's applied choice.
-        assert registered(ctx, comments_open=False)["value"]["comments_open"]
+        assert registered(ctx, comments_open=False, existing_id=row["id"])["value"]["comments_open"]
     request = comment(row["id"])
     accepted = ctx.root.post("/v1/reader/comments", json=request)
     assert accepted.status_code == 200, accepted.text

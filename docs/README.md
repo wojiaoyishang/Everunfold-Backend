@@ -1,5 +1,7 @@
 # Everunfold 文档入口
 
+[页面类型与页面实例](decisions/0137-page-types-and-instances.md)说明部署登记、页面创建与数据迁移。
+
 [注册页的文章分类选项](decisions/0135-registered-page-category-options.md)说明页面管理权限和配置数据。
 
 [注册一次验证与用户通知接收人](decisions/0133-registration-verification-and-notice-recipients.md)说明注册邮箱验证、可配置接收对象和账号中心收件箱。

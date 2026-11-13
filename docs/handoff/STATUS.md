@@ -1,5 +1,11 @@
 # 后端交接状态
 
+## 页面类型与页面实例
+
+- 节点清单只登记类型。自定义代码使用 `core.custom`，同一插件类型可以创建多个页面实例。回收、恢复、草稿、发布和配置均按页面 UUID 操作。pages-v1 1.12.0、settings-v1 1.41.0 由 `310f0ef` 发布。见 [ADR 0137](../decisions/0137-page-types-and-instances.md)。
+- 50 项页面、语言、评论、扩展及契约回归通过。两个 API 进程、Scheduler、Worker 与 Node 接收器的发布和恢复集成通过。Ruff、mypy 和 Alembic 结构核对通过。
+- 已显式迁移开发库并核对 12 条既有页面的 UUID、路径、修订、配置和应用快照。API、Worker、Scheduler 与前端已重启并通过就绪检查。新页面发布测试只在隔离库执行。
+
 ## 注册书籍页
 
 - pages-v1 1.11.0 新增页面管理的分类选择接口，沿用 `pages:read` 会话授权。解除旧日记地址的系统保留，无数据库迁移。见 [ADR 0135](../decisions/0135-registered-page-category-options.md)。

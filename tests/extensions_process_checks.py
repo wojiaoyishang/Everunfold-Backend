@@ -5,7 +5,7 @@ import json
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any
-from uuid import NAMESPACE_URL, uuid4, uuid5
+from uuid import uuid4
 
 import httpx2 as httpx
 
@@ -23,7 +23,7 @@ def check_extensions(
     token: str,
 ) -> None:
     origin = "http://127.0.0.1:3000"
-    identity = str(uuid5(NAMESPACE_URL, "everunfold:pages:extension.p0"))
+    identity = str(uuid4())
     inventory = {
         "protocol": "extensions-1",
         "themes": [
@@ -76,15 +76,20 @@ def check_extensions(
     assert deployed.json()["data"]["nodes"][0]["inventory"]["plugins"][0]["id"] == "extension.p0"
     paper = deployed.json()["data"]["nodes"][0]["inventory"]["themes"][1]
     assert paper["preview"] == "/themes/paper.svg" and paper["author"]["name"] == "Everunfold"
-    before = client.get(f"/v1/admin/pages/{identity}").json()["data"]
-    assert before["available"] is True
+    page_type = next(
+        item
+        for item in client.get("/v1/admin/pages/types").json()["data"]["items"]
+        if item["id"] == "extension.p0"
+    )
+    assert page_type["available"] and page_type["page_count"] == 0
     applied_page = client.post(
         "/v1/admin/pages/save",
         json={
             "id": identity,
-            "expected_revision": before["revision"],
+            "type_id": page_type["id"],
+            "expected_revision": 0,
             "operation_id": str(uuid4()),
-            "value": {**before["value"], "enabled": True},
+            "value": {"title": "Extension P0", "path": "/extension-p0", "enabled": True},
             "apply": True,
         },
         headers=csrf,
@@ -92,9 +97,11 @@ def check_extensions(
     assert applied_page.status_code == 200, applied_page.text
     before = applied_page.json()["data"]
 
-    def listed() -> bool:
-        return any(
-            row["id"] == identity for row in client.get("/v1/admin/pages").json()["data"]["items"]
+    def listed() -> dict[str, Any]:
+        return next(
+            row
+            for row in client.get("/v1/admin/pages").json()["data"]["items"]
+            if row["id"] == identity
         )
 
     def usage() -> None:
@@ -104,7 +111,7 @@ def check_extensions(
         assert result.status_code == 200, result.text
         assert result.json()["data"]["plugins"][0]["applied_pages"] == 1
 
-    assert listed()
+    assert listed()["available"]
     usage()
     state = client.get("/v1/admin/settings").json()["data"]
     value = copy.deepcopy(state["value"])
@@ -133,7 +140,7 @@ def check_extensions(
     assert sorted(result.status_code for result in results) == [200, 409]
     after = client.get(f"/v1/admin/pages/{identity}").json()["data"]
     assert after["available"] is False and after["value"] == before["value"]
-    assert not listed()
+    assert not listed()["available"]
     usage()
     revision = state["revision"] + 1
     applied = directory / node_id / epoch / f"public-settings.{revision}.json"
@@ -150,7 +157,7 @@ def check_extensions(
     restored = client.get(f"/v1/admin/pages/{identity}").json()["data"]
     assert restored["available"] is True
     assert restored["value"] == before["value"] and restored["revision"] == before["revision"]
-    assert listed()
+    assert listed()["available"]
     usage()
     wait_for(
         lambda: (

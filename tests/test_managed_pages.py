@@ -228,7 +228,7 @@ def test_code_page_deployment_options_and_node_versions(pages: AccountsTest) -> 
         ]
     }
 
-    async def install() -> str:
+    async def install() -> None:
         db = Database(ctx.settings.database.url.get_secret_value())
         try:
             async with db.session_factory() as session:
@@ -236,28 +236,31 @@ def test_code_page_deployment_options_and_node_versions(pages: AccountsTest) -> 
                     await install_manifest(
                         session, ctx.settings, node, PageManifest.model_validate(manifest)
                     )
-                return str(
-                    await session.scalar(
-                        select(ManagedPage.id).where(ManagedPage.implementation_id == identity)
-                    )
-                )
         finally:
             await db.close()
 
-    identifier = asyncio.run(install())
-    row = next(
-        r for r in ctx.root.get("/v1/admin/pages").json()["data"]["items"] if r["id"] == identifier
+    asyncio.run(install())
+    types = {
+        row["id"]: row for row in ctx.root.get("/v1/admin/pages/types").json()["data"]["items"]
+    }
+    assert types["core.custom"]["available"] and types["core.custom"]["source"] == "custom"
+    assert types[identity]["available"] and types[identity]["page_count"] == 0
+    assert not any(
+        row["type_id"] == identity
+        for row in ctx.root.get("/v1/admin/pages").json()["data"]["items"]
     )
-    row = ctx.root.get("/v1/admin/pages/" + identifier).json()["data"]
-    assert row["available"] and row["source"] == "registered" and not row["enabled"]
-    assert row["value"]["options"]["layout"]["columns"][2] == {"wide": True}
+    assert ctx.client().get("/v1/admin/pages/types").status_code == 401
+
+    identifier = str(uuid4())
     request: dict[str, Any] = {
         "id": identifier,
-        "expected_revision": 1,
+        "type_id": identity,
+        "expected_revision": 0,
         "operation_id": str(uuid4()),
         "apply": True,
         "value": {
-            **row["value"],
+            "title": ctx.name + " code A",
+            "path": "/" + ctx.name + "-one",
             "enabled": True,
             "options": {
                 "people": [{"name": "Test person", "extra": {"score": 3.5}}],
@@ -288,15 +291,77 @@ def test_code_page_deployment_options_and_node_versions(pages: AccountsTest) -> 
     )
     result = ctx.root.post("/v1/admin/pages/save", json=request, headers=headers(ctx.root))
     assert result.status_code == 200, result.text
-    assert result.json()["data"]["value"]["options"] == request["value"]["options"]
+    item = result.json()["data"]
+    assert item["type_id"] == identity and item["source"] == "registered"
+    expected = {**manifest["pages"][0]["defaults"], **request["value"]["options"]}
+    assert item["value"]["options"] == expected
     assert (
-        next(p for p in published(ctx) if p["id"] == identifier)["options"]
-        == request["value"]["options"]
+        ctx.root.post("/v1/admin/pages/save", json=request, headers=headers(ctx.root)).json()
+        == result.json()
     )
-    assert (
-        next(p for p in published(ctx) if p["id"] == identifier)["options"]["people"][0]["name"]
-        == "Test person"
+    second_id = str(uuid4())
+    second = {
+        **request,
+        "id": second_id,
+        "operation_id": str(uuid4()),
+        "value": {
+            **request["value"],
+            "title": ctx.name + " code B",
+            "path": "/" + ctx.name + "-two",
+            "options": {"people": [{"name": "Other person"}]},
+        },
+    }
+    response = ctx.root.post("/v1/admin/pages/save", json=second, headers=headers(ctx.root))
+    assert response.status_code == 200, response.text
+    asyncio.run(install())
+    directory = ctx.root.get("/v1/admin/pages").json()["data"]["items"]
+    assert {row["id"] for row in directory if row["type_id"] == identity} == {identifier, second_id}
+    page_type = next(
+        row
+        for row in ctx.root.get("/v1/admin/pages/types").json()["data"]["items"]
+        if row["id"] == identity
     )
+    assert page_type["page_count"] == 2
+    by_id = {page["id"]: page for page in published(ctx)}
+    assert by_id[identifier]["options"] == expected
+    assert by_id[second_id]["options"]["people"] == [{"name": "Other person"}]
+    assert by_id[identifier]["path"] != by_id[second_id]["path"]
+    change_type = {
+        **request,
+        "type_id": "core.custom",
+        "expected_revision": 1,
+        "operation_id": str(uuid4()),
+    }
+    rejected = ctx.root.post("/v1/admin/pages/save", json=change_type, headers=headers(ctx.root))
+    assert rejected.status_code == 422 and rejected.json()["code"] == 42294
+    unknown = {
+        **request,
+        "id": str(uuid4()),
+        "type_id": ctx.name + ".missing",
+        "operation_id": str(uuid4()),
+    }
+    rejected = ctx.root.post("/v1/admin/pages/save", json=unknown, headers=headers(ctx.root))
+    assert rejected.status_code == 422 and rejected.json()["code"] == 42294
+    removed = ctx.root.post(
+        "/v1/admin/pages/remove",
+        json={"id": identifier, "expected_revision": 1, "operation_id": str(uuid4())},
+        headers=headers(ctx.root),
+    )
+    assert removed.status_code == 200 and removed.json()["data"]["archived"]
+    assert identifier not in {page["id"] for page in published(ctx)}
+    restored = ctx.root.post(
+        "/v1/admin/pages/remove",
+        json={
+            "id": identifier,
+            "expected_revision": 2,
+            "operation_id": str(uuid4()),
+            "restore": True,
+        },
+        headers=headers(ctx.root),
+    )
+    assert restored.status_code == 200 and not restored.json()["data"]["enabled"]
+    assert restored.json()["data"]["value"]["options"] == expected
+    assert second_id in {page["id"] for page in published(ctx)}
 
 
 def test_delegated_page_write_does_not_grant_publish_or_script_execution(
@@ -352,7 +417,7 @@ def test_delegated_page_write_does_not_grant_publish_or_script_execution(
     assert ctx.root.get("/v1/admin/pages/" + script["id"]).status_code == 404
 
 
-def test_registered_pages_ignore_retired_nodes_and_reserve_a_safe_initial_path(
+def test_page_types_ignore_retired_nodes_and_do_not_reserve_suggested_paths(
     pages: AccountsTest,
 ) -> None:
     ctx = pages
@@ -374,7 +439,7 @@ def test_registered_pages_ignore_retired_nodes_and_reserve_a_safe_initial_path(
         }
     )
 
-    async def install() -> str:
+    async def install() -> None:
         db = Database(ctx.settings.database.url.get_secret_value())
         try:
             async with db.session_factory() as session:
@@ -391,20 +456,26 @@ def test_registered_pages_ignore_retired_nodes_and_reserve_a_safe_initial_path(
                     )
                 )
                 await session.commit()
-                return str(
-                    await session.scalar(
-                        select(ManagedPage.id).where(
-                            ManagedPage.implementation_id == manifest.pages[0].id
-                        )
-                    )
-                )
         finally:
             await db.close()
 
-    identity = asyncio.run(install())
-    row = ctx.root.get("/v1/admin/pages/" + identity).json()["data"]
-    assert row["available"] and row["value"]["path"] != existing["value"]["path"]
+    asyncio.run(install())
+    type_id = manifest.pages[0].id
+    row = next(
+        item
+        for item in ctx.root.get("/v1/admin/pages/types").json()["data"]["items"]
+        if item["id"] == type_id
+    )
+    assert row["available"] and row["page_count"] == 0
     assert row["registration"]["version"] == "1.0.0"
+    request = {**body(ctx, html=""), "type_id": type_id}
+    conflict = ctx.root.post("/v1/admin/pages/save", json=request, headers=headers(ctx.root))
+    assert conflict.status_code == 409 and conflict.json()["code"] == 40997
+    request["value"]["path"] += "-another"
+    assert (
+        ctx.root.post("/v1/admin/pages/save", json=request, headers=headers(ctx.root)).status_code
+        == 200
+    )
 
 
 def test_private_page_metadata_has_its_own_revision_and_never_enters_public_data(
@@ -502,7 +573,7 @@ def test_active_frontend_version_mismatch_blocks_only_application(pages: Account
         }
     )
 
-    async def install() -> str:
+    async def install() -> None:
         db = Database(config.database.url.get_secret_value())
         try:
             async with db.session_factory() as session:
@@ -511,27 +582,23 @@ def test_active_frontend_version_mismatch_blocks_only_application(pages: Account
                 changed = manifest.model_copy(deep=True)
                 changed.pages[0].version = "2.0.0"
                 await install_manifest(session, config, "required-secondary", changed)
-                return str(
-                    await session.scalar(
-                        select(ManagedPage.id).where(
-                            ManagedPage.implementation_id == manifest.pages[0].id
-                        )
-                    )
-                )
         finally:
             await db.close()
 
-    identity = asyncio.run(install())
+    asyncio.run(install())
     with TestClient(create_app(config)) as client:
         signed_in(client, ctx.name)
-        row = client.get("/v1/admin/pages/" + identity).json()["data"]
+        type_id = manifest.pages[0].id
+        row = next(
+            row
+            for row in client.get("/v1/admin/pages/types").json()["data"]["items"]
+            if row["id"] == type_id
+        )
         assert not row["available"]
         payload = {
-            "id": identity,
-            "expected_revision": row["revision"],
-            "operation_id": str(uuid4()),
+            **body(ctx, html="", enabled=True),
+            "type_id": type_id,
             "apply": True,
-            "value": {**row["value"], "enabled": True},
         }
         rejected = client.post("/v1/admin/pages/save", json=payload, headers=headers(client))
         assert rejected.status_code == 409 and rejected.json()["code"] == 40998

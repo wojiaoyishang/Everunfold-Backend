@@ -472,7 +472,7 @@ def test_settings_atomic_save_restart_delivery_and_crash_replay(tmp_path: Path) 
             current = client.get("/v1/admin/settings").json()["data"]
             oversized = copy.deepcopy(current["value"])
             oversized["site"]["navigation"] = [
-                {"id": f"wide-{n}", "label": "Item", "href": "/" + "p" * 910} for n in range(64)
+                {"id": f"wide-{n}", "label": "Item", "href": "/" + "p" * 890} for n in range(64)
             ]
             encoded = json.dumps(
                 {"expected_revision": current["revision"], "value": oversized},
