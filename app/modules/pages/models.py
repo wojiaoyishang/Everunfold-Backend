@@ -35,6 +35,11 @@ class ManagedPage(Base):
         CheckConstraint("internal_revision >= 0", name="nonnegative_internal_revision"),
         CheckConstraint("source IN ('custom', 'registered')", name="valid_source"),
         CheckConstraint(
+            "(source = 'custom' AND type_id = 'core.custom') "
+            "OR (source = 'registered' AND type_id <> 'core.custom')",
+            name="type_source",
+        ),
+        CheckConstraint(
             "(source = 'custom' AND language IS NOT NULL AND translation_group_id IS NOT NULL) "
             "OR (source = 'registered' AND language IS NULL AND translation_group_id IS NULL)",
             name="translation_source",
@@ -43,7 +48,12 @@ class ManagedPage(Base):
     )
     id: Mapped[UUID] = mapped_column(primary_key=True)
     source: Mapped[str] = mapped_column(String(16))
-    implementation_id: Mapped[str | None] = mapped_column(String(100), unique=True)
+    type_id: Mapped[str] = mapped_column(String(100), index=True)
+
+    @property
+    def implementation_id(self) -> str | None:
+        return self.type_id if self.source == "registered" else None
+
     revision: Mapped[int] = mapped_column(Integer, default=1)
     applied_revision: Mapped[int | None] = mapped_column(Integer)
     language: Mapped[str | None] = mapped_column(String(32))

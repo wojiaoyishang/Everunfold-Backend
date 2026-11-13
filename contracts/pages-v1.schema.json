@@ -118,6 +118,10 @@
           ],
           "title": "Implementation Id"
         },
+        "type_id": {
+          "title": "Type Id",
+          "type": "string"
+        },
         "revision": {
           "title": "Revision",
           "type": "integer"
@@ -230,6 +234,7 @@
         "id",
         "source",
         "implementation_id",
+        "type_id",
         "revision",
         "applied_revision",
         "enabled",
@@ -268,6 +273,14 @@
             }
           ],
           "title": "Implementation Id"
+        },
+        "type_id": {
+          "title": "Type Id",
+          "type": "string"
+        },
+        "type_title": {
+          "title": "Type Title",
+          "type": "string"
         },
         "title": {
           "title": "Title",
@@ -380,6 +393,8 @@
         "id",
         "source",
         "implementation_id",
+        "type_id",
+        "type_title",
         "title",
         "path",
         "description",
@@ -573,6 +588,7 @@
       "additionalProperties": false,
       "properties": {
         "id": {
+          "maxLength": 100,
           "pattern": "^[a-z][a-z0-9_-]*\\.[a-z][a-z0-9_.-]{0,63}$",
           "title": "Id",
           "type": "string"
@@ -589,10 +605,19 @@
           "type": "string"
         },
         "path": {
-          "maxLength": 500,
-          "minLength": 2,
-          "title": "Path",
-          "type": "string"
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "minLength": 2,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Suggested path for a new page.",
+          "title": "Path"
         },
         "description": {
           "default": "",
@@ -631,8 +656,7 @@
       "required": [
         "id",
         "version",
-        "title",
-        "path"
+        "title"
       ],
       "title": "PageRegistration",
       "type": "object"
@@ -778,6 +802,78 @@
         "operation_id"
       ],
       "title": "PageTranslationMutation",
+      "type": "object"
+    },
+    "PageTypeCatalog": {
+      "additionalProperties": false,
+      "properties": {
+        "items": {
+          "items": {
+            "$ref": "#/$defs/PageTypeItem"
+          },
+          "title": "Items",
+          "type": "array"
+        }
+      },
+      "required": [
+        "items"
+      ],
+      "title": "PageTypeCatalog",
+      "type": "object"
+    },
+    "PageTypeItem": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "source": {
+          "enum": [
+            "custom",
+            "registered"
+          ],
+          "title": "Source",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "description": {
+          "default": "",
+          "title": "Description",
+          "type": "string"
+        },
+        "registration": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PageRegistration"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "available": {
+          "title": "Available",
+          "type": "boolean"
+        },
+        "page_count": {
+          "minimum": 0,
+          "title": "Page Count",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "source",
+        "title",
+        "available",
+        "page_count"
+      ],
+      "title": "PageTypeItem",
       "type": "object"
     },
     "PageValue": {
@@ -1246,6 +1342,34 @@
       "title": "PublicResponse[PageTranslationCatalog]",
       "type": "object"
     },
+    "PublicResponse_PageTypeCatalog_": {
+      "additionalProperties": false,
+      "properties": {
+        "success": {
+          "default": true,
+          "title": "Success",
+          "type": "boolean"
+        },
+        "code": {
+          "default": 200,
+          "title": "Code",
+          "type": "integer"
+        },
+        "msg": {
+          "default": "请求成功",
+          "title": "Msg",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/PageTypeCatalog"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "title": "PublicResponse[PageTypeCatalog]",
+      "type": "object"
+    },
     "RemoveManagedPage": {
       "additionalProperties": false,
       "properties": {
@@ -1325,6 +1449,20 @@
           ],
           "default": null,
           "title": "Language"
+        },
+        "type_id": {
+          "anyOf": [
+            {
+              "maxLength": 100,
+              "pattern": "^[a-z][a-z0-9_-]*\\.[a-z][a-z0-9_.-]{0,63}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Type Id"
         }
       },
       "required": [
@@ -1414,6 +1552,9 @@
     "catalog": {
       "$ref": "#/$defs/PublicResponse_ManagedPageCatalog_"
     },
+    "types": {
+      "$ref": "#/$defs/PublicResponse_PageTypeCatalog_"
+    },
     "categories": {
       "$ref": "#/$defs/PublicResponse_PageCategories_"
     },
@@ -1459,6 +1600,7 @@
   },
   "required": [
     "catalog",
+    "types",
     "categories",
     "item",
     "save",
@@ -1477,7 +1619,7 @@
   "title": "PagesContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "1.11.0",
+  "x-everunfold-contract-version": "1.12.0",
   "x-everunfold-operations": [
     {
       "name": "setPageEnabled",
@@ -1545,6 +1687,12 @@
       "path": "/v1/admin/pages",
       "method": "GET",
       "response": "catalog"
+    },
+    {
+      "name": "readPageTypes",
+      "path": "/v1/admin/pages/types",
+      "method": "GET",
+      "response": "types"
     },
     {
       "name": "readPageCategories",

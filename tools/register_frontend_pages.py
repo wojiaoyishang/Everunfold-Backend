@@ -21,7 +21,7 @@ async def install(config: str, node: str, manifest: Path) -> None:
     try:
         async with db.session_factory() as session:
             await install_manifest(session, settings, node, value)
-        print(f"Registered {len(value.pages)} page implementations for the configured node.")
+        print(f"Registered {len(value.pages)} page types for the configured node.")
     finally:
         await db.close()
 

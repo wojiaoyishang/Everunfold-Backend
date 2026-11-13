@@ -144,17 +144,15 @@ async def scan_usage(
             shortcodes.setdefault(name, set()).add(plugin.id)
     if pages:
         applied = await session.scalars(
-            select(ManagedPage.implementation_id).where(
+            select(ManagedPage.type_id).where(
                 ManagedPage.source == "registered",
                 ManagedPage.deleted_at.is_(None),
                 ManagedPage.applied_snapshot.is_not(None),
-                ManagedPage.implementation_id.in_(pages),
+                ManagedPage.type_id.in_(pages),
             )
         )
-        for page_id in applied:
-            if page_id is None:
-                continue
-            for owner in pages[page_id]:
+        for type_id in applied:
+            for owner in pages[type_id]:
                 counts[owner].applied_pages += 1
     if shortcodes:
 

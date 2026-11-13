@@ -10,7 +10,7 @@ from app.modules.pages.schemas import PagesContract
 def build_schema() -> dict[str, Any]:
     schema = PagesContract.model_json_schema()
     schema["$schema"] = "http://json-schema.org/draft-07/schema#"
-    schema["x-everunfold-contract-version"] = "1.11.0"
+    schema["x-everunfold-contract-version"] = "1.12.0"
     schema["x-everunfold-operations"] = [
         {
             "name": "setPageEnabled",
@@ -78,6 +78,12 @@ def build_schema() -> dict[str, Any]:
             "path": "/v1/admin/pages",
             "method": "GET",
             "response": "catalog",
+        },
+        {
+            "name": "readPageTypes",
+            "path": "/v1/admin/pages/types",
+            "method": "GET",
+            "response": "types",
         },
         {
             "name": "readPageCategories",

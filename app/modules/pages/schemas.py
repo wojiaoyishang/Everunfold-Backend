@@ -13,6 +13,9 @@ from app.modules.content.editor_schema import content_path
 from app.modules.pages.options import bounded_options
 from app.modules.settings.languages import LanguageCode
 
+CUSTOM_PAGE_TYPE = "core.custom"
+PAGE_TYPE_PATTERN = r"^[a-z][a-z0-9_-]*\.[a-z][a-z0-9_.-]{0,63}$"
+
 
 class PageOption(PublicModel):
     key: str = Field(pattern=r"^[a-z][a-z0-9_]{0,47}$")
@@ -40,10 +43,12 @@ class PageOption(PublicModel):
 
 
 class PageRegistration(PublicModel):
-    id: str = Field(pattern=r"^[a-z][a-z0-9_-]*\.[a-z][a-z0-9_.-]{0,63}$")
+    id: str = Field(pattern=PAGE_TYPE_PATTERN, max_length=100)
     version: str = Field(pattern=r"^[0-9]+\.[0-9]+\.[0-9]+$")
     title: str = Field(min_length=1, max_length=120)
-    path: str = Field(min_length=2, max_length=500)
+    path: str | None = Field(
+        default=None, min_length=2, max_length=500, description="Suggested path for a new page."
+    )
     description: str = Field(default="", max_length=500)
     comments_open: bool = True
     fields: list[PageOption] = Field(default_factory=list, max_length=30)
@@ -51,12 +56,20 @@ class PageRegistration(PublicModel):
     _defaults = field_validator("defaults")(bounded_options)
     settings_schema: dict[str, JsonValue] = Field(default_factory=dict)
     _settings_schema = field_validator("settings_schema")(bounded_options)
-    _path = field_validator("path")(content_path)
+
+    def initial_options(self) -> dict[str, JsonValue]:
+        return {field.key: field.default for field in self.fields} | self.defaults
+
+    @field_validator("path")
+    @classmethod
+    def suggested_path(cls, value: str | None) -> str | None:
+        return content_path(value) if value is not None else None
 
     @model_validator(mode="after")
     def distinct_options(self) -> Self:
         if len({field.key for field in self.fields}) != len(self.fields):
             raise ValueError("duplicate option keys")
+        bounded_options(self.initial_options())
         return self
 
 
@@ -65,11 +78,10 @@ class PageManifest(PublicModel):
     pages: list[PageRegistration] = Field(max_length=100)
 
     @model_validator(mode="after")
-    def distinct_pages(self) -> Self:
-        if len({page.id for page in self.pages}) != len(self.pages):
-            raise ValueError("duplicate registered page IDs")
-        if len({page.path for page in self.pages}) != len(self.pages):
-            raise ValueError("duplicate registered page paths")
+    def distinct_page_types(self) -> Self:
+        ids = {page.id for page in self.pages}
+        if len(ids) != len(self.pages) or CUSTOM_PAGE_TYPE in ids:
+            raise ValueError("duplicate or reserved page type ID")
         return self
 
 
@@ -140,6 +152,7 @@ class ManagedPageItem(PublicModel):
     id: UUID
     source: Literal["custom", "registered"]
     implementation_id: str | None
+    type_id: str
     revision: int
     applied_revision: int | None
     enabled: bool
@@ -157,11 +170,20 @@ class ManagedPageItem(PublicModel):
     is_original: bool = True
     translations: PageTranslationCatalog | None = None
 
+    @model_validator(mode="before")
+    @classmethod
+    def old_operation_receipt(cls, value: object) -> object:
+        if isinstance(value, dict) and "type_id" not in value:
+            return {**value, "type_id": value.get("implementation_id") or CUSTOM_PAGE_TYPE}
+        return value
+
 
 class ManagedPageSummary(PublicModel):
     id: UUID
     source: Literal["custom", "registered"]
     implementation_id: str | None
+    type_id: str
+    type_title: str
     title: str
     path: str
     description: str
@@ -185,6 +207,20 @@ class ManagedPageCatalog(PublicModel):
     items: list[ManagedPageSummary]
 
 
+class PageTypeItem(PublicModel):
+    id: str
+    source: Literal["custom", "registered"]
+    title: str
+    description: str = ""
+    registration: PageRegistration | None = None
+    available: bool
+    page_count: int = Field(ge=0)
+
+
+class PageTypeCatalog(PublicModel):
+    items: list[PageTypeItem]
+
+
 class PageCategory(PublicModel):
     id: UUID
     name: str
@@ -203,6 +239,7 @@ class SaveManagedPage(PublicModel):
     operation_id: UUID
     current_password: str = Field(default="", max_length=1024, description="Legacy field; ignored.")
     language: LanguageCode | None = None
+    type_id: str | None = Field(default=None, pattern=PAGE_TYPE_PATTERN, max_length=100)
 
 
 class SetPageEnabled(PublicModel):
@@ -260,6 +297,7 @@ class SavePageMetadata(PublicModel):
 
 class PagesContract(PublicModel):
     catalog: PublicResponse[ManagedPageCatalog]
+    types: PublicResponse[PageTypeCatalog]
     categories: PublicResponse[PageCategories]
     item: PublicResponse[ManagedPageItem]
     save: SaveManagedPage

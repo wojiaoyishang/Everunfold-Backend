@@ -74,6 +74,7 @@ class PageTranslations:
                 ManagedPage(
                     id=identity,
                     source="custom",
+                    type_id=source.type_id,
                     revision=1,
                     language=language.code,
                     translation_group_id=group.id,

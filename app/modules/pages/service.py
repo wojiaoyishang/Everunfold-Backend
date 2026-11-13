@@ -15,9 +15,11 @@ from app.modules.auth.service import AuthFailure
 from app.modules.content.publication import ContentPublication
 from app.modules.media.locking import lock_references
 from app.modules.pages.groups import promote_original, source_value, translations, unapplied
-from app.modules.pages.models import FrontendPageRegistration, ManagedPage, PageTranslationGroup
+from app.modules.pages.models import ManagedPage, PageTranslationGroup
+from app.modules.pages.options import bounded_options
 from app.modules.pages.paths import content_path_taken, page_path_taken
 from app.modules.pages.schemas import (
+    CUSTOM_PAGE_TYPE,
     ManagedPageCatalog,
     ManagedPageItem,
     ManagedPageSummary,
@@ -28,6 +30,7 @@ from app.modules.pages.schemas import (
     SaveManagedPage,
     SetPageEnabled,
 )
+from app.modules.pages.types import CUSTOM_PAGE_TITLE, RegisteredPageType, registered_types
 from app.modules.settings.cache_event_schema import CacheChange
 from app.modules.settings.languages import (
     language_catalog,
@@ -35,7 +38,6 @@ from app.modules.settings.languages import (
     reserved_language_path,
 )
 from app.modules.settings.models import SettingsAudit
-from app.modules.settings.node_registry import read_targets
 from app.modules.settings.service import SettingsService
 
 
@@ -43,53 +45,27 @@ class PagesService:
     def __init__(self, accounts: AccountsService, config: Settings) -> None:
         self.accounts, self.session, self.config = accounts, accounts.session, config
 
-    async def registration(self, identity: str | None) -> tuple[PageRegistration | None, bool]:
-        if identity is None:
+    async def registration(self, identity: str) -> tuple[PageRegistration | None, bool]:
+        if identity == CUSTOM_PAGE_TYPE:
             return None, True
-        rows = (
-            await self.session.scalars(
-                select(FrontendPageRegistration)
-                .where(FrontendPageRegistration.page_id == identity)
-                .order_by(FrontendPageRegistration.node_id)
-            )
-        ).all()
-        if not rows:
-            return None, False
-        nodes = {
-            key
-            for key, value in (await read_targets(self.session, self.config)).items()
-            if value.enabled
-        }
-        active = [row for row in rows if row.node_id in nodes]
-        definitions = [PageRegistration.model_validate(row.definition) for row in active or rows]
-        available = (
-            bool(nodes)
-            and nodes.issubset({row.node_id for row in active})
-            and all(value == definitions[0] for value in definitions)
-        )
-        site = await SettingsService(self.session, self.config).site()
-        from app.modules.settings.defaults import public_settings
-        from app.modules.settings.extensions_service import catalog as extension_catalog
+        registered = (await registered_types(self.session, self.config, identity)).get(identity)
+        return (registered.definition, registered.available) if registered else (None, False)
 
-        disabled = set(public_settings(site.data).extensions.disabled_plugins)
-        if disabled:
-            inventory = await extension_catalog(self.session, self.config)
-            if any(
-                plugin.id in disabled and identity in plugin.page_ids
-                for node in inventory.nodes
-                if node.inventory
-                for plugin in node.inventory.plugins
-            ):
-                available = False
-        return definitions[0], available
-
-    async def item(self, row: ManagedPage) -> ManagedPageItem:
-        registration, available = await self.registration(row.implementation_id)
+    async def item(
+        self, row: ManagedPage, types: dict[str, RegisteredPageType] | None = None
+    ) -> ManagedPageItem:
+        if types is None:
+            registration, available = await self.registration(row.type_id)
+        else:
+            registered = types.get(row.type_id)
+            registration = registered.definition if registered else None
+            available = row.type_id == CUSTOM_PAGE_TYPE or bool(registered and registered.available)
         group = await translations(self.session, row) if row.source == "custom" else None
         return ManagedPageItem(
             id=row.id,
             source=cast(Literal["custom", "registered"], row.source),
             implementation_id=row.implementation_id,
+            type_id=row.type_id,
             revision=row.revision,
             applied_revision=row.applied_revision,
             enabled=row.published is not None,
@@ -117,10 +93,11 @@ class PagesService:
                 )
             )
         ).all()
+        types = await registered_types(self.session, self.config)
         items = []
         for row in rows:
-            item = await self.item(row)
-            if not item.is_original or (item.source == "registered" and not item.available):
+            item = await self.item(row, types)
+            if not item.is_original:
                 continue
             items.append(
                 ManagedPageSummary(
@@ -128,6 +105,13 @@ class PagesService:
                     title=item.value.title,
                     path=item.value.path,
                     description=item.value.description,
+                    type_title=(
+                        item.registration.title
+                        if item.registration
+                        else CUSTOM_PAGE_TITLE
+                        if item.source == "custom"
+                        else item.type_id
+                    ),
                 )
             )
         return ManagedPageCatalog(items=items)
@@ -152,7 +136,12 @@ class PagesService:
         await lock_references(self.session)
         await SettingsService(self.session, self.config).site(locked=True)
         fingerprint = payload.model_dump(
-            mode="json", exclude={"language"} if payload.language is None else set()
+            mode="json",
+            exclude={
+                key
+                for key, value in (("language", payload.language), ("type_id", payload.type_id))
+                if value is None
+            },
         )
         cached = await self.accounts.operations.read(
             payload.operation_id, actor.id, "page_save", fingerprint
@@ -161,32 +150,47 @@ class PagesService:
             return ManagedPageItem.model_validate(cached)
         row = await self.session.get(ManagedPage, payload.id, populate_existing=True)
         new_group = None
+        creating = row is None
         if row is None:
             if payload.expected_revision:
                 raise AuthFailure(404, 40496, "页面不存在")
-            language = await require_language(self.session, payload.language)
-            group = PageTranslationGroup(id=uuid4(), source_id=payload.id, revision=1)
-            new_group = group
+            type_id = payload.type_id or CUSTOM_PAGE_TYPE
+            custom = type_id == CUSTOM_PAGE_TYPE
+            language = None
+            if custom:
+                language = (await require_language(self.session, payload.language)).code
+                new_group = PageTranslationGroup(id=uuid4(), source_id=payload.id, revision=1)
+            elif payload.language is not None:
+                raise AuthFailure(422, 42297, "插件页面的多语言由代码管理")
             row = ManagedPage(
                 id=payload.id,
-                source="custom",
+                source="custom" if custom else "registered",
                 revision=1,
-                implementation_id=None,
+                type_id=type_id,
                 data={},
                 updated_at=datetime.now(UTC),
-                language=language.code,
-                translation_group_id=group.id,
+                language=language,
+                translation_group_id=new_group.id if new_group else None,
             )
         else:
             row = await self.target(payload.id, payload.expected_revision)
             if row.deleted_at is not None:
                 raise AuthFailure(409, 40996, "请先恢复回收站中的页面")
+            if payload.type_id is not None and payload.type_id != row.type_id:
+                raise AuthFailure(422, 42294, "已保存页面的类型不可更改")
             if payload.language is not None and payload.language != row.language:
                 raise AuthFailure(422, 42297, "请通过语言关联创建独立译文，不可更改已有页面的语言")
         next_revision = row.revision + (0 if payload.expected_revision == 0 else 1)
         value = payload.value.model_copy(deep=True)
-        definition, available = await self.registration(row.implementation_id)
+        definition, available = await self.registration(row.type_id)
         if row.source == "registered":
+            if creating and definition is None:
+                raise AuthFailure(422, 42294, "页面类型不存在")
+            if creating and definition is not None:
+                try:
+                    value.options = bounded_options(definition.initial_options() | value.options)
+                except ValueError as exc:
+                    raise AuthFailure(422, 42296, "页面配置过大或嵌套过深") from exc
             if (
                 value.html
                 or value.css
@@ -194,7 +198,7 @@ class PagesService:
                 or value.javascript_enabled
                 or value.javascript_position != "body_end"
             ):
-                raise AuthFailure(403, 40396, "代码注册页面只允许修改已暴露的选项")
+                raise AuthFailure(403, 40396, "插件页面只允许修改页面选项")
             if payload.apply and value.enabled and not available:
                 raise AuthFailure(409, 40998, "前端页面注册缺失或节点版本不一致")
         if value.javascript_enabled and actor.role != "admin":
@@ -270,7 +274,7 @@ class PagesService:
         value = source_value(row.applied_snapshot or row.data)
         if value.javascript_enabled and actor.role != "admin":
             raise AuthFailure(403, 40397, "只有管理员可以启用或修改页面脚本")
-        definition, available = await self.registration(row.implementation_id)
+        definition, available = await self.registration(row.type_id)
         if payload.enabled:
             if row.source == "registered" and not available:
                 raise AuthFailure(409, 40998, "前端页面注册缺失或节点版本不一致")
@@ -315,8 +319,6 @@ class PagesService:
         if cached is not None:
             return ManagedPageItem.model_validate(cached)
         row = await self.target(payload.id, payload.expected_revision)
-        if row.source == "registered":
-            raise AuthFailure(403, 40396, "代码注册页面可以停用，不能移除代码登记")
         if "pages:publish" not in user_permissions(actor):
             raise AuthFailure(403, 40364, "没有执行此操作的权限")
         if payload.restore:

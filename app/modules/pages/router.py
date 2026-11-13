@@ -27,6 +27,7 @@ from app.modules.pages.schemas import (
     PageTranslationCatalog,
     PageTranslationLookup,
     PageTranslationMutation,
+    PageTypeCatalog,
     RemoveManagedPage,
     SaveManagedPage,
     SavePageMetadata,
@@ -34,6 +35,7 @@ from app.modules.pages.schemas import (
 )
 from app.modules.pages.service import PagesService
 from app.modules.pages.translations import PageTranslations
+from app.modules.pages.types import page_types
 
 router = APIRouter(
     prefix="/v1/admin/pages",
@@ -74,6 +76,13 @@ async def categories(ctx: Access) -> JSONResponseSuccess:
         data=PageCategories(
             items=[PageCategory(id=identity, name=name, slug=slug) for identity, name, slug in rows]
         )
+    )
+
+
+@router.get("/types", response_model=PublicResponse[PageTypeCatalog])
+async def types(ctx: Access, request: Request) -> JSONResponseSuccess:
+    return JSONResponseSuccess(
+        data=await page_types(ctx.service.session, auth_runtime(request).settings)
     )
 
 

@@ -3384,6 +3384,7 @@
       "additionalProperties": false,
       "properties": {
         "id": {
+          "maxLength": 100,
           "pattern": "^[a-z][a-z0-9_-]*\\.[a-z][a-z0-9_.-]{0,63}$",
           "title": "Id",
           "type": "string"
@@ -3400,10 +3401,19 @@
           "type": "string"
         },
         "path": {
-          "maxLength": 500,
-          "minLength": 2,
-          "title": "Path",
-          "type": "string"
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "minLength": 2,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Suggested path for a new page.",
+          "title": "Path"
         },
         "description": {
           "default": "",
@@ -3442,8 +3452,7 @@
       "required": [
         "id",
         "version",
-        "title",
-        "path"
+        "title"
       ],
       "title": "PageRegistration",
       "type": "object"
@@ -6922,7 +6931,7 @@
   "title": "SettingsContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "1.40.0",
+  "x-everunfold-contract-version": "1.41.0",
   "x-everunfold-language-regions": {
     "zh": "CN",
     "en": "GB",

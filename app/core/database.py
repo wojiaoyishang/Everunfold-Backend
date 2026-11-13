@@ -4,7 +4,7 @@ from sqlalchemy import MetaData, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
 
-SCHEMA_REVISION = "0056_comment_reply_notices"
+SCHEMA_REVISION = "0057_page_types"
 
 
 class Base(DeclarativeBase):
