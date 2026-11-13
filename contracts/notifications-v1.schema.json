@@ -177,6 +177,13 @@
           "title": "Email Only",
           "type": "boolean"
         },
+        "platform_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Platform Ids",
+          "type": "array"
+        },
         "requires_code": {
           "default": false,
           "title": "Requires Code",
@@ -347,6 +354,20 @@
         "delivery_semantics"
       ],
       "title": "NotificationPlatformView",
+      "type": "object"
+    },
+    "NotificationPreferences": {
+      "additionalProperties": false,
+      "properties": {
+        "comment_reply_email": {
+          "title": "Comment Reply Email",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "comment_reply_email"
+      ],
+      "title": "NotificationPreferences",
       "type": "object"
     },
     "NotificationRouteInput": {
@@ -694,6 +715,34 @@
       "title": "PublicResponse[NotificationInbox]",
       "type": "object"
     },
+    "PublicResponse_NotificationPreferences_": {
+      "additionalProperties": false,
+      "properties": {
+        "success": {
+          "default": true,
+          "title": "Success",
+          "type": "boolean"
+        },
+        "code": {
+          "default": 200,
+          "title": "Code",
+          "type": "integer"
+        },
+        "msg": {
+          "default": "请求成功",
+          "title": "Msg",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/NotificationPreferences"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "title": "PublicResponse[NotificationPreferences]",
+      "type": "object"
+    },
     "PublicResponse_NotificationState_": {
       "additionalProperties": false,
       "properties": {
@@ -853,6 +902,12 @@
     },
     "mark_read": {
       "$ref": "#/$defs/MarkNotificationsRead"
+    },
+    "preferences": {
+      "$ref": "#/$defs/PublicResponse_NotificationPreferences_"
+    },
+    "save_preferences": {
+      "$ref": "#/$defs/NotificationPreferences"
     }
   },
   "required": [
@@ -861,12 +916,14 @@
     "template",
     "brand",
     "inbox",
-    "mark_read"
+    "mark_read",
+    "preferences",
+    "save_preferences"
   ],
   "title": "NotificationsContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "1.7.0",
+  "x-everunfold-contract-version": "1.8.0",
   "x-everunfold-operations": [
     {
       "name": "saveMailBrand",
@@ -920,6 +977,19 @@
       "method": "PATCH",
       "input": "mark_read",
       "response": "inbox"
+    },
+    {
+      "name": "readAccountNotificationPreferences",
+      "path": "/v1/account/notifications/preferences",
+      "method": "GET",
+      "response": "preferences"
+    },
+    {
+      "name": "saveAccountNotificationPreferences",
+      "path": "/v1/account/notifications/preferences",
+      "method": "PATCH",
+      "input": "save_preferences",
+      "response": "preferences"
     }
   ]
 }

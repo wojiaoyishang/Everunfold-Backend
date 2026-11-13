@@ -129,6 +129,9 @@ class Comment(Base):
     )
     updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     parent_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("comments.id"))
+    author_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), index=True
+    )
     author: Mapped[str] = mapped_column(String(200))
     content: Mapped[str] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)

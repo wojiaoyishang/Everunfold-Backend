@@ -2,7 +2,7 @@
 
 import re
 from datetime import datetime
-from typing import Literal, Self
+from typing import Annotated, Literal, Self
 from uuid import UUID
 
 from pydantic import ConfigDict, Field, field_validator, model_validator
@@ -300,6 +300,16 @@ class ArticleDisplayPreferences(SettingsModel):
 class FeedPreferences(SettingsModel):
     default_type: Literal["all", "article", "shuoshuo"] = "all"
     page_size: int = Field(default=10, ge=1, le=30)
+    layout: Literal["list", "grid", "masonry"] = "list"
+    density: Literal["comfortable", "compact"] = "comfortable"
+    excluded_taxonomy_ids: list[Annotated[UUID, Field(strict=False)]] = Field(
+        default_factory=list, max_length=64
+    )
+
+    @field_validator("excluded_taxonomy_ids")
+    @classmethod
+    def distinct_taxonomies(cls, value: list[UUID]) -> list[UUID]:
+        return list(dict.fromkeys(value))
 
 
 class SidebarLink(SettingsModel):

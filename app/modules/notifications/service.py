@@ -15,8 +15,13 @@ from app.core.plugins.state import enabled_ids, installed_info
 from app.modules.auth.models import User
 from app.modules.auth.permissions import CAPABILITIES, user_permissions
 from app.modules.auth.service import AuthFailure
+from app.modules.comments.reply_notifications import current_reply_link
 from app.modules.content.models import SiteSettings
-from app.modules.notifications.catalog import SECURITY_EVENT_IDS, default_template
+from app.modules.notifications.catalog import (
+    COMMENT_REPLY_PUBLISHED,
+    SECURITY_EVENT_IDS,
+    default_template,
+)
 from app.modules.notifications.email_context import (
     BRAND_KEY,
     EMAIL_VARIABLES,
@@ -259,6 +264,7 @@ class NotificationService:
                     title=entry.definition.title,
                     description=entry.definition.description,
                     email_only=entry.definition.email_only,
+                    platform_ids=list(entry.definition.platform_ids),
                     requires_code=entry.definition.requires_code,
                     recipient_mode=entry.definition.recipient_mode,
                     delivery_mode=entry.definition.delivery_mode,
@@ -321,7 +327,7 @@ class NotificationService:
             if not definition.accepts_recipient(item.recipient_type, item.recipient_value):
                 raise AuthFailure(422, 42299, "此事件的接收对象固定，不能更改")
             if not definition.accepts_platform(item.platform_id):
-                raise AuthFailure(422, 42299, "此通知事件仅支持邮件")
+                raise AuthFailure(422, 42299, "此事件不支持所选通知平台")
             if definition.delivery_mode == "security_required" and not item.enabled:
                 raise AuthFailure(422, 42299, "必要的账号验证码不能停用")
             if item.platform_id not in platforms:
@@ -440,7 +446,7 @@ class NotificationService:
             raise AuthFailure(422, 42299, "未知通知事件")
         definition = entry.definition
         if not definition.accepts_platform(payload.platform_id):
-            raise AuthFailure(422, 42299, "此通知事件仅支持邮件")
+            raise AuthFailure(422, 42299, "此事件不支持所选通知平台")
         if definition.requires_code and not payload.reset:
 
             def includes_code(value: str) -> bool:
@@ -627,6 +633,14 @@ class NotificationService:
                 event.dispatched_at = now
                 continue
             definition = entry.definition
+            reply_url = None
+            if event.event_type == COMMENT_REPLY_PUBLISHED:
+                reply_url = await current_reply_link(
+                    self.session, event.resource_id, event.subject_id
+                )
+                if not reply_url:
+                    event.dispatched_at = now
+                    continue
             event_variables = {
                 "id": str(event.id),
                 "title": definition.title,
@@ -648,7 +662,10 @@ class NotificationService:
                 if (
                     platform_id == EMAIL
                     and definition.recipient_mode == "subject"
-                    and not subject_address_current(event, target_user)
+                    and (
+                        not subject_address_current(event, target_user)
+                        or (reply_url is not None and not target_user.comment_reply_email)
+                    )
                 ):
                     continue
                 event_data = (
@@ -656,6 +673,8 @@ class NotificationService:
                     if event.event_type == "comment.pending_review"
                     else recipient_event_data(event, target_user)
                 )
+                if reply_url:
+                    event_data = {"resource": {"url": reply_url}}
                 variables = {**event_data, "event": event_variables}
                 template, subject, text, html_text, html_enabled, href = await self._template_for(
                     event.event_type,

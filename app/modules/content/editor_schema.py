@@ -38,6 +38,7 @@ def content_path(value: str) -> str:
         "media",
         "archives",
         "article",
+        "gzrj",
         "categories",
         "category",
         "tag",

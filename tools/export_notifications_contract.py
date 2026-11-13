@@ -10,7 +10,7 @@ from app.modules.notifications.schemas import NotificationsContract
 def build_schema() -> dict[str, Any]:
     schema = NotificationsContract.model_json_schema()
     schema["$schema"] = "http://json-schema.org/draft-07/schema#"
-    schema["x-everunfold-contract-version"] = "1.7.0"
+    schema["x-everunfold-contract-version"] = "1.8.0"
     schema["x-everunfold-operations"] = [
         {
             "name": "saveMailBrand",
@@ -64,6 +64,19 @@ def build_schema() -> dict[str, Any]:
             "method": "PATCH",
             "input": "mark_read",
             "response": "inbox",
+        },
+        {
+            "name": "readAccountNotificationPreferences",
+            "path": "/v1/account/notifications/preferences",
+            "method": "GET",
+            "response": "preferences",
+        },
+        {
+            "name": "saveAccountNotificationPreferences",
+            "path": "/v1/account/notifications/preferences",
+            "method": "PATCH",
+            "input": "save_preferences",
+            "response": "preferences",
         },
     ]
     return schema

@@ -1183,6 +1183,34 @@
           "minimum": 1,
           "title": "Page Size",
           "type": "integer"
+        },
+        "layout": {
+          "default": "list",
+          "enum": [
+            "list",
+            "grid",
+            "masonry"
+          ],
+          "title": "Layout",
+          "type": "string"
+        },
+        "density": {
+          "default": "comfortable",
+          "enum": [
+            "comfortable",
+            "compact"
+          ],
+          "title": "Density",
+          "type": "string"
+        },
+        "excluded_taxonomy_ids": {
+          "items": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "maxItems": 64,
+          "title": "Excluded Taxonomy Ids",
+          "type": "array"
         }
       },
       "title": "FeedPreferences",
@@ -6894,7 +6922,7 @@
   "title": "SettingsContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "1.39.0",
+  "x-everunfold-contract-version": "1.40.0",
   "x-everunfold-language-regions": {
     "zh": "CN",
     "en": "GB",

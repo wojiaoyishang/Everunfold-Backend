@@ -21,6 +21,7 @@ class NotificationEventView(PublicModel):
     description: str
     variables: list[str]
     email_only: bool = False
+    platform_ids: list[str] = Field(default_factory=list)
     requires_code: bool = False
     recipient_mode: RecipientMode = "configurable"
     delivery_mode: DeliveryMode = "notification"
@@ -186,6 +187,10 @@ class MarkNotificationsRead(PublicModel):
     ids: list[UUID] = Field(default_factory=list, max_length=100)
 
 
+class NotificationPreferences(PublicModel):
+    comment_reply_email: bool
+
+
 class NotificationsContract(PublicModel):
     state: PublicResponse[NotificationState]
     routes: SaveNotificationRoutes
@@ -193,3 +198,5 @@ class NotificationsContract(PublicModel):
     brand: SaveMailBrand
     inbox: PublicResponse[NotificationInbox]
     mark_read: MarkNotificationsRead
+    preferences: PublicResponse[NotificationPreferences]
+    save_preferences: NotificationPreferences

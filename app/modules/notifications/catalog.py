@@ -44,6 +44,7 @@ TWO_FACTOR_RECOVERY_ROTATED = "security.two_factor_recovery_rotated"
 TWO_FACTOR_RECOVERY_USED = "security.two_factor_recovery_used"
 REGISTRATION_SUCCEEDED = "account.registration_succeeded"
 USER_CREATED = "account.user_created"
+COMMENT_REPLY_PUBLISHED = "comment.reply_published"
 
 VERIFICATION_PURPOSES = {
     EMAIL_VERIFICATION: ("验证邮箱", "Email verification"),
@@ -163,6 +164,26 @@ def comment_email(locale: str) -> DefaultTemplate:
     )
 
 
+def comment_reply_template(locale: str, *, email: bool) -> DefaultTemplate:
+    zh = locale == "zh-CN"
+    title = "你的评论有新回复" if zh else "New reply to your comment"
+    body = (
+        "有人回复了你的评论。打开原文即可查看回复。"
+        if zh
+        else ("Someone replied to your comment. Open the original page to read the reply.")
+    )
+    action = "查看回复" if zh else "View reply"
+    link = "{{resource.url}}"
+    return DefaultTemplate(
+        subject=f"[{{{{site.name}}}}] {title}" if email else title,
+        text=f"{body}\n\n{action}：{link}"
+        if email and zh
+        else (f"{body}\n\n{action}: {link}" if email else body),
+        html=alert_email(title, title, body, action, link, locale) if email else "",
+        href=link,
+    )
+
+
 EVENTS = (
     EventDefinition(
         id="comment.pending_review",
@@ -180,6 +201,14 @@ EVENTS = (
             "comment.approve_url",
             "comment.reject_url",
         ),
+    ),
+    EventDefinition(
+        COMMENT_REPLY_PUBLISHED,
+        "评论收到回复",
+        "回复公开后通知原评论的作者。邮件仅发给已验证邮箱且主动订阅的读者。",
+        ("resource.url",),
+        recipient_mode="subject",
+        platform_ids=("in-app", "email"),
     ),
     EventDefinition(
         id="content.scheduled_published",
@@ -422,6 +451,13 @@ DEFAULT_TEMPLATES = {
             ),
         },
         "email": {"zh-CN": comment_email("zh-CN"), "en": comment_email("en")},
+    },
+    COMMENT_REPLY_PUBLISHED: {
+        platform: {
+            locale: comment_reply_template(locale, email=platform == "email")
+            for locale in ("zh-CN", "en")
+        }
+        for platform in ("in-app", "email")
     },
     "content.scheduled_published": {
         "in-app": {

@@ -4,15 +4,18 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Request
+from sqlalchemy import select
 
 from app.core.responses import JSONResponseSuccess
 from app.core.schemas import ErrorResponse, PublicResponse
+from app.modules.auth.models import User
 from app.modules.auth.router import Service, auth_runtime, cookie
 from app.modules.auth.service import AuthFailure
 from app.modules.notifications.catalog import SECURITY_EVENT_IDS
 from app.modules.notifications.schemas import (
     MarkNotificationsRead,
     NotificationInbox,
+    NotificationPreferences,
     NotificationState,
     SaveMailBrand,
     SaveNotificationRoutes,
@@ -96,6 +99,35 @@ async def account_user(request: Request, auth: Service) -> UUID:
 
 
 AccountUser = Annotated[UUID, Depends(account_user)]
+
+
+@account_router.get("/preferences", response_model=PublicResponse[NotificationPreferences])
+async def read_preferences(auth: Service, user_id: AccountUser) -> JSONResponseSuccess:
+    user = await auth.session.get(User, user_id)
+    if user is None or not user.active:
+        raise AuthFailure(401, 40101, "请先登录")
+    return JSONResponseSuccess(
+        data=NotificationPreferences(comment_reply_email=user.comment_reply_email)
+    )
+
+
+@account_router.patch("/preferences", response_model=PublicResponse[NotificationPreferences])
+async def save_preferences(
+    payload: NotificationPreferences, auth: Service, user_id: AccountUser
+) -> JSONResponseSuccess:
+    user = await auth.session.scalar(
+        select(User)
+        .where(User.id == user_id, User.active.is_(True))
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
+    if user is None:
+        raise AuthFailure(401, 40101, "请先登录")
+    if payload.comment_reply_email and not user.email_verified_at:
+        raise AuthFailure(422, 42299, "请先验证邮箱，再订阅评论回复邮件。")
+    user.comment_reply_email = payload.comment_reply_email
+    await auth.session.commit()
+    return JSONResponseSuccess(data=payload)
 
 
 @account_router.get("/inbox", response_model=PublicResponse[NotificationInbox])

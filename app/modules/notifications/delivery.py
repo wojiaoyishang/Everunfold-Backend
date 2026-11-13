@@ -11,7 +11,9 @@ from app.core.database import Database
 from app.core.plugins.loader import plugin_catalog
 from app.core.plugins.state import enabled_ids, installed_info
 from app.modules.auth.models import User
+from app.modules.comments.reply_notifications import current_reply_link
 from app.modules.content.models import SiteSettings
+from app.modules.notifications.catalog import COMMENT_REPLY_PUBLISHED
 from app.modules.notifications.events import (
     event_registry,
     recipient_event_data,
@@ -140,6 +142,12 @@ async def _deliver_one(config: Settings, identity: UUID, lease: UUID) -> tuple[s
             ):
                 return "suppressed", "recipient_changed"
             if row.platform_id == EMAIL:
+                if event.event_type == COMMENT_REPLY_PUBLISHED:
+                    if not user.comment_reply_email:
+                        return "suppressed", "recipient_preference_changed"
+                    href = await current_reply_link(session, event.resource_id, event.subject_id)
+                    if not href or href != row.href:
+                        return "suppressed", "reply_unavailable"
                 revision, _ = stored_mail_profiles(data)
                 profile = mail_profile(data, row.mail_profile_id)
                 if (

@@ -169,6 +169,10 @@ MAIL_REASONS = {
         "你收到这封邮件是因为站点为你配置了评论审核通知。",
         "You received this email because the site sends you comment moderation notifications.",
     ),
+    "comment.reply_published": (
+        "你收到这封邮件是因为你在账号中心订阅了评论回复邮件。",
+        "You received this email because you enabled comment reply emails in your account.",
+    ),
     "content.scheduled_published": (
         "你收到这封邮件是因为站点为你配置了定时发布通知。",
         "You received this email because the site sends you scheduled publication notifications.",

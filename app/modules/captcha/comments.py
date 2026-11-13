@@ -20,8 +20,9 @@ from app.core.database import Base
 from app.core.redis_keys import redis_key
 from app.core.responses import JSONResponseSuccess
 from app.core.schemas import PublicModel, PublicResponse
-from app.modules.auth.router import auth_runtime, peer
-from app.modules.auth.service import AuthFailure
+from app.modules.auth.models import User
+from app.modules.auth.router import auth_runtime, cookie, peer
+from app.modules.auth.service import AuthFailure, AuthService
 from app.modules.captcha.router import router
 from app.modules.captcha.schemas import CaptchaAnswer
 from app.modules.captcha.service import CaptchaContext, CaptchaService, context, guard
@@ -139,6 +140,18 @@ async def admit_target(
     return item
 
 
+async def comment_account(session: AsyncSession, request: Request) -> User | None:
+    csrf = request.headers.get("X-CSRF-Token")
+    if csrf is None:
+        return None
+    if request.headers.get("Authorization") is not None:
+        raise AuthFailure(403, 40362, "此操作需要登录会话")
+    runtime = auth_runtime(request)
+    return await AuthService(session, runtime.settings.auth, runtime.password_limiter).require_user(
+        cookie(request), csrf, write=True
+    )
+
+
 @router.post("/v1/reader/comments", response_model=PublicResponse[CommentReceipt])
 async def submit_comment(payload: SubmitComment, request: Request) -> JSONResponseSuccess:
     runtime = auth_runtime(request)
@@ -150,8 +163,12 @@ async def submit_comment(payload: SubmitComment, request: Request) -> JSONRespon
     client_identity = f"{payload.client_id}:{peer(request)}"
     if policy.credential:
         client_identity += ":" + policy.credential.digest
-    client_hash = hashlib.sha256(client_identity.encode()).hexdigest()
     async with runtime.database.session_factory() as session:
+        account = await comment_account(session, request)
+        account_id = account.id if account else None
+        if account_id is not None:
+            client_identity += f":account:{account_id}"
+        client_hash = hashlib.sha256(client_identity.encode()).hexdigest()
         existing = await session.get(CommentSubmission, payload.operation_id)
         if existing:
             if (
@@ -170,9 +187,13 @@ async def submit_comment(payload: SubmitComment, request: Request) -> JSONRespon
         raise AuthFailure(503, 50386, "评论服务暂不可用，请重试") from None
     permit = await service.enforce("comment", payload.content_id, payload.captcha, policy=policy)
     async with runtime.database.session_factory() as session:
+        account = await comment_account(session, request)
+        if (account.id if account else None) != account_id:
+            raise AuthFailure(409, 40987, "登录状态已更新，请重新检查后重试")
         await guard(session, permit)
         item = await admit_target(session, request, payload, permit)
-        if not payload.author.strip() or not payload.body.strip():
+        author = (account.display_name or account.username) if account else payload.author.strip()
+        if not author or not payload.body.strip():
             raise AuthFailure(422, 42287, "请填写称呼和评论内容")
         # Site read lock serializes with withdrawal, policy changes and publication.
         await session.execute(
@@ -187,7 +208,7 @@ async def submit_comment(payload: SubmitComment, request: Request) -> JSONRespon
                     client_hash=client_hash,
                     request_hash=fingerprint,
                     data={
-                        "author": payload.author.strip(),
+                        "author": author,
                         "body": payload.body.strip(),
                         "parent_id": str(payload.parent_id) if payload.parent_id else None,
                     },
@@ -200,7 +221,8 @@ async def submit_comment(payload: SubmitComment, request: Request) -> JSONRespon
                     content_id=item.id if item else None,
                     page_id=None if item else payload.content_id,
                     parent_id=payload.parent_id,
-                    author=payload.author.strip(),
+                    author=author,
+                    author_user_id=account_id,
                     content=payload.body.strip(),
                     created_at=datetime.now(UTC),
                     status="pending",
@@ -222,9 +244,9 @@ async def submit_comment(payload: SubmitComment, request: Request) -> JSONRespon
                 dedupe_key=f"comment.pending_review:{payload.operation_id}",
                 resource_type="comment",
                 resource_id=str(payload.operation_id),
-                actor_id=None,
+                actor_id=account_id,
                 data={
-                    "actor": {"name": payload.author.strip()},
+                    "actor": {"name": author},
                     "content": {"excerpt": payload.body.strip()[:300]},
                     "resource": {
                         "title": resource_title,

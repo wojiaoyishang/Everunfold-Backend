@@ -13,6 +13,7 @@ from app.core.config import Settings
 from app.modules.auth.operations import AccountOperations
 from app.modules.auth.permissions import Actor
 from app.modules.auth.service import AuthFailure
+from app.modules.comments.reply_notifications import publish_reply_notice
 from app.modules.comments.schemas import (
     CommentQuery,
     CommentResult,
@@ -168,6 +169,7 @@ class CommentService:
         ):
             raise AuthFailure(409, 40989, "评论已处理，请刷新后查看")
         changed = []
+        approved_replies: list[Comment] = []
         now = datetime.now(UTC)
         if kind == "reply" and isinstance(payload, EditComment):
             parent = rows[0]
@@ -179,6 +181,7 @@ class CommentService:
                 page_id=parent.page_id,
                 parent_id=parent.id,
                 author=actor.display_name or actor.username,
+                author_user_id=actor.id,
                 content=payload.body,
                 created_at=now,
                 updated_at=now,
@@ -188,6 +191,7 @@ class CommentService:
             self.session.add(reply)
             rows = [reply]
             changed.append(reply.id)
+            approved_replies.append(reply)
         else:
             for row in rows:
                 if isinstance(payload, ModerateComments):
@@ -208,6 +212,8 @@ class CommentService:
                     if payload.action == "trash":
                         row.previous_status = row.status
                     row.status = status or "pending"
+                    if row.status == "approved" and row.parent_id is not None:
+                        approved_replies.append(row)
                 elif kind == "edit":
                     if row.status == "trash":
                         raise AuthFailure(409, 40989, "请先恢复回收站中的评论")
@@ -221,6 +227,8 @@ class CommentService:
                 changed.append(row.id)
         if changed:
             await self.session.flush()
+            for reply in approved_replies:
+                await publish_reply_notice(self.session, reply)
             await ContentPublication(self.session, self.config).stage(
                 CacheChange("comments_changed")
             )

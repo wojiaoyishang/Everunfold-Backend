@@ -46,6 +46,9 @@ class User(Base):
     email: Mapped[str] = mapped_column(String(254), default="", server_default="")
     email_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     email_reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    comment_reply_email: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="false"
+    )
     avatar_url: Mapped[str] = mapped_column(Text, default="", server_default="")
     avatar_id: Mapped[UUID | None] = mapped_column(
         ForeignKey("account_avatars.id", use_alter=True, name="fk_users_avatar_id_account_avatars")

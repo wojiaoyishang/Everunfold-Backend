@@ -17,6 +17,7 @@ class NotificationEventDefinition:
     recipient_mode: RecipientMode = "configurable"
     delivery_mode: DeliveryMode = "notification"
     email_only: bool = False
+    platform_ids: tuple[str, ...] = ()
 
     @property
     def fixed_recipient(self) -> tuple[str, str] | None:
@@ -32,4 +33,6 @@ class NotificationEventDefinition:
         return kind in {"user", "role", "permission"}
 
     def accepts_platform(self, platform: str) -> bool:
-        return not self.email_only or platform == "email"
+        return (not self.email_only or platform == "email") and (
+            not self.platform_ids or platform in self.platform_ids
+        )

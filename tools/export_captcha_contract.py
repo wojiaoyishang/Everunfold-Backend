@@ -9,7 +9,7 @@ from app.modules.captcha.contract import CaptchaAPIContract
 def main() -> None:
     schema = CaptchaAPIContract.model_json_schema()
     schema["$schema"] = "http://json-schema.org/draft-07/schema#"
-    schema["x-everunfold-contract-version"] = "1.7.0"
+    schema["x-everunfold-contract-version"] = "1.8.0"
     schema["x-everunfold-reader-authorization"] = {
         "header": "Authorization: Bearer <API Key>",
         "audience": "everunfold",
@@ -70,6 +70,15 @@ def main() -> None:
             "response": "comment_response",
             "csrf": False,
             "credentials": "omit",
+        },
+        {
+            "name": "submitAccountReaderComment",
+            "path": "/v1/reader/comments",
+            "method": "POST",
+            "input": "comment_request",
+            "response": "comment_response",
+            "csrf": True,
+            "credentials": "include",
         },
     ]
     (Path(__file__).resolve().parents[1] / "contracts/captcha-v1.schema.json").write_text(
