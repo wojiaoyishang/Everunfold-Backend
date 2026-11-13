@@ -189,7 +189,7 @@ def monitor_router(access: MonitorAccess | None) -> APIRouter:
                     body.extend(chunk)
             command = NodeChange.model_validate_json(body)
             async with runtime.database.session_factory() as session:
-                result = await manage_node(session, runtime.settings, command, None)
+                result = await manage_node(session, runtime.settings, command)
         except (ValidationError, ClientDisconnect, TimeoutError):
             return JSONResponse({"error": "节点 ID、公开地址或请求无效"}, 422, headers)
         except AuthFailure as exc:

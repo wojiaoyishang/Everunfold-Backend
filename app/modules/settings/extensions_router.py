@@ -58,12 +58,12 @@ async def report_extensions(node_id: str, request: Request) -> JSONResponseSucce
         )
     except ValueError:
         allowed = False
-    if not allowed:
+    supplied = request.headers.get("authorization", "")
+    if not allowed or not supplied.startswith("Bearer "):
         raise AuthFailure(403, 40320, "内部请求未通过验证")
     async with runtime.database.session_factory() as session:
         node = (await read_targets(session, config)).get(node_id)
     token = os.environ.get(node.nextjs_to_fastapi_token_env, "") if node else ""
-    supplied = request.headers.get("authorization", "")
     if (
         not node
         or not node.enabled

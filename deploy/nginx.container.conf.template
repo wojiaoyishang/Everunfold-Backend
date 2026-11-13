@@ -46,6 +46,16 @@ http {
             proxy_buffering off;
         }
 
+        # HTTP development exposes the frontend's offline password only over loopback.
+        location ~ ^/admin/_nodes(?:/|$) {
+            allow 127.0.0.1;
+            allow ::1;
+            deny all;
+            client_max_body_size 4k;
+            proxy_pass http://127.0.0.1:3100;
+            proxy_buffering off;
+        }
+
         # Preserve the real API and websocket paths; no /api prefix rewriting.
         location ~ ^/(v1/|ws/v1/|media/|health/|docs(?:/|$)|redoc$|openapi\.json$) {
             proxy_pass http://127.0.0.1:8001;

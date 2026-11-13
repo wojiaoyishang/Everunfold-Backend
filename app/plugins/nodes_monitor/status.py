@@ -34,6 +34,8 @@ RESOURCES: tuple[Resource, ...] = ("public-settings", "cache-policy", "public-co
 
 
 def display_error(error: str | None) -> str | None:
+    if error == "node_inactive":
+        return None
     if error in {
         "node_not_configured",
         "invalid_receipt",

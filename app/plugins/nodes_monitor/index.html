@@ -296,7 +296,9 @@
           revision = value.registry_revision ?? null;
           byId("add").hidden = !(revision > 0);
           byId("sample").textContent = "更新时间 " + stamp(value.sampled_at);
-          byId("notice").textContent = value.history_available || !value.nodes.length ? "" : "同步记录暂时无法读取。";
+          byId("notice").textContent = revision === null ?
+            "无法读取运行清单，以下为部署文件中的参考节点。" :
+            value.history_available || !value.nodes.length ? "" : "同步记录暂时无法读取。";
           const health = [["API", value.api], ["数据库", value.database], ["Redis", value.redis],
             ["Worker", value.worker], ["Scheduler", value.scheduler]];
           byId("health").replaceChildren(...health.map(([label, status]) => {

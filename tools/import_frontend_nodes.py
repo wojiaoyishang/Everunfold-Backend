@@ -2,6 +2,7 @@
 
 import argparse
 import asyncio
+from datetime import UTC, datetime
 
 from app.core.config import load_settings
 from app.core.database import Database
@@ -66,6 +67,7 @@ async def run(update_bindings: bool) -> None:
             session.add(
                 AuthAuditEvent(
                     action="frontend_node_import",
+                    created_at=datetime.now(UTC),
                     details={
                         "node_ids": changed,
                         "revision": current.revision,

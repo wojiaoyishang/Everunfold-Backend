@@ -1,6 +1,7 @@
 """Deployment catalogs never grant browser code-install privileges."""
 
 from typing import Any
+from unittest.mock import AsyncMock
 
 import pytest
 from fastapi.testclient import TestClient
@@ -125,6 +126,12 @@ def test_internal_registration_requires_real_peer_and_token(
                 )
             },
         }
+    )
+    from app.modules.settings import extensions_router
+
+    # The socket/token boundary test does not provision PostgreSQL.
+    monkeypatch.setattr(
+        extensions_router, "read_targets", AsyncMock(return_value=configured.frontends)
     )
     with TestClient(create_app(configured), client=("198.51.100.7", 4000)) as client:
         result = client.post(

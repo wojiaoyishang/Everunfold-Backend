@@ -1,6 +1,6 @@
 """Manage membership and queue repairs without moving a deployed credential."""
 
-from uuid import UUID
+from datetime import UTC, datetime
 
 from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -33,7 +33,7 @@ async def revoke_leases(session: AsyncSession, node_id: str) -> None:
 
 
 async def manage_node(
-    session: AsyncSession, settings: Settings, command: NodeChange, actor: UUID | None
+    session: AsyncSession, settings: Settings, command: NodeChange
 ) -> NodeChangeResult:
     await lock_references(session)
     service = SettingsService(session, settings)
@@ -84,17 +84,17 @@ async def manage_node(
         await session.flush()
 
     if queued:
-        await service.stage_retry(node_id, actor)
-        await ContentPublication(session, settings).stage_retry(actor, node_id=node_id)
+        await service.stage_retry(node_id, None)
+        await ContentPublication(session, settings).stage_retry(None, node_id=node_id)
     revision = record.revision if record else 0
     session.add(
         AuthAuditEvent(
-            user_id=actor,
             action="frontend_node_" + action,
+            created_at=datetime.now(UTC),
             details={
                 "node_id": node_id,
                 "revision": revision,
-                "actor": "deployment_console" if actor is None else "admin",
+                "actor": "deployment_console",
                 "before": previous.model_dump() if previous else None,
                 "after": command.registration.model_dump() if command.registration else None,
                 "queued": queued,
