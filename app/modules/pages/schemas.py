@@ -146,6 +146,7 @@ class PageTemplateReference(PublicModel):
 
 class PageTemplateItem(PublicModel):
     id: UUID
+    type_id: str
     revision: int = Field(ge=1)
     value: TitledPageCode
 

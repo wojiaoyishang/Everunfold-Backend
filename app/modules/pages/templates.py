@@ -23,6 +23,7 @@ from app.modules.pages.schemas import (
     PageValue,
     SavePageTemplate,
     TitledPageCode,
+    template_type_id,
 )
 from app.modules.settings.cache_event_schema import CacheChange
 from app.modules.settings.models import SettingsAudit
@@ -73,6 +74,7 @@ class PageTemplates:
     def item(template: PageTemplate) -> PageTemplateItem:
         return PageTemplateItem(
             id=template.id,
+            type_id=template_type_id(template.id),
             revision=template.revision,
             value=TitledPageCode(
                 **template.code, title=template.title, description=template.description
