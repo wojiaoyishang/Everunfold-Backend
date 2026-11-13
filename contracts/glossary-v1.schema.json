@@ -134,6 +134,104 @@
     "GlossaryDetail": {
       "additionalProperties": false,
       "properties": {
+        "allow_indexing": {
+          "default": true,
+          "title": "Allow Indexing",
+          "type": "boolean"
+        },
+        "seo_title": {
+          "default": "",
+          "maxLength": 200,
+          "title": "Seo Title",
+          "type": "string"
+        },
+        "seo_description": {
+          "default": "",
+          "maxLength": 500,
+          "title": "Seo Description",
+          "type": "string"
+        },
+        "seo_canonical_path": {
+          "default": "",
+          "maxLength": 500,
+          "title": "Seo Canonical Path",
+          "type": "string"
+        },
+        "seo_share_title": {
+          "default": "",
+          "maxLength": 200,
+          "title": "Seo Share Title",
+          "type": "string"
+        },
+        "seo_share_description": {
+          "default": "",
+          "maxLength": 500,
+          "title": "Seo Share Description",
+          "type": "string"
+        },
+        "seo_image_alt": {
+          "default": "",
+          "maxLength": 500,
+          "title": "Seo Image Alt",
+          "type": "string"
+        },
+        "seo_max_snippet": {
+          "anyOf": [
+            {
+              "maximum": 5000,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Seo Max Snippet"
+        },
+        "seo_image_preview": {
+          "anyOf": [
+            {
+              "enum": [
+                "none",
+                "standard",
+                "large"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Seo Image Preview"
+        },
+        "seo_structured_data": {
+          "anyOf": [
+            {
+              "const": false,
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Seo Structured Data"
+        },
+        "share_image_media_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Share Image Media Id"
+        },
         "id": {
           "format": "uuid",
           "title": "Id",
@@ -246,6 +344,18 @@
           "title": "Body",
           "type": "array"
         },
+        "share_image_url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Share Image Url"
+        },
         "media_urls": {
           "additionalProperties": {
             "$ref": "#/$defs/MediaURL"
@@ -287,6 +397,104 @@
     "GlossaryFields": {
       "additionalProperties": false,
       "properties": {
+        "allow_indexing": {
+          "default": true,
+          "title": "Allow Indexing",
+          "type": "boolean"
+        },
+        "seo_title": {
+          "default": "",
+          "maxLength": 200,
+          "title": "Seo Title",
+          "type": "string"
+        },
+        "seo_description": {
+          "default": "",
+          "maxLength": 500,
+          "title": "Seo Description",
+          "type": "string"
+        },
+        "seo_canonical_path": {
+          "default": "",
+          "maxLength": 500,
+          "title": "Seo Canonical Path",
+          "type": "string"
+        },
+        "seo_share_title": {
+          "default": "",
+          "maxLength": 200,
+          "title": "Seo Share Title",
+          "type": "string"
+        },
+        "seo_share_description": {
+          "default": "",
+          "maxLength": 500,
+          "title": "Seo Share Description",
+          "type": "string"
+        },
+        "seo_image_alt": {
+          "default": "",
+          "maxLength": 500,
+          "title": "Seo Image Alt",
+          "type": "string"
+        },
+        "seo_max_snippet": {
+          "anyOf": [
+            {
+              "maximum": 5000,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Seo Max Snippet"
+        },
+        "seo_image_preview": {
+          "anyOf": [
+            {
+              "enum": [
+                "none",
+                "standard",
+                "large"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Seo Image Preview"
+        },
+        "seo_structured_data": {
+          "anyOf": [
+            {
+              "const": false,
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Seo Structured Data"
+        },
+        "share_image_media_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Share Image Media Id"
+        },
         "language": {
           "anyOf": [
             {
@@ -1150,6 +1358,91 @@
     "PublicGlossaryDetail": {
       "additionalProperties": false,
       "properties": {
+        "allow_indexing": {
+          "default": true,
+          "title": "Allow Indexing",
+          "type": "boolean"
+        },
+        "seo_title": {
+          "default": "",
+          "maxLength": 200,
+          "title": "Seo Title",
+          "type": "string"
+        },
+        "seo_description": {
+          "default": "",
+          "maxLength": 500,
+          "title": "Seo Description",
+          "type": "string"
+        },
+        "seo_canonical_path": {
+          "default": "",
+          "maxLength": 500,
+          "title": "Seo Canonical Path",
+          "type": "string"
+        },
+        "seo_share_title": {
+          "default": "",
+          "maxLength": 200,
+          "title": "Seo Share Title",
+          "type": "string"
+        },
+        "seo_share_description": {
+          "default": "",
+          "maxLength": 500,
+          "title": "Seo Share Description",
+          "type": "string"
+        },
+        "seo_image_alt": {
+          "default": "",
+          "maxLength": 500,
+          "title": "Seo Image Alt",
+          "type": "string"
+        },
+        "seo_max_snippet": {
+          "anyOf": [
+            {
+              "maximum": 5000,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Seo Max Snippet"
+        },
+        "seo_image_preview": {
+          "anyOf": [
+            {
+              "enum": [
+                "none",
+                "standard",
+                "large"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Seo Image Preview"
+        },
+        "seo_structured_data": {
+          "anyOf": [
+            {
+              "const": false,
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Seo Structured Data"
+        },
         "id": {
           "format": "uuid",
           "title": "Id",
@@ -1197,6 +1490,31 @@
         "path": {
           "title": "Path",
           "type": "string"
+        },
+        "share_image_url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Share Image Url"
+        },
+        "updated_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Updated At"
         },
         "body": {
           "items": {
@@ -1809,7 +2127,7 @@
   "title": "GlossaryContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "3.7.0",
+  "x-everunfold-contract-version": "3.8.0",
   "x-everunfold-operations": [
     {
       "name": "readGlossaryIndex",

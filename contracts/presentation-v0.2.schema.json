@@ -190,6 +190,89 @@
   },
   "additionalProperties": false,
   "properties": {
+    "allow_indexing": {
+      "default": true,
+      "title": "Allow Indexing",
+      "type": "boolean"
+    },
+    "seo_title": {
+      "default": "",
+      "title": "Seo Title",
+      "type": "string"
+    },
+    "seo_description": {
+      "default": "",
+      "title": "Seo Description",
+      "type": "string"
+    },
+    "seo_canonical_path": {
+      "default": "",
+      "maxLength": 500,
+      "title": "Seo Canonical Path",
+      "type": "string"
+    },
+    "seo_share_title": {
+      "default": "",
+      "maxLength": 200,
+      "title": "Seo Share Title",
+      "type": "string"
+    },
+    "seo_share_description": {
+      "default": "",
+      "maxLength": 500,
+      "title": "Seo Share Description",
+      "type": "string"
+    },
+    "seo_image_alt": {
+      "default": "",
+      "maxLength": 500,
+      "title": "Seo Image Alt",
+      "type": "string"
+    },
+    "seo_max_snippet": {
+      "anyOf": [
+        {
+          "maximum": 5000,
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Seo Max Snippet"
+    },
+    "seo_image_preview": {
+      "anyOf": [
+        {
+          "enum": [
+            "none",
+            "standard",
+            "large"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Seo Image Preview"
+    },
+    "seo_structured_data": {
+      "anyOf": [
+        {
+          "const": false,
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Seo Structured Data"
+    },
     "article_layout": {
       "default": "inherit",
       "enum": [
@@ -401,21 +484,6 @@
       "title": "Show Glossary Footnotes",
       "type": "boolean"
     },
-    "allow_indexing": {
-      "default": true,
-      "title": "Allow Indexing",
-      "type": "boolean"
-    },
-    "seo_title": {
-      "default": "",
-      "title": "Seo Title",
-      "type": "string"
-    },
-    "seo_description": {
-      "default": "",
-      "title": "Seo Description",
-      "type": "string"
-    },
     "reaction_count": {
       "minimum": 0,
       "title": "Reaction Count",
@@ -471,6 +539,6 @@
   "title": "ContentPresentation",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "0.2.0-preview.6",
+  "x-everunfold-contract-version": "0.2.0-preview.7",
   "description": "Draft presentation contract. No HTTP endpoint or database migration is installed. Locked records omit body, excerpt and media. Viewer-specific state is separate."
 }

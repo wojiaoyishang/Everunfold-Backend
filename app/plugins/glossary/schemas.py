@@ -9,6 +9,7 @@ from pydantic import Field, field_validator, model_validator
 
 from app.core.schemas import PublicModel, PublicResponse
 from app.modules.content.schemas import MediaURL
+from app.modules.content.seo import SeoFields
 from app.modules.settings.languages import LanguageCode
 
 from .matching import validate_regex
@@ -63,7 +64,22 @@ class GlossaryMatchPreviewOutput(PublicModel):
     hits: list[GlossaryMatchedText]
 
 
-class GlossaryFields(PublicModel):
+class GlossarySeo(SeoFields):
+    allow_indexing: bool = Field(default=True, exclude_if=lambda value: value)
+    share_image_media_id: UUID | None = Field(default=None, exclude_if=lambda value: value is None)
+
+    def stored(self) -> dict[str, object]:
+        return {
+            **self.seo_overrides(),
+            **(
+                {"share_image_media_id": str(self.share_image_media_id)}
+                if self.share_image_media_id
+                else {}
+            ),
+        }
+
+
+class GlossaryFields(GlossarySeo):
     language: GlossaryLanguage = "*"
     slug: str = Field(min_length=1, max_length=120)
     title: str = Field(min_length=1, max_length=120)
@@ -155,9 +171,10 @@ class GlossaryListItem(PublicModel):
     published_at: datetime | None
 
 
-class GlossaryDetail(GlossaryListItem):
+class GlossaryDetail(GlossaryListItem, GlossarySeo):
     body: list[GlossaryBlock]
     feature_image: MediaURL | None = None
+    share_image_url: str | None = None
     media_urls: dict[str, MediaURL] = Field(default_factory=dict)
     created_by: UUID
     updated_by: UUID
@@ -195,7 +212,9 @@ class PublicGlossaryIndex(PublicModel):
     terms: list[PublicGlossaryTerm]
 
 
-class PublicGlossaryDetail(PublicGlossaryTerm):
+class PublicGlossaryDetail(PublicGlossaryTerm, SeoFields):
+    share_image_url: str | None = None
+    updated_at: datetime | None = None
     body: list[GlossaryBlock]
     media_urls: dict[str, MediaURL] = Field(default_factory=dict)
 

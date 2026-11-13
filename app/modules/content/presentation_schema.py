@@ -16,9 +16,10 @@ from app.modules.content.schemas import (
     MediaURL,
     TaxonomyDTO,
 )
+from app.modules.content.seo import SeoFields
 
 
-class ContentPresentation(ArticleOverrides):
+class ContentPresentation(ArticleOverrides, SeoFields):
     share_image_url: str | None = None
     id: str = Field(min_length=1)
     type: Literal["article", "shuoshuo", "page"]
@@ -44,7 +45,6 @@ class ContentPresentation(ArticleOverrides):
     show_image_viewer: bool = True
     show_glossary_tooltips: bool = True
     show_glossary_footnotes: bool = True
-    allow_indexing: bool = True
     seo_title: str = ""
     seo_description: str = ""
     reaction_count: int = Field(ge=0)

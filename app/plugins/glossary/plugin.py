@@ -6,7 +6,9 @@ from .api import public, read_admin, write_admin
 def setup(registry: PluginRegistry) -> None:
     registry.routes.register(public, access="public")
     registry.routes.register(read_admin, access="permission", permission="content:read")
-    registry.routes.register(write_admin, access="permission", permission="content:write")
+    registry.routes.register(
+        write_admin, access="permission", permission="content:write", media_references=True
+    )
 
 
 plugin = define_plugin(
@@ -14,7 +16,7 @@ plugin = define_plugin(
     preview="asset:assets/preview.webp",
     title="术语表与悬浮提示",
     description="维护术语、别名和说明，并按需在前台文章正文中显示提示。",
-    version="1.7.0",
+    version="1.8.0",
     author="Everunfold",
     setup=setup,
 )

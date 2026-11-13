@@ -1,6 +1,7 @@
 """Glossary-owned persistence; article snapshots never embed these rows."""
 
 from datetime import datetime
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import (
@@ -44,6 +45,7 @@ class GlossaryTerm(Base):
     title: Mapped[str] = mapped_column(String(120))
     summary: Mapped[str] = mapped_column(Text)
     feature_media_id: Mapped[str] = mapped_column(String(64), default="")
+    seo: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict, server_default="{}")
     show_image_viewer: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
     body_markdown: Mapped[str | None] = mapped_column(Text)
     body: Mapped[list[dict[str, object]]] = mapped_column(JSONB, default=list)

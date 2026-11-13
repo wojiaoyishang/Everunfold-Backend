@@ -12,6 +12,8 @@ from app.modules.auth.accounts_service import AccountsService
 from app.modules.auth.models import User
 from app.modules.auth.permissions import user_permissions
 from app.modules.auth.service import AuthFailure
+from app.modules.content.editor_schema import EditorSettings
+from app.modules.content.editor_service import editor_media
 from app.modules.content.publication import ContentPublication
 from app.modules.media.locking import lock_references
 from app.modules.pages.groups import promote_original, translations, unapplied
@@ -83,6 +85,7 @@ class PagesService:
             else None
         )
         group = await translations(self.session, row) if row.source == "custom" else None
+        value = effective_value(row.data, template)
         return ManagedPageItem(
             id=row.id,
             source=cast(Literal["custom", "registered"], row.source),
@@ -92,7 +95,8 @@ class PagesService:
             revision=row.revision,
             applied_revision=row.applied_revision,
             enabled=row.published is not None,
-            value=effective_value(row.data, template),
+            value=value,
+            share_image_url=await self.share_image(value, strict=False) if types is None else None,
             registration=registration,
             available=available,
             updated_at=row.updated_at,
@@ -127,7 +131,9 @@ class PagesService:
                 continue
             items.append(
                 ManagedPageSummary(
-                    **item.model_dump(exclude={"value", "registration", "template"}),
+                    **item.model_dump(
+                        exclude={"value", "registration", "template", "share_image_url"}
+                    ),
                     title=item.value.title,
                     path=item.value.path,
                     description=item.value.description,
@@ -257,10 +263,19 @@ class PagesService:
                 raise AuthFailure(403, 40396, "插件页面只允许修改页面选项")
             if payload.apply and value.enabled and not available:
                 raise AuthFailure(409, 40998, "前端页面注册缺失或节点版本不一致")
+            if definition and not definition.seo_editable:
+                previous = effective_value(row.data, None) if not creating else None
+                if value.seo_overrides() != (
+                    previous.seo_overrides() if previous else {}
+                ) or value.share_image_media_id != (
+                    previous.share_image_media_id if previous else None
+                ):
+                    raise AuthFailure(403, 40396, "该页面类型不允许修改搜索与分享设置")
         if value.javascript_enabled and actor.role != "admin":
             raise AuthFailure(403, 40397, "只有管理员可以启用或修改页面脚本")
         require_page_size(value)
         await self.validate_path(value.path, row.id)
+        share_image = await self.share_image(value, strict=True)
         row.revision = next_revision
         if new_group is not None:
             self.session.add(new_group)
@@ -271,7 +286,9 @@ class PagesService:
                 raise AuthFailure(403, 40364, "没有执行此操作的权限")
             row.applied_revision = row.revision
             row.applied_snapshot = page_data(value.model_copy(update={"enabled": True}), template)
-            row.published = self.public_value(row, value, definition) if value.enabled else None
+            row.published = (
+                self.public_value(row, value, definition, share_image) if value.enabled else None
+            )
             await self.session.flush()
             await ContentPublication(self.session, self.config).stage(CacheChange("page_changed"))
         self.session.add(
@@ -294,12 +311,26 @@ class PagesService:
         await self.session.commit()
         return result
 
+    async def share_image(self, value: PageValue, *, strict: bool) -> str | None:
+        if value.share_image_media_id is None:
+            return None
+        images = await editor_media(
+            self.session,
+            self.config,
+            "",
+            EditorSettings(share_image_media_id=value.share_image_media_id),
+            strict=strict,
+        )
+        image = images.get(str(value.share_image_media_id))
+        return image.original if image else None
+
     @staticmethod
     def public_value(
-        row: ManagedPage, value: PageValue, definition: PageRegistration | None
+        row: ManagedPage, value: PageValue, definition: PageRegistration | None, image: str | None
     ) -> dict[str, Any]:
         return PublicManagedPage(
-            **{**value.model_dump(), "enabled": True},
+            **{**value.model_dump(exclude={"share_image_media_id"}), "enabled": True},
+            share_image_url=image,
             id=row.id,
             source=cast(Literal["custom", "registered"], row.source),
             revision=row.revision
@@ -341,7 +372,11 @@ class PagesService:
         if row.applied_snapshot is None and payload.enabled:
             row.applied_snapshot = page_data(value.model_copy(update={"enabled": True}), template)
             row.applied_revision = row.revision
-        row.published = self.public_value(row, value, definition) if payload.enabled else None
+        row.published = (
+            self.public_value(row, value, definition, await self.share_image(value, strict=True))
+            if payload.enabled
+            else None
+        )
         await self.session.flush()
         await ContentPublication(self.session, self.config).stage(CacheChange("page_changed"))
         self.session.add(
@@ -442,6 +477,8 @@ async def public_pages(
             if required(captcha, "read", "page", page.model_dump()):
                 page.access = "captcha"
                 page.description = ""
+                page.clear_seo()
+                page.share_image_url = None
                 page.html, page.css, page.javascript = "", "", ""
                 page.javascript_enabled = False
                 page.options = {}

@@ -270,7 +270,9 @@ class PublicContentService:
             comment_map.setdefault(str(row.content_id or row.page_id), []).append(projection)
         details = [self._detail(item, taxonomy_map, counts) for item in contents]
         await self._translations(details)
+        from app.core.plugins.state import installed_info
         from app.modules.pages.service import public_pages
+        from app.plugins.glossary.service import public_discovery
 
         return PublicSnapshot(
             source_epoch=str(stored.source_epoch),
@@ -281,4 +283,7 @@ class PublicContentService:
             comments=comment_map,
             taxonomies=taxonomies,
             pages=await public_pages(self.repository.session),
+            glossary=await public_discovery(self.repository.session)
+            if any(item.id == "everunfold.glossary" for item in installed_info(stored.data))
+            else [],
         )

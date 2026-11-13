@@ -10,6 +10,7 @@ from pydantic import Field, JsonValue, field_validator, model_validator
 from app.core.schemas import PublicModel, PublicResponse
 from app.modules.captcha.schemas import CaptchaOverride
 from app.modules.content.editor_schema import content_path
+from app.modules.content.seo import SeoFields
 from app.modules.pages.options import bounded_options
 from app.modules.settings.languages import LanguageCode
 
@@ -56,6 +57,7 @@ class PageRegistration(PublicModel):
     )
     description: str = Field(default="", max_length=500)
     comments_open: bool = True
+    seo_editable: bool = Field(default=True, exclude_if=lambda value: value)
     fields: list[PageOption] = Field(default_factory=list, max_length=30)
     defaults: dict[str, JsonValue] = Field(default_factory=dict)
     _defaults = field_validator("defaults")(bounded_options)
@@ -114,10 +116,9 @@ class TitledPageCode(PageCode):
         return value.strip()
 
 
-class PageSettings(TitledPageCode):
+class PageSettings(TitledPageCode, SeoFields):
     captcha_read: CaptchaOverride = "inherit"
     captcha_comment: CaptchaOverride = "inherit"
-    allow_indexing: bool = True
     comments_open: bool = True
     show_image_viewer: bool = True
     show_glossary_tooltips: bool = True
@@ -127,12 +128,17 @@ class PageSettings(TitledPageCode):
     _options = field_validator("options")(bounded_options)
 
 
-class PageValue(PageSettings):
+class PageAtPath(PageSettings):
     path: str = Field(min_length=2, max_length=500)
     _path = field_validator("path")(content_path)
 
 
+class PageValue(PageAtPath):
+    share_image_media_id: UUID | None = Field(default=None, exclude_if=lambda value: value is None)
+
+
 class PageInput(PageSettings):
+    share_image_media_id: UUID | None = Field(default=None, exclude_if=lambda value: value is None)
     path: str | None = Field(
         default=None, description="Omit on first save to generate a URL from the title."
     )
@@ -158,9 +164,10 @@ class SavePageTemplate(PublicModel):
     value: TitledPageCode
 
 
-class PublicManagedPage(PageValue):
+class PublicManagedPage(PageAtPath):
     read_receipt: str = ""
     access: Literal["public", "captcha"] = "public"
+    share_image_url: str | None = Field(default=None, exclude_if=lambda value: value is None)
     enabled: Literal[True] = True
     id: UUID
     source: Literal["custom", "registered"]
@@ -202,6 +209,7 @@ class ManagedPageItem(PublicModel):
     applied_revision: int | None
     enabled: bool
     value: PageValue
+    share_image_url: str | None = None
     registration: PageRegistration | None
     available: bool
     updated_at: datetime

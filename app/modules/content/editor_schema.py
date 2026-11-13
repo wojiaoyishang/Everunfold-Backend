@@ -10,6 +10,7 @@ from pydantic import AwareDatetime, Field, field_validator
 
 from app.core.schemas import PublicModel
 from app.modules.captcha.schemas import CaptchaOverride
+from app.modules.content.seo import SeoFields
 
 
 class ReservedContentPath(ValueError):
@@ -68,7 +69,7 @@ class ArticleOverrides(PublicModel):
     show_afterword: bool | None = None
 
 
-class EditorSettings(ArticleOverrides):
+class EditorSettings(ArticleOverrides, SeoFields):
     byline: str = Field(default="", max_length=100)
     share_image_media_id: UUID | None = None
 
@@ -89,7 +90,6 @@ class EditorSettings(ArticleOverrides):
     show_glossary_footnotes: bool = True
     captcha_read: CaptchaOverride = "inherit"
     captcha_comment: CaptchaOverride = "inherit"
-    allow_indexing: bool = True
     seo_title: str = Field(default="", max_length=200)
     seo_description: str = Field(default="", max_length=500)
     visibility: Literal["public", "password"] = "public"
@@ -131,12 +131,11 @@ class EditorCatalog(PublicModel):
     terms: list[EditorTerm]
 
 
-class PublicEditorSettings(ArticleOverrides):
+class PublicEditorSettings(ArticleOverrides, SeoFields):
     share_image_url: str | None = None
     comments_open: bool = True
     show_image_viewer: bool = True
     show_glossary_tooltips: bool = True
     show_glossary_footnotes: bool = True
-    allow_indexing: bool = True
     seo_title: str = ""
     seo_description: str = ""

@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://everunfold.local/contracts/public-v0.1.schema.json",
   "title": "PublicSnapshot",
-  "description": "公开阅读快照；页面评论开关与验证码受限配置，兼容已有快照。",
+  "description": "公开阅读快照，包含内容 SEO 与已发布术语的发现索引，兼容已有快照。",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -76,6 +76,20 @@
         "$ref": "#/definitions/PublicManagedPage"
       },
       "default": []
+    },
+    "glossary": {
+      "anyOf": [
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/GlossaryDiscoveryEntry"
+          }
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
     }
   },
   "definitions": {
@@ -309,6 +323,89 @@
     "ContentDetail": {
       "additionalProperties": false,
       "properties": {
+        "allow_indexing": {
+          "default": true,
+          "title": "Allow Indexing",
+          "type": "boolean"
+        },
+        "seo_title": {
+          "default": "",
+          "title": "Seo Title",
+          "type": "string"
+        },
+        "seo_description": {
+          "default": "",
+          "title": "Seo Description",
+          "type": "string"
+        },
+        "seo_canonical_path": {
+          "default": "",
+          "maxLength": 500,
+          "title": "Seo Canonical Path",
+          "type": "string"
+        },
+        "seo_share_title": {
+          "default": "",
+          "maxLength": 200,
+          "title": "Seo Share Title",
+          "type": "string"
+        },
+        "seo_share_description": {
+          "default": "",
+          "maxLength": 500,
+          "title": "Seo Share Description",
+          "type": "string"
+        },
+        "seo_image_alt": {
+          "default": "",
+          "maxLength": 500,
+          "title": "Seo Image Alt",
+          "type": "string"
+        },
+        "seo_max_snippet": {
+          "anyOf": [
+            {
+              "maximum": 5000,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Seo Max Snippet"
+        },
+        "seo_image_preview": {
+          "anyOf": [
+            {
+              "enum": [
+                "none",
+                "standard",
+                "large"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Seo Image Preview"
+        },
+        "seo_structured_data": {
+          "anyOf": [
+            {
+              "const": false,
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Seo Structured Data"
+        },
         "article_layout": {
           "default": "inherit",
           "enum": [
@@ -398,21 +495,6 @@
           "default": true,
           "title": "Show Glossary Footnotes",
           "type": "boolean"
-        },
-        "allow_indexing": {
-          "default": true,
-          "title": "Allow Indexing",
-          "type": "boolean"
-        },
-        "seo_title": {
-          "default": "",
-          "title": "Seo Title",
-          "type": "string"
-        },
-        "seo_description": {
-          "default": "",
-          "title": "Seo Description",
-          "type": "string"
         },
         "access": {
           "default": "public",
@@ -753,74 +835,90 @@
     "PublicManagedPage": {
       "additionalProperties": false,
       "properties": {
-        "captcha_read": {
-          "default": "inherit",
-          "enum": [
-            "inherit",
-            "required",
-            "off"
-          ],
-          "title": "Captcha Read",
-          "type": "string"
-        },
-        "captcha_comment": {
-          "default": "inherit",
-          "enum": [
-            "inherit",
-            "required",
-            "off"
-          ],
-          "title": "Captcha Comment",
-          "type": "string"
-        },
-        "title": {
-          "maxLength": 120,
-          "minLength": 1,
-          "title": "Title",
-          "type": "string"
-        },
-        "path": {
-          "maxLength": 500,
-          "minLength": 2,
-          "title": "Path",
-          "type": "string"
-        },
-        "description": {
-          "default": "",
-          "maxLength": 500,
-          "title": "Description",
-          "type": "string"
-        },
         "allow_indexing": {
           "default": true,
           "title": "Allow Indexing",
           "type": "boolean"
         },
-        "comments_open": {
-          "default": true,
-          "title": "Comments Open",
-          "type": "boolean"
+        "seo_title": {
+          "default": "",
+          "maxLength": 200,
+          "title": "Seo Title",
+          "type": "string"
         },
-        "show_image_viewer": {
-          "default": true,
-          "title": "Show Image Viewer",
-          "type": "boolean"
+        "seo_description": {
+          "default": "",
+          "maxLength": 500,
+          "title": "Seo Description",
+          "type": "string"
         },
-        "show_glossary_tooltips": {
-          "default": true,
-          "title": "Show Glossary Tooltips",
-          "type": "boolean"
+        "seo_canonical_path": {
+          "default": "",
+          "maxLength": 500,
+          "title": "Seo Canonical Path",
+          "type": "string"
         },
-        "show_glossary_footnotes": {
-          "default": true,
-          "title": "Show Glossary Footnotes",
-          "type": "boolean"
+        "seo_share_title": {
+          "default": "",
+          "maxLength": 200,
+          "title": "Seo Share Title",
+          "type": "string"
         },
-        "enabled": {
-          "const": true,
-          "default": true,
-          "title": "Enabled",
-          "type": "boolean"
+        "seo_share_description": {
+          "default": "",
+          "maxLength": 500,
+          "title": "Seo Share Description",
+          "type": "string"
+        },
+        "seo_image_alt": {
+          "default": "",
+          "maxLength": 500,
+          "title": "Seo Image Alt",
+          "type": "string"
+        },
+        "seo_max_snippet": {
+          "anyOf": [
+            {
+              "maximum": 5000,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Seo Max Snippet"
+        },
+        "seo_image_preview": {
+          "anyOf": [
+            {
+              "enum": [
+                "none",
+                "standard",
+                "large"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Seo Image Preview"
+        },
+        "seo_structured_data": {
+          "anyOf": [
+            {
+              "const": false,
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Seo Structured Data"
         },
         "html": {
           "default": "",
@@ -854,12 +952,76 @@
           "title": "Javascript Position",
           "type": "string"
         },
+        "title": {
+          "maxLength": 120,
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        },
+        "description": {
+          "default": "",
+          "maxLength": 500,
+          "title": "Description",
+          "type": "string"
+        },
+        "captcha_read": {
+          "default": "inherit",
+          "enum": [
+            "inherit",
+            "required",
+            "off"
+          ],
+          "title": "Captcha Read",
+          "type": "string"
+        },
+        "captcha_comment": {
+          "default": "inherit",
+          "enum": [
+            "inherit",
+            "required",
+            "off"
+          ],
+          "title": "Captcha Comment",
+          "type": "string"
+        },
+        "comments_open": {
+          "default": true,
+          "title": "Comments Open",
+          "type": "boolean"
+        },
+        "show_image_viewer": {
+          "default": true,
+          "title": "Show Image Viewer",
+          "type": "boolean"
+        },
+        "show_glossary_tooltips": {
+          "default": true,
+          "title": "Show Glossary Tooltips",
+          "type": "boolean"
+        },
+        "show_glossary_footnotes": {
+          "default": true,
+          "title": "Show Glossary Footnotes",
+          "type": "boolean"
+        },
+        "enabled": {
+          "const": true,
+          "default": true,
+          "title": "Enabled",
+          "type": "boolean"
+        },
         "options": {
           "additionalProperties": {
             "$ref": "#/definitions/JsonValue"
           },
           "title": "Options",
           "type": "object"
+        },
+        "path": {
+          "maxLength": 500,
+          "minLength": 2,
+          "title": "Path",
+          "type": "string"
         },
         "read_receipt": {
           "default": "",
@@ -874,6 +1036,18 @@
           ],
           "title": "Access",
           "type": "string"
+        },
+        "share_image_url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Share Image Url"
         },
         "id": {
           "format": "uuid",
@@ -1126,7 +1300,47 @@
       ],
       "title": "SiteStats",
       "type": "object"
+    },
+    "GlossaryDiscoveryEntry": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "language": {
+          "title": "Language",
+          "type": "string"
+        },
+        "slug": {
+          "title": "Slug",
+          "type": "string"
+        },
+        "updated_at": {
+          "title": "Updated At",
+          "type": "string"
+        },
+        "allow_indexing": {
+          "default": true,
+          "title": "Allow Indexing",
+          "type": "boolean"
+        },
+        "seo_canonical_path": {
+          "default": "",
+          "title": "Seo Canonical Path",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "language",
+        "slug",
+        "updated_at"
+      ],
+      "title": "GlossaryDiscoveryEntry",
+      "type": "object"
     }
   },
-  "x-everunfold-contract-version": "0.15.0"
+  "x-everunfold-contract-version": "0.16.0"
 }

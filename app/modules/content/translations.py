@@ -133,6 +133,10 @@ class Translations:
                 type_id=source.type_id,
             )
             settings.seo_title, settings.seo_description = "", ""
+            settings.seo_canonical_path = settings.seo_share_title = (
+                settings.seo_share_description
+            ) = ""
+            settings.seo_image_alt = ""
             settings.opens_at = None
             blocks = published.content if published else source.body
             body = (

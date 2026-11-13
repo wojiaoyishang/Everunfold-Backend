@@ -153,6 +153,7 @@ class SearchDiscovery(SettingsModel):
     feed_limit: int = Field(default=30, ge=1, le=100)
     structured_data: bool = True
     share_image: str = Field(default="", max_length=2048)
+    site_alternate_name: str = Field(default="", max_length=120)
     google_verification: str = Field(default="", max_length=200, pattern=r"^[A-Za-z0-9_-]*$")
     bing_verification: str = Field(default="", max_length=200, pattern=r"^[A-Za-z0-9_-]*$")
     _image = field_validator("share_image")(safe_url)

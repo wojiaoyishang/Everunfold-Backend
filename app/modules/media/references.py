@@ -72,6 +72,7 @@ async def require_unreferenced(
             or_(
                 cast(GlossaryTerm.body, Text).contains(token),
                 GlossaryTerm.feature_media_id.contains(token),
+                cast(GlossaryTerm.seo, Text).contains(token),
             )
         ),
     ]

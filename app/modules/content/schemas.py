@@ -11,6 +11,7 @@ from app.core.schemas import ErrorResponse as ErrorResponse
 from app.core.schemas import PublicModel as PublicModel
 from app.core.schemas import PublicResponse as PublicResponse
 from app.modules.content.editor_schema import PublicEditorSettings
+from app.modules.content.seo import GlossaryDiscoveryEntry
 from app.modules.media.schemas import FontInfo
 from app.modules.pages.schemas import PublicManagedPage
 
@@ -119,8 +120,8 @@ class ContentDetail(ContentSummary):
             or self.media_urls
             or self.excerpt
             or self.cover_url
-            or self.seo_title
-            or self.seo_description
+            or self.share_image_url
+            or any(key != "allow_indexing" for key in self.seo_overrides())
             or self.word_count
             or self.comment_count
         ):
@@ -165,3 +166,6 @@ class PublicSnapshot(PublicModel):
     comments: dict[str, list[PublicComment]]
     taxonomies: list[TaxonomyDTO]
     pages: list[PublicManagedPage] = Field(default_factory=list)
+    glossary: list[GlossaryDiscoveryEntry] | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )

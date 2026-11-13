@@ -76,6 +76,8 @@ class PageTranslations:
                 else PageValue(title=source.data["title"], path=path)
             )
             value.path, value.enabled, value.javascript_enabled = path, False, False
+            value.seo_title = value.seo_description = value.seo_canonical_path = ""
+            value.seo_share_title = value.seo_share_description = value.seo_image_alt = ""
             self.session.add(
                 ManagedPage(
                     id=identity,

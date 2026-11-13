@@ -72,10 +72,14 @@ def guarded_route(
                     site = await session.get(SiteSettings, 1)
                     available(site.data if site else {}, owner.info.id, catalog)
                     actor = await route_actor(request, session, runtime, policy)
+                    if policy.media_references:
+                        from app.modules.media.locking import lock_references
+
+                        await lock_references(session)
                     site = await session.scalar(
                         select(SiteSettings)
                         .where(SiteSettings.id == 1)
-                        .with_for_update(read=True)
+                        .with_for_update(read=not policy.media_references)
                         .execution_options(populate_existing=True)
                     )
                     available(site.data if site else {}, owner.info.id, catalog)

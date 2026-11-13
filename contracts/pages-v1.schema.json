@@ -155,6 +155,18 @@
         "value": {
           "$ref": "#/$defs/PageValue"
         },
+        "share_image_url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Share Image Url"
+        },
         "registration": {
           "anyOf": [
             {
@@ -464,6 +476,91 @@
     "PageInput": {
       "additionalProperties": false,
       "properties": {
+        "allow_indexing": {
+          "default": true,
+          "title": "Allow Indexing",
+          "type": "boolean"
+        },
+        "seo_title": {
+          "default": "",
+          "maxLength": 200,
+          "title": "Seo Title",
+          "type": "string"
+        },
+        "seo_description": {
+          "default": "",
+          "maxLength": 500,
+          "title": "Seo Description",
+          "type": "string"
+        },
+        "seo_canonical_path": {
+          "default": "",
+          "maxLength": 500,
+          "title": "Seo Canonical Path",
+          "type": "string"
+        },
+        "seo_share_title": {
+          "default": "",
+          "maxLength": 200,
+          "title": "Seo Share Title",
+          "type": "string"
+        },
+        "seo_share_description": {
+          "default": "",
+          "maxLength": 500,
+          "title": "Seo Share Description",
+          "type": "string"
+        },
+        "seo_image_alt": {
+          "default": "",
+          "maxLength": 500,
+          "title": "Seo Image Alt",
+          "type": "string"
+        },
+        "seo_max_snippet": {
+          "anyOf": [
+            {
+              "maximum": 5000,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Seo Max Snippet"
+        },
+        "seo_image_preview": {
+          "anyOf": [
+            {
+              "enum": [
+                "none",
+                "standard",
+                "large"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Seo Image Preview"
+        },
+        "seo_structured_data": {
+          "anyOf": [
+            {
+              "const": false,
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Seo Structured Data"
+        },
         "html": {
           "default": "",
           "maxLength": 200000,
@@ -528,11 +625,6 @@
           "title": "Captcha Comment",
           "type": "string"
         },
-        "allow_indexing": {
-          "default": true,
-          "title": "Allow Indexing",
-          "type": "boolean"
-        },
         "comments_open": {
           "default": true,
           "title": "Comments Open",
@@ -564,6 +656,19 @@
           },
           "title": "Options",
           "type": "object"
+        },
+        "share_image_media_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Share Image Media Id"
         },
         "path": {
           "anyOf": [
@@ -763,6 +868,11 @@
         "comments_open": {
           "default": true,
           "title": "Comments Open",
+          "type": "boolean"
+        },
+        "seo_editable": {
+          "default": true,
+          "title": "Seo Editable",
           "type": "boolean"
         },
         "fields": {
@@ -1084,6 +1194,91 @@
     "PageValue": {
       "additionalProperties": false,
       "properties": {
+        "allow_indexing": {
+          "default": true,
+          "title": "Allow Indexing",
+          "type": "boolean"
+        },
+        "seo_title": {
+          "default": "",
+          "maxLength": 200,
+          "title": "Seo Title",
+          "type": "string"
+        },
+        "seo_description": {
+          "default": "",
+          "maxLength": 500,
+          "title": "Seo Description",
+          "type": "string"
+        },
+        "seo_canonical_path": {
+          "default": "",
+          "maxLength": 500,
+          "title": "Seo Canonical Path",
+          "type": "string"
+        },
+        "seo_share_title": {
+          "default": "",
+          "maxLength": 200,
+          "title": "Seo Share Title",
+          "type": "string"
+        },
+        "seo_share_description": {
+          "default": "",
+          "maxLength": 500,
+          "title": "Seo Share Description",
+          "type": "string"
+        },
+        "seo_image_alt": {
+          "default": "",
+          "maxLength": 500,
+          "title": "Seo Image Alt",
+          "type": "string"
+        },
+        "seo_max_snippet": {
+          "anyOf": [
+            {
+              "maximum": 5000,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Seo Max Snippet"
+        },
+        "seo_image_preview": {
+          "anyOf": [
+            {
+              "enum": [
+                "none",
+                "standard",
+                "large"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Seo Image Preview"
+        },
+        "seo_structured_data": {
+          "anyOf": [
+            {
+              "const": false,
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Seo Structured Data"
+        },
         "html": {
           "default": "",
           "maxLength": 200000,
@@ -1147,11 +1342,6 @@
           ],
           "title": "Captcha Comment",
           "type": "string"
-        },
-        "allow_indexing": {
-          "default": true,
-          "title": "Allow Indexing",
-          "type": "boolean"
         },
         "comments_open": {
           "default": true,
@@ -1190,6 +1380,19 @@
           "minLength": 2,
           "title": "Path",
           "type": "string"
+        },
+        "share_image_media_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Share Image Media Id"
         }
       },
       "required": [
@@ -1202,6 +1405,91 @@
     "PublicManagedPage": {
       "additionalProperties": false,
       "properties": {
+        "allow_indexing": {
+          "default": true,
+          "title": "Allow Indexing",
+          "type": "boolean"
+        },
+        "seo_title": {
+          "default": "",
+          "maxLength": 200,
+          "title": "Seo Title",
+          "type": "string"
+        },
+        "seo_description": {
+          "default": "",
+          "maxLength": 500,
+          "title": "Seo Description",
+          "type": "string"
+        },
+        "seo_canonical_path": {
+          "default": "",
+          "maxLength": 500,
+          "title": "Seo Canonical Path",
+          "type": "string"
+        },
+        "seo_share_title": {
+          "default": "",
+          "maxLength": 200,
+          "title": "Seo Share Title",
+          "type": "string"
+        },
+        "seo_share_description": {
+          "default": "",
+          "maxLength": 500,
+          "title": "Seo Share Description",
+          "type": "string"
+        },
+        "seo_image_alt": {
+          "default": "",
+          "maxLength": 500,
+          "title": "Seo Image Alt",
+          "type": "string"
+        },
+        "seo_max_snippet": {
+          "anyOf": [
+            {
+              "maximum": 5000,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Seo Max Snippet"
+        },
+        "seo_image_preview": {
+          "anyOf": [
+            {
+              "enum": [
+                "none",
+                "standard",
+                "large"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Seo Image Preview"
+        },
+        "seo_structured_data": {
+          "anyOf": [
+            {
+              "const": false,
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Seo Structured Data"
+        },
         "html": {
           "default": "",
           "maxLength": 200000,
@@ -1265,11 +1553,6 @@
           ],
           "title": "Captcha Comment",
           "type": "string"
-        },
-        "allow_indexing": {
-          "default": true,
-          "title": "Allow Indexing",
-          "type": "boolean"
         },
         "comments_open": {
           "default": true,
@@ -1323,6 +1606,18 @@
           ],
           "title": "Access",
           "type": "string"
+        },
+        "share_image_url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Share Image Url"
         },
         "id": {
           "format": "uuid",
@@ -1945,7 +2240,7 @@
   "title": "PagesContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "1.13.0",
+  "x-everunfold-contract-version": "1.14.0",
   "x-everunfold-operations": [
     {
       "name": "setPageEnabled",

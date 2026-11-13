@@ -19,8 +19,12 @@ from app.modules.auth.service import AuthFailure
 from app.modules.content.editor_schema import EditorSettings
 from app.modules.content.editor_service import editor_media
 from app.modules.content.models import Content
+from app.modules.content.publication import ContentPublication
 from app.modules.content.schemas import MediaURL
+from app.modules.content.seo import GlossaryDiscoveryEntry, SeoFields
+from app.modules.media.locking import lock_references
 from app.modules.pages.models import ManagedPage
+from app.modules.settings.cache_event_schema import CacheChange
 
 from .matching import MatchRule, evaluate_rules
 from .models import (
@@ -54,6 +58,7 @@ from .schemas import (
     GlossaryMatchPreviewOutput,
     GlossaryMatchRule,
     GlossaryQuery,
+    GlossarySeo,
     GlossaryStatus,
     GlossaryUpdate,
     PublicGlossaryDetail,
@@ -142,12 +147,13 @@ async def resolved_media(
     *,
     strict: bool,
     feature_media_id: UUID | None = None,
+    share_image_media_id: UUID | None = None,
 ) -> dict[str, MediaURL]:
     return await editor_media(
         session,
         config,
         json.dumps(body, ensure_ascii=False),
-        EditorSettings(cover_media_id=feature_media_id),
+        EditorSettings(cover_media_id=feature_media_id, share_image_media_id=share_image_media_id),
         strict=strict,
     )
 
@@ -179,14 +185,17 @@ async def detail(
     config: Settings | None = None,
 ) -> GlossaryDetail:
     feature_media_id = row_feature_media_id(row)
+    seo = GlossarySeo.model_validate(row.seo)
     media_urls = await resolved_media(
         session,
         config,
         row.body,
         strict=False,
         feature_media_id=feature_media_id,
+        share_image_media_id=seo.share_image_media_id,
     )
     return GlossaryDetail(
+        **seo.model_dump(),
         id=row.id,
         language=row.language,
         slug=row.slug,
@@ -205,6 +214,7 @@ async def detail(
         published_at=row.published_at,
         body=[GlossaryBlock.model_validate(block) for block in row.body],
         feature_image=media_urls.get(str(feature_media_id)) if feature_media_id else None,
+        share_image_url=share_url(media_urls, seo),
         media_urls=media_urls,
         created_by=row.created_by,
         updated_by=row.updated_by,
@@ -226,6 +236,36 @@ def public_item(
         aliases=row.aliases,
         path=f"/glossary/{row.slug}",
     )
+
+
+def share_url(media: dict[str, MediaURL], seo: GlossarySeo) -> str | None:
+    image = media.get(str(seo.share_image_media_id))
+    return image.original if image else None
+
+
+async def public_discovery(session: AsyncSession) -> list[GlossaryDiscoveryEntry]:
+    rows = await session.execute(
+        select(
+            GlossaryTerm.id,
+            GlossaryTerm.language,
+            GlossaryTerm.slug,
+            GlossaryTerm.updated_at,
+            GlossaryTerm.seo,
+        )
+        .where(GlossaryTerm.status == "published")
+        .order_by(GlossaryTerm.id)
+    )
+    return [
+        GlossaryDiscoveryEntry(
+            id=identity,
+            language=language,
+            slug=slug,
+            updated_at=updated_at.isoformat(),
+            allow_indexing=seo.get("allow_indexing", True),
+            seo_canonical_path=seo.get("seo_canonical_path", ""),
+        )
+        for identity, language, slug, updated_at, seo in rows
+    ]
 
 
 async def lock_glossary(session: AsyncSession) -> None:
@@ -298,6 +338,7 @@ async def create_term(
     payload: GlossaryCreate,
     config: Settings | None = None,
 ) -> GlossaryDetail:
+    await lock_references(session)
     fingerprint = operation_fingerprint(payload.model_dump(mode="json"))
     replayed = await replay_operation(session, payload.operation_id, fingerprint, config)
     if replayed is not None:
@@ -311,6 +352,7 @@ async def create_term(
         body,
         strict=True,
         feature_media_id=payload.fields.feature_media_id,
+        share_image_media_id=payload.fields.share_image_media_id,
     )
     now = datetime.now(UTC)
     row = GlossaryTerm(
@@ -320,6 +362,7 @@ async def create_term(
         title=payload.fields.title,
         summary=payload.fields.summary,
         feature_media_id=str(payload.fields.feature_media_id or ""),
+        seo=payload.fields.stored(),
         show_image_viewer=payload.fields.show_image_viewer,
         body_markdown="",
         body=body,
@@ -349,6 +392,8 @@ async def create_term(
         )
     )
     await session.flush()
+    if config and row.status == "published":
+        await ContentPublication(session, config).stage(CacheChange("projection_changed", row.id))
     return await detail(session, row, config)
 
 
@@ -359,6 +404,7 @@ async def update_term(
     payload: GlossaryUpdate,
     config: Settings | None = None,
 ) -> GlossaryDetail:
+    await lock_references(session)
     fingerprint = operation_fingerprint(
         {
             "term_id": str(term_id),
@@ -385,6 +431,7 @@ async def update_term(
         body,
         strict=True,
         feature_media_id=payload.fields.feature_media_id,
+        share_image_media_id=payload.fields.share_image_media_id,
     )
     now = datetime.now(UTC)
     previous_status = row.status
@@ -393,6 +440,7 @@ async def update_term(
     row.title = payload.fields.title
     row.summary = payload.fields.summary
     row.feature_media_id = str(payload.fields.feature_media_id or "")
+    row.seo = payload.fields.stored()
     row.show_image_viewer = payload.fields.show_image_viewer
     row.body_markdown = ""
     row.body = body
@@ -420,6 +468,8 @@ async def update_term(
         )
     )
     await session.flush()
+    if config and "published" in {previous_status, row.status}:
+        await ContentPublication(session, config).stage(CacheChange("projection_changed", row.id))
     return await detail(session, row, config)
 
 
@@ -537,12 +587,14 @@ async def public_term(
     if row is None:
         raise AuthFailure(404, 40436, "术语不存在")
     feature_media_id = row_feature_media_id(row)
+    seo = GlossarySeo.model_validate(row.seo)
     media_urls = await resolved_media(
         session,
         config,
         row.body,
         strict=False,
         feature_media_id=feature_media_id,
+        share_image_media_id=seo.share_image_media_id,
     )
     item = public_item(
         row,
@@ -550,6 +602,9 @@ async def public_term(
     )
     return PublicGlossaryDetail(
         **item.model_dump(),
+        **SeoFields.model_validate(seo.model_dump(exclude={"share_image_media_id"})).model_dump(),
+        share_image_url=share_url(media_urls, seo),
+        updated_at=row.updated_at,
         body=[GlossaryBlock.model_validate(block) for block in row.body],
         media_urls=media_urls,
     )

@@ -10,6 +10,7 @@ from app.modules.content.schemas import (
     PublicSnapshot,
     SiteDTO,
 )
+from app.modules.content.seo import GlossaryDiscoveryEntry
 from app.modules.pages.schemas import PublicManagedPage
 
 
@@ -39,8 +40,16 @@ def main() -> None:
         "items": {"$ref": "#/definitions/PublicManagedPage"},
         "default": [],
     }
-    schema["x-everunfold-contract-version"] = "0.15.0"
-    schema["description"] = "公开阅读快照；页面评论开关与验证码受限配置，兼容已有快照。"
+    schema["definitions"]["GlossaryDiscoveryEntry"] = GlossaryDiscoveryEntry.model_json_schema()
+    schema["properties"]["glossary"] = {
+        "anyOf": [
+            {"type": "array", "items": {"$ref": "#/definitions/GlossaryDiscoveryEntry"}},
+            {"type": "null"},
+        ],
+        "default": None,
+    }
+    schema["x-everunfold-contract-version"] = "0.16.0"
+    schema["description"] = "公开阅读快照，包含内容 SEO 与已发布术语的发现索引，兼容已有快照。"
     target.write_text(
         json.dumps(schema, ensure_ascii=False, indent=2) + "\n", encoding="utf-8", newline="\n"
     )

@@ -49,6 +49,7 @@ class RoutePolicy:
     access: Literal["public", "session", "permission"] = "session"
     permission: str | None = None
     scope: ResourceScope = "all"
+    media_references: bool = False
 
 
 @dataclass(frozen=True)
@@ -65,6 +66,7 @@ class RouteContribution:
                 "permission": self.policy.permission,
                 "scope": self.policy.scope,
                 "operation_id": route.operation_id,
+                **({"media_references": True} if self.policy.media_references else {}),
             }
             for route in self.routes
         ]
@@ -122,6 +124,7 @@ class RouteRegistry:
         access: Literal["public", "session", "permission"] = "session",
         permission: str | None = None,
         scope: ResourceScope = "all",
+        media_references: bool = False,
     ) -> None:
         self.owner.check_open()
         if not isinstance(router, APIRouter) or not valid_path(prefix, parameters=False):
@@ -136,7 +139,9 @@ class RouteRegistry:
             or (scope == "own" and (not permission or not CAPABILITIES[permission][2]))
         ):
             raise ValueError("Invalid plugin route permission")
-        policy = RoutePolicy(access, permission, scope)
+        if media_references and access == "public":
+            raise ValueError("Public routes cannot acquire the media write lock")
+        policy = RoutePolicy(access, permission, scope, media_references)
         frozen = APIRouter()
         paths, operations = self._paths.copy(), self._operations.copy()
         for context in iter_route_contexts(router.routes):
