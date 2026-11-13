@@ -10,6 +10,18 @@
 
 # 根级地址配置；不得放入某个无关的 TOML 分组中
 BACKEND_BASE_URL = "http://127.0.0.1:8001"
+# 复制 frontend-nodes.example.toml 为 frontend-nodes.toml 后取消注释。
+# 相对路径以本配置文件所在目录为准。
+# frontend_nodes_file = "./frontend-nodes.toml"
+
+[nodes_monitor]
+enabled = false
+# 默认沿用 BACKEND_BASE_URL。HTTPS 可使用独立运维域名，HTTP 仅接受回环。
+# origin = "https://ops.example.com"
+# 在终端运行 python -m tools.nodes_monitor_password 生成密码哈希。
+# password_hash = "在本地填写工具输出的哈希"
+session_secret_env = "EVERUNFOLD_NODES_SESSION_SECRET"
+session_seconds = 1800
 
 [project]
 key = "lovepikachu"            # 唯一项目标识，前缀根为 lovepikachu:
@@ -59,24 +71,6 @@ result_backend_url = "redis://127.0.0.1:6379/2"  # 按需使用 Redis 结果后�
 [internal_auth]
 # 以下仅为本机联调；部署时填写校验入口实际观察到的来源 IP/CIDR
 allowed_peer_ips = ["127.0.0.1", "::1"]
-
-# 每个分组的键就是稳定节点 ID；地址与两个方向的 Token 引用集中配置
-# *_token_env 的值是环境变量名，不是 Token 本身；由服务端加载器读取密钥
-[frontends.web-main]
-base_url = "http://127.0.0.1:3000"
-enabled = false                # 完成设置接收器、epoch/IP/Token 配置后再启用
-# 专用设置接收器；不复用公开站点端口，也不代表完整文章缓存接收接口
-# settings_receiver_url = "http://127.0.0.1:3001"
-# Next.js -> FastAPI：后端接收并校验
-nextjs_to_fastapi_token_env = "NEXTJS_TO_FASTAPI_WEB_MAIN_TOKEN"
-# FastAPI/Celery Worker -> Next.js：后端发送时使用
-fastapi_to_nextjs_token_env = "FASTAPI_TO_NEXTJS_WEB_MAIN_TOKEN"
-
-[frontends.web-mirror]
-base_url = "https://frontend-b.example.com"
-enabled = false
-nextjs_to_fastapi_token_env = "NEXTJS_TO_FASTAPI_WEB_MIRROR_TOKEN"
-fastapi_to_nextjs_token_env = "FASTAPI_TO_NEXTJS_WEB_MIRROR_TOKEN"
 
 # 以下为本轮补充的建议初值，待实现配置加载与压测
 [runtime]

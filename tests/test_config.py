@@ -39,6 +39,34 @@ def test_explicit_env_override_and_relative_file(tmp_path: Path) -> None:
     assert settings.database.url.get_secret_value() == replacement
 
 
+def test_external_frontend_nodes_use_config_directory_and_match_inline_nodes(
+    tmp_path: Path,
+) -> None:
+    nodes = """
+[frontends.web-main]
+base_url = "https://site.example.test"
+enabled = true
+settings_receiver_url = "http://127.0.0.1:3001"
+nextjs_to_fastapi_token_env = "INBOUND_TOKEN"
+fastapi_to_nextjs_token_env = "OUTBOUND_TOKEN"
+"""
+    main = tmp_path / "config.toml"
+    node_file = tmp_path / "frontend-nodes.toml"
+    main.write_text(VALID_CONFIG + nodes)
+    inline = load_settings(main, environ={})
+    separate = 'frontend_nodes_file = "./frontend-nodes.toml"\n' + VALID_CONFIG
+    main.write_text(separate)
+    node_file.write_text(nodes)
+    assert load_settings(main, environ={}).frontends == inline.frontends
+    main.write_text(separate + nodes)
+    with pytest.raises(ConfigurationError, match="either frontend_nodes_file or inline frontends"):
+        load_settings(main, environ={})
+    main.write_text(separate)
+    node_file.write_text("unexpected = true\n" + nodes)
+    with pytest.raises(ConfigurationError, match="only a frontends table"):
+        load_settings(main, environ={})
+
+
 @pytest.mark.parametrize("variable", ["CONFIG_FILE", "DATABASE_URL", "REDIS_URL"])
 def test_empty_overrides_never_fall_back(tmp_path: Path, variable: str) -> None:
     (tmp_path / "config.toml").write_text(VALID_CONFIG, encoding="utf-8")

@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>前端节点 · Everunfold</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --page: light-dark(#f4f6f9, #15181e);
+      --panel: light-dark(#fff, #20242d);
+      --text: light-dark(#202a39, #e7ebf2);
+      --muted: light-dark(#516077, #aab5c7);
+      --line: light-dark(#dbe1e9, #384151);
+      --accent: light-dark(#1d4b88, #a9c8ff);
+      --positive: light-dark(#12614e, #8cdbbd);
+      --warning: light-dark(#785200, #f8ce79);
+      --negative: light-dark(#9c292b, #ffaeae);
+      font: 16px/1.55 system-ui, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    [hidden], body[data-mode="login"] .dashboard, body[data-mode="dashboard"] .login { display: none; }
+    body { margin: 0; background: var(--page); color: var(--text); }
+    main { width: min(100% - 2rem, 68rem); margin: clamp(1.5rem, 5vw, 4rem) auto; }
+    .top, .node-heading, .actions { display: flex; gap: .8rem; align-items: center; flex-wrap: wrap; }
+    .top, .node-heading { justify-content: space-between; }
+    h1, h2, p { margin: 0; }
+    h1 { font-size: clamp(1.5rem, 4vw, 2rem); }
+    h2 { font-size: 1.12rem; overflow-wrap: anywhere; }
+    .muted, dt { color: var(--muted); }
+    button, input { font: inherit; border: 1px solid var(--line); border-radius: .45rem; }
+    button { color: var(--accent); background: var(--panel); cursor: pointer; padding: .46rem .75rem; }
+    button:hover { border-color: var(--accent); }
+    button:disabled { cursor: wait; opacity: .65; }
+    :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+    .primary { background: var(--accent); color: var(--panel); }
+    .panel, .health > div { border: 1px solid var(--line); background: var(--panel); border-radius: .75rem; }
+    .login { max-width: 25rem; margin-top: 1.2rem; padding: 1.2rem; }
+    .login form { display: grid; gap: .6rem; }
+    input { min-width: 0; padding: .6rem .7rem; color: var(--text); background: var(--page); }
+    #message:not(:empty), #notice:not(:empty) { margin: .8rem 0; }
+    #message, .bad { color: var(--negative); }
+    #notice, .warn { color: var(--warning); }
+    .good { color: var(--positive); }
+    .health { display: grid; grid-template-columns: repeat(auto-fit, minmax(7.2rem, 1fr)); gap: .55rem; margin: 1rem 0; }
+    .health > div { padding: .65rem .8rem; }
+    dt, dd { margin: 0; }
+    dd { font-weight: 600; }
+    #sample { font-size: .87rem; margin: .6rem 0; }
+    #nodes { display: grid; gap: .85rem; }
+    .node { padding: 1rem; min-width: 0; }
+    .node-url { overflow-wrap: anywhere; font-size: .88rem; }
+    .connection { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr)); gap: .75rem; margin: .8rem 0; font-size: .91rem; }
+    .resources { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr)); gap: .65rem; }
+    .resource { border: 1px solid var(--line); border-radius: .55rem; padding: .65rem .75rem; font-size: .88rem; }
+    .resource h3 { margin: 0 0 .4rem; font-size: .96rem; }
+    .resource dl { display: grid; grid-template-columns: 1fr auto; gap: .2rem .65rem; margin: 0; }
+    .resource dd { text-align: right; font-variant-numeric: tabular-nums; }
+    .detail { margin-top: .4rem; color: var(--muted); overflow-wrap: anywhere; }
+  </style>
+</head>
+<body data-mode="{{mode}}">
+  <main>
+    <header class="top">
+      <h1>前端节点</h1>
+      <div class="dashboard actions">
+        <button id="refresh" type="button">刷新状态</button>
+        <form action="/_nodes/logout" method="post"><button type="submit">退出</button></form>
+      </div>
+    </header>
+    <section class="login panel" aria-label="节点监控登录">
+      <form action="/_nodes/login" method="post">
+        <label for="password">节点监控密码</label>
+        <input id="password" name="password" type="password" autocomplete="current-password" required maxlength="1024">
+        <p id="message" role="alert">{{message}}</p>
+        <button class="primary" type="submit">登录</button>
+      </form>
+    </section>
+    <section class="dashboard" aria-label="连接与同步状态">
+      <p id="sample" class="muted">正在读取状态…</p>
+      <p id="notice" role="status"></p>
+      <dl id="health" class="health"></dl>
+      <div id="nodes"></div>
+      <noscript>启用 JavaScript 后可查看状态。</noscript>
+    </section>
+  </main>
+  <script>
+    if (document.body.dataset.mode === "dashboard") {
+      const byId = (id) => document.getElementById(id);
+      const labels = new Map(Object.entries({
+        online: "正常", unavailable: "无法读取", degraded: "异常", stale: "上报超时",
+        never: "暂无上报", recent: "近期收到上报", disabled: "已停用", not_configured: "未配置接收器",
+        unqueued: "尚未排队", pending: "等待同步", retrying: "等待重试", failed: "重试已用完",
+        applied: "已确认", reachable: "连接正常", credential_missing: "缺少连接凭据",
+        unreachable: "无法连接", rejected: "接收器拒绝访问", unsupported: "接收器未支持探测",
+        invalid: "接收器响应无效", wrong_node: "节点 ID 不匹配", wrong_source: "数据来源不匹配",
+        missing: "副本缺失",
+      }));
+      const resources = {
+        "public-settings": "站点设置",
+        "cache-policy": "缓存策略",
+        "public-content": "公开内容",
+      };
+      const errorLabels = new Map(Object.entries({
+        node_not_configured: "节点配置不完整",
+        delivery_unavailable: "无法连接接收器",
+        invalid_receipt: "接收回执不匹配",
+        source_epoch_changed: "数据来源已变更",
+        receiver_http_409: "接收器拒绝应用",
+        delivery_failed: "投递失败",
+      }));
+      const show = (value) => labels.get(value) ?? "未知";
+      const stamp = (value) => value ? new Date(value).toLocaleString() : "—";
+      const el = (tag, text, className) => {
+        const node = document.createElement(tag);
+        if (text !== undefined) node.textContent = text;
+        if (className) node.className = className;
+        return node;
+      };
+      const stateClass = (state) => ["online", "recent", "applied", "reachable"].includes(state)
+        ? "good"
+        : ["failed", "unreachable", "wrong_node", "wrong_source", "invalid", "rejected"].includes(state)
+          ? "bad" : "muted";
+      function syncCard(name, history, replica) {
+        const card = el("section", undefined, "resource");
+        const grid = el("dl");
+        const state = history?.state ?? "unavailable";
+        const local = replica?.status === "ready" ? replica.revision : replica ? show(replica.status) : "—";
+        const fields = [
+          ["同步状态", show(state)],
+          ["期望版本", history?.expected ?? "—"],
+          ["最后确认", history?.acknowledged ?? "—"],
+          ["接收器副本", local],
+        ];
+        for (const [label, value] of fields) {
+          grid.append(el("dt", label), el("dd", value, label === "同步状态" ? stateClass(state) : ""));
+        }
+        card.append(el("h3", name), grid);
+        if (history?.acknowledged_at) card.append(el("p", "确认时间 " + stamp(history.acknowledged_at), "detail"));
+        if (history?.acknowledged && replica && replica.revision !== history.acknowledged) {
+          card.append(el("p", "当前副本与最后确认记录不一致。", "detail warn"));
+        }
+        if (history?.error) {
+          const error = errorLabels.get(history.error) ?? history.error.replace(/^receiver_http_/, "接收器 HTTP ");
+          card.append(el("p", error + " · " + history.attempts + "/" + history.attempt_limit + " 次尝试", "detail"));
+        }
+        if (history?.next_retry_at) card.append(el("p", "下次重试 " + stamp(history.next_retry_at), "detail"));
+        return card;
+      }
+      function nodeCard(node) {
+        const card = el("article", undefined, "panel node");
+        const heading = el("div", undefined, "node-heading");
+        heading.append(el("h2", node.id), el("span", node.enabled ? "已启用" : "已停用", "muted"));
+        const connection = el("div", undefined, "connection");
+        const report = el("div");
+        report.append(el("p", "前端上报 · " + show(node.inbound), stateClass(node.inbound)));
+        report.append(el("p", stamp(node.last_report), "muted"));
+        const receiver = el("div");
+        receiver.append(el("p", "同步接收器 · " + show(node.receiver.state), stateClass(node.receiver.state)));
+        receiver.append(el("p", stamp(node.receiver.checked_at), "muted"));
+        connection.append(report, receiver);
+        const cards = el("div", undefined, "resources");
+        for (const [resource, label] of Object.entries(resources)) {
+          cards.append(syncCard(label, node.sync[resource], node.receiver.replicas[resource]));
+        }
+        card.append(heading, el("p", node.base_url, "node-url muted"), connection, cards);
+        return card;
+      }
+      async function refresh() {
+        const button = byId("refresh");
+        if (button.disabled) return;
+        button.disabled = true;
+        try {
+          const response = await fetch("/_nodes/status", { cache: "no-store" });
+          if (response.status === 401) { location.replace("/_nodes"); return; }
+          if (!response.ok) throw new Error("status unavailable");
+          const value = await response.json();
+          byId("sample").textContent = "更新时间 " + stamp(value.sampled_at);
+          byId("notice").textContent = value.history_available || !value.nodes.length ? "" : "同步记录暂时无法读取。";
+          const health = [["API", value.api], ["数据库", value.database], ["Redis", value.redis],
+            ["Worker", value.worker], ["Scheduler", value.scheduler]];
+          byId("health").replaceChildren(...health.map(([label, status]) => {
+            const item = el("div");
+            item.append(el("dt", label), el("dd", show(status), stateClass(status)));
+            return item;
+          }));
+          byId("nodes").replaceChildren(...(value.nodes.length
+            ? value.nodes.map(nodeCard) : [el("p", "尚未配置前端节点。", "muted")]));
+        } catch {
+          byId("notice").textContent = "状态更新失败。页面保留上次读取的数据。";
+        } finally {
+          button.disabled = false;
+        }
+      }
+      byId("refresh").addEventListener("click", refresh);
+      document.addEventListener("visibilitychange", () => { if (!document.hidden) void refresh(); });
+      setInterval(() => { if (!document.hidden) void refresh(); }, 15000);
+      void refresh();
+    }
+  </script>
+</body>
+</html>

@@ -29,6 +29,7 @@ from app.core.responses import JSONResponseError, JSONResponseFail, JSONResponse
 from app.core.runtime import Runtime
 from app.modules.auth.middleware import AuthBoundaryMiddleware, BusinessCORSMiddleware
 from app.modules.auth.service import AuthFailure
+from app.plugins.nodes_monitor.plugin import mount_nodes_monitor
 
 logger = logging.getLogger(__name__)
 
@@ -103,6 +104,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     register_pages_module(application)
     register_media_module(application)
     mount_plugin_routes(application, plugins)
+    mount_nodes_monitor(application, resolved)
 
     @application.exception_handler(AuthFailure)
     async def handle_auth_error(request: Request, exc: AuthFailure) -> JSONResponseFail:

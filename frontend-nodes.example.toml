@@ -1,0 +1,9 @@
+# 复制为 frontend-nodes.toml。键名是稳定节点 ID，地址更换时继续使用原 ID。
+# *_token_env 填写环境变量名称；实际凭据由进程环境注入。
+[frontends.web-main]
+base_url = "http://127.0.0.1:3000"
+enabled = false
+# 前端设置接收器地址。非回环接收器使用 HTTPS。
+# settings_receiver_url = "http://127.0.0.1:3001"
+nextjs_to_fastapi_token_env = "NEXTJS_TO_FASTAPI_WEB_MAIN_TOKEN"
+fastapi_to_nextjs_token_env = "FASTAPI_TO_NEXTJS_WEB_MAIN_TOKEN"

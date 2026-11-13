@@ -32,6 +32,7 @@ def content_path(value: str) -> str:
         "api",
         "v1",
         "internal",
+        "_nodes",
         "_next",
         "reference",
         "media",

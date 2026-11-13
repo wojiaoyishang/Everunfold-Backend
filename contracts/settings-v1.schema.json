@@ -3574,6 +3574,91 @@
       "title": "ReadingPreferences",
       "type": "object"
     },
+    "ReadyReplica": {
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "const": "ready",
+          "title": "Status",
+          "type": "string"
+        },
+        "revision": {
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "title": "Revision",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "status",
+        "revision"
+      ],
+      "title": "ReadyReplica",
+      "type": "object"
+    },
+    "ReceiverStatus": {
+      "additionalProperties": false,
+      "properties": {
+        "protocol": {
+          "const": "node-status-1",
+          "title": "Protocol",
+          "type": "string"
+        },
+        "node_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$",
+          "title": "Node Id",
+          "type": "string"
+        },
+        "source_epoch": {
+          "pattern": "^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$",
+          "title": "Source Epoch",
+          "type": "string"
+        },
+        "public_settings": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ReadyReplica"
+            },
+            {
+              "$ref": "#/$defs/UnavailableReplica"
+            }
+          ],
+          "title": "Public Settings"
+        },
+        "cache_policy": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ReadyReplica"
+            },
+            {
+              "$ref": "#/$defs/UnavailableReplica"
+            }
+          ],
+          "title": "Cache Policy"
+        },
+        "public_content": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ReadyReplica"
+            },
+            {
+              "$ref": "#/$defs/UnavailableReplica"
+            }
+          ],
+          "title": "Public Content"
+        }
+      },
+      "required": [
+        "protocol",
+        "node_id",
+        "source_epoch",
+        "public_settings",
+        "cache_policy",
+        "public_content"
+      ],
+      "title": "ReceiverStatus",
+      "type": "object"
+    },
     "RestoreShortcode": {
       "additionalProperties": false,
       "properties": {
@@ -5462,6 +5547,29 @@
       "title": "TranslationState",
       "type": "object"
     },
+    "UnavailableReplica": {
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "enum": [
+            "missing",
+            "unavailable"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "revision": {
+          "title": "Revision",
+          "type": "null"
+        }
+      },
+      "required": [
+        "status",
+        "revision"
+      ],
+      "title": "UnavailableReplica",
+      "type": "object"
+    },
     "WatchTask": {
       "additionalProperties": false,
       "properties": {
@@ -5677,6 +5785,9 @@
     },
     "save_translations": {
       "$ref": "#/$defs/SaveTranslations"
+    },
+    "receiver_status": {
+      "$ref": "#/$defs/ReceiverStatus"
     }
   },
   "required": [
@@ -5727,12 +5838,13 @@
     "receipt",
     "translations",
     "translation_catalog",
-    "save_translations"
+    "save_translations",
+    "receiver_status"
   ],
   "title": "SettingsContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "1.36.0",
+  "x-everunfold-contract-version": "1.37.0",
   "x-everunfold-language-regions": {
     "zh": "CN",
     "en": "GB",

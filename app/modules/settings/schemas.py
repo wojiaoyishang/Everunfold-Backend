@@ -487,6 +487,28 @@ class DeliveryReceipt(SettingsModel):
     durable: Literal[True]
 
 
+class ReadyReplica(SettingsModel):
+    status: Literal["ready"]
+    revision: int = Field(ge=1, le=9007199254740991)
+
+
+class UnavailableReplica(SettingsModel):
+    status: Literal["missing", "unavailable"]
+    revision: None
+
+
+ReceiverReplica = ReadyReplica | UnavailableReplica
+
+
+class ReceiverStatus(SettingsModel):
+    protocol: Literal["node-status-1"]
+    node_id: str = Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$")
+    source_epoch: str = Field(pattern=r"^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$")
+    public_settings: ReceiverReplica
+    cache_policy: ReceiverReplica
+    public_content: ReceiverReplica
+
+
 class SettingsContract(PublicModel):
     watch_task: WatchTask
     task_progress: PublicResponse[TaskProgress]
@@ -536,3 +558,4 @@ class SettingsContract(PublicModel):
     translations: PublicResponse[TranslationSettingsState]
     translation_catalog: PublicResponse[TranslationCatalog]
     save_translations: SaveTranslations
+    receiver_status: ReceiverStatus

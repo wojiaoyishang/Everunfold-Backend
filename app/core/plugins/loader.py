@@ -202,6 +202,9 @@ def directory_digest(directory: Path) -> str:
 def discover_plugins(root: Path, package: str = "app.plugins") -> PluginCatalog:
     entries: list[tuple[Plugin, str]] = []
     for entry in sorted(root.glob("*/plugin.py")):
+        # The operations monitor has an explicit API-only mount and config-owned enablement.
+        if package == "app.plugins" and entry.parent.name == "nodes_monitor":
+            continue
         if (
             not re.fullmatch(r"[a-z][a-z0-9_]*", entry.parent.name)
             or entry.is_symlink()

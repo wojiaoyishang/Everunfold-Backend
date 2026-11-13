@@ -17,6 +17,7 @@ dist/
 # Instance configuration and secrets (only examples belong in Git)
 config.toml
 config.*.local.toml
+frontend-nodes.toml
 .env
 .env.*
 !.env.example

@@ -9,6 +9,8 @@ from pathlib import Path
 from typing import Any, Literal, Self
 from urllib.parse import urlsplit
 
+from argon2 import Type, extract_parameters
+from argon2.exceptions import InvalidHashError
 from pydantic import (
     BaseModel,
     ConfigDict,
@@ -181,6 +183,38 @@ class FrontendConfig(ConfigModel):
         return value
 
 
+class NodesMonitorConfig(ConfigModel):
+    enabled: bool = False
+    origin: str | None = None
+    password_hash: SecretStr | None = None
+    session_secret_env: str = "EVERUNFOLD_NODES_SESSION_SECRET"
+    session_seconds: int = Field(default=1800, ge=300, le=7200)
+
+    @field_validator("origin")
+    @classmethod
+    def valid_origin(cls, value: str | None) -> str | None:
+        return validate_http_base(value) if value is not None else None
+
+    @field_validator("session_secret_env")
+    @classmethod
+    def valid_secret_reference(cls, value: str) -> str:
+        if not _ENV_REFERENCE.fullmatch(value):
+            raise ValueError("requires an environment variable reference")
+        return value
+
+    @field_validator("password_hash")
+    @classmethod
+    def valid_password_hash(cls, value: SecretStr | None) -> SecretStr | None:
+        if value is not None:
+            try:
+                valid = extract_parameters(value.get_secret_value()).type == Type.ID
+            except (InvalidHashError, ValueError):
+                valid = False
+            if not valid:
+                raise ValueError("requires a valid password hash")
+        return value
+
+
 class RuntimeConfig(ConfigModel):
     health_check_timeout_seconds: int = Field(default=2, ge=1, le=30)
     http_shutdown_grace_seconds: int = Field(default=30, ge=1)
@@ -304,6 +338,7 @@ class Settings(ConfigModel):
     celery: CeleryConfig = Field(default_factory=CeleryConfig)
     internal_auth: InternalAuthConfig = Field(default_factory=InternalAuthConfig)
     frontends: dict[str, FrontendConfig] = Field(default_factory=dict)
+    nodes_monitor: NodesMonitorConfig = Field(default_factory=NodesMonitorConfig)
     runtime: RuntimeConfig = Field(default_factory=RuntimeConfig)
     http: HTTPConfig = Field(default_factory=HTTPConfig)
     limits: LimitsConfig = Field(default_factory=LimitsConfig)
@@ -364,6 +399,16 @@ class Settings(ConfigModel):
             raise ValueError("invalid frontend node identifier")
         return value
 
+    @model_validator(mode="after")
+    def valid_monitor(self) -> Self:
+        if self.nodes_monitor.enabled:
+            url = urlsplit(self.nodes_monitor.origin or self.BACKEND_BASE_URL)
+            if url.scheme != "https" and not is_loopback_host(url.hostname or ""):
+                raise ValueError("nodes_monitor requires HTTPS or loopback HTTP")
+            if self.nodes_monitor.password_hash is None:
+                raise ValueError("nodes_monitor requires a password hash")
+        return self
+
     @property
     def redis_prefix(self) -> str:
         scope = f"{self.redis.namespace_scope}:" if self.redis.namespace_scope else ""
@@ -401,6 +446,21 @@ def load_settings(
         raise ConfigurationError(f"Configuration file not found: {path.name}") from exc
     except (OSError, tomllib.TOMLDecodeError) as exc:
         raise ConfigurationError("Configuration file cannot be read or parsed") from exc
+    if "frontend_nodes_file" in data:
+        filename = data.pop("frontend_nodes_file")
+        if not isinstance(filename, str) or not filename.strip() or "\x00" in filename:
+            raise ConfigurationError("frontend_nodes_file must be a nonempty file path")
+        if "frontends" in data:
+            raise ConfigurationError("Configure either frontend_nodes_file or inline frontends")
+        nodes_path = path.resolve().parent / filename
+        try:
+            with nodes_path.open("rb") as handle:
+                nodes = tomllib.load(handle)
+        except (OSError, tomllib.TOMLDecodeError) as exc:
+            raise ConfigurationError("frontend_nodes_file cannot be read or parsed") from exc
+        if set(nodes) != {"frontends"}:
+            raise ConfigurationError("frontend_nodes_file must contain only a frontends table")
+        data["frontends"] = nodes["frontends"]
     for variable, keys in _OVERRIDES.items():
         if variable not in environment:
             continue
