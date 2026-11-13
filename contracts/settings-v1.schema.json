@@ -1780,6 +1780,23 @@
           "maxLength": 100,
           "title": "License",
           "type": "string"
+        },
+        "recommended_plugins": {
+          "anyOf": [
+            {
+              "items": {
+                "pattern": "^[a-z][a-z0-9-]*(?:\\.[a-z][a-z0-9-]*)+$",
+                "type": "string"
+              },
+              "maxItems": 100,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Recommended Plugins"
         }
       },
       "required": [
@@ -6931,7 +6948,7 @@
   "title": "SettingsContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "1.41.0",
+  "x-everunfold-contract-version": "1.42.0",
   "x-everunfold-language-regions": {
     "zh": "CN",
     "en": "GB",

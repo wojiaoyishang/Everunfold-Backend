@@ -54,8 +54,20 @@ class InstalledTheme(PublicModel):
     homepage: str = Field(default="", max_length=2048)
     repository: str = Field(default="", max_length=2048)
     license: str = Field(default="", max_length=100)
+    recommended_plugins: list[Annotated[str, Field(pattern=PluginId)]] | None = Field(
+        default=None, max_length=100
+    )
 
     _urls = field_validator("preview", "homepage", "repository")(safe_url)
+
+    @field_validator("recommended_plugins")
+    @classmethod
+    def unique_recommendations(cls, value: list[str] | None) -> list[str] | None:
+        if value is None:
+            return None
+        if len(set(value)) != len(value):
+            raise ValueError("duplicate recommended plugin identifiers")
+        return sorted(value)
 
 
 class InstalledPlugin(PublicModel):
