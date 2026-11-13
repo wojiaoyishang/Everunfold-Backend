@@ -5,6 +5,7 @@ from typing import Literal, Self
 from pydantic import ConfigDict, Field, model_validator
 
 from app.core.schemas import PublicModel
+from app.modules.content.schemas import MediaURL
 
 
 class ShortcodeModel(PublicModel):
@@ -53,6 +54,7 @@ class ShortcodeSource(ShortcodeModel):
     parameters: list[ShortcodeParameter] = Field(default_factory=list, max_length=16)
     html: str = Field(min_length=1, max_length=8000)
     css: str = Field(default="", max_length=8000)
+    javascript: str = Field(default="", max_length=8000, exclude_if=lambda value: not value)
     example_body: str = Field(default="这里是正文内容。", max_length=2000)
 
     @model_validator(mode="after")
@@ -71,6 +73,7 @@ class PublicShortcode(ShortcodeModel):
     parameters: list[ShortcodeParameter]
     html: str
     css: str
+    javascript: str = Field(default="", max_length=8000, exclude_if=lambda value: not value)
     scope: str = Field(pattern=r"^ef-sc-[a-f0-9]{32}$")
     revision: int = Field(ge=1)
     media_urls: dict[str, str] = Field(default_factory=dict)
@@ -117,3 +120,22 @@ class PreviewShortcode(ShortcodeModel):
 class ShortcodeCompilation(ShortcodeModel):
     compiled: PublicShortcode | None
     error: str
+
+
+class RegionPasswordInput(ShortcodeModel):
+    password: str = Field(min_length=1, max_length=200, repr=False)
+
+
+class RegionPasswordResult(ShortcodeModel):
+    credential: str
+
+
+class RegionUnlock(ShortcodeModel):
+    id: str = Field(pattern=r"^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$")
+    password: str = Field(default="", max_length=200, repr=False)
+
+
+class RegionBody(ShortcodeModel):
+    type: Literal["markdown", "html"]
+    source: str
+    media_urls: dict[str, MediaURL]

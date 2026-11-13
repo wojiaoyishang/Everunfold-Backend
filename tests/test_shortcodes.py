@@ -130,3 +130,54 @@ def test_parameter_defaults_and_contexts_are_validated() -> None:
             IDENTITY,
             1,
         )
+
+
+def test_compiler_keeps_javascript_separate_from_markup() -> None:
+    javascript = 'root.querySelector("h3").textContent = rootSelector;'
+    result = compile_shortcode(source(javascript=javascript), IDENTITY, 1)
+    assert result.javascript == javascript
+    assert javascript not in result.html
+    assert javascript not in result.css
+
+
+def test_region_projection_discards_protected_text_and_author_credentials() -> None:
+    from app.modules.shortcodes.regions import split_regions
+
+    credential = str(uuid.uuid4())
+    source_text = (
+        "public introduction\n"
+        "{{< reply-only >}}approved readers only{{< /reply-only >}}"
+        f'{{{{< password-area credential="{credential}" >}}}}hidden chapter'
+        "{{< /password-area >}}\n"
+        "public conclusion"
+    )
+    public, fragments = split_regions(source_text, "markdown")
+    assert public.startswith("public introduction")
+    assert public.endswith("public conclusion")
+    assert credential not in public and "credential=" not in public
+    assert "approved readers only" not in public and "hidden chapter" not in public
+    assert [fragment.body for fragment in fragments] == ["approved readers only", "hidden chapter"]
+    assert fragments[0].credential is None
+    assert str(fragments[1].credential) == credential
+    assert all(f'region="{fragment.id}"' in public for fragment in fragments)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "{{< reply-only >}}secret",
+        "{{< /reply-only >}}secret",
+        "{{< reply-only >}}secret{{< /password-area >}}",
+        '{{< password-area password="private" >}}secret{{< /password-area >}}',
+        "{{< reply-only >}}secret{{< reply-only >}}nested{{< /reply-only >}}{{< /reply-only >}}",
+        "{{< reply-only>}}secret{{< /reply-only",
+    ],
+)
+def test_region_projection_rejects_unpaired_or_ambiguous_syntax(text: str) -> None:
+    from app.modules.auth.service import AuthFailure
+    from app.modules.shortcodes.regions import split_regions
+
+    with pytest.raises(AuthFailure) as caught:
+        split_regions(text, "markdown")
+    assert caught.value.status == 422
+    assert "secret" not in caught.value.message

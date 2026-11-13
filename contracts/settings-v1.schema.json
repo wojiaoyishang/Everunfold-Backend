@@ -4490,6 +4490,12 @@
           "title": "Css",
           "type": "string"
         },
+        "javascript": {
+          "default": "",
+          "maxLength": 8000,
+          "title": "Javascript",
+          "type": "string"
+        },
         "scope": {
           "pattern": "^ef-sc-[a-f0-9]{32}$",
           "title": "Scope",
@@ -5637,6 +5643,12 @@
           "default": "",
           "maxLength": 8000,
           "title": "Css",
+          "type": "string"
+        },
+        "javascript": {
+          "default": "",
+          "maxLength": 8000,
+          "title": "Javascript",
           "type": "string"
         },
         "example_body": {

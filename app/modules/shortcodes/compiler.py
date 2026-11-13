@@ -309,6 +309,7 @@ def compile_shortcode(source: ShortcodeSource, identity: str, revision: int) -> 
         parameters=source.parameters,
         html="".join(parser.output),
         css=compile_css(source.css, scope),
+        javascript=source.javascript,
         scope=scope,
         revision=revision,
     )
