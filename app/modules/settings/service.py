@@ -50,12 +50,6 @@ class SettingsService:
 
     async def resolve(self, value: PublicSettings) -> PublicSettings:
         pending = list(value.site.navigation)
-        icons: set[str] = set()
-        while pending:
-            item = pending.pop()
-            if item.icon.startswith("media:"):
-                icons.add(item.icon)
-            pending.extend(item.children)
         service = MediaService(self.session, self.config)
         references: dict[str, str] = {}
         active_theme = value.extensions.theme or "argon"
@@ -63,6 +57,15 @@ class SettingsService:
             key: profile.model_copy(deep=True) for key, profile in value.theme_options.items()
         }
         profiles.setdefault(active_theme, value.theme.model_copy(deep=True))
+        for profile in profiles.values():
+            pending.extend(profile.navigation or [])
+            pending.extend(profile.sidebar_navigation.menu or [])
+        icons: set[str] = set()
+        while pending:
+            item = pending.pop()
+            if item.icon.startswith("media:"):
+                icons.add(item.icon)
+            pending.extend(item.children)
         for reference, kind in [
             (value.site.avatar_media_id, "image"),
             (value.site.icon_media_id, "image"),

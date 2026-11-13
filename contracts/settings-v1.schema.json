@@ -4531,6 +4531,83 @@
       "title": "SidebarLink",
       "type": "object"
     },
+    "SidebarNavigationPreferences": {
+      "additionalProperties": false,
+      "properties": {
+        "title": {
+          "anyOf": [
+            {
+              "maxLength": 160,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Title"
+        },
+        "alias": {
+          "anyOf": [
+            {
+              "maxLength": 100,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Alias"
+        },
+        "tagline": {
+          "anyOf": [
+            {
+              "maxLength": 300,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tagline"
+        },
+        "show_banner": {
+          "default": true,
+          "title": "Show Banner",
+          "type": "boolean"
+        },
+        "show_search": {
+          "default": true,
+          "title": "Show Search",
+          "type": "boolean"
+        },
+        "search_label": {
+          "default": "",
+          "maxLength": 60,
+          "title": "Search Label",
+          "type": "string"
+        },
+        "menu": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/MenuItem"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Menu"
+        }
+      },
+      "title": "SidebarNavigationPreferences",
+      "type": "object"
+    },
     "SidebarProfilePreferences": {
       "additionalProperties": false,
       "properties": {
@@ -5050,6 +5127,9 @@
         },
         "sidebar_profile": {
           "$ref": "#/$defs/SidebarProfilePreferences"
+        },
+        "sidebar_navigation": {
+          "$ref": "#/$defs/SidebarNavigationPreferences"
         },
         "background_media_id": {
           "default": "",
@@ -5636,7 +5716,7 @@
   "title": "SettingsContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "1.34.0",
+  "x-everunfold-contract-version": "1.35.0",
   "x-everunfold-language-regions": {
     "zh": "CN",
     "en": "GB",

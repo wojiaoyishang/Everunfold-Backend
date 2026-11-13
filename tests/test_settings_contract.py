@@ -260,3 +260,25 @@ def test_sidebar_profile_preserves_empty_links_and_validates_destinations() -> N
     ):
         with pytest.raises(ValidationError):
             ThemePreferences.model_validate({"sidebar_profile": profile})
+
+
+def test_sidebar_navigation_keeps_empty_values_separate_from_inherited_values() -> None:
+    state = public_settings({"name": "Campfire", "author": "Yishang"})
+    assert state.theme.sidebar_navigation.menu is None
+    state.theme.sidebar_navigation.menu = []
+    state.theme.sidebar_navigation.alias = ""
+    restored = public_settings(stored_settings({}, state))
+    assert restored.theme.sidebar_navigation.menu == []
+    assert restored.theme.sidebar_navigation.alias == ""
+    assert restored.theme.sidebar_navigation.title is None
+    with pytest.raises(ValidationError, match="duplicate menu identifiers"):
+        ThemePreferences.model_validate(
+            {
+                "sidebar_navigation": {
+                    "menu": [
+                        {"id": "duplicate", "href": "/", "label": "Home"},
+                        {"id": "duplicate", "href": "/about", "label": "About"},
+                    ]
+                }
+            }
+        )

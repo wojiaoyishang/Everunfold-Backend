@@ -322,6 +322,16 @@ class SidebarProfilePreferences(SettingsModel):
         return links
 
 
+class SidebarNavigationPreferences(SettingsModel):
+    title: str | None = Field(default=None, max_length=160)
+    alias: str | None = Field(default=None, max_length=100)
+    tagline: str | None = Field(default=None, max_length=300)
+    show_banner: bool = True
+    show_search: bool = True
+    search_label: str = Field(default="", max_length=60)
+    menu: list[MenuItem] | None = None
+
+
 class ThemePreferences(SettingsModel):
     author_avatar_media_id: str = Field(default="", pattern=MediaReference)
     author_avatar_url: str | None = Field(default=None, max_length=2048)
@@ -347,6 +357,9 @@ class ThemePreferences(SettingsModel):
     hero_animation: Literal["none", "fade", "rise", "typewriter"] = "rise"
     hero_typing_ms: int = Field(default=30, ge=10, le=120)
     sidebar_profile: SidebarProfilePreferences = Field(default_factory=SidebarProfilePreferences)
+    sidebar_navigation: SidebarNavigationPreferences = Field(
+        default_factory=SidebarNavigationPreferences
+    )
     background_media_id: str = Field(default="", pattern=MediaReference)
     background_video_media_id: str = Field(default="", pattern=MediaReference)
     background_url: str = Field(default="", max_length=2048)
@@ -360,18 +373,17 @@ class ThemePreferences(SettingsModel):
 
     @model_validator(mode="after")
     def unique_navigation_ids(self) -> Self:
-        if self.navigation is None:
-            return self
-        ids: list[str] = []
-        pending = list(self.navigation)
-        while pending:
-            item = pending.pop()
-            ids.append(item.id)
-            if len(ids) > 256:
-                raise ValueError("at most 256 menu entries")
-            pending.extend(item.children)
-        if len(ids) != len(set(ids)):
-            raise ValueError("duplicate menu identifiers")
+        for menu in (self.navigation, self.sidebar_navigation.menu):
+            ids: set[str] = set()
+            pending = list(menu or [])
+            while pending:
+                item = pending.pop()
+                if item.id in ids:
+                    raise ValueError("duplicate menu identifiers")
+                ids.add(item.id)
+                if len(ids) > 256:
+                    raise ValueError("at most 256 menu entries")
+                pending.extend(item.children)
         return self
 
 
