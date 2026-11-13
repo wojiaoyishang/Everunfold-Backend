@@ -8,6 +8,7 @@ from uuid import NAMESPACE_URL, UUID, uuid5
 from app.core.jobs.definitions import TaskDefinition
 from app.core.plugins.routes import RouteRegistry
 from app.modules.captcha.providers import CaptchaProvider
+from app.modules.notifications.definitions import NotificationEventDefinition
 from app.modules.notifications.platforms import NotificationPlatform
 from app.modules.settings.cache_event_schema import CacheEventHandler
 from app.modules.shortcodes.compiler import compile_shortcode
@@ -103,10 +104,11 @@ class TaskRegistry:
         self.items.append(definition)
 
 
-class NotificationPlatformRegistry:
+class NotificationRegistry:
     def __init__(self, owner: "PluginRegistry") -> None:
         self.owner = owner
         self.items: list[NotificationPlatform] = []
+        self.events: list[NotificationEventDefinition] = []
 
     def register(self, platform: NotificationPlatform) -> None:
         self.owner.check_open()
@@ -120,6 +122,36 @@ class NotificationPlatformRegistry:
         ):
             raise ValueError("Invalid notification platform")
         self.items.append(platform)
+
+    def register_event(self, definition: NotificationEventDefinition) -> None:
+        self.owner.check_open()
+        if (
+            not isinstance(definition, NotificationEventDefinition)
+            or not re.fullmatch(r"[a-z][a-z0-9_.-]{0,119}", definition.id)
+            or not definition.id.startswith(self.owner.id + ".")
+            or definition.id == self.owner.id + "."
+            or definition.id.split(".", 1)[0]
+            in {"account", "security", "comment", "content", "settings"}
+            or not 0 < len(definition.title.strip()) <= 120
+            or len(definition.description) > 500
+            or definition.recipient_mode not in {"configurable", "subject", "admins"}
+            or definition.delivery_mode != "notification"
+            or definition.requires_code
+            or not isinstance(definition.variables, tuple)
+            or len(definition.variables) > 32
+            or len(set(definition.variables)) != len(definition.variables)
+            or any(item.id == definition.id for item in self.events)
+        ):
+            raise ValueError("Invalid or duplicate notification event in plugin namespace")
+        for key in definition.variables:
+            if (
+                not re.fullmatch(r"[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*){0,3}", key)
+                or len(key) > 120
+                or key.split(".", 1)[0] in {"event", "site", "recipient", "mail", "verification"}
+                or any(other.startswith(key + ".") for other in definition.variables)
+            ):
+                raise ValueError("Invalid notification event variable")
+        self.events.append(definition)
 
 
 class CacheEventRegistry:
@@ -143,7 +175,7 @@ class PluginRegistry:
         self.locales = LocaleRegistry(self)
         self.tasks = TaskRegistry(self)
         self.routes = RouteRegistry(self)
-        self.notifications = NotificationPlatformRegistry(self)
+        self.notifications = NotificationRegistry(self)
         self.cache_events = CacheEventRegistry(self)
 
     def check_open(self) -> None:

@@ -12,9 +12,11 @@ from app.core.plugins.loader import plugin_catalog
 from app.core.plugins.state import enabled_ids, installed_info
 from app.modules.auth.models import User
 from app.modules.content.models import SiteSettings
+from app.modules.notifications.events import event_registry, subject_address_current
 from app.modules.notifications.models import NotificationDelivery, NotificationEvent
 from app.modules.notifications.platforms import NotificationDeliveryRequest
-from app.modules.notifications.service import EMAIL, NotificationService
+from app.modules.notifications.routing import EMAIL
+from app.modules.notifications.service import NotificationService
 from app.modules.settings.mail_service import mail_profile, mail_ready, stored_mail_profiles
 from app.modules.settings.mail_transport import send_notification
 
@@ -113,8 +115,27 @@ async def _deliver_one(config: Settings, identity: UUID, lease: UUID) -> tuple[s
             event = await session.get(NotificationEvent, row.event_id)
             user = await session.get(User, row.user_id)
             site = await session.get(SiteSettings, 1)
+            data = site.data if site else {}
+            if event is None:
+                return "suppressed", "event_unavailable"
+            entry = event_registry(data).get(event.event_type)
+            if (
+                entry is None
+                or entry.build != event.source_build
+                or entry.definition.delivery_mode != "notification"
+                or not entry.definition.accepts_platform(row.platform_id)
+            ):
+                return "suppressed", "event_unavailable"
+            if user is None or not user.active:
+                return "suppressed", "recipient_changed"
+            if entry.definition.recipient_mode == "admins" and user.role != "admin":
+                return "suppressed", "recipient_changed"
+            if entry.definition.recipient_mode == "subject" and (
+                user.id != event.subject_id
+                or (row.platform_id == EMAIL and not subject_address_current(event, user))
+            ):
+                return "suppressed", "recipient_changed"
             if row.platform_id == EMAIL:
-                data = site.data if site else {}
                 revision, _ = stored_mail_profiles(data)
                 profile = mail_profile(data, row.mail_profile_id)
                 if (
@@ -133,7 +154,7 @@ async def _deliver_one(config: Settings, identity: UUID, lease: UUID) -> tuple[s
                 value, password = profile.value, profile.password
                 if not row.destination:
                     return "suppressed", "missing_recipient"
-                if user is None or not user.active or user.email != row.destination:
+                if user.email != row.destination:
                     return "suppressed", "recipient_changed"
                 if user.email_verified_at is None:
                     return "suppressed", "unverified_recipient"
@@ -162,7 +183,6 @@ async def _deliver_one(config: Settings, identity: UUID, lease: UUID) -> tuple[s
 
             catalog = plugin_catalog()
             plugin = catalog.notification_platform(row.platform_id)
-            data = site.data if site else {}
             applied = {item.id: item for item in installed_info(data)}
             if plugin is None:
                 return "suppressed", "platform_unavailable"
@@ -182,10 +202,10 @@ async def _deliver_one(config: Settings, identity: UUID, lease: UUID) -> tuple[s
                 result = await plugin.deliver(
                     NotificationDeliveryRequest(
                         delivery_id=row.id,
-                        event_type=event.event_type if event else "",
-                        event_data=event.data if event else {},
+                        event_type=event.event_type,
+                        event_data=event.data,
                         recipient_id=row.user_id,
-                        recipient_name=user.display_name if user else "",
+                        recipient_name=user.display_name,
                         locale=row.locale,
                         subject=row.subject,
                         text=row.text,

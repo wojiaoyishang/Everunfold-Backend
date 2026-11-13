@@ -181,6 +181,38 @@
           "default": false,
           "title": "Requires Code",
           "type": "boolean"
+        },
+        "recipient_mode": {
+          "default": "configurable",
+          "enum": [
+            "configurable",
+            "subject",
+            "admins"
+          ],
+          "title": "Recipient Mode",
+          "type": "string"
+        },
+        "delivery_mode": {
+          "default": "notification",
+          "enum": [
+            "notification",
+            "security_required",
+            "security_optional"
+          ],
+          "title": "Delivery Mode",
+          "type": "string"
+        },
+        "plugin_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Plugin Id"
         }
       },
       "required": [
@@ -330,7 +362,8 @@
           "enum": [
             "user",
             "role",
-            "permission"
+            "permission",
+            "subject"
           ],
           "title": "Recipient Type",
           "type": "string"
@@ -397,7 +430,8 @@
           "enum": [
             "user",
             "role",
-            "permission"
+            "permission",
+            "subject"
           ],
           "title": "Recipient Type",
           "type": "string"
@@ -832,7 +866,7 @@
   "title": "NotificationsContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "1.5.0",
+  "x-everunfold-contract-version": "1.6.0",
   "x-everunfold-operations": [
     {
       "name": "saveMailBrand",

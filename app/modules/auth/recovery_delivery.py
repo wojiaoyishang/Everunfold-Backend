@@ -16,6 +16,7 @@ from app.modules.auth.security_delivery import security_message, send_security_m
 from app.modules.auth.security_settings import recovery_policy
 from app.modules.content.models import SiteSettings
 from app.modules.notifications.catalog import PASSWORD_RECOVERY, PASSWORD_RESET_COMPLETED
+from app.modules.notifications.routing import auth_mail_route
 from app.modules.settings.mail_service import mail_profile, mail_ready, stored_mail_profiles
 
 
@@ -58,6 +59,9 @@ async def deliver(config: Settings) -> dict[str, int]:
             mail = mail_profile(data, row.mail_profile_id)
             user = await session.get(User, row.user_id) if row.user_id else None
             enabled, epoch = recovery_policy(data)
+            notice_disabled = (
+                notice and not (await auth_mail_route(session, PASSWORD_RESET_COMPLETED)).enabled
+            )
             if (
                 not user
                 or not recovery_user(row, user)
@@ -65,6 +69,7 @@ async def deliver(config: Settings) -> dict[str, int]:
                 or not mail.enabled
                 or not mail_ready(mail.value, mail.password)
                 or stored_mail_profiles(data)[0] != row.mail_revision
+                or notice_disabled
                 or (
                     not notice
                     and (not enabled or epoch != row.policy_epoch or not row.delivery_code)

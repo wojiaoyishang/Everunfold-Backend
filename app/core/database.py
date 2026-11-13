@@ -4,7 +4,7 @@ from sqlalchemy import MetaData, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
 
-SCHEMA_REVISION = "0054_cache_events"
+SCHEMA_REVISION = "0055_notification_subjects"
 
 
 class Base(DeclarativeBase):

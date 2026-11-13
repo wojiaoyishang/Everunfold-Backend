@@ -10,6 +10,8 @@ from app.core.responses import JSONResponseFail, JSONResponseSuccess
 from app.core.schemas import PublicModel, PublicResponse
 from app.modules.captcha.providers import CaptchaProvider, verify_site_token
 from app.modules.captcha.schemas import StoredProvider
+from app.modules.notifications.definitions import NotificationEventDefinition
+from app.modules.notifications.events import publish_event as publish_notification_event
 from app.modules.notifications.platforms import (
     NotificationDeliveryRequest,
     NotificationDeliveryResult,
@@ -30,7 +32,9 @@ __all__ = [
     "ResidentContext",
     "NotificationDeliveryRequest",
     "NotificationDeliveryResult",
+    "NotificationEventDefinition",
     "NotificationPlatform",
+    "publish_notification_event",
     "CacheEvent",
     "CaptchaProvider",
     "Plugin",

@@ -9,7 +9,7 @@ import struct
 import time
 from datetime import UTC, datetime, timedelta
 from urllib.parse import quote
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from cryptography.fernet import Fernet, InvalidToken
 from sqlalchemy import delete, select
@@ -27,6 +27,13 @@ from app.modules.auth.models import (
 from app.modules.auth.security import token_digest
 from app.modules.auth.service import AuthFailure, AuthService, SessionResult
 from app.modules.auth.two_factor_schemas import TwoFactorActivated, TwoFactorSetup, TwoFactorState
+from app.modules.notifications.catalog import (
+    TWO_FACTOR_DISABLED,
+    TWO_FACTOR_ENABLED,
+    TWO_FACTOR_RECOVERY_ROTATED,
+    TWO_FACTOR_RECOVERY_USED,
+)
+from app.modules.notifications.events import publish_account_security
 
 CHALLENGE_TTL = timedelta(minutes=5)
 SETUP_TTL = timedelta(minutes=10)
@@ -156,6 +163,7 @@ class TwoFactorService:
         actor.auth_version += 1
         await self._revoke_others(actor, current_token)
         self._audit(actor, "two_factor_enabled")
+        await publish_account_security(self.session, TWO_FACTOR_ENABLED, actor, actor.auth_version)
         await self.session.commit()
         return TwoFactorActivated(recovery_codes=codes)
 
@@ -176,6 +184,9 @@ class TwoFactorService:
             actor.auth_version += 1
             await self.session.delete(row)
             self._audit(actor, "two_factor_disabled")
+            await publish_account_security(
+                self.session, TWO_FACTOR_DISABLED, actor, actor.auth_version
+            )
             await self.session.commit()
             return TwoFactorState(
                 enabled=False, enabled_at=None, recovery_codes_remaining=0, available=True
@@ -183,6 +194,9 @@ class TwoFactorService:
         codes, row.recovery_hashes = new_recovery_codes()
         actor.auth_version += 1
         self._audit(actor, "two_factor_recovery_rotated")
+        await publish_account_security(
+            self.session, TWO_FACTOR_RECOVERY_ROTATED, actor, actor.auth_version
+        )
         await self.session.commit()
         return TwoFactorActivated(recovery_codes=codes)
 
@@ -232,6 +246,7 @@ class TwoFactorService:
             await self.session.commit()
             raise AuthFailure(401, 40177, "登录状态已失效，请重新登录")
         row.attempts += 1
+        codes_remaining = len(credential.recovery_hashes)
         if not self._verify(credential, code, allow_recovery=True):
             await self.session.commit()
             raise AuthFailure(401, 40177, "验证码或恢复码不正确")
@@ -240,6 +255,8 @@ class TwoFactorService:
         await self.session.delete(record)
         new_record, token = self.auth._new(now, user)
         self._audit(user, "login")
+        if len(credential.recovery_hashes) < codes_remaining:
+            await publish_account_security(self.session, TWO_FACTOR_RECOVERY_USED, user, uuid4())
         result = SessionResult(self.auth._state(new_record, token, user), token)
         await self.session.commit()
         return result

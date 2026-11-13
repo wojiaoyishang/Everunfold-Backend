@@ -40,6 +40,8 @@ plugin = MyPlugin()
 | registry.captcha.register(provider) | CaptchaProvider(id,title,widget,verify)，verify为真实异步服务端校验 |
 | registry.routes.register(router, prefix="", access="session", permission=None, scope="all") | 原生HTTP Router、插件命名空间、实时启停/鉴权及请求事务；详见[路由指南](backend-plugin-routes.md) |
 | registry.locales.register(locale, messages) | 任意来源的字典；key自动加插件ID前缀，不规定语言文件位置 |
+| registry.notifications.register_event(definition) | 声明插件命名空间内的通知事件、可用变量和接收对象模式；通过 SDK 在业务事务中发布 |
+| registry.notifications.register(platform) | 注册可选通知投递平台；事件和平台可以独立扩展，详见[通知指南](notifications.md) |
 | registry.cache_events.register(handler) | 每插件一个异步函数，接收已提交公开版本的缓存事件 |
 
 当前宿主界面提供zh-CN/en语言包；插件可登记其他字典，但不会自行扩展宿主界面语言列表。文案通过i18n.t("插件ID.key", locale=...)读取。任务通过registry.tasks.register(TaskDefinition)登记，包含Worker有限任务及Scheduler所属常驻子进程，见[任务指南](runtime-tasks.md)。HTTP路由已按[ADR0098](../decisions/0098-backend-plugin-http-routes.md)交付，通用插件资源/配置接口仍未交付。

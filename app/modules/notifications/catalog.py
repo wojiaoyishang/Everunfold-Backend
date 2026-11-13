@@ -4,16 +4,8 @@
 from dataclasses import dataclass
 from textwrap import dedent
 
+from app.modules.notifications.definitions import NotificationEventDefinition as EventDefinition
 from app.modules.notifications.email_layout import button, email_layout
-
-
-@dataclass(frozen=True)
-class EventDefinition:
-    id: str
-    title: str
-    description: str
-    variables: tuple[str, ...]
-    requires_code: bool = False
 
 
 @dataclass(frozen=True)
@@ -42,9 +34,16 @@ def alert_email(
 
 
 EMAIL_VERIFICATION = "security.email_verification"
+EMAIL_VERIFIED = "security.email_verified"
 REGISTRATION_VERIFICATION = "security.registration_verification"
 PASSWORD_RECOVERY = "security.password_recovery"
 PASSWORD_RESET_COMPLETED = "security.password_reset_completed"
+TWO_FACTOR_ENABLED = "security.two_factor_enabled"
+TWO_FACTOR_DISABLED = "security.two_factor_disabled"
+TWO_FACTOR_RECOVERY_ROTATED = "security.two_factor_recovery_rotated"
+TWO_FACTOR_RECOVERY_USED = "security.two_factor_recovery_used"
+REGISTRATION_SUCCEEDED = "account.registration_succeeded"
+USER_CREATED = "account.user_created"
 
 VERIFICATION_PURPOSES = {
     EMAIL_VERIFICATION: ("验证邮箱", "Email verification"),
@@ -219,15 +218,68 @@ EVENTS = (
     ),
 )
 
-EVENT_BY_ID = {item.id: item for item in EVENTS}
+ACCOUNT_EVENTS = (
+    EventDefinition(
+        REGISTRATION_SUCCEEDED,
+        "注册成功",
+        "用户完成邮箱验证并成功注册后通知管理员。",
+        ("account.username", "account.display_name", "admin.url"),
+        recipient_mode="admins",
+    ),
+    EventDefinition(
+        USER_CREATED,
+        "新增用户",
+        "管理员在用户管理中创建账号后通知管理员。",
+        ("account.username", "account.display_name", "admin.url"),
+        recipient_mode="admins",
+    ),
+)
 
-SECURITY_TEMPLATES = (
+SECURITY_ALERT_COPY = {
+    EMAIL_VERIFIED: (
+        ("邮箱已验证", "你的账号已通过邮箱验证。"),
+        ("Email address verified", "The email address for your account has been verified."),
+    ),
+    TWO_FACTOR_ENABLED: (
+        ("两步验证已启用", "你的账号已启用两步验证。请妥善保存恢复码。"),
+        (
+            "Two-factor authentication enabled",
+            "Two-factor authentication is now enabled on your account. Keep your recovery codes safe.",
+        ),
+    ),
+    TWO_FACTOR_DISABLED: (
+        ("两步验证已关闭", "你的账号已关闭两步验证。"),
+        (
+            "Two-factor authentication disabled",
+            "Two-factor authentication was turned off on your account.",
+        ),
+    ),
+    TWO_FACTOR_RECOVERY_ROTATED: (
+        ("两步验证恢复码已更新", "你的账号已重新生成恢复码，原有恢复码已失效。"),
+        (
+            "Two-factor recovery codes replaced",
+            "New recovery codes were generated for your account. The previous codes no longer work.",
+        ),
+    ),
+    TWO_FACTOR_RECOVERY_USED: (
+        ("已使用两步验证恢复码登录", "你的账号使用了一个一次性恢复码登录。"),
+        (
+            "Signed in with a recovery code",
+            "A one-time recovery code was used to sign in to your account.",
+        ),
+    ),
+}
+
+SECURITY_EVENTS = (
     EventDefinition(
         id=EMAIL_VERIFICATION,
         title="验证邮箱",
         description="向用户发送邮箱验证验证码。",
         variables=("verification.code", "verification.expires_minutes", "verification.purpose"),
         requires_code=True,
+        recipient_mode="subject",
+        delivery_mode="security_required",
+        email_only=True,
     ),
     EventDefinition(
         id=REGISTRATION_VERIFICATION,
@@ -235,6 +287,9 @@ SECURITY_TEMPLATES = (
         description="向申请注册的用户发送邮箱验证码。",
         variables=("verification.code", "verification.expires_minutes", "verification.purpose"),
         requires_code=True,
+        recipient_mode="subject",
+        delivery_mode="security_required",
+        email_only=True,
     ),
     EventDefinition(
         id=PASSWORD_RECOVERY,
@@ -242,15 +297,85 @@ SECURITY_TEMPLATES = (
         description="向已验证邮箱发送一次性密码重置码。",
         variables=("verification.code", "verification.expires_minutes", "verification.purpose"),
         requires_code=True,
+        recipient_mode="subject",
+        delivery_mode="security_required",
+        email_only=True,
     ),
     EventDefinition(
         id=PASSWORD_RESET_COMPLETED,
         title="密码已重置",
         description="自助找回密码成功后发送安全提醒。",
-        variables=(),
+        recipient_mode="subject",
+        delivery_mode="security_optional",
+        email_only=True,
+    ),
+    *(
+        EventDefinition(
+            identity,
+            copy[0][0],
+            copy[0][1],
+            ("account.security_url",),
+            recipient_mode="subject",
+            email_only=True,
+        )
+        for identity, copy in SECURITY_ALERT_COPY.items()
     ),
 )
-SECURITY_BY_ID = {event.id: event for event in SECURITY_TEMPLATES}
+
+BUILTIN_EVENTS = (*SECURITY_EVENTS, *ACCOUNT_EVENTS, *EVENTS)
+BUILTIN_BY_ID = {event.id: event for event in BUILTIN_EVENTS}
+SECURITY_EVENT_IDS = frozenset(event.id for event in SECURITY_EVENTS)
+
+
+def account_template(event: str, platform: str, locale: str) -> DefaultTemplate:
+    english = locale == "en"
+    if event == REGISTRATION_SUCCEEDED:
+        title = "New account registered" if english else "注册成功"
+        body = (
+            "{{account.display_name}} ({{account.username}}) verified their email and registered."
+            if english
+            else "「{{account.display_name}}」（{{account.username}}）已完成邮箱验证并注册。"
+        )
+    else:
+        title = "New user added" if english else "新增用户"
+        body = (
+            "{{account.display_name}} ({{account.username}}) was added in user management."
+            if english
+            else "已在用户管理中创建「{{account.display_name}}」（{{account.username}}）。"
+        )
+    action = "Review account" if english else "查看账号"
+    return DefaultTemplate(
+        subject=f"{title} · {{{{account.username}}}}",
+        text=f"{body}\n\n{action}: {{{{admin.url}}}}",
+        html=alert_email(title, title, body, action, "{{admin.url}}", locale)
+        if platform == "email"
+        else "",
+        href="{{admin.url}}",
+    )
+
+
+def security_alert_template(event: str, locale: str) -> DefaultTemplate:
+    en = locale == "en"
+    title, body = SECURITY_ALERT_COPY[event][en]
+    action = "Open account settings" if en else "打开账号设置"
+    advice = (
+        "If you did not make this change, review your sessions and secure your account."
+        if en
+        else "如果这不是你的操作，请检查登录会话并保护账号。"
+    )
+    return DefaultTemplate(
+        subject=f"{{{{site.name}}}} · {title}",
+        text=f"{body}\n{advice}\n\n{action}: {{{{account.security_url}}}}",
+        html=alert_email(
+            "ACCOUNT SECURITY" if en else "账号安全",
+            title,
+            f"{body}<br>{advice}",
+            action,
+            "{{account.security_url}}",
+            locale,
+        ),
+        href="{{account.security_url}}",
+    )
 
 
 DEFAULT_TEMPLATES = {
@@ -260,6 +385,21 @@ DEFAULT_TEMPLATES = {
     },
     PASSWORD_RESET_COMPLETED: {
         "email": {locale: password_reset_email(locale) for locale in ("zh-CN", "en")}
+    },
+    **{
+        event.id: {
+            platform: {
+                locale: account_template(event.id, platform, locale) for locale in ("zh-CN", "en")
+            }
+            for platform in ("email", "in-app")
+        }
+        for event in ACCOUNT_EVENTS
+    },
+    **{
+        event: {
+            "email": {locale: security_alert_template(event, locale) for locale in ("zh-CN", "en")}
+        }
+        for event in SECURITY_ALERT_COPY
     },
     "comment.pending_review": {
         "in-app": {
@@ -446,11 +586,13 @@ DEFAULT_TEMPLATES = {
 }
 
 
-def default_template(event_type: str, platform_id: str, locale: str) -> DefaultTemplate:
+def default_template(
+    event_type: str, platform_id: str, locale: str, *, event_title: str = ""
+) -> DefaultTemplate:
     variants = DEFAULT_TEMPLATES.get(event_type, {}).get(platform_id, {})
     return (
         variants.get(locale)
         or variants.get(locale.split("-", 1)[0])
         or variants.get("zh-CN")
-        or DefaultTemplate(subject=event_type, text=event_type, html="")
+        or DefaultTemplate(subject=event_title or event_type, text=event_title or event_type)
     )

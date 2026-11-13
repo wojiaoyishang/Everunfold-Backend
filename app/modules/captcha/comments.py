@@ -206,7 +206,7 @@ async def submit_comment(payload: SubmitComment, request: Request) -> JSONRespon
                     status="pending",
                 )
             )
-            from app.modules.notifications.service import publish_event
+            from app.modules.notifications.events import publish_event
 
             if item:
                 resource_title, resource_url = item.title, item.path

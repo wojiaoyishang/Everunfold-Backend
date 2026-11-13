@@ -9,8 +9,9 @@ from pydantic import Field, field_validator, model_validator
 
 from app.core.config import validate_http_base
 from app.core.schemas import PublicModel, PublicResponse
+from app.modules.notifications.definitions import DeliveryMode, RecipientMode
 
-RecipientType = Literal["user", "role", "permission"]
+RecipientType = Literal["user", "role", "permission", "subject"]
 DeliveryStatus = Literal["pending", "sending", "sent", "failed", "unknown", "suppressed"]
 
 
@@ -21,6 +22,9 @@ class NotificationEventView(PublicModel):
     variables: list[str]
     email_only: bool = False
     requires_code: bool = False
+    recipient_mode: RecipientMode = "configurable"
+    delivery_mode: DeliveryMode = "notification"
+    plugin_id: str | None = None
 
 
 class NotificationPlatformView(PublicModel):

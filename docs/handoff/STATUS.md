@@ -1,5 +1,10 @@
 # 后端交接状态
 
+## 账号通知与插件事件
+
+- 通知契约 1.6.0、迁移 `0055_notification_subjects`。策略和模板加入注册、邮箱验证、找回密码及两步验证事件。验证码沿用认证 Worker，收件人不可改派；可选安全提醒只使用仍有效的已验证邮箱。自行注册和后台建号分别通知管理员，默认启用站内规则。
+- 插件经 SDK 注册并发布事件，启停与构建版本同步检查，停用保留策略。账号安全策略与模板写入同时需要站点设置及访问管理权限。见 [ADR0132](../decisions/0132-account-notification-events.md)和[通知指南](../development/notifications.md)。
+
 ## 节点缓存与发布事件
 
 - settings-v1 1.39.0 新增缓存状态、单项或整节点重发、旧版本清理。磁盘状态来自所选前端接收器，投递历史另列；鉴权沿用会话、权限和内部节点绑定，重发与清理记入设置审计。见[操作指南](../development/cache-management.md)和 [ADR0131](../decisions/0131-node-cache-management-and-backend-events.md)。

@@ -5,6 +5,7 @@ from fastapi import APIRouter
 from app.core.responses import JSONResponseSuccess
 from app.core.schemas import ErrorResponse, PublicResponse
 from app.modules.auth.service import AuthFailure
+from app.modules.notifications.catalog import SECURITY_EVENT_IDS
 from app.modules.notifications.schemas import (
     MarkNotificationsRead,
     NotificationInbox,
@@ -38,13 +39,19 @@ async def read_state(ctx: Authorized) -> JSONResponseSuccess:
 async def save_routes(payload: SaveNotificationRoutes, ctx: Authorized) -> JSONResponseSuccess:
     if not ctx.actor.has("settings:write"):
         raise AuthFailure(403, 40373, "无权修改通知策略")
-    return JSONResponseSuccess(data=await service(ctx).save_routes(payload, ctx.actor.id))
+    return JSONResponseSuccess(
+        data=await service(ctx).save_routes(
+            payload, ctx.actor.id, manage_access=ctx.actor.has("access:manage")
+        )
+    )
 
 
 @router.patch("/templates", response_model=PublicResponse[NotificationState])
 async def save_template(payload: SaveNotificationTemplate, ctx: Authorized) -> JSONResponseSuccess:
     if not ctx.actor.has("settings:write"):
         raise AuthFailure(403, 40373, "无权修改通知模板")
+    if payload.event_type in SECURITY_EVENT_IDS and not ctx.actor.has("access:manage"):
+        raise AuthFailure(403, 40373, "无权修改账号安全通知模板")
     return JSONResponseSuccess(data=await service(ctx).save_template(payload, ctx.actor.id))
 
 

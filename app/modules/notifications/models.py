@@ -34,7 +34,8 @@ class NotificationRoute(Base):
     __tablename__ = "notification_routes"
     __table_args__ = (
         CheckConstraint(
-            "recipient_type IN ('user', 'role', 'permission')",
+            "recipient_type IN ('user', 'role', 'permission') OR "
+            "(recipient_type = 'subject' AND recipient_value = 'subject')",
             name="recipient_type",
         ),
         UniqueConstraint(
@@ -99,6 +100,11 @@ class NotificationEvent(Base):
     actor_id: Mapped[UUID | None] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
+    subject_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    subject_email_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    source_build: Mapped[str | None] = mapped_column(String(64))
     data: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
     occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     dispatched_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

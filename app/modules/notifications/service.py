@@ -16,13 +16,7 @@ from app.modules.auth.models import User
 from app.modules.auth.permissions import CAPABILITIES, user_permissions
 from app.modules.auth.service import AuthFailure
 from app.modules.content.models import SiteSettings
-from app.modules.notifications.catalog import (
-    EVENT_BY_ID,
-    EVENTS,
-    SECURITY_BY_ID,
-    SECURITY_TEMPLATES,
-    default_template,
-)
+from app.modules.notifications.catalog import SECURITY_EVENT_IDS, default_template
 from app.modules.notifications.email_context import (
     BRAND_KEY,
     EMAIL_VARIABLES,
@@ -33,6 +27,7 @@ from app.modules.notifications.email_context import (
     site_variables,
     stored_brand,
 )
+from app.modules.notifications.events import event_registry, subject_address_current
 from app.modules.notifications.models import (
     NotificationDelivery,
     NotificationEvent,
@@ -48,6 +43,7 @@ from app.modules.notifications.render import (
     render_template,
     sanitize_email_html,
 )
+from app.modules.notifications.routing import EMAIL, IN_APP, route_id
 from app.modules.notifications.schemas import (
     MarkNotificationsRead,
     NotificationDeliveryView,
@@ -75,45 +71,12 @@ from app.modules.settings.mail_service import (
 from app.modules.settings.models import SettingsAudit
 from app.modules.settings.service import SettingsService
 
-IN_APP = "in-app"
-EMAIL = "email"
-
 
 def mask_address(value: str) -> str:
     if "@" in value:
         local, domain = value.split("@", 1)
         return f"{local[:1]}***@{domain}"
     return value[:2] + "***" if value else ""
-
-
-async def publish_event(
-    session: AsyncSession,
-    *,
-    event_type: str,
-    dedupe_key: str,
-    resource_type: str,
-    resource_id: str,
-    actor_id: UUID | None,
-    data: dict[str, Any],
-) -> None:
-    definition = EVENT_BY_ID.get(event_type)
-    if definition is None:
-        raise ValueError("Unknown notification event")
-    await session.execute(
-        insert(NotificationEvent)
-        .values(
-            id=uuid5(NAMESPACE_URL, f"everunfold:notification:{dedupe_key}"),
-            event_type=event_type,
-            event_version=1,
-            dedupe_key=dedupe_key,
-            resource_type=resource_type,
-            resource_id=resource_id,
-            actor_id=actor_id,
-            data=data,
-            occurred_at=datetime.now(UTC),
-        )
-        .on_conflict_do_nothing(index_elements=["dedupe_key"])
-    )
 
 
 class NotificationService:
@@ -185,6 +148,7 @@ class NotificationService:
         revision = await self.revision()
         site = await self.session.get(SiteSettings, 1)
         data = site.data if site else {}
+        registry = event_registry(data)
         brand = stored_brand(data)
         locales = [
             item.code for item in (await language_catalog(self.session)).languages if item.enabled
@@ -198,13 +162,16 @@ class NotificationService:
             for row in (await self.session.scalars(select(NotificationTemplate))).all()
         }
         templates: list[NotificationTemplateView] = []
-        for event in (*EVENTS, *SECURITY_TEMPLATES):
+        for entry in registry.values():
+            event = entry.definition
             for platform in platforms:
-                if event.id in SECURITY_BY_ID and platform.id != EMAIL:
+                if not event.accepts_platform(platform.id):
                     continue
                 for locale in locales:
                     row = custom.get((event.id, platform.id, locale))
-                    fallback = default_template(event.id, platform.id, locale)
+                    fallback = default_template(
+                        event.id, platform.id, locale, event_title=event.title
+                    )
                     templates.append(
                         NotificationTemplateView(
                             event_type=event.id,
@@ -237,21 +204,45 @@ class NotificationService:
                 platform_id=row.platform_id,
                 mail_profile_id=(UUID(row.mail_profile_id) if row.mail_profile_id else None),
                 template_key=row.template_key,
-                enabled=row.enabled,
+                enabled=(
+                    row.enabled
+                    or registry[row.event_type].definition.delivery_mode == "security_required"
+                ),
             )
             for row in (
                 await self.session.scalars(
-                    select(NotificationRoute).order_by(
+                    select(NotificationRoute)
+                    .where(NotificationRoute.event_type.in_(registry))
+                    .order_by(
                         NotificationRoute.event_type,
                         NotificationRoute.platform_id,
                     )
                 )
             ).all()
+            if registry[row.event_type].definition.accepts_recipient(
+                row.recipient_type, row.recipient_value
+            )
+            and registry[row.event_type].definition.accepts_platform(row.platform_id)
         ]
+        configured = {row.event_type for row in routes}
+        routes.extend(
+            NotificationRouteView(
+                id=route_id(event.id, "subject", "subject", EMAIL),
+                event_type=event.id,
+                recipient_type="subject",
+                recipient_value="subject",
+                platform_id=EMAIL,
+                enabled=True,
+            )
+            for entry in registry.values()
+            if (event := entry.definition).delivery_mode != "notification"
+            and event.id not in configured
+        )
         deliveries = (
             await self.session.execute(
-                select(NotificationDelivery, User)
+                select(NotificationDelivery, User, NotificationEvent)
                 .join(User, User.id == NotificationDelivery.user_id)
+                .join(NotificationEvent, NotificationEvent.id == NotificationDelivery.event_id)
                 .order_by(NotificationDelivery.created_at.desc())
                 .limit(50)
             )
@@ -260,17 +251,24 @@ class NotificationService:
             revision=revision.revision,
             events=[
                 NotificationEventView(
-                    id=item.id,
-                    title=item.title,
-                    description=item.description,
-                    email_only=item.id in SECURITY_BY_ID,
-                    requires_code=item.requires_code,
+                    id=entry.definition.id,
+                    title=entry.definition.title,
+                    description=entry.definition.description,
+                    email_only=entry.definition.email_only,
+                    requires_code=entry.definition.requires_code,
+                    recipient_mode=entry.definition.recipient_mode,
+                    delivery_mode=entry.definition.delivery_mode,
+                    plugin_id=entry.plugin_id,
                     variables=[
-                        *item.variables,
-                        *(NOTIFICATION_EVENT_VARIABLES if item.id in EVENT_BY_ID else ()),
+                        *entry.definition.variables,
+                        *(
+                            NOTIFICATION_EVENT_VARIABLES
+                            if entry.definition.delivery_mode == "notification"
+                            else ()
+                        ),
                     ],
                 )
-                for item in (*EVENTS, *SECURITY_TEMPLATES)
+                for entry in registry.values()
             ],
             platforms=platforms,
             routes=routes,
@@ -281,7 +279,7 @@ class NotificationService:
             deliveries=[
                 NotificationDeliveryView(
                     id=delivery.id,
-                    event_type=event.id,
+                    event_type=event.event_type,
                     user_id=user.id,
                     user_name=user.display_name,
                     platform_id=delivery.platform_id,
@@ -295,23 +293,33 @@ class NotificationService:
                     created_at=delivery.created_at,
                     finished_at=delivery.finished_at,
                 )
-                for delivery, user in deliveries
+                for delivery, user, event in deliveries
             ],
             locales=locales,
         )
 
     async def save_routes(
-        self, payload: SaveNotificationRoutes, actor_id: UUID
+        self, payload: SaveNotificationRoutes, actor_id: UUID, *, manage_access: bool
     ) -> NotificationState:
+        # Serialize with SMTP profile edits in the same lock order as save_brand.
+        site = await self.session.get(SiteSettings, 1, populate_existing=True, with_for_update=True)
         revision = await self.revision(locked=True)
         if revision.revision != payload.expected_revision:
             raise AuthFailure(409, 40973, "通知策略已在其他窗口修改，请重新读取")
         platforms = {item.id for item in await self.platforms()}
-        site = await self.session.get(SiteSettings, 1)
         mail_data = site.data if site else {}
+        registry = event_registry(mail_data)
         for item in payload.routes:
-            if item.event_type not in EVENT_BY_ID:
+            entry = registry.get(item.event_type)
+            if entry is None:
                 raise AuthFailure(422, 42299, "未知通知事件")
+            definition = entry.definition
+            if not definition.accepts_recipient(item.recipient_type, item.recipient_value):
+                raise AuthFailure(422, 42299, "此事件的接收对象固定，不能更改")
+            if not definition.accepts_platform(item.platform_id):
+                raise AuthFailure(422, 42299, "此通知事件仅支持邮件")
+            if definition.delivery_mode == "security_required" and not item.enabled:
+                raise AuthFailure(422, 42299, "必要的账号验证码不能停用")
             if item.platform_id not in platforms:
                 raise AuthFailure(422, 42299, "通知平台不存在")
             if item.mail_profile_id is not None:
@@ -330,15 +338,50 @@ class NotificationService:
                     raise AuthFailure(422, 42299, "通知用户无效") from None
                 if await self.session.get(User, user_id) is None:
                     raise AuthFailure(422, 42299, "通知用户不存在")
-        await self.session.execute(delete(NotificationRoute))
+        routes = payload.routes
+        writable = set(registry)
+        if not manage_access:
+            protected = (
+                await self.session.scalars(
+                    select(NotificationRoute).where(
+                        NotificationRoute.event_type.in_(SECURITY_EVENT_IDS)
+                    )
+                )
+            ).all()
+            actual = {row.event_type: row for row in protected}
+            for item in routes:
+                if item.event_type not in SECURITY_EVENT_IDS:
+                    continue
+                row = actual.get(item.event_type)
+                if row is None:
+                    unchanged = (
+                        registry[item.event_type].definition.delivery_mode != "notification"
+                        and item.mail_profile_id is None
+                        and item.enabled
+                        and item.template_key == "default"
+                    )
+                else:
+                    unchanged = (
+                        (str(item.mail_profile_id) if item.mail_profile_id else None)
+                        == row.mail_profile_id
+                        and item.enabled == row.enabled
+                        and item.template_key == row.template_key
+                    )
+                if not unchanged:
+                    raise AuthFailure(403, 40373, "无权修改账号安全通知策略")
+            # Older clients may omit newly added rules; never remove protected rules for them.
+            routes = [item for item in routes if item.event_type not in SECURITY_EVENT_IDS]
+            writable -= SECURITY_EVENT_IDS
+        # Keep rules for disabled or temporarily absent plugins.
+        await self.session.execute(
+            delete(NotificationRoute).where(NotificationRoute.event_type.in_(writable))
+        )
         now = datetime.now(UTC)
         self.session.add_all(
             [
                 NotificationRoute(
-                    id=uuid5(
-                        NAMESPACE_URL,
-                        "everunfold:notification-route:"
-                        f"{item.event_type}:{item.recipient_type}:{item.recipient_value}:{item.platform_id}",
+                    id=route_id(
+                        item.event_type, item.recipient_type, item.recipient_value, item.platform_id
                     ),
                     event_type=item.event_type,
                     recipient_type=item.recipient_type,
@@ -350,7 +393,7 @@ class NotificationService:
                     revision=revision.revision + 1,
                     updated_at=now,
                 )
-                for item in payload.routes
+                for item in routes
             ]
         )
         revision.revision += 1
@@ -373,7 +416,7 @@ class NotificationService:
                             "template_key": item.template_key,
                             "enabled": item.enabled,
                         }
-                        for item in payload.routes
+                        for item in routes
                     ],
                 },
             )
@@ -387,32 +430,26 @@ class NotificationService:
         revision = await self.revision(locked=True)
         if revision.revision != payload.expected_revision:
             raise AuthFailure(409, 40973, "通知模板已在其他窗口修改，请重新读取")
-        security = SECURITY_BY_ID.get(payload.event_type)
-        if payload.event_type not in EVENT_BY_ID and security is None:
+        site = await self.session.get(SiteSettings, 1)
+        entry = event_registry(site.data if site else {}).get(payload.event_type)
+        if entry is None:
             raise AuthFailure(422, 42299, "未知通知事件")
-        if security is not None:
-            if payload.platform_id != EMAIL:
-                raise AuthFailure(422, 42299, "账户安全事件仅支持邮件模板")
-            if security.requires_code and not payload.reset:
+        definition = entry.definition
+        if not definition.accepts_platform(payload.platform_id):
+            raise AuthFailure(422, 42299, "此通知事件仅支持邮件")
+        if definition.requires_code and not payload.reset:
 
-                def includes_code(value: str) -> bool:
-                    return any(
-                        match.group(1) == "verification.code" for match in TOKEN.finditer(value)
-                    )
+            def includes_code(value: str) -> bool:
+                return any(match.group(1) == "verification.code" for match in TOKEN.finditer(value))
 
-                html_tags = re.findall(r"<[^>]*>", payload.html)
-                if (
-                    not includes_code(payload.text)
-                    or includes_code(payload.subject)
-                    or any(includes_code(tag) for tag in html_tags)
-                    or (
-                        payload.html_enabled
-                        and not includes_code(sanitize_email_html(payload.html))
-                    )
-                ):
-                    raise AuthFailure(
-                        422, 42299, "正文必须包含验证码，主题和 HTML 属性不能包含验证码"
-                    )
+            html_tags = re.findall(r"<[^>]*>", payload.html)
+            if (
+                not includes_code(payload.text)
+                or includes_code(payload.subject)
+                or any(includes_code(tag) for tag in html_tags)
+                or (payload.html_enabled and not includes_code(sanitize_email_html(payload.html)))
+            ):
+                raise AuthFailure(422, 42299, "正文必须包含验证码，主题和 HTML 属性不能包含验证码")
         if payload.platform_id not in {item.id for item in await self.platforms()}:
             raise AuthFailure(422, 42299, "通知平台不存在")
         if payload.html.strip() and payload.platform_id != EMAIL:
@@ -496,7 +533,7 @@ class NotificationService:
         return await self.state()
 
     async def _template_for(
-        self, event_type: str, platform_id: str, locale: str
+        self, event_type: str, platform_id: str, locale: str, *, event_title: str = ""
     ) -> tuple[NotificationTemplate | None, str, str, str, bool, str]:
         locales = [locale, locale.split("-", 1)[0], "zh-CN", "en"]
         for candidate in dict.fromkeys(locales):
@@ -509,7 +546,9 @@ class NotificationService:
                 )
             )
             if row:
-                fallback = default_template(event_type, platform_id, candidate)
+                fallback = default_template(
+                    event_type, platform_id, candidate, event_title=event_title
+                )
                 return (
                     row,
                     row.subject or fallback.subject,
@@ -518,7 +557,7 @@ class NotificationService:
                     row.html_enabled,
                     fallback.href,
                 )
-        fallback = default_template(event_type, platform_id, locale)
+        fallback = default_template(event_type, platform_id, locale, event_title=event_title)
         return (
             None,
             fallback.subject,
@@ -528,14 +567,29 @@ class NotificationService:
             fallback.href,
         )
 
-    async def _recipients(self, route: NotificationRoute) -> list[User]:
-        if route.recipient_type == "user":
-            user = await self.session.get(User, UUID(route.recipient_value))
+    async def _recipients(self, route: NotificationRoute, event: NotificationEvent) -> list[User]:
+        if route.recipient_type in {"subject", "user"}:
+            if route.recipient_type == "subject":
+                identity = event.subject_id
+            else:
+                try:
+                    identity = UUID(route.recipient_value)
+                except ValueError:
+                    return []
+            user = await self.session.get(User, identity) if identity else None
             return [user] if user and user.active else []
-        users = (await self.session.scalars(select(User).where(User.active.is_(True)))).all()
+        active = select(User).where(User.active.is_(True))
         if route.recipient_type == "role":
-            return [user for user in users if user.role == route.recipient_value]
-        return [user for user in users if route.recipient_value in user_permissions(user)]
+            return list(
+                (await self.session.scalars(active.where(User.role == route.recipient_value))).all()
+            )
+        if route.recipient_type == "permission":
+            return [
+                user
+                for user in (await self.session.scalars(active)).all()
+                if route.recipient_value in user_permissions(user)
+            ]
+        return []
 
     async def dispatch_events(self) -> int:
         events = (
@@ -556,9 +610,19 @@ class NotificationService:
         now = datetime.now(UTC)
         site = await self.session.get(SiteSettings, 1)
         mail_data = site.data if site else {}
+        registry = event_registry(mail_data)
         mail_revision, _ = stored_mail_profiles(mail_data)
         brand_variables = None
         for event in events:
+            entry = registry.get(event.event_type)
+            if (
+                entry is None
+                or entry.build != event.source_build
+                or entry.definition.delivery_mode != "notification"
+            ):
+                event.dispatched_at = now
+                continue
+            definition = entry.definition
             event_data = (
                 comment_data(event.data, event.resource_id)
                 if event.event_type == "comment.pending_review"
@@ -566,19 +630,36 @@ class NotificationService:
             )
             variables = {
                 **event_data,
-                "event": {"id": str(event.id), "occurred_at": event.occurred_at.isoformat()},
+                "event": {
+                    "id": str(event.id),
+                    "title": definition.title,
+                    "occurred_at": event.occurred_at.isoformat(),
+                },
             }
             event_routes = [route for route in routes if route.event_type == event.event_type]
             targets: dict[tuple[str, UUID], NotificationRoute] = {}
             for route in event_routes:
-                for user in await self._recipients(route):
+                if not definition.accepts_recipient(
+                    route.recipient_type, route.recipient_value
+                ) or not definition.accepts_platform(route.platform_id):
+                    continue
+                for user in await self._recipients(route, event):
                     targets.setdefault((route.platform_id, user.id), route)
             for (platform_id, user_id), route in sorted(targets.items()):
                 target_user = await self.session.get(User, user_id)
                 if target_user is None or not target_user.active:
                     continue
+                if (
+                    platform_id == EMAIL
+                    and definition.recipient_mode == "subject"
+                    and not subject_address_current(event, target_user)
+                ):
+                    continue
                 template, subject, text, html_text, html_enabled, href = await self._template_for(
-                    event.event_type, platform_id, target_user.preferred_locale
+                    event.event_type,
+                    platform_id,
+                    target_user.preferred_locale,
+                    event_title=definition.title,
                 )
                 href = render_template(href, variables)
                 values = variables
@@ -617,7 +698,9 @@ class NotificationService:
                     user_id=target_user.id,
                     platform_id=platform_id,
                     mail_profile_id=(
-                        str(selected_mail_profile.id) if selected_mail_profile else None
+                        str(selected_mail_profile.id)
+                        if selected_mail_profile
+                        else route.mail_profile_id
                     ),
                     mail_config_revision=(mail_revision if platform_id == EMAIL else None),
                     template_id=template.id if template else None,

@@ -13,7 +13,7 @@ from app.core.config import Settings
 from app.core.database import Database
 from app.modules.content.models import SiteSettings
 from app.modules.content.publication_schemas import ContentReceipt
-from app.modules.notifications.service import publish_event
+from app.modules.notifications.events import publish_event
 from app.modules.settings.models import SettingsDeliveryEvent
 from app.modules.settings.node_registry import read_targets
 from app.modules.settings.schemas import DeliveryReceipt

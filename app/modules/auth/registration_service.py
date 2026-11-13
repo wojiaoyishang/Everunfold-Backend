@@ -34,7 +34,10 @@ from app.modules.auth.security import (
 from app.modules.auth.security_settings import configured_sender, registration_mode
 from app.modules.auth.service import AuthFailure, AuthService, SessionResult
 from app.modules.content.models import SiteSettings
-from app.modules.settings.mail_service import mail_profile, mail_ready, stored_mail_profiles
+from app.modules.notifications.catalog import REGISTRATION_SUCCEEDED, REGISTRATION_VERIFICATION
+from app.modules.notifications.events import publish_account_created
+from app.modules.notifications.routing import auth_code_mail
+from app.modules.settings.mail_service import mail_ready, stored_mail_profiles
 
 
 def state(row: PendingRegistration, now: datetime) -> RegistrationState:
@@ -64,7 +67,9 @@ class RegistrationService:
     async def options(self) -> RegistrationOptions:
         site = await self.session.get(SiteSettings, 1)
         data = site.data if site else {}
-        mail = mail_profile(data, configured_sender(data))
+        mail = await auth_code_mail(
+            self.session, data, REGISTRATION_VERIFICATION, configured_sender(data)
+        )
         return RegistrationOptions(
             mode=registration_mode(data),
             mail_ready=bool(mail and mail.enabled and mail_ready(mail.value, mail.password)),
@@ -118,7 +123,9 @@ class RegistrationService:
             raise AuthFailure(
                 429, 42978, "请等待后再发送验证码", state(latest, now).retry_after_seconds
             )
-        mail = mail_profile(data, configured_sender(data))
+        mail = await auth_code_mail(
+            self.session, data, REGISTRATION_VERIFICATION, configured_sender(data)
+        )
         if not mail or not mail.enabled or not mail_ready(mail.value, mail.password):
             await self.session.commit()
             raise AuthFailure(503, 50378, "注册邮件暂不可用")
@@ -237,6 +244,7 @@ class RegistrationService:
                 action="user_registered", user_id=user.id, target_user_id=user.id, created_at=now
             )
         )
+        await publish_account_created(self.session, REGISTRATION_SUCCEEDED, user, user.id)
         await self.session.delete(row)
         await self.session.delete(browser)
         active, session_token = self.auth._new(now, user)

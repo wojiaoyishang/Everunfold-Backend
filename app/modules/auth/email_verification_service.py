@@ -23,8 +23,10 @@ from app.modules.auth.email_verification_models import EmailVerification
 from app.modules.auth.models import AuthAuditEvent, User
 from app.modules.auth.service import AuthFailure
 from app.modules.content.models import SiteSettings
+from app.modules.notifications.catalog import EMAIL_VERIFICATION, EMAIL_VERIFIED
+from app.modules.notifications.events import publish_account_security
+from app.modules.notifications.routing import auth_code_mail
 from app.modules.settings.mail_service import (
-    mail_profile,
     mail_ready,
     stored_mail_profiles,
 )
@@ -119,7 +121,7 @@ class EmailVerificationService:
         mail_revision, _ = stored_mail_profiles(data)
         from app.modules.auth.security_settings import configured_sender
 
-        mail = mail_profile(data, configured_sender(data))
+        mail = await auth_code_mail(self.session, data, EMAIL_VERIFICATION, configured_sender(data))
         if mail is None or not mail.enabled or not mail_ready(mail.value, mail.password):
             raise AuthFailure(422, 42272, "请先配置并启用可用的 SMTP 邮件平台")
 
@@ -215,6 +217,7 @@ class EmailVerificationService:
                 created_at=now,
             )
         )
+        await publish_account_security(self.session, EMAIL_VERIFIED, user, row.id)
         await self.session.commit()
         return profile(user)
 

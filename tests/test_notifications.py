@@ -18,17 +18,21 @@ from fastapi.testclient import TestClient
 from sqlalchemy import delete, func, select
 from sqlalchemy.engine import make_url
 
-from app.core.config import load_settings
+from app.core.config import FrontendConfig, load_settings
 from app.core.database import Database
-from app.core.plugins.definition import define_plugin
+from app.core.plugins.definition import Plugin, define_plugin
 from app.core.plugins.loader import collect_plugins
+from app.core.plugins.registry import PluginRegistry
+from app.core.plugins.state import CATALOG_KEY
 from app.entrypoints.api import create_app
 from app.modules.auth.bootstrap import seed_admin
 from app.modules.auth.models import User
 from app.modules.content.models import SiteSettings
 from app.modules.notifications.catalog import default_template
+from app.modules.notifications.definitions import NotificationEventDefinition
 from app.modules.notifications.delivery import deliver_notifications
 from app.modules.notifications.email_context import comment_data, email_urls
+from app.modules.notifications.events import event_registry, publish_event
 from app.modules.notifications.models import (
     NotificationDelivery,
     NotificationEvent,
@@ -45,7 +49,7 @@ from app.modules.notifications.render import (
     render_template,
     sanitize_email_html,
 )
-from app.modules.notifications.service import NotificationService, publish_event
+from app.modules.notifications.service import NotificationService
 from app.modules.settings.delivery import deliver_batch
 from app.modules.settings.models import SettingsAudit, SettingsDeliveryEvent
 from tests.test_accounts import ORIGIN, PASSWORD, headers, signed_in
@@ -53,6 +57,45 @@ from tests.test_settings_processes import toml_text
 from tools.export_notifications_contract import build_schema
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def test_plugin_events_respect_namespace_activation_and_deployment(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    definition = NotificationEventDefinition(
+        "example.workflow.ready",
+        "Workflow ready",
+        "A result is available.",
+        ("workflow.name",),
+        recipient_mode="subject",
+    )
+
+    def plugin(
+        identity: str, event: NotificationEventDefinition, *, duplicate: bool = False
+    ) -> Plugin:
+        def setup(registry: PluginRegistry) -> None:
+            registry.notifications.register_event(event)
+            if duplicate:
+                registry.notifications.register_event(event)
+
+        return define_plugin(id=identity, title="Workflow", setup=setup)
+
+    digest = "1" * 64
+    catalog = collect_plugins([(plugin("example.workflow", definition), digest)])
+    monkeypatch.setattr("app.modules.notifications.events.plugin_catalog", lambda: catalog)
+    installed = {CATALOG_KEY: catalog.snapshot()}
+    assert event_registry(installed)[definition.id].definition is definition
+    assert definition.id not in event_registry({})
+    assert definition.id not in event_registry(
+        {**installed, "extensions": {"disabled_plugins": ["example.workflow"]}}
+    )
+    outdated = catalog.snapshot()
+    outdated[0]["info"]["build"] = "0" * 64
+    assert definition.id not in event_registry({CATALOG_KEY: outdated})
+    with pytest.raises(ValueError, match="namespace"):
+        collect_plugins([(plugin("example.other", definition), digest)])
+    with pytest.raises(ValueError, match="duplicate"):
+        collect_plugins([(plugin("example.workflow", definition, duplicate=True), digest)])
 
 
 def test_notification_contract_matches_published_source() -> None:
@@ -232,9 +275,16 @@ def test_routes_templates_inbox_and_uncertain_delivery_are_durable(tmp_path: Pat
             initial = client.get("/v1/admin/notifications/state")
             assert initial.status_code == 200, initial.text
             state = initial.json()["data"]
-            assert state["revision"] == 1
+            revision = state["revision"]
             assert {item["id"] for item in state["platforms"]} >= {"in-app", "email"}
-            assert state["routes"][0]["recipient_value"] == "comments:moderate"
+            assert (
+                next(
+                    route
+                    for route in state["routes"]
+                    if route["event_type"] == "comment.pending_review"
+                )["recipient_value"]
+                == "comments:moderate"
+            )
             default_email = next(
                 item
                 for item in state["templates"]
@@ -244,8 +294,25 @@ def test_routes_templates_inbox_and_uncertain_delivery_are_durable(tmp_path: Pat
             )
             assert default_email["html_enabled"] is True
             assert "<table" in default_email["html"]
+            route = next(
+                item
+                for item in state["routes"]
+                if item["event_type"] == "security.registration_verification"
+            )
+            assert (route["recipient_type"], route["recipient_value"]) == ("subject", "subject")
+            for invalid in (
+                {"recipient_type": "role", "recipient_value": "admin"},
+                {"platform_id": "in-app"},
+                {"enabled": False},
+            ):
+                rejected = client.patch(
+                    "/v1/admin/notifications/routes",
+                    headers=headers(client),
+                    json={"expected_revision": revision, "routes": [{**route, **invalid}]},
+                )
+                assert rejected.status_code == 422
             routes = {
-                "expected_revision": 1,
+                "expected_revision": revision,
                 "routes": [
                     {
                         "event_type": "comment.pending_review",
@@ -278,12 +345,12 @@ def test_routes_templates_inbox_and_uncertain_delivery_are_durable(tmp_path: Pat
                 "/v1/admin/notifications/routes", json=routes, headers=headers(client)
             )
             assert saved.status_code == 200, saved.text
-            assert saved.json()["data"]["revision"] == 2
+            assert saved.json()["data"]["revision"] == revision + 1
 
             template = client.patch(
                 "/v1/admin/notifications/templates",
                 json={
-                    "expected_revision": 2,
+                    "expected_revision": revision + 1,
                     "event_type": "comment.pending_review",
                     "platform_id": "in-app",
                     "locale": "zh-CN",
@@ -306,7 +373,7 @@ def test_routes_templates_inbox_and_uncertain_delivery_are_durable(tmp_path: Pat
             html_template = client.patch(
                 "/v1/admin/notifications/templates",
                 json={
-                    "expected_revision": 3,
+                    "expected_revision": revision + 2,
                     "event_type": "comment.pending_review",
                     "platform_id": "email",
                     "locale": "zh-CN",
@@ -320,14 +387,16 @@ def test_routes_templates_inbox_and_uncertain_delivery_are_durable(tmp_path: Pat
                 headers=headers(client),
             )
             assert html_template.status_code == 200, html_template.text
-            assert html_template.json()["data"]["revision"] == 4
+            assert html_template.json()["data"]["revision"] == revision + 3
             brand_path = "/v1/admin/notifications/mail-brand"
             brand = {
                 "site_url": "https://blog.example.test",
                 "icon_url": "https://blog.example.test/icon.png",
             }
             branding = client.patch(
-                brand_path, json={"expected_revision": 4, "brand": brand}, headers=headers(client)
+                brand_path,
+                json={"expected_revision": revision + 3, "brand": brand},
+                headers=headers(client),
             )
             assert branding.status_code == 200, branding.text
             brand_state = branding.json()["data"]
@@ -569,7 +638,17 @@ def test_routes_templates_inbox_and_uncertain_delivery_are_durable(tmp_path: Pat
                             )
                         )
                         await session.commit()
-                    await deliver_batch(settings)
+                    # The outbox only claims rows belonging to a configured receiver.
+                    receiver = FrontendConfig(
+                        base_url="http://127.0.0.1:3000",
+                        enabled=True,
+                        settings_receiver_url="http://127.0.0.1:1",
+                        fastapi_to_nextjs_token_env="TEST_OFFLINE_NOTIFICATION_RECEIVER",
+                        nextjs_to_fastapi_token_env="TEST_OFFLINE_NOTIFICATION_REVERSE",
+                    )
+                    await deliver_batch(
+                        settings.model_copy(update={"frontends": {"offline-node": receiver}})
+                    )
                     async with database.session_factory() as session:
                         event = await session.scalar(
                             select(NotificationEvent).where(

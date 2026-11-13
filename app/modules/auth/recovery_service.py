@@ -16,7 +16,9 @@ from app.modules.auth.security import hash_password, normalize_username, token_d
 from app.modules.auth.security_settings import configured_sender, recovery_policy
 from app.modules.auth.service import AuthFailure, AuthService
 from app.modules.content.models import SiteSettings
-from app.modules.settings.mail_service import mail_profile, mail_ready, stored_mail_profiles
+from app.modules.notifications.catalog import PASSWORD_RECOVERY, PASSWORD_RESET_COMPLETED
+from app.modules.notifications.routing import auth_code_mail, auth_mail_route
+from app.modules.settings.mail_service import mail_ready, stored_mail_profiles
 
 RECOVERY_TTL = timedelta(minutes=30)
 MAX_ATTEMPTS = 5
@@ -49,7 +51,7 @@ class RecoveryService:
         enabled, epoch = recovery_policy(data)
         if not enabled:
             raise AuthFailure(403, 40380, "站点未开放找回密码")
-        mail = mail_profile(data, configured_sender(data))
+        mail = await auth_code_mail(self.session, data, PASSWORD_RECOVERY, configured_sender(data))
         if not mail or not mail.enabled or not mail_ready(mail.value, mail.password):
             raise AuthFailure(503, 50380, "找回密码邮件暂不可用")
         now = datetime.now(UTC)
@@ -165,7 +167,11 @@ class RecoveryService:
         )
         row.code_hash = ""
         row.delivery_code = ""
-        row.status = "notice_queued"
+        notice = await auth_mail_route(self.session, PASSWORD_RESET_COMPLETED)
+        row.status = "notice_queued" if notice.enabled else "done"
+        if notice.enabled and notice.profile_id is not None:
+            row.mail_profile_id = notice.profile_id
+            row.mail_revision = stored_mail_profiles(site.data if site else {})[0]
         row.user_revision = user.revision
         row.auth_version = user.auth_version
         row.expires_at = now + timedelta(hours=1)

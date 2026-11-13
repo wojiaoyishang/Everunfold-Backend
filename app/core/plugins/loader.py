@@ -7,7 +7,7 @@ import json
 import re
 from collections.abc import AsyncIterator, Callable, Iterable, Mapping
 from contextlib import AsyncExitStack, asynccontextmanager
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from functools import lru_cache
 from pathlib import Path
 from types import MappingProxyType
@@ -18,6 +18,7 @@ from app.core.plugins.definition import Plugin, PluginRuntime
 from app.core.plugins.registry import PluginRegistry
 from app.core.plugins.routes import RouteContribution
 from app.modules.captcha.providers import CaptchaProvider
+from app.modules.notifications.definitions import NotificationEventDefinition
 from app.modules.notifications.platforms import NotificationPlatform
 from app.modules.settings.cache_event_schema import CacheEventHandler
 from app.modules.settings.extensions_schemas import BackendPluginInfo
@@ -35,6 +36,7 @@ class LoadedPlugin:
     notifications: tuple[NotificationPlatform, ...]
     locales: Mapping[str, Mapping[str, str]]
     cache_event_handler: CacheEventHandler | None = None
+    notification_events: tuple[NotificationEventDefinition, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -107,6 +109,7 @@ def collect_plugins(entries: Iterable[tuple[Plugin, str]]) -> PluginCatalog:
     names: set[str] = set()
     providers: set[str] = set()
     notification_platforms: set[str] = set()
+    notification_events: set[str] = set()
     while pending:
         ready = sorted(
             key
@@ -141,6 +144,10 @@ def collect_plugins(entries: Iterable[tuple[Plugin, str]]) -> PluginCatalog:
                 if platform.id in notification_platforms:
                     raise ValueError(f"Duplicate notification platform: {platform.id}")
                 notification_platforms.add(platform.id)
+            for event in registry.notifications.events:
+                if event.id in notification_events:
+                    raise ValueError(f"Duplicate notification event: {event.id}")
+                notification_events.add(event.id)
             info.tasks = [item.id for item in registry.tasks.items]
             info.shortcodes = [item.source.name for item in registry.shortcodes._items]
             info.captcha_providers = [item.id for item in registry.captcha._items]
@@ -167,6 +174,10 @@ def collect_plugins(entries: Iterable[tuple[Plugin, str]]) -> PluginCatalog:
                 fingerprint["routes"] = [item.manifest() for item in registry.routes.items]
             if registry.cache_events.handler is not None:
                 fingerprint["cache_events"] = "cache-event-1"
+            if registry.notifications.events:
+                fingerprint["notification_events"] = [
+                    asdict(event) for event in registry.notifications.events
+                ]
             info.build = hashlib.sha256(
                 json.dumps(fingerprint, sort_keys=True).encode()
             ).hexdigest()
@@ -186,6 +197,7 @@ def collect_plugins(entries: Iterable[tuple[Plugin, str]]) -> PluginCatalog:
                         }
                     ),
                     cache_event_handler=registry.cache_events.handler,
+                    notification_events=tuple(registry.notifications.events),
                 )
             )
     return PluginCatalog(tuple(completed))

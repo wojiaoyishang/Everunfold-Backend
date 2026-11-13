@@ -36,6 +36,8 @@ from app.modules.auth.security import (
     verify_password,
 )
 from app.modules.auth.service import AuthFailure, AuthService, SessionResult
+from app.modules.notifications.catalog import USER_CREATED
+from app.modules.notifications.events import publish_account_created
 from app.modules.settings.languages import require_language
 
 
@@ -300,6 +302,7 @@ class AccountsService:
         self.session.add(user)
         await self.session.flush()
         self.audit(actor, "user_created", user, role=user.role)
+        await publish_account_created(self.session, USER_CREATED, user, actor.id)
         result = profile(user)
         await self.operations.remember(
             payload.operation_id,

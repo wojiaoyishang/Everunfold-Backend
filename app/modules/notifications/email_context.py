@@ -28,8 +28,9 @@ EMAIL_VARIABLES = (
     "recipient.display_name",
     "mail.reason",
 )
-NOTIFICATION_EVENT_VARIABLES = ("event.id", "event.occurred_at")
+NOTIFICATION_EVENT_VARIABLES = ("event.id", "event.title", "event.occurred_at")
 URL_FIELDS = {
+    "account": ("security_url",),
     "admin": ("url",),
     "comment": ("review_url", "approve_url", "reject_url"),
     "content": ("url",),
@@ -135,7 +136,11 @@ def email_urls(data: dict[str, Any], origin: str) -> dict[str, Any]:
         **{
             group: {
                 **data[group],
-                **{key: absolute_url(data[group].get(key, ""), origin) for key in keys},
+                **{
+                    key: absolute_url(value, origin) if isinstance(value, str) else ""
+                    for key in keys
+                    if (value := data[group].get(key)) is not None
+                },
             }
             for group, keys in URL_FIELDS.items()
             if isinstance(data.get(group), dict)
@@ -184,4 +189,8 @@ def english(locale: str) -> bool:
 
 
 def mail_reason(event: str, locale: str) -> str:
-    return MAIL_REASONS[event][english(locale)]
+    fallback = (
+        "你收到这封邮件是因为站点为此事件启用了邮件通知。",
+        "You received this email because the site enabled email notifications for this event.",
+    )
+    return MAIL_REASONS.get(event, fallback)[english(locale)]

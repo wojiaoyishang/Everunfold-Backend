@@ -20,7 +20,7 @@ from app.modules.content.draft_schemas import DraftDetail, DraftSchedule
 from app.modules.content.merge_lock import active_merge
 from app.modules.content.publication import ContentPublication
 from app.modules.media.locking import lock_references
-from app.modules.notifications.service import publish_event
+from app.modules.notifications.events import publish_event
 from app.modules.settings.models import SettingsAudit
 
 
