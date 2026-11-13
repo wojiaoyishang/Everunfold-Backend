@@ -1,5 +1,7 @@
 # Everunfold 文档入口
 
+[注册页的文章分类选项](decisions/0135-registered-page-category-options.md)说明页面管理权限和配置数据。
+
 [注册一次验证与用户通知接收人](decisions/0133-registration-verification-and-notice-recipients.md)说明注册邮箱验证、可配置接收对象和账号中心收件箱。
 
 [账号通知与插件事件总线](decisions/0132-account-notification-events.md)说明固定收件人、认证发信覆盖、管理员默认通知及插件注册。使用与开发见[通知指南](development/notifications.md)。

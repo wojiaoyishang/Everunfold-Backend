@@ -1,5 +1,10 @@
 # 后端交接状态
 
+## 注册书籍页
+
+- pages-v1 1.11.0 新增页面管理的分类选择接口，沿用 `pages:read` 会话授权。解除旧日记地址的系统保留，无数据库迁移。见 [ADR 0135](../decisions/0135-registered-page-category-options.md)。
+- Ruff、应用 mypy、22 项页面与语言回归通过。隔离 API、Worker、Scheduler、前端及接收器验证了清单登记、分类权限、页面发布和停用同步。开发环境只登记停用的书籍页，已有文章和分类保留。
+
 ## 首页配置和评论回复通知
 
 - settings-v1 1.40.0 保存首页布局、密度和隐藏分类/标签。captcha-v1 与 notifications-v1 1.8.0 增加会话评论提交与账号通知偏好。迁移 `0056_comment_reply_notices` 保存新评论账号归属和邮件订阅，并预置评论回复的两条策略。见 [ADR0134](../decisions/0134-home-feed-and-comment-reply-notifications.md)。
