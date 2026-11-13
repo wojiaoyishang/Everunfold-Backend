@@ -1,6 +1,6 @@
 # Everunfold 文档入口
 
-[缓存管理](development/cache-management.md)和[ADR0131](decisions/0131-node-cache-management-and-backend-events.md)说明前端磁盘查看、单节点维护及后端插件通知。
+[节点状态](development/cache-management.md)和[ADR0131](decisions/0131-node-cache-management-and-backend-events.md)说明发布回执、前端磁盘状态、单节点维护及后端插件通知。
 
 [前端节点监控](development/nodes-monitor.md)说明节点清单、独立密码及状态含义。实现见 [ADR0129](decisions/0129-frontend-nodes-monitor.md) 和 [ADR0130](decisions/0130-independent-node-consoles.md)。
 
