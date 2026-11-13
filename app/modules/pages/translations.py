@@ -19,6 +19,7 @@ from app.modules.pages.schemas import (
     PageValue,
 )
 from app.modules.pages.service import PagesService
+from app.modules.pages.templates import page_data, page_template
 from app.modules.settings.cache_event_schema import CacheChange
 from app.modules.settings.languages import require_language
 from app.modules.settings.models import SettingsAudit
@@ -64,6 +65,11 @@ class PageTranslations:
             path = await initial_path(
                 self.session, source.data["title"], identity, language=language.code
             )
+            template = (
+                await page_template(self.session, source.template_id)
+                if source.template_id
+                else None
+            )
             value = (
                 PageValue.model_validate(source.data)
                 if payload.copy_source
@@ -75,11 +81,12 @@ class PageTranslations:
                     id=identity,
                     source="custom",
                     type_id=source.type_id,
+                    template_id=source.template_id,
                     revision=1,
                     language=language.code,
                     translation_group_id=group.id,
                     translated_from_revision=source.applied_revision or source.revision,
-                    data=value.model_dump(mode="json"),
+                    data=page_data(value, template),
                     updated_at=datetime.now(UTC),
                 )
             )

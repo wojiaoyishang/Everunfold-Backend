@@ -13,7 +13,12 @@ from app.modules.auth.bootstrap import seed_admin
 from app.modules.auth.models import User
 from app.modules.content.repository import ContentRepository
 from app.modules.content.service import PublicContentService
-from app.modules.pages.models import FrontendPageRegistration, ManagedPage, PageTranslationGroup
+from app.modules.pages.models import (
+    FrontendPageRegistration,
+    ManagedPage,
+    PageTemplate,
+    PageTranslationGroup,
+)
 from app.modules.pages.registration import install_manifest
 from app.modules.pages.schemas import PageManifest
 from tests.test_accounts import PASSWORD, AccountsTest, headers, signed_in
@@ -48,6 +53,9 @@ def pages(accounts: AccountsTest) -> Iterator[AccountsTest]:
                     delete(FrontendPageRegistration).where(
                         FrontendPageRegistration.page_id.startswith(accounts.name)
                     )
+                )
+                await session.execute(
+                    delete(PageTemplate).where(PageTemplate.title.startswith(accounts.name))
                 )
                 await session.commit()
         finally:
@@ -548,6 +556,126 @@ def test_page_source_can_exceed_small_settings_transport_limit(pages: AccountsTe
     response = pages.root.post("/v1/admin/pages/save", json=payload, headers=headers(pages.root))
     assert response.status_code == 200, response.text
     assert response.json()["data"]["value"]["html"] == payload["value"]["html"]
+
+
+def test_template_is_a_type_and_updates_live_children_without_publishing_their_drafts(
+    pages: AccountsTest,
+) -> None:
+    ctx = pages
+    template_id = uuid4()
+    definition = {
+        "id": str(template_id),
+        "operation_id": str(uuid4()),
+        "expected_revision": 0,
+        "value": {"title": ctx.name + " 模板", "html": "<h2>Shared version one</h2>"},
+    }
+
+    def post(path: str, request: dict[str, Any], status: int = 200) -> dict[str, Any]:
+        result = ctx.root.post("/v1/admin/pages" + path, json=request, headers=headers(ctx.root))
+        assert result.status_code == status, result.text
+        return dict(result.json())
+
+    assert ctx.client().get(f"/v1/admin/pages/templates/{template_id}").status_code == 401
+    assert ctx.root.post("/v1/admin/pages/templates", json=definition).status_code == 403
+    saved = post("/templates", definition)["data"]
+    assert saved["revision"] == 1 and "path" not in saved["value"]
+    assert saved == post("/templates", definition)["data"]
+    types = ctx.root.get("/v1/admin/pages/types").json()["data"]["items"]
+    template_type = next(item for item in types if item.get("template_id") == str(template_id))
+    assert template_type["source"] == "template" and template_type["page_count"] == 0
+    assert all(page["id"] != str(template_id) for page in published(ctx))
+
+    first, second, draft_only = [
+        {
+            **body(ctx, path=f"/{ctx.name}-{suffix}", enabled=enabled, comments_open=False),
+            "type_id": template_type["id"],
+            "apply": enabled,
+        }
+        for suffix, enabled in [("one", True), ("two", True), ("draft", False)]
+    ]
+    children = [post("/save", payload)["data"] for payload in (first, second, draft_only)]
+    assert all(page["value"]["html"] == definition["value"]["html"] for page in children)
+    assert all(page["type_id"] == template_type["id"] for page in children)
+    assert not children[2]["enabled"]
+    directory = ctx.root.get("/v1/admin/pages").json()["data"]["items"]
+    assert all(
+        row["type_title"] == definition["value"]["title"]
+        for row in directory
+        if row["id"] in {item["id"] for item in children}
+    )
+    types = ctx.root.get("/v1/admin/pages/types").json()["data"]["items"]
+    assert next(item for item in types if item["id"] == template_type["id"])["page_count"] == 3
+    pending = {
+        **first,
+        "operation_id": str(uuid4()),
+        "expected_revision": 1,
+        "apply": False,
+        "value": {**first["value"], "title": ctx.name + " pending", "comments_open": True},
+    }
+    assert post("/save", pending)["data"]["has_unapplied_changes"]
+    update_template = {
+        **definition,
+        "operation_id": str(uuid4()),
+        "expected_revision": 1,
+        "value": {
+            **definition["value"],
+            "html": "<h2>Shared version two</h2>",
+            "css": "h2 { margin: 0; }",
+        },
+    }
+    updated = post("/templates", update_template)["data"]
+    assert updated["revision"] == 2
+    assert post("/templates", update_template)["data"] == updated
+    assert (
+        post("/templates", {**update_template, "operation_id": str(uuid4())}, 409)["code"] == 40992
+    )
+    public = {row["id"]: row for row in published(ctx)}
+    for child in children[:2]:
+        live = public[child["id"]]
+        assert live["path"] == child["value"]["path"] and live["title"] == ctx.name
+        assert not live["comments_open"]
+        assert live["html"] == updated["value"]["html"] and live["css"] == updated["value"]["css"]
+        assert live["revision"] > child["revision"] and "template" not in live
+    assert children[2]["id"] not in public
+    private = ctx.root.get(f"/v1/admin/pages/{first['id']}").json()["data"]
+    assert private["value"]["title"] == pending["value"]["title"]
+    assert private["value"]["comments_open"] and private["has_unapplied_changes"]
+    assert private["applied_revision"] == 1 and private["template"]["revision"] == 2
+    enable = {
+        "id": draft_only["id"],
+        "operation_id": str(uuid4()),
+        "expected_revision": children[2]["revision"],
+        "enabled": True,
+        "apply_draft": True,
+    }
+    assert post("/enabled", enable)["data"]["value"]["html"] == updated["value"]["html"]
+
+
+def test_page_paths_default_from_title_and_reject_invalid_explicit_values(
+    pages: AccountsTest,
+) -> None:
+    ctx = pages
+    first = body(ctx)
+    first["value"].pop("path")
+    saved = ctx.root.post("/v1/admin/pages/save", json=first, headers=headers(ctx.root))
+    assert saved.status_code == 200, saved.text
+    assert saved.json()["data"]["value"]["path"] == f"/{ctx.name}.html"
+    second = {**first, "id": str(uuid4()), "operation_id": str(uuid4())}
+    saved = ctx.root.post("/v1/admin/pages/save", json=second, headers=headers(ctx.root))
+    assert saved.status_code == 200, saved.text
+    assert saved.json()["data"]["value"]["path"] == f"/{ctx.name}-2.html"
+    for path, code in [
+        ("hello", 42205),
+        ("", 42205),
+        ("/a?query=1", 42206),
+        ("/%ff", 42206),
+        ("/admin/test", 42207),
+        ("/" + "a" * 500, 42208),
+    ]:
+        response = ctx.root.post(
+            "/v1/admin/pages/save", json=body(ctx, path=path), headers=headers(ctx.root)
+        )
+        assert response.status_code == 422 and response.json()["code"] == code, response.text
 
 
 def test_active_frontend_version_mismatch_blocks_only_application(pages: AccountsTest) -> None:

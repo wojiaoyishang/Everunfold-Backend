@@ -28,6 +28,16 @@ class PageTranslationGroup(Base):
     revision: Mapped[int] = mapped_column(Integer, default=1)
 
 
+class PageTemplate(Base):
+    __tablename__ = "page_templates"
+    __table_args__ = (CheckConstraint("revision >= 1", name="positive_revision"),)
+    id: Mapped[UUID] = mapped_column(primary_key=True)
+    title: Mapped[str] = mapped_column(String(120))
+    description: Mapped[str] = mapped_column(String(500))
+    revision: Mapped[int] = mapped_column(Integer)
+    code: Mapped[dict[str, Any]] = mapped_column(JSONB)
+
+
 class ManagedPage(Base):
     __tablename__ = "managed_pages"
     __table_args__ = (
@@ -39,6 +49,7 @@ class ManagedPage(Base):
             "OR (source = 'registered' AND type_id <> 'core.custom')",
             name="type_source",
         ),
+        CheckConstraint("template_id IS NULL OR source = 'custom'", name="template_source"),
         CheckConstraint(
             "(source = 'custom' AND language IS NOT NULL AND translation_group_id IS NOT NULL) "
             "OR (source = 'registered' AND language IS NULL AND translation_group_id IS NULL)",
@@ -49,6 +60,7 @@ class ManagedPage(Base):
     id: Mapped[UUID] = mapped_column(primary_key=True)
     source: Mapped[str] = mapped_column(String(16))
     type_id: Mapped[str] = mapped_column(String(100), index=True)
+    template_id: Mapped[UUID | None] = mapped_column(ForeignKey("page_templates.id"), index=True)
 
     @property
     def implementation_id(self) -> str | None:

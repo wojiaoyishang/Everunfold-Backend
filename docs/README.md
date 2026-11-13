@@ -1,5 +1,7 @@
 # Everunfold 文档入口
 
+[自定义页面模板](decisions/0138-custom-page-templates.md)说明模板继承、已发布页面同步和 URL 校验。
+
 [页面类型与页面实例](decisions/0137-page-types-and-instances.md)说明部署登记、页面创建与数据迁移。
 
 [注册页的文章分类选项](decisions/0135-registered-page-category-options.md)说明页面管理权限和配置数据。

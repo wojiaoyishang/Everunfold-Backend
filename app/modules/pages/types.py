@@ -7,12 +7,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
 from app.modules.pages.availability import disabled_page_ids
-from app.modules.pages.models import FrontendPageRegistration, ManagedPage
+from app.modules.pages.models import FrontendPageRegistration, ManagedPage, PageTemplate
 from app.modules.pages.schemas import (
     CUSTOM_PAGE_TYPE,
     PageRegistration,
     PageTypeCatalog,
     PageTypeItem,
+    template_type_id,
 )
 from app.modules.settings.node_registry import read_targets
 
@@ -61,7 +62,7 @@ async def page_types(session: AsyncSession, config: Settings) -> PageTypeCatalog
         (
             await session.execute(
                 select(ManagedPage.type_id, func.count())
-                .where(ManagedPage.deleted_at.is_(None))
+                .where(ManagedPage.deleted_at.is_(None), ManagedPage.template_id.is_(None))
                 .group_by(ManagedPage.type_id)
             )
         ).all()
@@ -91,4 +92,30 @@ async def page_types(session: AsyncSession, config: Settings) -> PageTypeCatalog
                 page_count=counts.get(identity, 0),
             )
         )
+    templates = await session.execute(
+        select(
+            PageTemplate.id,
+            PageTemplate.title,
+            PageTemplate.description,
+            func.count(ManagedPage.id),
+        )
+        .outerjoin(
+            ManagedPage,
+            (ManagedPage.template_id == PageTemplate.id) & ManagedPage.deleted_at.is_(None),
+        )
+        .group_by(PageTemplate.id)
+        .order_by(PageTemplate.title, PageTemplate.id)
+    )
+    items.extend(
+        PageTypeItem(
+            id=template_type_id(identity),
+            template_id=identity,
+            title=title,
+            description=description,
+            source="template",
+            available=True,
+            page_count=count,
+        )
+        for identity, title, description, count in templates
+    )
     return PageTypeCatalog(items=items)

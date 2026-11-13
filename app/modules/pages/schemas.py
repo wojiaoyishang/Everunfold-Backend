@@ -15,6 +15,11 @@ from app.modules.settings.languages import LanguageCode
 
 CUSTOM_PAGE_TYPE = "core.custom"
 PAGE_TYPE_PATTERN = r"^[a-z][a-z0-9_-]*\.[a-z][a-z0-9_.-]{0,63}$"
+TEMPLATE_TYPE_PREFIX = "template.t-"
+
+
+def template_type_id(identity: UUID) -> str:
+    return f"{TEMPLATE_TYPE_PREFIX}{identity.hex}"
 
 
 class PageOption(PublicModel):
@@ -80,31 +85,26 @@ class PageManifest(PublicModel):
     @model_validator(mode="after")
     def distinct_page_types(self) -> Self:
         ids = {page.id for page in self.pages}
-        if len(ids) != len(self.pages) or CUSTOM_PAGE_TYPE in ids:
+        if (
+            len(ids) != len(self.pages)
+            or CUSTOM_PAGE_TYPE in ids
+            or any(identity.startswith(TEMPLATE_TYPE_PREFIX) for identity in ids)
+        ):
             raise ValueError("duplicate or reserved page type ID")
         return self
 
 
-class PageValue(PublicModel):
-    captcha_read: CaptchaOverride = "inherit"
-    captcha_comment: CaptchaOverride = "inherit"
-    title: str = Field(min_length=1, max_length=120)
-    path: str = Field(min_length=2, max_length=500)
-    description: str = Field(default="", max_length=500)
-    allow_indexing: bool = True
-    comments_open: bool = True
-    show_image_viewer: bool = True
-    show_glossary_tooltips: bool = True
-    show_glossary_footnotes: bool = True
-    enabled: bool = False
+class PageCode(PublicModel):
     html: str = Field(default="", max_length=200000)
     css: str = Field(default="", max_length=100000)
     javascript: str = Field(default="", max_length=100000)
     javascript_enabled: bool = False
     javascript_position: Literal["head", "body_end"] = "body_end"
-    options: dict[str, JsonValue] = Field(default_factory=dict)
-    _options = field_validator("options")(bounded_options)
-    _path = field_validator("path")(content_path)
+
+
+class TitledPageCode(PageCode):
+    title: str = Field(min_length=1, max_length=120)
+    description: str = Field(default="", max_length=500)
 
     @field_validator("title")
     @classmethod
@@ -112,6 +112,49 @@ class PageValue(PublicModel):
         if not value.strip():
             raise ValueError("title must not be blank")
         return value.strip()
+
+
+class PageSettings(TitledPageCode):
+    captcha_read: CaptchaOverride = "inherit"
+    captcha_comment: CaptchaOverride = "inherit"
+    allow_indexing: bool = True
+    comments_open: bool = True
+    show_image_viewer: bool = True
+    show_glossary_tooltips: bool = True
+    show_glossary_footnotes: bool = True
+    enabled: bool = False
+    options: dict[str, JsonValue] = Field(default_factory=dict)
+    _options = field_validator("options")(bounded_options)
+
+
+class PageValue(PageSettings):
+    path: str = Field(min_length=2, max_length=500)
+    _path = field_validator("path")(content_path)
+
+
+class PageInput(PageSettings):
+    path: str | None = Field(
+        default=None, description="Omit on first save to generate a URL from the title."
+    )
+
+
+class PageTemplateReference(PublicModel):
+    id: UUID
+    title: str
+    revision: int = Field(ge=1)
+
+
+class PageTemplateItem(PublicModel):
+    id: UUID
+    revision: int = Field(ge=1)
+    value: TitledPageCode
+
+
+class SavePageTemplate(PublicModel):
+    id: UUID
+    expected_revision: int = Field(ge=0)
+    operation_id: UUID
+    value: TitledPageCode
 
 
 class PublicManagedPage(PageValue):
@@ -153,6 +196,7 @@ class ManagedPageItem(PublicModel):
     source: Literal["custom", "registered"]
     implementation_id: str | None
     type_id: str
+    template: PageTemplateReference | None = None
     revision: int
     applied_revision: int | None
     enabled: bool
@@ -209,10 +253,11 @@ class ManagedPageCatalog(PublicModel):
 
 class PageTypeItem(PublicModel):
     id: str
-    source: Literal["custom", "registered"]
+    source: Literal["custom", "registered", "template"]
     title: str
     description: str = ""
     registration: PageRegistration | None = None
+    template_id: UUID | None = None
     available: bool
     page_count: int = Field(ge=0)
 
@@ -234,7 +279,7 @@ class PageCategories(PublicModel):
 class SaveManagedPage(PublicModel):
     id: UUID
     expected_revision: int = Field(ge=0)
-    value: PageValue
+    value: PageInput
     apply: bool = False
     operation_id: UUID
     current_password: str = Field(default="", max_length=1024, description="Legacy field; ignored.")
@@ -300,6 +345,8 @@ class PagesContract(PublicModel):
     types: PublicResponse[PageTypeCatalog]
     categories: PublicResponse[PageCategories]
     item: PublicResponse[ManagedPageItem]
+    template: PublicResponse[PageTemplateItem]
+    save_template: SavePageTemplate
     save: SaveManagedPage
     remove: RemoveManagedPage
     manifest: PageManifest

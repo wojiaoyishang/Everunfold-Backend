@@ -14,12 +14,13 @@ from app.modules.auth.permissions import user_permissions
 from app.modules.auth.service import AuthFailure
 from app.modules.content.publication import ContentPublication
 from app.modules.media.locking import lock_references
-from app.modules.pages.groups import promote_original, source_value, translations, unapplied
-from app.modules.pages.models import ManagedPage, PageTranslationGroup
+from app.modules.pages.groups import promote_original, translations, unapplied
+from app.modules.pages.models import ManagedPage, PageTemplate, PageTranslationGroup
 from app.modules.pages.options import bounded_options
-from app.modules.pages.paths import content_path_taken, page_path_taken
+from app.modules.pages.paths import content_path_taken, normalize_page_path, page_path_taken
 from app.modules.pages.schemas import (
     CUSTOM_PAGE_TYPE,
+    TEMPLATE_TYPE_PREFIX,
     ManagedPageCatalog,
     ManagedPageItem,
     ManagedPageSummary,
@@ -29,6 +30,15 @@ from app.modules.pages.schemas import (
     RemoveManagedPage,
     SaveManagedPage,
     SetPageEnabled,
+    template_type_id,
+)
+from app.modules.pages.templates import (
+    effective_value,
+    page_data,
+    page_template,
+    require_page_size,
+    template_identity,
+    template_reference,
 )
 from app.modules.pages.types import CUSTOM_PAGE_TITLE, RegisteredPageType, registered_types
 from app.modules.settings.cache_event_schema import CacheChange
@@ -52,7 +62,10 @@ class PagesService:
         return (registered.definition, registered.available) if registered else (None, False)
 
     async def item(
-        self, row: ManagedPage, types: dict[str, RegisteredPageType] | None = None
+        self,
+        row: ManagedPage,
+        types: dict[str, RegisteredPageType] | None = None,
+        templates: dict[UUID, PageTemplate] | None = None,
     ) -> ManagedPageItem:
         if types is None:
             registration, available = await self.registration(row.type_id)
@@ -60,25 +73,35 @@ class PagesService:
             registered = types.get(row.type_id)
             registration = registered.definition if registered else None
             available = row.type_id == CUSTOM_PAGE_TYPE or bool(registered and registered.available)
+        template = (
+            (
+                templates[row.template_id]
+                if templates is not None
+                else await page_template(self.session, row.template_id)
+            )
+            if row.template_id is not None
+            else None
+        )
         group = await translations(self.session, row) if row.source == "custom" else None
         return ManagedPageItem(
             id=row.id,
             source=cast(Literal["custom", "registered"], row.source),
             implementation_id=row.implementation_id,
-            type_id=row.type_id,
+            type_id=template_type_id(template.id) if template else row.type_id,
+            template=template_reference(template) if template else None,
             revision=row.revision,
             applied_revision=row.applied_revision,
             enabled=row.published is not None,
-            value=PageValue.model_validate(row.data),
+            value=effective_value(row.data, template),
             registration=registration,
             available=available,
             updated_at=row.updated_at,
             archived=row.deleted_at is not None,
             has_applied_snapshot=row.applied_snapshot is not None,
             has_unapplied_changes=unapplied(row),
-            applied_javascript_enabled=bool(
-                (row.applied_snapshot or row.data).get("javascript_enabled")
-            ),
+            applied_javascript_enabled=effective_value(
+                row.applied_snapshot or row.data, template
+            ).javascript_enabled,
             language=row.language,
             translation_group_id=row.translation_group_id,
             is_original=group is None or group.source_id == row.id,
@@ -94,19 +117,24 @@ class PagesService:
             )
         ).all()
         types = await registered_types(self.session, self.config)
+        templates = {
+            template.id: template for template in await self.session.scalars(select(PageTemplate))
+        }
         items = []
         for row in rows:
-            item = await self.item(row, types)
+            item = await self.item(row, types, templates)
             if not item.is_original:
                 continue
             items.append(
                 ManagedPageSummary(
-                    **item.model_dump(exclude={"value", "registration"}),
+                    **item.model_dump(exclude={"value", "registration", "template"}),
                     title=item.value.title,
                     path=item.value.path,
                     description=item.value.description,
                     type_title=(
-                        item.registration.title
+                        item.template.title
+                        if item.template
+                        else item.registration.title
                         if item.registration
                         else CUSTOM_PAGE_TITLE
                         if item.source == "custom"
@@ -126,7 +154,7 @@ class PagesService:
 
     async def validate_path(self, path: str, identity: UUID) -> None:
         if reserved_language_path(path, await language_catalog(self.session)):
-            raise AuthFailure(422, 42296, "页面地址与语言入口冲突")
+            raise AuthFailure(422, 42209, "页面地址与语言入口冲突")
         if await page_path_taken(self.session, path, identity) or await content_path_taken(
             self.session, path
         ):
@@ -143,19 +171,28 @@ class PagesService:
                 if value is None
             },
         )
+        # Keep fingerprints of pre-template page operations with explicit paths replayable.
+        if payload.value.path is not None:
+            fingerprint["value"]["path"] = normalize_page_path(payload.value.path)
         cached = await self.accounts.operations.read(
             payload.operation_id, actor.id, "page_save", fingerprint
         )
         if cached is not None:
             return ManagedPageItem.model_validate(cached)
         row = await self.session.get(ManagedPage, payload.id, populate_existing=True)
+        template = None
         new_group = None
         creating = row is None
         if row is None:
             if payload.expected_revision:
                 raise AuthFailure(404, 40496, "页面不存在")
             type_id = payload.type_id or CUSTOM_PAGE_TYPE
-            custom = type_id == CUSTOM_PAGE_TYPE
+            template_id = template_identity(type_id)
+            if template_id is not None:
+                template = await page_template(self.session, template_id)
+            elif type_id.startswith(TEMPLATE_TYPE_PREFIX):
+                raise AuthFailure(422, 42294, "页面类型不存在")
+            custom = type_id == CUSTOM_PAGE_TYPE or template is not None
             language = None
             if custom:
                 language = (await require_language(self.session, payload.language)).code
@@ -166,7 +203,8 @@ class PagesService:
                 id=payload.id,
                 source="custom" if custom else "registered",
                 revision=1,
-                type_id=type_id,
+                type_id=CUSTOM_PAGE_TYPE if custom else type_id,
+                template_id=template_id,
                 data={},
                 updated_at=datetime.now(UTC),
                 language=language,
@@ -176,12 +214,30 @@ class PagesService:
             row = await self.target(payload.id, payload.expected_revision)
             if row.deleted_at is not None:
                 raise AuthFailure(409, 40996, "请先恢复回收站中的页面")
-            if payload.type_id is not None and payload.type_id != row.type_id:
+            if row.template_id is not None:
+                template = await page_template(self.session, row.template_id)
+            type_id = template_type_id(template.id) if template else row.type_id
+            if payload.type_id is not None and payload.type_id != type_id:
                 raise AuthFailure(422, 42294, "已保存页面的类型不可更改")
             if payload.language is not None and payload.language != row.language:
                 raise AuthFailure(422, 42297, "请通过语言关联创建独立译文，不可更改已有页面的语言")
         next_revision = row.revision + (0 if payload.expected_revision == 0 else 1)
-        value = payload.value.model_copy(deep=True)
+        path = fingerprint["value"]["path"]
+        if path is None:
+            if creating:
+                from app.modules.content.content_paths import initial_path
+
+                catalog = await language_catalog(self.session)
+                path = await initial_path(
+                    self.session,
+                    payload.value.title,
+                    row.id,
+                    language=row.language or catalog.default_code,
+                    type_id="page",
+                )
+            else:
+                path = row.data["path"]
+        value = effective_value({**payload.value.model_dump(), "path": path}, template)
         definition, available = await self.registration(row.type_id)
         if row.source == "registered":
             if creating and definition is None:
@@ -203,21 +259,18 @@ class PagesService:
                 raise AuthFailure(409, 40998, "前端页面注册缺失或节点版本不一致")
         if value.javascript_enabled and actor.role != "admin":
             raise AuthFailure(403, 40397, "只有管理员可以启用或修改页面脚本")
-        if len(value.model_dump_json().encode()) > 512 * 1024:
-            raise AuthFailure(422, 42296, "页面内容过大")
+        require_page_size(value)
         await self.validate_path(value.path, row.id)
         row.revision = next_revision
         if new_group is not None:
             self.session.add(new_group)
         self.session.add(row)
-        row.data, row.updated_at = value.model_dump(mode="json"), datetime.now(UTC)
+        row.data, row.updated_at = page_data(value, template), datetime.now(UTC)
         if payload.apply:
             if "pages:publish" not in user_permissions(actor):
                 raise AuthFailure(403, 40364, "没有执行此操作的权限")
             row.applied_revision = row.revision
-            row.applied_snapshot = value.model_copy(update={"enabled": True}).model_dump(
-                mode="json"
-            )
+            row.applied_snapshot = page_data(value.model_copy(update={"enabled": True}), template)
             row.published = self.public_value(row, value, definition) if value.enabled else None
             await self.session.flush()
             await ContentPublication(self.session, self.config).stage(CacheChange("page_changed"))
@@ -249,7 +302,9 @@ class PagesService:
             **{**value.model_dump(), "enabled": True},
             id=row.id,
             source=cast(Literal["custom", "registered"], row.source),
-            revision=row.applied_revision or row.revision,
+            revision=row.revision
+            if row.template_id is not None
+            else row.applied_revision or row.revision,
             implementation_id=row.implementation_id,
             implementation_version=definition.version if definition else None,
             language=row.language,
@@ -271,7 +326,8 @@ class PagesService:
             raise AuthFailure(403, 40364, "没有执行此操作的权限")
         if payload.enabled and row.applied_snapshot is None and not payload.apply_draft:
             raise AuthFailure(409, 40993, "此页面尚无已应用内容，请确认应用当前草稿")
-        value = source_value(row.applied_snapshot or row.data)
+        template = await page_template(self.session, row.template_id) if row.template_id else None
+        value = effective_value(row.applied_snapshot or row.data, template)
         if value.javascript_enabled and actor.role != "admin":
             raise AuthFailure(403, 40397, "只有管理员可以启用或修改页面脚本")
         definition, available = await self.registration(row.type_id)
@@ -283,9 +339,7 @@ class PagesService:
         row.updated_at = datetime.now(UTC)
         row.data = {**row.data, "enabled": payload.enabled}
         if row.applied_snapshot is None and payload.enabled:
-            row.applied_snapshot = value.model_copy(update={"enabled": True}).model_dump(
-                mode="json"
-            )
+            row.applied_snapshot = page_data(value.model_copy(update={"enabled": True}), template)
             row.applied_revision = row.revision
         row.published = self.public_value(row, value, definition) if payload.enabled else None
         await self.session.flush()

@@ -122,6 +122,17 @@
           "title": "Type Id",
           "type": "string"
         },
+        "template": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PageTemplateReference"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "revision": {
           "title": "Revision",
           "type": "integer"
@@ -450,6 +461,130 @@
       "title": "PageCategory",
       "type": "object"
     },
+    "PageInput": {
+      "additionalProperties": false,
+      "properties": {
+        "html": {
+          "default": "",
+          "maxLength": 200000,
+          "title": "Html",
+          "type": "string"
+        },
+        "css": {
+          "default": "",
+          "maxLength": 100000,
+          "title": "Css",
+          "type": "string"
+        },
+        "javascript": {
+          "default": "",
+          "maxLength": 100000,
+          "title": "Javascript",
+          "type": "string"
+        },
+        "javascript_enabled": {
+          "default": false,
+          "title": "Javascript Enabled",
+          "type": "boolean"
+        },
+        "javascript_position": {
+          "default": "body_end",
+          "enum": [
+            "head",
+            "body_end"
+          ],
+          "title": "Javascript Position",
+          "type": "string"
+        },
+        "title": {
+          "maxLength": 120,
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        },
+        "description": {
+          "default": "",
+          "maxLength": 500,
+          "title": "Description",
+          "type": "string"
+        },
+        "captcha_read": {
+          "default": "inherit",
+          "enum": [
+            "inherit",
+            "required",
+            "off"
+          ],
+          "title": "Captcha Read",
+          "type": "string"
+        },
+        "captcha_comment": {
+          "default": "inherit",
+          "enum": [
+            "inherit",
+            "required",
+            "off"
+          ],
+          "title": "Captcha Comment",
+          "type": "string"
+        },
+        "allow_indexing": {
+          "default": true,
+          "title": "Allow Indexing",
+          "type": "boolean"
+        },
+        "comments_open": {
+          "default": true,
+          "title": "Comments Open",
+          "type": "boolean"
+        },
+        "show_image_viewer": {
+          "default": true,
+          "title": "Show Image Viewer",
+          "type": "boolean"
+        },
+        "show_glossary_tooltips": {
+          "default": true,
+          "title": "Show Glossary Tooltips",
+          "type": "boolean"
+        },
+        "show_glossary_footnotes": {
+          "default": true,
+          "title": "Show Glossary Footnotes",
+          "type": "boolean"
+        },
+        "enabled": {
+          "default": false,
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "options": {
+          "additionalProperties": {
+            "$ref": "#/$defs/JsonValue"
+          },
+          "title": "Options",
+          "type": "object"
+        },
+        "path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Omit on first save to generate a URL from the title.",
+          "title": "Path"
+        }
+      },
+      "required": [
+        "title"
+      ],
+      "title": "PageInput",
+      "type": "object"
+    },
     "PageManifest": {
       "additionalProperties": false,
       "properties": {
@@ -661,6 +796,57 @@
       "title": "PageRegistration",
       "type": "object"
     },
+    "PageTemplateItem": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "revision": {
+          "minimum": 1,
+          "title": "Revision",
+          "type": "integer"
+        },
+        "value": {
+          "$ref": "#/$defs/TitledPageCode"
+        }
+      },
+      "required": [
+        "id",
+        "revision",
+        "value"
+      ],
+      "title": "PageTemplateItem",
+      "type": "object"
+    },
+    "PageTemplateReference": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "revision": {
+          "minimum": 1,
+          "title": "Revision",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "revision"
+      ],
+      "title": "PageTemplateReference",
+      "type": "object"
+    },
     "PageTranslationCatalog": {
       "additionalProperties": false,
       "properties": {
@@ -831,7 +1017,8 @@
         "source": {
           "enum": [
             "custom",
-            "registered"
+            "registered",
+            "template"
           ],
           "title": "Source",
           "type": "string"
@@ -856,6 +1043,19 @@
           ],
           "default": null
         },
+        "template_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Template Id"
+        },
         "available": {
           "title": "Available",
           "type": "boolean"
@@ -879,74 +1079,6 @@
     "PageValue": {
       "additionalProperties": false,
       "properties": {
-        "captcha_read": {
-          "default": "inherit",
-          "enum": [
-            "inherit",
-            "required",
-            "off"
-          ],
-          "title": "Captcha Read",
-          "type": "string"
-        },
-        "captcha_comment": {
-          "default": "inherit",
-          "enum": [
-            "inherit",
-            "required",
-            "off"
-          ],
-          "title": "Captcha Comment",
-          "type": "string"
-        },
-        "title": {
-          "maxLength": 120,
-          "minLength": 1,
-          "title": "Title",
-          "type": "string"
-        },
-        "path": {
-          "maxLength": 500,
-          "minLength": 2,
-          "title": "Path",
-          "type": "string"
-        },
-        "description": {
-          "default": "",
-          "maxLength": 500,
-          "title": "Description",
-          "type": "string"
-        },
-        "allow_indexing": {
-          "default": true,
-          "title": "Allow Indexing",
-          "type": "boolean"
-        },
-        "comments_open": {
-          "default": true,
-          "title": "Comments Open",
-          "type": "boolean"
-        },
-        "show_image_viewer": {
-          "default": true,
-          "title": "Show Image Viewer",
-          "type": "boolean"
-        },
-        "show_glossary_tooltips": {
-          "default": true,
-          "title": "Show Glossary Tooltips",
-          "type": "boolean"
-        },
-        "show_glossary_footnotes": {
-          "default": true,
-          "title": "Show Glossary Footnotes",
-          "type": "boolean"
-        },
-        "enabled": {
-          "default": false,
-          "title": "Enabled",
-          "type": "boolean"
-        },
         "html": {
           "default": "",
           "maxLength": 200000,
@@ -979,24 +1111,18 @@
           "title": "Javascript Position",
           "type": "string"
         },
-        "options": {
-          "additionalProperties": {
-            "$ref": "#/$defs/JsonValue"
-          },
-          "title": "Options",
-          "type": "object"
-        }
-      },
-      "required": [
-        "title",
-        "path"
-      ],
-      "title": "PageValue",
-      "type": "object"
-    },
-    "PublicManagedPage": {
-      "additionalProperties": false,
-      "properties": {
+        "title": {
+          "maxLength": 120,
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        },
+        "description": {
+          "default": "",
+          "maxLength": 500,
+          "title": "Description",
+          "type": "string"
+        },
         "captcha_read": {
           "default": "inherit",
           "enum": [
@@ -1017,22 +1143,122 @@
           "title": "Captcha Comment",
           "type": "string"
         },
-        "title": {
-          "maxLength": 120,
-          "minLength": 1,
-          "title": "Title",
-          "type": "string"
+        "allow_indexing": {
+          "default": true,
+          "title": "Allow Indexing",
+          "type": "boolean"
+        },
+        "comments_open": {
+          "default": true,
+          "title": "Comments Open",
+          "type": "boolean"
+        },
+        "show_image_viewer": {
+          "default": true,
+          "title": "Show Image Viewer",
+          "type": "boolean"
+        },
+        "show_glossary_tooltips": {
+          "default": true,
+          "title": "Show Glossary Tooltips",
+          "type": "boolean"
+        },
+        "show_glossary_footnotes": {
+          "default": true,
+          "title": "Show Glossary Footnotes",
+          "type": "boolean"
+        },
+        "enabled": {
+          "default": false,
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "options": {
+          "additionalProperties": {
+            "$ref": "#/$defs/JsonValue"
+          },
+          "title": "Options",
+          "type": "object"
         },
         "path": {
           "maxLength": 500,
           "minLength": 2,
           "title": "Path",
           "type": "string"
+        }
+      },
+      "required": [
+        "title",
+        "path"
+      ],
+      "title": "PageValue",
+      "type": "object"
+    },
+    "PublicManagedPage": {
+      "additionalProperties": false,
+      "properties": {
+        "html": {
+          "default": "",
+          "maxLength": 200000,
+          "title": "Html",
+          "type": "string"
+        },
+        "css": {
+          "default": "",
+          "maxLength": 100000,
+          "title": "Css",
+          "type": "string"
+        },
+        "javascript": {
+          "default": "",
+          "maxLength": 100000,
+          "title": "Javascript",
+          "type": "string"
+        },
+        "javascript_enabled": {
+          "default": false,
+          "title": "Javascript Enabled",
+          "type": "boolean"
+        },
+        "javascript_position": {
+          "default": "body_end",
+          "enum": [
+            "head",
+            "body_end"
+          ],
+          "title": "Javascript Position",
+          "type": "string"
+        },
+        "title": {
+          "maxLength": 120,
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
         },
         "description": {
           "default": "",
           "maxLength": 500,
           "title": "Description",
+          "type": "string"
+        },
+        "captcha_read": {
+          "default": "inherit",
+          "enum": [
+            "inherit",
+            "required",
+            "off"
+          ],
+          "title": "Captcha Read",
+          "type": "string"
+        },
+        "captcha_comment": {
+          "default": "inherit",
+          "enum": [
+            "inherit",
+            "required",
+            "off"
+          ],
+          "title": "Captcha Comment",
           "type": "string"
         },
         "allow_indexing": {
@@ -1066,44 +1292,18 @@
           "title": "Enabled",
           "type": "boolean"
         },
-        "html": {
-          "default": "",
-          "maxLength": 200000,
-          "title": "Html",
-          "type": "string"
-        },
-        "css": {
-          "default": "",
-          "maxLength": 100000,
-          "title": "Css",
-          "type": "string"
-        },
-        "javascript": {
-          "default": "",
-          "maxLength": 100000,
-          "title": "Javascript",
-          "type": "string"
-        },
-        "javascript_enabled": {
-          "default": false,
-          "title": "Javascript Enabled",
-          "type": "boolean"
-        },
-        "javascript_position": {
-          "default": "body_end",
-          "enum": [
-            "head",
-            "body_end"
-          ],
-          "title": "Javascript Position",
-          "type": "string"
-        },
         "options": {
           "additionalProperties": {
             "$ref": "#/$defs/JsonValue"
           },
           "title": "Options",
           "type": "object"
+        },
+        "path": {
+          "maxLength": 500,
+          "minLength": 2,
+          "title": "Path",
+          "type": "string"
         },
         "read_receipt": {
           "default": "",
@@ -1314,6 +1514,34 @@
       "title": "PublicResponse[PageMetadata]",
       "type": "object"
     },
+    "PublicResponse_PageTemplateItem_": {
+      "additionalProperties": false,
+      "properties": {
+        "success": {
+          "default": true,
+          "title": "Success",
+          "type": "boolean"
+        },
+        "code": {
+          "default": 200,
+          "title": "Code",
+          "type": "integer"
+        },
+        "msg": {
+          "default": "请求成功",
+          "title": "Msg",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/PageTemplateItem"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "title": "PublicResponse[PageTemplateItem]",
+      "type": "object"
+    },
     "PublicResponse_PageTranslationCatalog_": {
       "additionalProperties": false,
       "properties": {
@@ -1416,7 +1644,7 @@
           "type": "integer"
         },
         "value": {
-          "$ref": "#/$defs/PageValue"
+          "$ref": "#/$defs/PageInput"
         },
         "apply": {
           "default": false,
@@ -1502,6 +1730,37 @@
       "title": "SavePageMetadata",
       "type": "object"
     },
+    "SavePageTemplate": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "expected_revision": {
+          "minimum": 0,
+          "title": "Expected Revision",
+          "type": "integer"
+        },
+        "operation_id": {
+          "format": "uuid",
+          "title": "Operation Id",
+          "type": "string"
+        },
+        "value": {
+          "$ref": "#/$defs/TitledPageCode"
+        }
+      },
+      "required": [
+        "id",
+        "expected_revision",
+        "operation_id",
+        "value"
+      ],
+      "title": "SavePageTemplate",
+      "type": "object"
+    },
     "SetPageEnabled": {
       "additionalProperties": false,
       "properties": {
@@ -1545,6 +1804,60 @@
       ],
       "title": "SetPageEnabled",
       "type": "object"
+    },
+    "TitledPageCode": {
+      "additionalProperties": false,
+      "properties": {
+        "html": {
+          "default": "",
+          "maxLength": 200000,
+          "title": "Html",
+          "type": "string"
+        },
+        "css": {
+          "default": "",
+          "maxLength": 100000,
+          "title": "Css",
+          "type": "string"
+        },
+        "javascript": {
+          "default": "",
+          "maxLength": 100000,
+          "title": "Javascript",
+          "type": "string"
+        },
+        "javascript_enabled": {
+          "default": false,
+          "title": "Javascript Enabled",
+          "type": "boolean"
+        },
+        "javascript_position": {
+          "default": "body_end",
+          "enum": [
+            "head",
+            "body_end"
+          ],
+          "title": "Javascript Position",
+          "type": "string"
+        },
+        "title": {
+          "maxLength": 120,
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        },
+        "description": {
+          "default": "",
+          "maxLength": 500,
+          "title": "Description",
+          "type": "string"
+        }
+      },
+      "required": [
+        "title"
+      ],
+      "title": "TitledPageCode",
+      "type": "object"
     }
   },
   "additionalProperties": false,
@@ -1560,6 +1873,12 @@
     },
     "item": {
       "$ref": "#/$defs/PublicResponse_ManagedPageItem_"
+    },
+    "template": {
+      "$ref": "#/$defs/PublicResponse_PageTemplateItem_"
+    },
+    "save_template": {
+      "$ref": "#/$defs/SavePageTemplate"
     },
     "save": {
       "$ref": "#/$defs/SaveManagedPage"
@@ -1603,6 +1922,8 @@
     "types",
     "categories",
     "item",
+    "template",
+    "save_template",
     "save",
     "remove",
     "manifest",
@@ -1619,7 +1940,7 @@
   "title": "PagesContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "1.12.0",
+  "x-everunfold-contract-version": "1.13.0",
   "x-everunfold-operations": [
     {
       "name": "setPageEnabled",
@@ -1693,6 +2014,19 @@
       "path": "/v1/admin/pages/types",
       "method": "GET",
       "response": "types"
+    },
+    {
+      "name": "readPageTemplate",
+      "path": "/v1/admin/pages/templates/{template_id}",
+      "method": "GET",
+      "response": "template"
+    },
+    {
+      "name": "savePageTemplate",
+      "path": "/v1/admin/pages/templates",
+      "method": "POST",
+      "input": "save_template",
+      "response": "template"
     },
     {
       "name": "readPageCategories",

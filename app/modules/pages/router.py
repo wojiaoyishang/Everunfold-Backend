@@ -24,6 +24,7 @@ from app.modules.pages.schemas import (
     PageCategories,
     PageCategory,
     PageMetadata,
+    PageTemplateItem,
     PageTranslationCatalog,
     PageTranslationLookup,
     PageTranslationMutation,
@@ -31,9 +32,11 @@ from app.modules.pages.schemas import (
     RemoveManagedPage,
     SaveManagedPage,
     SavePageMetadata,
+    SavePageTemplate,
     SetPageEnabled,
 )
 from app.modules.pages.service import PagesService
+from app.modules.pages.templates import PageTemplates, page_template
 from app.modules.pages.translations import PageTranslations
 from app.modules.pages.types import page_types
 
@@ -84,6 +87,22 @@ async def types(ctx: Access, request: Request) -> JSONResponseSuccess:
     return JSONResponseSuccess(
         data=await page_types(ctx.service.session, auth_runtime(request).settings)
     )
+
+
+@router.get("/templates/{template_id}", response_model=PublicResponse[PageTemplateItem])
+async def read_template(template_id: UUID, ctx: Access) -> JSONResponseSuccess:
+    template = await page_template(ctx.service.session, template_id)
+    return JSONResponseSuccess(data=PageTemplates.item(template))
+
+
+@router.post("/templates", response_model=PublicResponse[PageTemplateItem])
+async def save_template(
+    payload: SavePageTemplate, ctx: Access, request: Request
+) -> JSONResponseSuccess:
+    if "pages:write" not in user_permissions(ctx.actor):
+        raise AuthFailure(403, 40364, "没有执行此操作的权限")
+    templates = PageTemplates(ctx.service, auth_runtime(request).settings)
+    return JSONResponseSuccess(data=await templates.save(ctx.actor, payload))
 
 
 @router.post("/save", response_model=PublicResponse[ManagedPageItem])

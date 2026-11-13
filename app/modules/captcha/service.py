@@ -101,7 +101,7 @@ async def context(session: AsyncSession, action: str, content_id: UUID | None) -
             kind, policy, generation = (
                 "page",
                 page.published,
-                page.applied_revision or page.revision,
+                page.published.get("revision", page.applied_revision or page.revision),
             )
         if action == "comment" and not policy.get("comments_open", True):
             raise AuthFailure(403, 40388, "此内容已关闭评论")

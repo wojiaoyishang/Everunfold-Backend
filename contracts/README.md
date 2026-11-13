@@ -15,7 +15,7 @@
 | glossary-v1.schema.json | 3.7.0 | 术语索引/详情、特色图片/图片查看开关、按内容匹配与跨页面 DOM/脚本触发 |
 | notifications-v1.schema.json | 1.4.0 | 通知模板、邮件品牌、模板变量、投递记录与当前账号 Inbox |
 | operations-v1.schema.json | 1.1.0 | 评论查询、审核、工作台及按评论 ID 定位和仅待审核确认 |
-| pages-v1.schema.json | 1.10.0 | 页面草稿/应用、逐页图片查看/术语设置、可信清单与脚本执行位置 |
+| pages-v1.schema.json | 1.13.0 | 页面草稿与应用、可信类型、自定义页面模板及 URL 校验 |
 | presentation-v0.2.schema.json | 0.2.0-preview.5 | 草稿展示预览（草案） |
 | public-v0.1.schema.json | 0.14.0 | 完整公开快照、多语言导航与逐页图片查看/术语/验证码边界 |
 | reader-preview-v0.1.schema.json | 0.1.0-preview.1 | 阅读演示指标（预览） |

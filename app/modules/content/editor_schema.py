@@ -12,6 +12,10 @@ from app.core.schemas import PublicModel
 from app.modules.captcha.schemas import CaptchaOverride
 
 
+class ReservedContentPath(ValueError):
+    pass
+
+
 def content_path(value: str) -> str:
     value = unicodedata.normalize("NFC", unquote(value.strip(), errors="strict"))
     if not value:
@@ -52,7 +56,7 @@ def content_path(value: str) -> str:
         "sitemap.xml",
         "manifest.webmanifest",
     } or first.startswith("."):
-        raise ValueError("该路径由系统使用")
+        raise ReservedContentPath("该路径由系统使用")
     return value
 
 
