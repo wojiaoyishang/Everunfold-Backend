@@ -12,6 +12,8 @@ from app.modules.auth.accounts_service import AccountsService
 from app.modules.auth.models import User
 from app.modules.auth.permissions import user_permissions
 from app.modules.auth.service import AuthFailure
+from app.modules.content.editor_schema import EditorSettings
+from app.modules.content.editor_service import editor_media
 from app.modules.content.publication import ContentPublication
 from app.modules.media.locking import lock_references
 from app.modules.pages.component_values import check_component_sources, page_document
@@ -86,15 +88,27 @@ class PageTemplates:
     def __init__(self, accounts: AccountsService, config: Settings) -> None:
         self.accounts, self.session, self.config = accounts, accounts.session, config
 
-    @staticmethod
-    def item(template: PageTemplate) -> PageTemplateItem:
+    async def item(self, template: PageTemplate) -> PageTemplateItem:
+        value = TitledPageCode(
+            **template.code, title=template.title, description=template.description
+        )
+        media_urls = (
+            await editor_media(
+                self.session,
+                self.config,
+                value.component_document.model_dump_json(),
+                EditorSettings(),
+                strict=False,
+            )
+            if value.component_document is not None
+            else {}
+        )
         return PageTemplateItem(
+            media_urls=media_urls,
             id=template.id,
             type_id=template_type_id(template.id),
             revision=template.revision,
-            value=TitledPageCode(
-                **template.code, title=template.title, description=template.description
-            ),
+            value=value,
         )
 
     async def save(self, actor: User, payload: SavePageTemplate) -> PageTemplateItem:
@@ -143,7 +157,7 @@ class PageTemplates:
                 changes={"action": "save"},
             )
         )
-        result = self.item(template)
+        result = await self.item(template)
         await self.accounts.operations.remember(
             payload.operation_id,
             actor.id,

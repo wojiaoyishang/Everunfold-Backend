@@ -1411,7 +1411,6 @@
       "properties": {
         "version": {
           "const": 1,
-          "default": 1,
           "title": "Version",
           "type": "integer"
         },
@@ -1424,6 +1423,10 @@
           "type": "array"
         }
       },
+      "required": [
+        "version",
+        "nodes"
+      ],
       "title": "ComponentDocument",
       "type": "object"
     },
@@ -1468,7 +1471,8 @@
       },
       "required": [
         "id",
-        "type"
+        "type",
+        "props"
       ],
       "title": "ComponentNode",
       "type": "object"

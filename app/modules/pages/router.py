@@ -90,9 +90,10 @@ async def types(ctx: Access, request: Request) -> JSONResponseSuccess:
 
 
 @router.get("/templates/{template_id}", response_model=PublicResponse[PageTemplateItem])
-async def read_template(template_id: UUID, ctx: Access) -> JSONResponseSuccess:
+async def read_template(template_id: UUID, ctx: Access, request: Request) -> JSONResponseSuccess:
     template = await page_template(ctx.service.session, template_id)
-    return JSONResponseSuccess(data=PageTemplates.item(template))
+    templates = PageTemplates(ctx.service, auth_runtime(request).settings)
+    return JSONResponseSuccess(data=await templates.item(template))
 
 
 @router.post("/templates", response_model=PublicResponse[PageTemplateItem])

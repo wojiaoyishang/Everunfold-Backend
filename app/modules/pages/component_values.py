@@ -23,7 +23,7 @@ def check_component_sources(value: PageCode, previous: PageCode | None) -> None:
 
 
 def page_document(value: PageCode) -> ComponentDocument:
-    return value.component_document or ComponentDocument()
+    return value.component_document or ComponentDocument(version=1, nodes=[])
 
 
 def public_page_value(value: PageValue, *, linked: bool = False) -> PageValue:

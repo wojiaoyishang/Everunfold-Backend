@@ -24,7 +24,7 @@ class ComponentParameter(PublicModel):
 class ComponentNode(PublicModel):
     id: str = Field(pattern=IDENTIFIER)
     type: str = Field(pattern=r"^[a-z][a-z0-9_-]*\.[a-z][a-z0-9_.-]{0,63}$", max_length=100)
-    props: dict[str, JsonValue] = Field(default_factory=dict, max_length=64)
+    props: dict[str, JsonValue] = Field(max_length=64)
     children: list["ComponentNode"] = Field(
         default_factory=list, max_length=300, exclude_if=lambda v: not v
     )
@@ -39,8 +39,8 @@ class ComponentNode(PublicModel):
 
 
 class ComponentDocument(PublicModel):
-    version: Literal[1] = 1
-    nodes: list[ComponentNode] = Field(default_factory=list, max_length=300)
+    version: Literal[1]
+    nodes: list[ComponentNode] = Field(max_length=300)
 
     def walk(self) -> Iterator[tuple[ComponentNode, int]]:
         for node in self.nodes:

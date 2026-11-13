@@ -81,7 +81,7 @@ class PageTranslations:
                 value.layout = source_value.layout
                 value.edit_mode = source_value.edit_mode
                 if value.edit_mode == "components":
-                    value.component_document = ComponentDocument()
+                    value.component_document = ComponentDocument(version=1, nodes=[])
             value.path, value.enabled, value.javascript_enabled = path, False, False
             value.seo_title = value.seo_description = value.seo_canonical_path = ""
             value.seo_share_title = value.seo_share_description = value.seo_image_alt = ""

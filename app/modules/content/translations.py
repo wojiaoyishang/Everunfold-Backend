@@ -149,7 +149,7 @@ class Translations:
                 component_document = (
                     source.component_document
                     if payload.copy_source and source.component_document is not None
-                    else ComponentDocument().model_dump(mode="json")
+                    else ComponentDocument(version=1, nodes=[]).model_dump(mode="json")
                 )
             blocks = (published.content if published else source.body) or source.body
             body = (

@@ -162,6 +162,7 @@ class PageTemplateReference(PublicModel):
 
 
 class PageTemplateItem(PublicModel):
+    media_urls: dict[str, MediaURL] = Field(default_factory=dict, exclude_if=lambda v: not v)
     id: UUID
     type_id: str
     revision: int = Field(ge=1)
