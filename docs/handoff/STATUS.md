@@ -1,5 +1,9 @@
 # 后端交接状态
 
+## 后台标识与节点部署配置
+
+- 同步 [ADR 0140](../decisions/0140-admin-brand-and-node-deployment.md) 与设置指南。前端从已应用的站点设置和既有保存结果读取标识，在「节点状态」展示部署配置。沿用现有 API、权限和版本投递。
+
 ## 主题推荐插件与特色图
 
 - settings-v1 1.42.0 由 `4a0f40f` 发布。扩展清单可选 `recommended_plugins`，旧节点清单仍可读取。后端登记 7 张独立的扁平 WebP，公开路径只读取目录声明的特色图，以内容哈希作缓存键。无需迁移。见 [ADR 0139](../decisions/0139-theme-plugin-recommendations.md)。
