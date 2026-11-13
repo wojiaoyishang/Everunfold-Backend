@@ -270,11 +270,19 @@ SECURITY_ALERT_COPY = {
     ),
 }
 
+SECURITY_ALERT_DESCRIPTIONS = {
+    EMAIL_VERIFIED: "邮箱通过验证码验证后，向该邮箱发送确认。",
+    TWO_FACTOR_ENABLED: "启用两步验证后，向该账号的已验证邮箱发送提醒。",
+    TWO_FACTOR_DISABLED: "关闭两步验证后，向该账号的已验证邮箱发送提醒。",
+    TWO_FACTOR_RECOVERY_ROTATED: "重新生成恢复码后，向该账号的已验证邮箱发送提醒。",
+    TWO_FACTOR_RECOVERY_USED: "使用恢复码成功登录后，向该账号的已验证邮箱发送提醒。",
+}
+
 SECURITY_EVENTS = (
     EventDefinition(
         id=EMAIL_VERIFICATION,
         title="验证邮箱",
-        description="向用户发送邮箱验证验证码。",
+        description="向待验证的邮箱发送验证码。",
         variables=("verification.code", "verification.expires_minutes", "verification.purpose"),
         requires_code=True,
         recipient_mode="subject",
@@ -284,7 +292,7 @@ SECURITY_EVENTS = (
     EventDefinition(
         id=REGISTRATION_VERIFICATION,
         title="注册验证码",
-        description="向申请注册的用户发送邮箱验证码。",
+        description="向注册申请填写的邮箱发送验证码。",
         variables=("verification.code", "verification.expires_minutes", "verification.purpose"),
         requires_code=True,
         recipient_mode="subject",
@@ -313,7 +321,7 @@ SECURITY_EVENTS = (
         EventDefinition(
             identity,
             copy[0][0],
-            copy[0][1],
+            SECURITY_ALERT_DESCRIPTIONS[identity],
             ("account.security_url",),
             recipient_mode="subject",
             email_only=True,

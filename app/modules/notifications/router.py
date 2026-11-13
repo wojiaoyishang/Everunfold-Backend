@@ -41,7 +41,9 @@ async def save_routes(payload: SaveNotificationRoutes, ctx: Authorized) -> JSONR
         raise AuthFailure(403, 40373, "无权修改通知策略")
     return JSONResponseSuccess(
         data=await service(ctx).save_routes(
-            payload, ctx.actor.id, manage_access=ctx.actor.has("access:manage")
+            payload,
+            ctx.actor.id,
+            manage_access=ctx.actor.permissions.get("access:manage") == "all",
         )
     )
 
@@ -50,7 +52,10 @@ async def save_routes(payload: SaveNotificationRoutes, ctx: Authorized) -> JSONR
 async def save_template(payload: SaveNotificationTemplate, ctx: Authorized) -> JSONResponseSuccess:
     if not ctx.actor.has("settings:write"):
         raise AuthFailure(403, 40373, "无权修改通知模板")
-    if payload.event_type in SECURITY_EVENT_IDS and not ctx.actor.has("access:manage"):
+    if (
+        payload.event_type in SECURITY_EVENT_IDS
+        and ctx.actor.permissions.get("access:manage") != "all"
+    ):
         raise AuthFailure(403, 40373, "无权修改账号安全通知模板")
     return JSONResponseSuccess(data=await service(ctx).save_template(payload, ctx.actor.id))
 

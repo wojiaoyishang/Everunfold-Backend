@@ -25,6 +25,8 @@ from app.modules.auth.credentials_models import ApiApplication, ApiKey, AuthCall
 from app.modules.auth.models import AccountOperation, AuthAuditEvent, BrowserSession, User
 from app.modules.auth.permissions import Actor, intersect_permissions, user_permissions
 from app.modules.auth.service import AuthFailure, AuthService
+from app.modules.notifications.catalog import USER_CREATED
+from app.modules.notifications.models import NotificationEvent
 from tools.export_accounts_contract import build_schema
 
 ORIGIN = "http://127.0.0.1:3000"
@@ -132,6 +134,12 @@ def accounts() -> Iterator[AccountsTest]:
                     )
                     await session.execute(
                         delete(BrowserSession).where(BrowserSession.user_id.in_(ids))
+                    )
+                    await session.execute(
+                        delete(NotificationEvent).where(
+                            NotificationEvent.resource_type == "user",
+                            NotificationEvent.resource_id.in_([str(identity) for identity in ids]),
+                        )
                     )
                     await session.execute(delete(User).where(User.id.in_(ids)))
                     await session.commit()
@@ -243,6 +251,27 @@ def test_new_account_retries_never_expose_password_and_search_is_literal(
     )
     result = accounts.root.get("/v1/admin/users", params={"q": "Retry%_"}).json()["data"]
     assert result["total"] == 1
+
+    async def check_notice() -> None:
+        database = Database(accounts.settings.database.url.get_secret_value())
+        try:
+            async with database.session_factory() as session:
+                event = await session.scalar(
+                    select(NotificationEvent).where(
+                        NotificationEvent.event_type == USER_CREATED,
+                        NotificationEvent.resource_id == first.json()["data"]["id"],
+                    )
+                )
+                assert event is not None
+                assert event.data["account"] == {
+                    "username": payload["username"],
+                    "display_name": payload["display_name"],
+                }
+                assert TEMPORARY not in json.dumps(event.data)
+        finally:
+            await database.close()
+
+    asyncio.run(check_notice())
 
 
 def test_password_change_rotates_current_session_and_revokes_other_sessions(

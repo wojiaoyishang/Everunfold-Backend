@@ -34,6 +34,8 @@ from app.modules.auth.security import (
     verify_password,
 )
 from app.modules.auth.two_factor_service import totp
+from app.modules.notifications.catalog import TWO_FACTOR_ENABLED, TWO_FACTOR_RECOVERY_USED
+from app.modules.notifications.models import NotificationEvent
 from tools.export_auth_contract import build_schema
 
 ORIGIN = "http://127.0.0.1:3000"
@@ -159,6 +161,9 @@ def auth_client() -> Iterator[tuple[TestClient, Settings, str, str]]:
                     await session.execute(
                         delete(AuthAuditEvent).where(AuthAuditEvent.user_id == user_id)
                     )
+                    await session.execute(
+                        delete(NotificationEvent).where(NotificationEvent.subject_id == user_id)
+                    )
                     await session.execute(delete(User).where(User.id == user_id))
                     keys = [
                         "bootstrap:" + peer,
@@ -239,6 +244,32 @@ def test_totp_login_recovery_and_replay(
         headers={"Origin": ORIGIN, "X-CSRF-Token": second["csrf_token"]},
     )
     assert used.status_code == 401
+
+    async def check_notices() -> None:
+        database = Database(settings.database.url.get_secret_value())
+        try:
+            async with database.session_factory() as session:
+                events = (
+                    await session.scalars(
+                        select(NotificationEvent).where(
+                            NotificationEvent.resource_id == state["user"]["id"],
+                            NotificationEvent.resource_type == "user",
+                        )
+                    )
+                ).all()
+                assert sorted(event.event_type for event in events) == [
+                    TWO_FACTOR_ENABLED,
+                    TWO_FACTOR_RECOVERY_USED,
+                ]
+                assert all(str(event.subject_id) == state["user"]["id"] for event in events)
+                assert all(
+                    secret not in json.dumps(event.data) and recovery not in json.dumps(event.data)
+                    for event in events
+                )
+        finally:
+            await database.close()
+
+    asyncio.run(check_notices())
 
 
 def test_verified_email_login_and_shared_account_limit(

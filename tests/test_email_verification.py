@@ -38,6 +38,9 @@ from app.modules.auth.models import AuthAuditEvent, User
 from app.modules.auth.recovery_delivery import deliver as deliver_recovery
 from app.modules.auth.registration_delivery import deliver as deliver_registration
 from app.modules.auth.service import AuthFailure, AuthService
+from app.modules.notifications.catalog import REGISTRATION_SUCCEEDED, USER_CREATED
+from app.modules.notifications.delivery import deliver_notifications
+from app.modules.notifications.models import NotificationEvent, NotificationInbox
 from app.modules.settings.mail_schemas import MailSenderProfileInput, SaveMailSettings
 from app.modules.settings.mail_service import MailSettingsService
 from app.modules.settings.service import SettingsService
@@ -176,6 +179,28 @@ async def verify_invitation_registration(
             ).status_code
             == 422
         )
+        await deliver_notifications(settings)
+        database = Database(settings.database.url.get_secret_value())
+        try:
+            async with database.session_factory() as session:
+                notices = (
+                    await session.execute(
+                        select(NotificationEvent, NotificationInbox, User)
+                        .join(NotificationInbox, NotificationInbox.event_id == NotificationEvent.id)
+                        .join(User, User.id == NotificationInbox.user_id)
+                        .where(NotificationEvent.resource_id == user["id"])
+                    )
+                ).all()
+                assert notices
+                assert all(
+                    event.event_type == REGISTRATION_SUCCEEDED
+                    and event.event_type != USER_CREATED
+                    and target.role == "admin"
+                    and user["username"] in notice.title
+                    for event, notice, target in notices
+                )
+        finally:
+            await database.close()
     listed = {item["id"]: item for item in admin.get(invitations).json()["data"]["items"]}
     assert listed[invite["id"]]["consumed_at"] is not None
     assert listed[invite["id"]]["expires_at"] is None
