@@ -245,4 +245,80 @@ def check_pages(
     with ThreadPoolExecutor(max_workers=2) as pool:
         collisions = list(pool.map(collide, [api_a, api_b]))
     assert sorted(r.status_code for r in collisions) == [200, 409]
+    check_template_release(client, csrf, api_b, cookies, state, snapshot, wait_for, delivered)
     check_page_languages(client, csrf, cookies, api_a, api_b, snapshot, wait_for, delivered)
+
+
+def check_template_release(
+    client: Any,
+    csrf: Any,
+    api_b: str,
+    cookies: Any,
+    state: Any,
+    snapshot: Any,
+    wait_for: Any,
+    delivered: Any,
+) -> None:
+    template_url = "/v1/admin/pages/templates"
+    payload = {
+        "id": str(uuid4()),
+        "operation_id": str(uuid4()),
+        "expected_revision": 0,
+        "value": {"title": "Shared P0 layout", "html": "<p>Template first</p>"},
+    }
+    created = client.post(template_url, json=payload, headers=csrf)
+    assert created.status_code == 200, created.text
+    ids = set()
+    for index in range(2):
+        identity = str(uuid4())
+        saved = client.post(
+            "/v1/admin/pages/save",
+            json={
+                "id": identity,
+                "type_id": created.json()["data"]["type_id"],
+                "operation_id": str(uuid4()),
+                "expected_revision": 0,
+                "value": {
+                    "title": f"Template instance {index}",
+                    "path": "/p0-template-" + identity,
+                    "enabled": True,
+                },
+                "apply": True,
+            },
+            headers=csrf,
+        )
+        assert saved.status_code == 200, saved.text
+        ids.add(identity)
+    wait_for(delivered)
+    initial = {row["id"]: row for row in snapshot()["pages"] if row["id"] in ids}
+    assert len(initial) == 2 and all(
+        row["html"] == "<p>Template first</p>" for row in initial.values()
+    )
+    revision = state()["revision"]
+    updated = {
+        **payload,
+        "operation_id": str(uuid4()),
+        "expected_revision": 1,
+        "value": {**payload["value"], "html": "<p>Template changed</p>"},
+    }
+    accepted = httpx.post(
+        api_b + template_url,
+        json=updated,
+        cookies=cookies,
+        headers={**csrf, "Origin": "http://127.0.0.1:3000"},
+        timeout=15,
+    )
+    assert accepted.status_code == 200, accepted.text
+    retry = client.post(template_url, json=updated, headers=csrf)
+    assert retry.status_code == 200 and retry.json()["data"] == accepted.json()["data"]
+    wait_for(delivered)
+    assert state()["revision"] == revision + 1
+    replica = {row["id"]: row for row in snapshot()["pages"] if row["id"] in ids}
+    assert len(replica) == 2
+    for identity, row in replica.items():
+        assert row["html"] == "<p>Template changed</p>"
+        assert (row["path"], row["title"]) == (
+            initial[identity]["path"],
+            initial[identity]["title"],
+        )
+    assert not any(row["id"] == payload["id"] for row in snapshot()["pages"])

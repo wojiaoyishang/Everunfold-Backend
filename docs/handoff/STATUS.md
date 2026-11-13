@@ -1,5 +1,11 @@
 # 后端交接状态
 
+## 自定义页面模板
+
+- pages-v1 1.13.0 支持自定义代码模板类型、模板修订及首存标题生成 URL。模板代码更新随公开内容版本一次发布，子页各自的草稿、已应用设置和启停状态保持。见 [ADR 0138](../decisions/0138-custom-page-templates.md)。
+- 31 项页面及验证码回归和双 API、Worker、Scheduler、Node 接收器联测通过。联测覆盖两个已公开子页同步和请求重放。Ruff、mypy 及 Alembic 结构检查通过。
+- 开发库已迁移至 `0058_page_templates`，核对 13 条既有页面的 UUID、修订和快照。API、Worker、Scheduler 及前端已重启并通过就绪检查。
+
 ## 页面类型与页面实例
 
 - 节点清单只登记类型。自定义代码使用 `core.custom`，同一插件类型可以创建多个页面实例。回收、恢复、草稿、发布和配置均按页面 UUID 操作。pages-v1 1.12.0、settings-v1 1.41.0 由 `310f0ef` 发布。见 [ADR 0137](../decisions/0137-page-types-and-instances.md)。

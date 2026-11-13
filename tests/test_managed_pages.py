@@ -424,6 +424,37 @@ def test_delegated_page_write_does_not_grant_publish_or_script_execution(
     )
     assert ctx.root.get("/v1/admin/pages/" + script["id"]).status_code == 404
 
+    template = {
+        "id": str(uuid4()),
+        "expected_revision": 0,
+        "operation_id": str(uuid4()),
+        "value": {"title": ctx.name + " shared", "html": "<p>Original source</p>"},
+    }
+    created = member.post("/v1/admin/pages/templates", json=template, headers=headers(member))
+    assert created.status_code == 200, created.text
+    child = {
+        **body(ctx, path="/" + ctx.name + "-template-child", enabled=True),
+        "type_id": created.json()["data"]["type_id"],
+        "apply": True,
+    }
+    applied = ctx.root.post("/v1/admin/pages/save", json=child, headers=headers(ctx.root))
+    assert applied.status_code == 200, applied.text
+    update_template = {
+        **template,
+        "expected_revision": 1,
+        "operation_id": str(uuid4()),
+        "value": {**template["value"], "html": "<p>Changed source</p>"},
+    }
+    rejected = member.post(
+        "/v1/admin/pages/templates", json=update_template, headers=headers(member)
+    )
+    assert rejected.status_code == 403 and rejected.json()["code"] == 40399
+    still_live = next(page for page in published(ctx) if page["id"] == child["id"])
+    assert still_live["html"] == template["value"]["html"]
+    assert (
+        ctx.root.get("/v1/admin/pages/templates/" + template["id"]).json()["data"]["revision"] == 1
+    )
+
 
 def test_page_types_ignore_retired_nodes_and_do_not_reserve_suggested_paths(
     pages: AccountsTest,
