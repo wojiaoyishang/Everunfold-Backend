@@ -93,7 +93,7 @@ def published(ctx: AccountsTest) -> list[dict[str, Any]]:
 
 def test_page_draft_apply_retry_conflict_disable_and_restore(pages: AccountsTest) -> None:
     ctx = pages
-    draft = body(ctx, javascript_position="head")
+    draft = body(ctx, javascript_position="head", seo_title="First SEO title", seo_max_snippet=0)
     first = ctx.root.post("/v1/admin/pages/save", json=draft, headers=headers(ctx.root))
     assert first.status_code == 200, first.text
     row = first.json()["data"]
@@ -115,6 +115,7 @@ def test_page_draft_apply_retry_conflict_disable_and_restore(pages: AccountsTest
     assert result.status_code == 200, result.text
     assert next(p for p in published(ctx) if p["id"] == row["id"])["html"] == draft["value"]["html"]
     assert next(p for p in published(ctx) if p["id"] == row["id"])["javascript_position"] == "head"
+    assert next(p for p in published(ctx) if p["id"] == row["id"])["seo_max_snippet"] == 0
     newer = {
         **active,
         "operation_id": str(uuid4()),
@@ -124,6 +125,7 @@ def test_page_draft_apply_retry_conflict_disable_and_restore(pages: AccountsTest
             **active["value"],
             "html": "<p>Unpublished change</p>",
             "javascript_position": "body_end",
+            "seo_title": "Unpublished SEO title",
         },
     }
     result = ctx.root.post("/v1/admin/pages/save", json=newer, headers=headers(ctx.root))
@@ -306,6 +308,23 @@ def test_code_page_deployment_options_and_node_versions(pages: AccountsTest) -> 
     assert (
         ctx.root.post("/v1/admin/pages/save", json=request, headers=headers(ctx.root)).json()
         == result.json()
+    )
+    manifest["pages"][0]["seo_editable"] = False
+    asyncio.run(install())
+    rejected_seo = ctx.root.post(
+        "/v1/admin/pages/save",
+        headers=headers(ctx.root),
+        json={
+            **request,
+            "operation_id": str(uuid4()),
+            "expected_revision": 1,
+            "value": {**request["value"], "seo_title": "Unauthorized override"},
+        },
+    )
+    assert rejected_seo.status_code == 403, rejected_seo.text
+    assert (
+        ctx.root.get(f"/v1/admin/pages/{identifier}").json()["data"]["registration"]["seo_editable"]
+        is False
     )
     second_id = str(uuid4())
     second = {

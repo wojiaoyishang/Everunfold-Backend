@@ -267,6 +267,10 @@ def test_glossary_admin_and_article_scoped_public_matching(
                 "title": "金灵",
                 "summary": "",
                 "feature_media_id": feature_id,
+                "share_image_media_id": feature_id,
+                "seo_title": "金灵的独立搜索标题",
+                "seo_max_snippet": 0,
+                "allow_indexing": False,
                 "body": [
                     {
                         "id": str(uuid4()),
@@ -335,6 +339,12 @@ def test_glossary_admin_and_article_scoped_public_matching(
     assert detail.status_code == 200, detail.text
     assert [block["type"] for block in detail.json()["data"]["body"]] == ["markdown", "html"]
     assert detail.json()["data"]["feature_image"]["original"] == feature["url"]
+    assert detail.json()["data"]["share_image_url"] == feature["url"]
+    assert detail.json()["data"]["seo_title"] == "金灵的独立搜索标题"
+    assert detail.json()["data"]["seo_max_snippet"] == 0
+    assert detail.json()["data"]["allow_indexing"] is False
+    assert "share_image_media_id" not in detail.json()["data"]
+    assert "seo_title" not in hit.json()["data"]["terms"][0]
     admin_list = ctx.root.post(
         base + "/admin/query",
         headers=headers(ctx.root),
