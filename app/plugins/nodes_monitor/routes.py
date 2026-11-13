@@ -28,7 +28,7 @@ def monitor_router(access: MonitorAccess | None) -> APIRouter:
         "Cache-Control": "private, no-store",
         "X-Robots-Tag": "noindex, nofollow",
         "X-Content-Type-Options": "nosniff",
-        "Referrer-Policy": "no-referrer",
+        "Referrer-Policy": "same-origin",
         "Content-Security-Policy": (
             f"default-src 'none'; style-src 'sha256-{style_hash}'; "
             f"script-src 'sha256-{script_hash}'; connect-src 'self'; "

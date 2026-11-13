@@ -46,6 +46,8 @@ settings契约1.25.0新增`theme_options`、文章显示/首页默认值/代码�
 
 ## 初次启动与配置
 
+节点清单可以放在独立文件中。监控登录和节点状态见[前端节点监控](nodes-monitor.md)。
+
 1. 后端执行 `uv sync --locked`，再显式执行 `uv run python init.database.py`。已有数据库可加 `--no-create-database`。迁移 `0004_settings` 建立节点策略、审计、投递表，`0005_icon_media` 增加媒体原件记录，`0006_media_details` 增加附件资料与编辑来源，`0007_media_library` / `0008_media_safe_delete` 增加上传复用及安全删除回执；仅为空站点插入初值，不重置现有账号/文章。API 启动不做迁移。
 2. 后端 `config.toml` 的 `[frontends.web-main]` 设置 `enabled=true`、`settings_receiver_url="http://127.0.0.1:3001"`；两个方向的 token 仍只填写环境变量名称。非回环地址必须 HTTPS。
 3. 前端 `config.toml` 增加 `[settings]`：`directory="./var/settings"`、`receiver_host="127.0.0.1"`、`receiver_port=3001`、`source_epoch="实际后端 UUID"`。从已鉴权 GET 设置响应的 `data.source_epoch` 或 SQL `SELECT source_epoch FROM site_settings WHERE id=1` 获取，不从未经认证请求自动认领 epoch。

@@ -1,5 +1,7 @@
 # Everunfold 文档入口
 
+[前端节点监控](development/nodes-monitor.md)说明节点清单、独立密码及状态含义。实现见 [ADR0129](decisions/0129-frontend-nodes-monitor.md)。
+
 [顶栏标识](decisions/0128-header-branding.md)说明展示模式、默认值和兼容行为。
 
 [侧栏导航与搜索](decisions/0127-sidebar-navigation-and-search.md)说明侧栏文案、菜单继承、搜索和预览。
