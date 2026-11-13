@@ -20,6 +20,7 @@ from app.modules.pages.models import ManagedPage
 from app.modules.settings.defaults import public_settings, stored_settings
 from app.modules.settings.languages import language_route_pattern
 from app.modules.settings.models import NodePolicy, SettingsAudit, SettingsDeliveryEvent
+from app.modules.settings.node_registry import read_directory, read_targets
 from app.modules.settings.schemas import (
     CachePolicy,
     DeliveryState,
@@ -169,21 +170,33 @@ class SettingsService:
 
     async def state(self, record: SiteSettings | None = None) -> SettingsState:
         record = record or await self.site()
+        directory = await read_directory(self.session, self.config)
+        receivers = directory.receivers
         return SettingsState(
             source_epoch=str(record.source_epoch),
             revision=record.generation,
             value=await self.resolve(public_settings(record.data)),
             delivery=[
-                await self.delivery(node, record.source_epoch, "public-settings", record.generation)
-                for node in self.config.frontends
+                await self.delivery(
+                    node,
+                    record.source_epoch,
+                    "public-settings",
+                    record.generation,
+                    enabled=node in receivers,
+                )
+                for node in directory.entries
             ],
         )
 
     async def delivery(
-        self, node: str, epoch: uuid.UUID, resource: Resource, revision: int
+        self,
+        node: str,
+        epoch: uuid.UUID,
+        resource: Resource,
+        revision: int,
+        *,
+        enabled: bool,
     ) -> DeliveryState:
-        configured = self.config.frontends[node]
-        enabled = configured.enabled and configured.settings_receiver_url is not None
         events = list(
             (
                 await self.session.scalars(
@@ -350,7 +363,7 @@ class SettingsService:
                     },
                 )
             )
-        for node, config in self.config.frontends.items():
+        for node, config in (await read_targets(self.session, self.config)).items():
             if config.enabled and config.settings_receiver_url:
                 await self.enqueue(
                     node, record.source_epoch, "public-settings", record.generation, payload.value
@@ -358,12 +371,13 @@ class SettingsService:
         await self.session.commit()
         return await self.state(record)
 
-    def node(self, node: str) -> None:
-        if node not in self.config.frontends:
-            raise AuthFailure(404, 40420, "节点不存在")
-
     async def policy(self, node: str) -> PolicyState:
-        self.node(node)
+        directory = await read_directory(self.session, self.config)
+        if node not in directory.entries:
+            raise AuthFailure(404, 40420, "节点不存在")
+        return await self._policy(node, enabled=node in directory.receivers)
+
+    async def _policy(self, node: str, *, enabled: bool) -> PolicyState:
         record = await self.site()
         row = await self.session.get(NodePolicy, node)
         revision = row.revision if row else 1
@@ -372,15 +386,23 @@ class SettingsService:
             source_epoch=str(record.source_epoch),
             revision=revision,
             value=CachePolicy.model_validate(row.data) if row else CachePolicy(),
-            delivery=await self.delivery(node, record.source_epoch, "cache-policy", revision),
+            delivery=await self.delivery(
+                node, record.source_epoch, "cache-policy", revision, enabled=enabled
+            ),
         )
 
     async def nodes(self) -> NodeList:
-        return NodeList(nodes=[await self.policy(node) for node in self.config.frontends])
+        directory = await read_directory(self.session, self.config)
+        receivers = directory.receivers
+        return NodeList(
+            nodes=[
+                await self._policy(node, enabled=node in receivers) for node in directory.entries
+            ]
+        )
 
     async def save_policy(self, node: str, payload: SavePolicy, actor: uuid.UUID) -> PolicyState:
-        self.node(node)
         site = await self.site(locked=True)
+        policy = await self.policy(node)
         row = await self.session.get(NodePolicy, node)
         revision = row.revision if row else 1
         before = CachePolicy.model_validate(row.data) if row else CachePolicy()
@@ -400,14 +422,21 @@ class SettingsService:
                     changes={"before": before.model_dump(), "after": row.data},
                 )
             )
-        await self.enqueue(node, site.source_epoch, "cache-policy", row.revision, payload.value)
+        if policy.delivery.enabled:
+            await self.enqueue(node, site.source_epoch, "cache-policy", row.revision, payload.value)
         await self.session.commit()
         return await self.policy(node)
 
     async def retry(self, node: str, actor: uuid.UUID) -> NodeList:
-        self.node(node)
+        await self.stage_retry(node, actor)
+        await self.session.commit()
+        return await self.nodes()
+
+    async def stage_retry(self, node: str, actor: uuid.UUID | None) -> None:
         site = await self.site(locked=True)
         policy = await self.policy(node)
+        if not policy.delivery.enabled:
+            raise AuthFailure(409, 40925, "请先启用节点并绑定同步接收器")
         public = await self.resolve(public_settings(site.data))
         previous = await self.session.scalar(
             select(SettingsDeliveryEvent)
@@ -422,15 +451,16 @@ class SettingsService:
         # Publish a new immutable revision instead of rewriting an acknowledged file.
         if previous and public != PublicSettings.model_validate(previous.payload["value"]):
             site.generation += 1
-            self.session.add(
-                SettingsAudit(
-                    user_id=actor,
-                    resource="public-settings",
-                    revision=site.generation,
-                    changes={"operation": "republish-derived-media-urls"},
+            if actor is not None:
+                self.session.add(
+                    SettingsAudit(
+                        user_id=actor,
+                        resource="public-settings",
+                        revision=site.generation,
+                        changes={"operation": "republish-derived-media-urls"},
+                    )
                 )
-            )
-            for target, config in self.config.frontends.items():
+            for target, config in (await read_targets(self.session, self.config)).items():
                 if config.enabled and config.settings_receiver_url:
                     await self.enqueue(
                         target, site.source_epoch, "public-settings", site.generation, public
@@ -467,5 +497,3 @@ class SettingsService:
             event.next_attempt_at = datetime.now(UTC)
             event.attempts = 0
             event.error = None
-        await self.session.commit()
-        return await self.nodes()

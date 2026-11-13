@@ -9,6 +9,9 @@ from app.core.config import Settings
 
 
 def mount_nodes_monitor(application: FastAPI, settings: Settings | None) -> None:
+    from .admin_router import router as admin_router
+
+    application.include_router(admin_router)
     if settings is None or not settings.nodes_monitor.enabled:
         return
     from .routes import monitor_router

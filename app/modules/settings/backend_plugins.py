@@ -13,6 +13,7 @@ from app.modules.media.locking import lock_references
 from app.modules.settings.defaults import public_settings
 from app.modules.settings.extensions_schemas import ExtensionInventory
 from app.modules.settings.models import FrontendExtensionInventory, SettingsAudit
+from app.modules.settings.node_registry import read_targets
 from app.modules.settings.service import SettingsService
 
 
@@ -56,7 +57,7 @@ async def install_backend_plugins(session: AsyncSession, config: Settings) -> bo
             },
         )
     )
-    for node, target in config.frontends.items():
+    for node, target in (await read_targets(session, config)).items():
         if target.enabled and target.settings_receiver_url:
             await service.enqueue(
                 node, site.source_epoch, "public-settings", site.generation, value

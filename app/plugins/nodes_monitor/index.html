@@ -60,6 +60,13 @@
     .resource dl { display: grid; grid-template-columns: 1fr auto; gap: .2rem .65rem; margin: 0; }
     .resource dd { text-align: right; font-variant-numeric: tabular-nums; }
     .detail { margin-top: .4rem; color: var(--muted); overflow-wrap: anywhere; }
+    dialog { width: min(100% - 2rem, 28rem); padding: 1.2rem; color: var(--text); }
+    dialog::backdrop { background: #10182680; }
+    dialog form, dialog .fields { display: grid; gap: .8rem; }
+    dialog .fields { border: 0; padding: 0; margin: 0; min-width: 0; }
+    dialog .fields[hidden] { display: none; }
+    dialog label:not(.check) { display: grid; gap: .3rem; }
+    dialog .actions { justify-content: flex-end; }
   </style>
 </head>
 <body data-mode="{{mode}}">
@@ -68,6 +75,7 @@
       <h1>前端节点</h1>
       <div class="dashboard actions">
         <button id="refresh" type="button">刷新状态</button>
+        <button id="add" class="primary" type="button" hidden>新增节点</button>
         <form action="/_nodes/logout" method="post"><button type="submit">退出</button></form>
       </div>
     </header>
@@ -82,14 +90,36 @@
     <section class="dashboard" aria-label="连接与同步状态">
       <p id="sample" class="muted">正在读取状态…</p>
       <p id="notice" role="status"></p>
+      <p id="operation" role="status"></p>
       <dl id="health" class="health"></dl>
       <div id="nodes"></div>
       <noscript>启用 JavaScript 后可查看状态。</noscript>
     </section>
+    <dialog id="editor" class="panel" aria-labelledby="editor-title">
+      <form id="node-form">
+        <h2 id="editor-title"></h2>
+        <fieldset class="fields" id="fields">
+          <label>节点 ID<input id="node-id" required maxlength="64" pattern="[A-Za-z0-9][A-Za-z0-9_\\-]{0,63}"></label>
+          <label>前端公开地址<input id="node-url" type="url" required maxlength="512" placeholder="https://blog.example.com"></label>
+          <label class="check"><input id="node-enabled" type="checkbox"> 启用</label>
+        </fieldset>
+        <p id="action-description" class="muted"></p>
+        <p id="action-error" role="alert" class="bad"></p>
+        <div class="actions">
+          <button id="cancel" type="button">取消</button>
+          <button id="submit" class="primary" type="submit">保存</button>
+        </div>
+      </form>
+    </dialog>
   </main>
   <script>
     if (document.body.dataset.mode === "dashboard") {
       const byId = (id) => document.getElementById(id);
+      const editor = byId("editor");
+      let revision = null;
+      let action = null;
+      let returnFocus = null;
+      let mutating = false;
       const labels = new Map(Object.entries({
         online: "正常", unavailable: "无法读取", degraded: "异常", stale: "上报超时",
         never: "暂无上报", recent: "近期收到上报", disabled: "已停用", not_configured: "未配置接收器",
@@ -153,7 +183,23 @@
       function nodeCard(node) {
         const card = el("article", undefined, "panel node");
         const heading = el("div", undefined, "node-heading");
-        heading.append(el("h2", node.id), el("span", node.enabled ? "已启用" : "已停用", "muted"));
+        const actions = el("div", undefined, "actions");
+        const operationButton = (label, operation) => {
+          const button = el("button", label);
+          button.type = "button";
+          button.dataset.node = node.id;
+          button.dataset.action = operation;
+          button.addEventListener("click", () => openEditor(operation, node, button));
+          return button;
+        };
+        actions.append(el("span", node.enabled ? "已启用" : node.bound ? "已停用" : "待登记连接", "muted"));
+        if (node.enabled && node.receiver_configured && revision !== null) {
+          actions.append(operationButton("重新同步", "sync"));
+        }
+        if (revision > 0) {
+          actions.append(operationButton("配置", "edit"), operationButton("删除", "delete"));
+        }
+        heading.append(el("h2", node.id), actions);
         const connection = el("div", undefined, "connection");
         const report = el("div");
         report.append(el("p", "前端上报 · " + show(node.inbound), stateClass(node.inbound)));
@@ -169,15 +215,86 @@
         card.append(heading, el("p", node.base_url, "node-url muted"), connection, cards);
         return card;
       }
+      function openEditor(operation, node, trigger) {
+        if (revision === null || mutating) return;
+        action = { operation, revision, id: node?.id };
+        returnFocus = trigger;
+        const editable = operation === "add" || operation === "edit";
+        byId("editor-title").textContent = {
+          add: "新增节点", edit: "配置节点", delete: "删除节点", sync: "重新同步",
+        }[operation];
+        byId("fields").hidden = !editable;
+        byId("fields").disabled = !editable;
+        const id = byId("node-id");
+        const url = byId("node-url");
+        id.required = url.required = editable;
+        id.readOnly = operation !== "add";
+        id.value = node?.id ?? "";
+        url.value = node?.base_url ?? "";
+        byId("node-enabled").checked = node?.enabled ?? false;
+        byId("node-enabled").disabled = operation === "edit" && !node.bound;
+        byId("action-description").textContent = {
+          add: "未登记连接的节点可先保存为停用。",
+          edit: "接收器地址和凭据在后端服务器登记。",
+          delete: "删除 " + node?.id + " 后会停止向它投递，并拒绝后续上报。保留历史记录与前端副本。",
+          sync: "向 " + node?.id + " 重发当前站点设置、缓存策略和公开内容。",
+        }[operation];
+        byId("action-error").textContent = "";
+        byId("submit").textContent = operation === "delete" ? "删除" : operation === "sync" ? "重新同步" : "保存";
+        editor.showModal();
+        (operation === "add" ? id : operation === "edit" ? url : byId("cancel")).focus();
+      }
+      byId("add").addEventListener("click", () => openEditor("add", null, byId("add")));
+      byId("cancel").addEventListener("click", () => editor.close());
+      editor.addEventListener("cancel", (event) => { if (mutating) event.preventDefault(); });
+      editor.addEventListener("close", () => {
+        if (returnFocus?.isConnected) returnFocus.focus();
+        else byId("refresh").focus();
+        action = null;
+      });
+      byId("node-form").addEventListener("submit", async (event) => {
+        event.preventDefault();
+        if (!action || mutating) return;
+        const { operation, revision: expected, id } = action;
+        const payload = { action: operation, expected_revision: expected, node_id: id ?? byId("node-id").value.trim() };
+        if (operation === "add" || operation === "edit") payload.registration = {
+          base_url: byId("node-url").value.trim(), enabled: byId("node-enabled").checked,
+        };
+        mutating = true;
+        byId("submit").disabled = byId("cancel").disabled = true;
+        byId("action-error").textContent = "";
+        try {
+          const response = await fetch("/_nodes/manage", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+          if (response.status === 401) { location.replace("/_nodes"); return; }
+          const result = await response.json();
+          if (!response.ok) { byId("action-error").textContent = result.error; return; }
+          byId("operation").textContent = result.queued ? "已安排同步，等待接收器确认。" :
+            operation === "delete" ? "节点已删除。" : "节点已保存。";
+          editor.close();
+        } catch {
+          byId("action-error").textContent = "未能确认操作结果，请刷新节点状态。";
+        } finally {
+          mutating = false;
+          byId("submit").disabled = byId("cancel").disabled = false;
+          if (!editor.open) void refresh();
+        }
+      });
       async function refresh() {
         const button = byId("refresh");
-        if (button.disabled) return;
+        if (button.disabled || editor.open || mutating) return;
         button.disabled = true;
         try {
           const response = await fetch("/_nodes/status", { cache: "no-store" });
           if (response.status === 401) { location.replace("/_nodes"); return; }
           if (!response.ok) throw new Error("status unavailable");
           const value = await response.json();
+          if (editor.open) return;
+          const focused = document.activeElement?.dataset;
+          revision = value.registry_revision ?? null;
+          byId("add").hidden = !(revision > 0);
           byId("sample").textContent = "更新时间 " + stamp(value.sampled_at);
           byId("notice").textContent = value.history_available || !value.nodes.length ? "" : "同步记录暂时无法读取。";
           const health = [["API", value.api], ["数据库", value.database], ["Redis", value.redis],
@@ -189,6 +306,13 @@
           }));
           byId("nodes").replaceChildren(...(value.nodes.length
             ? value.nodes.map(nodeCard) : [el("p", "尚未配置前端节点。", "muted")]));
+          if (focused?.node && focused?.action) {
+            const target = Array.from(byId("nodes").querySelectorAll("button")).find(
+              (item) => item.dataset.node === focused.node && item.dataset.action === focused.action,
+            );
+            (target ?? byId("add")).focus();
+          }
+          if (revision === 0) byId("notice").textContent = "当前使用部署文件。导入节点清单后可在此增删和配置。";
         } catch {
           byId("notice").textContent = "状态更新失败。页面保留上次读取的数据。";
         } finally {

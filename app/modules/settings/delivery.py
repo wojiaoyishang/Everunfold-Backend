@@ -15,6 +15,7 @@ from app.modules.content.models import SiteSettings
 from app.modules.content.publication_schemas import ContentReceipt
 from app.modules.notifications.service import publish_event
 from app.modules.settings.models import SettingsDeliveryEvent
+from app.modules.settings.node_registry import read_targets
 from app.modules.settings.schemas import DeliveryReceipt
 
 
@@ -30,10 +31,20 @@ async def deliver_batch(config: Settings) -> int:
             now = datetime.now(UTC)
             lease = uuid.uuid4()
             async with database.session_factory() as session:
+                targets = await read_targets(session, config)
+                receivers = [
+                    node
+                    for node, target in targets.items()
+                    if target.enabled and target.settings_receiver_url
+                ]
+                if not receivers:
+                    break
                 row = await session.scalar(
                     select(SettingsDeliveryEvent)
                     .where(
                         SettingsDeliveryEvent.applied_at.is_(None),
+                        SettingsDeliveryEvent.error.is_distinct_from("node_inactive"),
+                        SettingsDeliveryEvent.node_id.in_(receivers),
                         SettingsDeliveryEvent.next_attempt_at <= now,
                         SettingsDeliveryEvent.attempts < config.outbox.max_attempts,
                         or_(
@@ -65,7 +76,16 @@ async def deliver_batch(config: Settings) -> int:
                 row.attempts += 1
                 await session.commit()
             error: str | None = None
-            target = config.frontends.get(node_id)
+            # Deletion or rebinding revokes the lease. Recheck immediately before dispatch.
+            async with database.session_factory() as session:
+                target = (await read_targets(session, config)).get(node_id)
+                active_lease = await session.scalar(
+                    select(SettingsDeliveryEvent.lease_id).where(
+                        SettingsDeliveryEvent.id == event_id
+                    )
+                )
+            if active_lease != lease:
+                continue
             secret = os.environ.get(target.fastapi_to_nextjs_token_env, "") if target else ""
             if (
                 not target

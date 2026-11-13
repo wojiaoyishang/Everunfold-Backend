@@ -21,6 +21,7 @@ from app.modules.content.schemas import PublicSnapshot
 from app.modules.content.service import PublicContentService
 from app.modules.content.text_preview import content_preview
 from app.modules.settings.models import SettingsAudit, SettingsDeliveryEvent
+from app.modules.settings.node_registry import read_directory
 from app.modules.settings.service import SettingsService
 
 
@@ -139,7 +140,7 @@ class ContentPublication:
         draft.published_revision = None
         return True
 
-    async def stage(self) -> ContentRelease:
+    async def stage(self, *, node_id: str | None = None) -> ContentRelease:
         # All writers share the reference lock followed by this row lock. The snapshot and
         # immutable release are created before commit, without external network side effects.
         site = await SettingsService(self.session, self.config).site(locked=True)
@@ -154,13 +155,12 @@ class ContentPublication:
             snapshot=snapshot.model_dump(mode="json"),
         )
         self.session.add(release)
-        await self.enqueue(release)
+        await self.enqueue(release, node_id=node_id)
         return release
 
-    async def enqueue(self, release: ContentRelease) -> None:
-        for node, config in self.config.frontends.items():
-            if not config.enabled or not config.settings_receiver_url:
-                continue
+    async def enqueue(self, release: ContentRelease, *, node_id: str | None = None) -> None:
+        receivers = (await read_directory(self.session, self.config)).receivers
+        for node in sorted(receivers if node_id is None else receivers & {node_id}):
             payload = ContentDelivery(
                 node_id=node,
                 source_epoch=str(release.source_epoch),
@@ -184,18 +184,29 @@ class ContentPublication:
     async def state(self) -> ContentSyncState:
         service = SettingsService(self.session, self.config)
         site = await service.site()
+        directory = await read_directory(self.session, self.config)
+        receivers = directory.receivers
         return ContentSyncState(
             source_epoch=str(site.source_epoch),
             revision=site.content_generation,
             delivery=[
                 await service.delivery(
-                    node, site.source_epoch, "public-content", site.content_generation
+                    node,
+                    site.source_epoch,
+                    "public-content",
+                    site.content_generation,
+                    enabled=node in receivers,
                 )
-                for node in self.config.frontends
+                for node in directory.entries
             ],
         )
 
     async def retry(self, actor_id: UUID) -> ContentSyncState:
+        await self.stage_retry(actor_id)
+        await self.session.commit()
+        return await self.state()
+
+    async def stage_retry(self, actor_id: UUID | None, *, node_id: str | None = None) -> None:
         from app.modules.media.locking import lock_references
 
         await lock_references(self.session)
@@ -204,15 +215,20 @@ class ContentPublication:
             ContentRelease, (site.source_epoch, site.content_generation)
         )
         if release is None:
+            # The first release advances the site-wide version and must reach all receivers.
             release = await self.stage()
         else:
-            await self.enqueue(release)
+            await self.enqueue(release, node_id=node_id)
+        receivers = (await read_directory(self.session, self.config)).receivers
         events = await self.session.scalars(
             select(SettingsDeliveryEvent)
             .where(
                 SettingsDeliveryEvent.source_epoch == release.source_epoch,
                 SettingsDeliveryEvent.resource == "public-content",
                 SettingsDeliveryEvent.revision == release.revision,
+                SettingsDeliveryEvent.node_id.in_(
+                    receivers if node_id is None else receivers & {node_id}
+                ),
             )
             .with_for_update()
         )
@@ -220,13 +236,12 @@ class ContentPublication:
             event.applied_at = event.lease_id = event.lease_until = event.error = None
             event.attempts = 0
             event.next_attempt_at = datetime.now(UTC)
-        self.session.add(
-            SettingsAudit(
-                user_id=actor_id,
-                resource="public-content",
-                revision=release.revision,
-                changes={"action": "retry", "source_epoch": str(release.source_epoch)},
+        if actor_id is not None:
+            self.session.add(
+                SettingsAudit(
+                    user_id=actor_id,
+                    resource="public-content",
+                    revision=release.revision,
+                    changes={"action": "retry", "source_epoch": str(release.source_epoch)},
+                )
             )
-        )
-        await self.session.commit()
-        return await self.state()

@@ -13,6 +13,7 @@ from app.modules.auth.service import AuthFailure
 from app.modules.media.service import MediaService
 from app.modules.notifications.schemas import MailBrand
 from app.modules.settings.defaults import public_settings
+from app.modules.settings.node_registry import read_targets
 
 BRAND_KEY = "_notification_mail_brand"
 EMAIL_VARIABLES = (
@@ -40,8 +41,8 @@ def stored_brand(data: dict[str, Any]) -> MailBrand:
     return MailBrand.model_validate(data.get(BRAND_KEY, {}))
 
 
-def site_origin(config: Settings) -> str:
-    for node in config.frontends.values():
+async def site_origin(session: AsyncSession, config: Settings) -> str:
+    for node in (await read_targets(session, config)).values():
         if not node.enabled:
             continue
         host = (urlsplit(node.base_url).hostname or "").rstrip(".")
@@ -84,7 +85,7 @@ async def site_variables(
 ) -> dict[str, str]:
     public = public_settings(data)
     site = public.site
-    origin = brand.site_url or site_origin(config)
+    origin = brand.site_url or await site_origin(session, config)
     icon = brand.icon_url
     if not icon and site.icon_media_id:
         try:

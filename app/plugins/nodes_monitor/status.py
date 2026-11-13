@@ -8,74 +8,29 @@ from typing import Literal
 from uuid import UUID
 
 import httpx2 as httpx
-from pydantic import Field, ValidationError
+from pydantic import ValidationError
 from sqlalchemy import case, func, select
 
 from app.core.config import FrontendConfig
 from app.core.jobs.schemas import RuntimeInstance
 from app.core.runtime import Runtime
-from app.core.schemas import PublicModel
 from app.modules.content.models import SiteSettings
 from app.modules.settings.models import (
     FrontendExtensionInventory,
     NodePolicy,
     SettingsDeliveryEvent,
 )
-from app.modules.settings.schemas import ReceiverReplica, ReceiverStatus
+from app.modules.settings.node_registry import NodeDirectory, deployment_directory, read_directory
+from app.modules.settings.nodes_schemas import (
+    DeliverySummary,
+    MonitorStatus,
+    NodeStatus,
+    ReceiverProbe,
+    ReceiverStatus,
+)
 from app.modules.settings.service import Resource
 
 RESOURCES: tuple[Resource, ...] = ("public-settings", "cache-policy", "public-content")
-
-
-class DeliverySummary(PublicModel):
-    expected: int
-    acknowledged: int | None = None
-    acknowledged_at: datetime | None = None
-    state: Literal[
-        "disabled", "not_configured", "unqueued", "pending", "retrying", "failed", "applied"
-    ]
-    attempts: int = 0
-    attempt_limit: int
-    next_retry_at: datetime | None = None
-    error: str | None = None
-
-
-class ReceiverProbe(PublicModel):
-    state: Literal[
-        "disabled",
-        "not_configured",
-        "credential_missing",
-        "unreachable",
-        "rejected",
-        "unsupported",
-        "invalid",
-        "wrong_node",
-        "wrong_source",
-        "reachable",
-    ]
-    checked_at: datetime | None = None
-    replicas: dict[Resource, ReceiverReplica] = Field(default_factory=dict)
-
-
-class NodeStatus(PublicModel):
-    id: str
-    enabled: bool
-    base_url: str
-    receiver: ReceiverProbe
-    last_report: datetime | None = None
-    inbound: Literal["recent", "stale", "never", "unavailable"] = "unavailable"
-    sync: dict[Resource, DeliverySummary] = Field(default_factory=dict)
-
-
-class MonitorStatus(PublicModel):
-    sampled_at: datetime
-    api: Literal["online"] = "online"
-    database: Literal["online", "unavailable"]
-    redis: Literal["online", "unavailable"]
-    worker: str
-    scheduler: str
-    history_available: bool
-    nodes: list[NodeStatus]
 
 
 def display_error(error: str | None) -> str | None:
@@ -98,8 +53,6 @@ async def read_history(
     nodes: list[NodeStatus],
     sampled: datetime,
 ) -> UUID | None:
-    if not nodes:
-        return None
     async with runtime.database.session_factory() as session:
         source = (
             await session.execute(
@@ -184,16 +137,15 @@ async def read_history(
             (settings_rev, policies.get(node.id, 1), content_rev),
             strict=True,
         ):
-            target = runtime.settings.frontends[node.id]
             acknowledged, applied_at = latest.get((node.id, resource), (None, None))
             entry = current.get((node.id, resource))
             attempts, retry_at, error, applied = entry or (0, None, None, False)
             state: Literal[
                 "disabled", "not_configured", "unqueued", "pending", "retrying", "failed", "applied"
             ]
-            if not target.enabled:
+            if not node.enabled:
                 state = "disabled"
-            elif not target.settings_receiver_url:
+            elif not node.receiver_configured:
                 state = "not_configured"
             elif applied:
                 state = "applied"
@@ -307,25 +259,48 @@ async def probe_receiver(
 async def read_status(runtime: Runtime) -> MonitorStatus:
     sampled = datetime.now(UTC)
     timeout = runtime.settings.runtime.health_check_timeout_seconds
+    revision = None
+    database = True
+
+    async def directory_status() -> NodeDirectory:
+        async with runtime.database.session_factory() as session:
+            return await read_directory(session, runtime.settings)
+
+    try:
+        directory = await asyncio.wait_for(directory_status(), timeout)
+        revision = directory.revision
+    except Exception:
+        # Show deployment identities during outages. Their receiver addresses may be stale.
+        database = False
+        directory = deployment_directory(runtime.settings)
+    targets = directory.targets
     nodes = [
         NodeStatus(
             id=node_id,
             enabled=target.enabled,
             base_url=target.base_url,
-            receiver=ReceiverProbe(state="disabled" if not target.enabled else "not_configured"),
+            bound=database and node_id in targets,
+            receiver_configured=bool(
+                database and node_id in targets and targets[node_id].settings_receiver_url
+            ),
+            receiver=ReceiverProbe(
+                state="unavailable"
+                if not database
+                else "disabled"
+                if not target.enabled
+                else "not_configured"
+            ),
         )
-        for node_id, target in runtime.settings.frontends.items()
+        for node_id, target in directory.entries.items()
     ]
 
-    async def database_status() -> tuple[bool, UUID | None]:
+    async def history_status() -> UUID | None:
+        if not database:
+            return None
         try:
-            await asyncio.wait_for(runtime.database.ping(), timeout)
+            return await asyncio.wait_for(read_history(runtime, nodes, sampled), timeout)
         except Exception:
-            return False, None
-        try:
-            return True, await asyncio.wait_for(read_history(runtime, nodes, sampled), timeout)
-        except Exception:
-            return True, None
+            return None
 
     async def process_status() -> tuple[bool, str, str]:
         try:
@@ -338,8 +313,8 @@ async def read_status(runtime: Runtime) -> MonitorStatus:
         except Exception:
             return True, "unavailable", "unavailable"
 
-    (database, epoch), (redis, worker, scheduler) = await asyncio.gather(
-        database_status(),
+    epoch, (redis, worker, scheduler) = await asyncio.gather(
+        history_status(),
         process_status(),
     )
     async with httpx.AsyncClient(
@@ -350,9 +325,12 @@ async def read_status(runtime: Runtime) -> MonitorStatus:
     ) as client:
 
         async def check(node: NodeStatus) -> None:
+            target = targets.get(node.id)
+            if target is None or not database:
+                return
             try:
                 node.receiver = await asyncio.wait_for(
-                    probe_receiver(client, node.id, runtime.settings.frontends[node.id], epoch),
+                    probe_receiver(client, node.id, target, epoch),
                     timeout,
                 )
             except TimeoutError:
@@ -366,5 +344,6 @@ async def read_status(runtime: Runtime) -> MonitorStatus:
         worker=worker,
         scheduler=scheduler,
         history_available=epoch is not None,
+        registry_revision=revision,
         nodes=nodes,
     )

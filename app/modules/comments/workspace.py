@@ -11,6 +11,7 @@ from app.modules.comments.schemas import WorkspaceItem, WorkspaceSummary
 from app.modules.content.draft_models import ContentDraft, TranslationGroup
 from app.modules.content.models import Comment, SiteSettings
 from app.modules.settings.models import SettingsDeliveryEvent
+from app.modules.settings.node_registry import read_targets
 
 
 async def workspace(session: AsyncSession, actor: Actor, config: Settings) -> WorkspaceSummary:
@@ -86,7 +87,9 @@ async def workspace(session: AsyncSession, actor: Actor, config: Settings) -> Wo
         site = await session.get(SiteSettings, 1)
         if site is None:
             return result
-        nodes = [key for key, value in config.frontends.items() if value.enabled]
+        nodes = [
+            key for key, value in (await read_targets(session, config)).items() if value.enabled
+        ]
         current = [
             SettingsDeliveryEvent.source_epoch == site.source_epoch,
             SettingsDeliveryEvent.node_id.in_(nodes),

@@ -8,13 +8,18 @@ from typing import Literal
 from urllib.parse import parse_qs
 
 from fastapi import APIRouter, Request
+from pydantic import ValidationError
+from sqlalchemy.exc import SQLAlchemyError
 from starlette.requests import ClientDisconnect
 from starlette.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 
 from app.core.runtime import Runtime
+from app.modules.auth.service import AuthFailure
+from app.modules.settings.nodes_schemas import MonitorStatus, NodeChange
 
+from .management import manage_node
 from .security import COOKIE_NAME, LOGIN_WINDOW, MonitorAccess
-from .status import MonitorStatus, read_status
+from .status import read_status
 
 PREFIX = "/_nodes"
 
@@ -158,6 +163,42 @@ def monitor_router(access: MonitorAccess | None) -> APIRouter:
                 value = await read_status(runtime)
                 cached = (clock.time(), value)
         return JSONResponse(cached[1].model_dump(mode="json"), headers=headers)
+
+    @router.post("/manage")
+    async def manage(request: Request) -> Response:
+        nonlocal cached
+        blocked = unavailable(request)
+        if blocked is not None:
+            return blocked
+        assert access is not None
+        if not access.authenticated(request):
+            return JSONResponse({"error": "请重新登录"}, 401, headers)
+        if not access.accepts_post(request):
+            return JSONResponse({"error": "请求来源无效"}, 403, headers)
+        if request.headers.get("content-type", "").split(";", 1)[0] != "application/json":
+            return JSONResponse({"error": "请提交 JSON"}, 415, headers)
+        runtime: Runtime | None = getattr(request.app.state, "runtime", None)
+        if runtime is None:
+            return JSONResponse({"error": "节点管理暂不可用"}, 503, headers)
+        body = bytearray()
+        try:
+            async with asyncio.timeout(5):
+                async for chunk in request.stream():
+                    if len(body) + len(chunk) > 4096:
+                        return JSONResponse({"error": "请求过大"}, 413, headers)
+                    body.extend(chunk)
+            command = NodeChange.model_validate_json(body)
+            async with runtime.database.session_factory() as session:
+                result = await manage_node(session, runtime.settings, command, None)
+        except (ValidationError, ClientDisconnect, TimeoutError):
+            return JSONResponse({"error": "节点 ID、公开地址或请求无效"}, 422, headers)
+        except AuthFailure as exc:
+            return JSONResponse({"error": exc.message}, exc.status, headers)
+        except (SQLAlchemyError, OSError):
+            return JSONResponse({"error": "节点清单或同步记录暂不可用"}, 503, headers)
+        async with refresh_lock:
+            cached = None
+        return JSONResponse(result.model_dump(mode="json"), headers=headers)
 
     return router
 

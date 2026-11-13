@@ -11,9 +11,22 @@ from app.modules.settings.schemas import SettingsContract
 def build_schema() -> dict[str, Any]:
     schema = SettingsContract.model_json_schema()
     schema["$schema"] = "http://json-schema.org/draft-07/schema#"
-    schema["x-everunfold-contract-version"] = "1.37.0"
+    schema["x-everunfold-contract-version"] = "1.38.0"
     schema["x-everunfold-language-regions"] = LANGUAGE_REGIONS
     schema["x-everunfold-operations"] = [
+        {
+            "name": "readNodesMonitor",
+            "path": "/v1/admin/nodes-monitor",
+            "method": "GET",
+            "response": "nodes_monitor_state",
+        },
+        {
+            "name": "authorizeLocalNodeOperation",
+            "path": "/v1/admin/nodes-monitor/local-proof",
+            "method": "POST",
+            "input": "nodes_local_proof_request",
+            "response": "nodes_local_proof",
+        },
         {
             "name": "watchTaskProgress",
             "path": "/v1/admin/tasks/watch",

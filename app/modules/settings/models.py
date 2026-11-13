@@ -11,6 +11,15 @@ from sqlalchemy.orm import Mapped, mapped_column
 from app.core.database import Base
 
 
+class FrontendNodeRegistry(Base):
+    __tablename__ = "frontend_node_registry"
+    __table_args__ = (CheckConstraint("id = 1 AND revision >= 1", name="revision"),)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    revision: Mapped[int] = mapped_column(Integer)
+    nodes: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    bindings: Mapped[dict[str, Any]] = mapped_column(JSONB)
+
+
 class NodePolicy(Base):
     __tablename__ = "frontend_node_policies"
     __table_args__ = (CheckConstraint("revision >= 1", name="revision"),)

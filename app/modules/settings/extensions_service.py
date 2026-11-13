@@ -5,11 +5,12 @@ from datetime import UTC, datetime
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import Settings
+from app.core.config import FrontendConfig, Settings
 from app.core.plugins.loader import plugin_catalog
 from app.core.plugins.state import CATALOG_KEY, installed_info
 from app.modules.auth.service import AuthFailure
 from app.modules.content.models import SiteSettings
+from app.modules.media.locking import lock_references
 from app.modules.pages.registration import install_manifest
 from app.modules.settings.extensions_schemas import (
     ExtensionCatalog,
@@ -18,6 +19,8 @@ from app.modules.settings.extensions_schemas import (
     NodeExtensionInventory,
 )
 from app.modules.settings.models import FrontendExtensionInventory
+from app.modules.settings.node_registry import read_targets
+from app.modules.settings.service import SettingsService
 
 
 async def catalog(session: AsyncSession, config: Settings) -> ExtensionCatalog:
@@ -41,15 +44,25 @@ async def catalog(session: AsyncSession, config: Settings) -> ExtensionCatalog:
                 if node in records
                 else None,
             )
-            for node, target in config.frontends.items()
+            for node, target in (await read_targets(session, config)).items()
         ],
     )
 
 
 async def install_inventory(
-    session: AsyncSession, config: Settings, node: str, value: ExtensionInventory
+    session: AsyncSession,
+    config: Settings,
+    node: str,
+    value: ExtensionInventory,
+    *,
+    authorized_target: FrontendConfig | None = None,
 ) -> None:
-    if node not in config.frontends:
+    await lock_references(session)
+    await SettingsService(session, config).site(locked=True)
+    target = (await read_targets(session, config)).get(node)
+    if authorized_target is not None and (target != authorized_target or not target.enabled):
+        raise AuthFailure(403, 40320, "内部请求未通过验证")
+    if target is None:
         raise AuthFailure(404, 40420, "节点不存在")
     from app.modules.settings.backend_plugins import validate_names
 

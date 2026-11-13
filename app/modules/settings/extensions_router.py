@@ -19,6 +19,7 @@ from app.modules.settings.extensions_schemas import (
     ExtensionUsageQuery,
 )
 from app.modules.settings.extensions_service import catalog, install_inventory
+from app.modules.settings.node_registry import read_targets
 from app.modules.settings.router import Authorized
 
 router = APIRouter(
@@ -49,7 +50,6 @@ async def check_extension_usage(
 async def report_extensions(node_id: str, request: Request) -> JSONResponseSuccess:
     runtime = auth_runtime(request)
     config = runtime.settings
-    node = config.frontends.get(node_id)
     try:
         address = ipaddress.ip_address(request.client.host if request.client else "")
         allowed = any(
@@ -58,11 +58,14 @@ async def report_extensions(node_id: str, request: Request) -> JSONResponseSucce
         )
     except ValueError:
         allowed = False
+    if not allowed:
+        raise AuthFailure(403, 40320, "内部请求未通过验证")
+    async with runtime.database.session_factory() as session:
+        node = (await read_targets(session, config)).get(node_id)
     token = os.environ.get(node.nextjs_to_fastapi_token_env, "") if node else ""
     supplied = request.headers.get("authorization", "")
     if (
-        not allowed
-        or not node
+        not node
         or not node.enabled
         or not token
         or not hmac.compare_digest(supplied.encode(), ("Bearer " + token).encode())
@@ -78,5 +81,5 @@ async def report_extensions(node_id: str, request: Request) -> JSONResponseSucce
     except ValidationError as exc:
         raise AuthFailure(422, 42298, "扩展清单无效") from exc
     async with runtime.database.session_factory() as session:
-        await install_inventory(session, config, node_id, value)
+        await install_inventory(session, config, node_id, value, authorized_target=node)
     return JSONResponseSuccess(data={"node_id": node_id, "registered": True})

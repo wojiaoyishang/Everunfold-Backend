@@ -558,6 +558,94 @@
       "title": "DeliveryState",
       "type": "object"
     },
+    "DeliverySummary": {
+      "additionalProperties": false,
+      "properties": {
+        "expected": {
+          "title": "Expected",
+          "type": "integer"
+        },
+        "acknowledged": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Acknowledged"
+        },
+        "acknowledged_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Acknowledged At"
+        },
+        "state": {
+          "enum": [
+            "disabled",
+            "not_configured",
+            "unqueued",
+            "pending",
+            "retrying",
+            "failed",
+            "applied"
+          ],
+          "title": "State",
+          "type": "string"
+        },
+        "attempts": {
+          "default": 0,
+          "title": "Attempts",
+          "type": "integer"
+        },
+        "attempt_limit": {
+          "title": "Attempt Limit",
+          "type": "integer"
+        },
+        "next_retry_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Next Retry At"
+        },
+        "error": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Error"
+        }
+      },
+      "required": [
+        "expected",
+        "state",
+        "attempt_limit"
+      ],
+      "title": "DeliverySummary",
+      "type": "object"
+    },
     "ExtensionCatalog": {
       "additionalProperties": false,
       "properties": {
@@ -2258,6 +2346,80 @@
       "title": "MenuItem",
       "type": "object"
     },
+    "MonitorStatus": {
+      "additionalProperties": false,
+      "properties": {
+        "sampled_at": {
+          "format": "date-time",
+          "title": "Sampled At",
+          "type": "string"
+        },
+        "api": {
+          "const": "online",
+          "default": "online",
+          "title": "Api",
+          "type": "string"
+        },
+        "database": {
+          "enum": [
+            "online",
+            "unavailable"
+          ],
+          "title": "Database",
+          "type": "string"
+        },
+        "redis": {
+          "enum": [
+            "online",
+            "unavailable"
+          ],
+          "title": "Redis",
+          "type": "string"
+        },
+        "worker": {
+          "title": "Worker",
+          "type": "string"
+        },
+        "scheduler": {
+          "title": "Scheduler",
+          "type": "string"
+        },
+        "history_available": {
+          "title": "History Available",
+          "type": "boolean"
+        },
+        "registry_revision": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Registry Revision"
+        },
+        "nodes": {
+          "items": {
+            "$ref": "#/$defs/NodeStatus"
+          },
+          "title": "Nodes",
+          "type": "array"
+        }
+      },
+      "required": [
+        "sampled_at",
+        "database",
+        "redis",
+        "worker",
+        "scheduler",
+        "history_available",
+        "nodes"
+      ],
+      "title": "MonitorStatus",
+      "type": "object"
+    },
     "NavigationCatalog": {
       "additionalProperties": false,
       "properties": {
@@ -2413,6 +2575,68 @@
       "title": "NavigationResource",
       "type": "object"
     },
+    "NodeChange": {
+      "additionalProperties": false,
+      "properties": {
+        "action": {
+          "enum": [
+            "add",
+            "edit",
+            "delete",
+            "sync"
+          ],
+          "title": "Action",
+          "type": "string"
+        },
+        "node_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$",
+          "title": "Node Id",
+          "type": "string"
+        },
+        "expected_revision": {
+          "minimum": 0,
+          "title": "Expected Revision",
+          "type": "integer"
+        },
+        "registration": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NodeRegistration"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "action",
+        "node_id",
+        "expected_revision"
+      ],
+      "title": "NodeChange",
+      "type": "object"
+    },
+    "NodeChangeResult": {
+      "additionalProperties": false,
+      "properties": {
+        "revision": {
+          "title": "Revision",
+          "type": "integer"
+        },
+        "queued": {
+          "title": "Queued",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "revision",
+        "queued"
+      ],
+      "title": "NodeChangeResult",
+      "type": "object"
+    },
     "NodeExtensionInventory": {
       "additionalProperties": false,
       "properties": {
@@ -2471,6 +2695,165 @@
         "nodes"
       ],
       "title": "NodeList",
+      "type": "object"
+    },
+    "NodeProof": {
+      "additionalProperties": false,
+      "properties": {
+        "expires": {
+          "title": "Expires",
+          "type": "integer"
+        },
+        "signature": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Signature",
+          "type": "string"
+        }
+      },
+      "required": [
+        "expires",
+        "signature"
+      ],
+      "title": "NodeProof",
+      "type": "object"
+    },
+    "NodeProofRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "node_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$",
+          "title": "Node Id",
+          "type": "string"
+        },
+        "intent": {
+          "enum": [
+            "inspect",
+            "switch"
+          ],
+          "title": "Intent",
+          "type": "string"
+        },
+        "profile": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$",
+          "title": "Profile",
+          "type": "string"
+        },
+        "revision": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Revision",
+          "type": "string"
+        },
+        "challenge": {
+          "pattern": "^[0-9a-f]{32}$",
+          "title": "Challenge",
+          "type": "string"
+        }
+      },
+      "required": [
+        "node_id",
+        "intent",
+        "profile",
+        "revision",
+        "challenge"
+      ],
+      "title": "NodeProofRequest",
+      "type": "object"
+    },
+    "NodeRegistration": {
+      "additionalProperties": false,
+      "properties": {
+        "base_url": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Base Url",
+          "type": "string"
+        },
+        "enabled": {
+          "title": "Enabled",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "base_url",
+        "enabled"
+      ],
+      "title": "NodeRegistration",
+      "type": "object"
+    },
+    "NodeStatus": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "enabled": {
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "base_url": {
+          "title": "Base Url",
+          "type": "string"
+        },
+        "bound": {
+          "default": false,
+          "title": "Bound",
+          "type": "boolean"
+        },
+        "receiver_configured": {
+          "default": false,
+          "title": "Receiver Configured",
+          "type": "boolean"
+        },
+        "receiver": {
+          "$ref": "#/$defs/ReceiverProbe"
+        },
+        "last_report": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Last Report"
+        },
+        "inbound": {
+          "default": "unavailable",
+          "enum": [
+            "recent",
+            "stale",
+            "never",
+            "unavailable"
+          ],
+          "title": "Inbound",
+          "type": "string"
+        },
+        "sync": {
+          "additionalProperties": {
+            "$ref": "#/$defs/DeliverySummary"
+          },
+          "propertyNames": {
+            "enum": [
+              "public-settings",
+              "cache-policy",
+              "public-content"
+            ]
+          },
+          "title": "Sync",
+          "type": "object"
+        }
+      },
+      "required": [
+        "id",
+        "enabled",
+        "base_url",
+        "receiver"
+      ],
+      "title": "NodeStatus",
       "type": "object"
     },
     "PageManifest": {
@@ -3094,6 +3477,34 @@
       "title": "PublicResponse[MediaRemoval]",
       "type": "object"
     },
+    "PublicResponse_MonitorStatus_": {
+      "additionalProperties": false,
+      "properties": {
+        "success": {
+          "default": true,
+          "title": "Success",
+          "type": "boolean"
+        },
+        "code": {
+          "default": 200,
+          "title": "Code",
+          "type": "integer"
+        },
+        "msg": {
+          "default": "请求成功",
+          "title": "Msg",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/MonitorStatus"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "title": "PublicResponse[MonitorStatus]",
+      "type": "object"
+    },
     "PublicResponse_NavigationCatalog_": {
       "additionalProperties": false,
       "properties": {
@@ -3122,6 +3533,34 @@
       "title": "PublicResponse[NavigationCatalog]",
       "type": "object"
     },
+    "PublicResponse_NodeChangeResult_": {
+      "additionalProperties": false,
+      "properties": {
+        "success": {
+          "default": true,
+          "title": "Success",
+          "type": "boolean"
+        },
+        "code": {
+          "default": 200,
+          "title": "Code",
+          "type": "integer"
+        },
+        "msg": {
+          "default": "请求成功",
+          "title": "Msg",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/NodeChangeResult"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "title": "PublicResponse[NodeChangeResult]",
+      "type": "object"
+    },
     "PublicResponse_NodeList_": {
       "additionalProperties": false,
       "properties": {
@@ -3148,6 +3587,34 @@
         "data"
       ],
       "title": "PublicResponse[NodeList]",
+      "type": "object"
+    },
+    "PublicResponse_NodeProof_": {
+      "additionalProperties": false,
+      "properties": {
+        "success": {
+          "default": true,
+          "title": "Success",
+          "type": "boolean"
+        },
+        "code": {
+          "default": 200,
+          "title": "Code",
+          "type": "integer"
+        },
+        "msg": {
+          "default": "请求成功",
+          "title": "Msg",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/NodeProof"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "title": "PublicResponse[NodeProof]",
       "type": "object"
     },
     "PublicResponse_PolicyState_": {
@@ -3594,6 +4061,67 @@
         "revision"
       ],
       "title": "ReadyReplica",
+      "type": "object"
+    },
+    "ReceiverProbe": {
+      "additionalProperties": false,
+      "properties": {
+        "state": {
+          "enum": [
+            "unavailable",
+            "disabled",
+            "not_configured",
+            "credential_missing",
+            "unreachable",
+            "rejected",
+            "unsupported",
+            "invalid",
+            "wrong_node",
+            "wrong_source",
+            "reachable"
+          ],
+          "title": "State",
+          "type": "string"
+        },
+        "checked_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Checked At"
+        },
+        "replicas": {
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ReadyReplica"
+              },
+              {
+                "$ref": "#/$defs/UnavailableReplica"
+              }
+            ]
+          },
+          "propertyNames": {
+            "enum": [
+              "public-settings",
+              "cache-policy",
+              "public-content"
+            ]
+          },
+          "title": "Replicas",
+          "type": "object"
+        }
+      },
+      "required": [
+        "state"
+      ],
+      "title": "ReceiverProbe",
       "type": "object"
     },
     "ReceiverStatus": {
@@ -5788,6 +6316,21 @@
     },
     "receiver_status": {
       "$ref": "#/$defs/ReceiverStatus"
+    },
+    "nodes_monitor_state": {
+      "$ref": "#/$defs/PublicResponse_MonitorStatus_"
+    },
+    "nodes_monitor_command": {
+      "$ref": "#/$defs/NodeChange"
+    },
+    "nodes_monitor_result": {
+      "$ref": "#/$defs/PublicResponse_NodeChangeResult_"
+    },
+    "nodes_local_proof_request": {
+      "$ref": "#/$defs/NodeProofRequest"
+    },
+    "nodes_local_proof": {
+      "$ref": "#/$defs/PublicResponse_NodeProof_"
     }
   },
   "required": [
@@ -5839,12 +6382,17 @@
     "translations",
     "translation_catalog",
     "save_translations",
-    "receiver_status"
+    "receiver_status",
+    "nodes_monitor_state",
+    "nodes_monitor_command",
+    "nodes_monitor_result",
+    "nodes_local_proof_request",
+    "nodes_local_proof"
   ],
   "title": "SettingsContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "1.37.0",
+  "x-everunfold-contract-version": "1.38.0",
   "x-everunfold-language-regions": {
     "zh": "CN",
     "en": "GB",
@@ -5880,6 +6428,19 @@
     "sw": "TZ"
   },
   "x-everunfold-operations": [
+    {
+      "name": "readNodesMonitor",
+      "path": "/v1/admin/nodes-monitor",
+      "method": "GET",
+      "response": "nodes_monitor_state"
+    },
+    {
+      "name": "authorizeLocalNodeOperation",
+      "path": "/v1/admin/nodes-monitor/local-proof",
+      "method": "POST",
+      "input": "nodes_local_proof_request",
+      "response": "nodes_local_proof"
+    },
     {
       "name": "watchTaskProgress",
       "path": "/v1/admin/tasks/watch",

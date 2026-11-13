@@ -34,6 +34,7 @@ from app.modules.settings.languages import (
     reserved_language_path,
 )
 from app.modules.settings.models import SettingsAudit
+from app.modules.settings.node_registry import read_targets
 from app.modules.settings.service import SettingsService
 
 
@@ -53,7 +54,11 @@ class PagesService:
         ).all()
         if not rows:
             return None, False
-        nodes = {key for key, value in self.config.frontends.items() if value.enabled}
+        nodes = {
+            key
+            for key, value in (await read_targets(self.session, self.config)).items()
+            if value.enabled
+        }
         active = [row for row in rows if row.node_id in nodes]
         definitions = [PageRegistration.model_validate(row.definition) for row in active or rows]
         available = (

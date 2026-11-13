@@ -11,6 +11,7 @@ from app.modules.pages.models import FrontendPageRegistration, ManagedPage
 from app.modules.pages.paths import content_path_taken, page_path_taken
 from app.modules.pages.schemas import PageManifest, PageValue
 from app.modules.settings.languages import language_catalog, reserved_language_path
+from app.modules.settings.node_registry import read_targets
 from app.modules.settings.service import SettingsService
 
 
@@ -22,10 +23,10 @@ async def install_manifest(
     *,
     commit: bool = True,
 ) -> None:
-    if node not in config.frontends:
-        raise ValueError("unknown frontend node")
     await lock_references(session)
     await SettingsService(session, config).site(locked=True)
+    if node not in await read_targets(session, config):
+        raise ValueError("unknown frontend node")
     await session.execute(
         delete(FrontendPageRegistration).where(FrontendPageRegistration.node_id == node)
     )

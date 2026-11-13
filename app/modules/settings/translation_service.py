@@ -20,6 +20,7 @@ from app.modules.settings.models import (
     TranslationOverride,
     TranslationRevision,
 )
+from app.modules.settings.node_registry import read_targets
 from app.modules.settings.translation_schemas import (
     SaveTranslations,
     TranslationCatalog,
@@ -223,7 +224,7 @@ class TranslationService:
         )
         await self.session.flush()
         resolved = await service.resolve(public_settings(site.data))
-        for node, frontend in self.config.frontends.items():
+        for node, frontend in (await read_targets(self.session, self.config)).items():
             if frontend.enabled and frontend.settings_receiver_url:
                 await service.enqueue(
                     node,

@@ -44,6 +44,14 @@ from app.modules.settings.mail_schemas import (
     SaveMailSettings,
     SendTestMail,
 )
+from app.modules.settings.nodes_schemas import (
+    MonitorStatus,
+    NodeChange,
+    NodeChangeResult,
+    NodeProof,
+    NodeProofRequest,
+    ReceiverStatus,
+)
 from app.modules.settings.publishing_preferences import ReadingPreferences, WritingPreferences
 from app.modules.settings.translation_schemas import (
     SaveTranslations,
@@ -487,28 +495,6 @@ class DeliveryReceipt(SettingsModel):
     durable: Literal[True]
 
 
-class ReadyReplica(SettingsModel):
-    status: Literal["ready"]
-    revision: int = Field(ge=1, le=9007199254740991)
-
-
-class UnavailableReplica(SettingsModel):
-    status: Literal["missing", "unavailable"]
-    revision: None
-
-
-ReceiverReplica = ReadyReplica | UnavailableReplica
-
-
-class ReceiverStatus(SettingsModel):
-    protocol: Literal["node-status-1"]
-    node_id: str = Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$")
-    source_epoch: str = Field(pattern=r"^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$")
-    public_settings: ReceiverReplica
-    cache_policy: ReceiverReplica
-    public_content: ReceiverReplica
-
-
 class SettingsContract(PublicModel):
     watch_task: WatchTask
     task_progress: PublicResponse[TaskProgress]
@@ -559,3 +545,8 @@ class SettingsContract(PublicModel):
     translation_catalog: PublicResponse[TranslationCatalog]
     save_translations: SaveTranslations
     receiver_status: ReceiverStatus
+    nodes_monitor_state: PublicResponse[MonitorStatus]
+    nodes_monitor_command: NodeChange
+    nodes_monitor_result: PublicResponse[NodeChangeResult]
+    nodes_local_proof_request: NodeProofRequest
+    nodes_local_proof: PublicResponse[NodeProof]
