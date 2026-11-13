@@ -1,9 +1,13 @@
 """Private notification administration and current-account inbox."""
 
-from fastapi import APIRouter
+from typing import Annotated
+from uuid import UUID
+
+from fastapi import APIRouter, Depends, Request
 
 from app.core.responses import JSONResponseSuccess
 from app.core.schemas import ErrorResponse, PublicResponse
+from app.modules.auth.router import Service, auth_runtime, cookie
 from app.modules.auth.service import AuthFailure
 from app.modules.notifications.catalog import SECURITY_EVENT_IDS
 from app.modules.notifications.schemas import (
@@ -21,6 +25,11 @@ router = APIRouter(
     prefix="/v1/admin/notifications",
     tags=["notifications"],
     responses={status: {"model": ErrorResponse} for status in (401, 403, 404, 409, 422, 500, 503)},
+)
+account_router = APIRouter(
+    prefix="/v1/account/notifications",
+    tags=["account notifications"],
+    responses={status: {"model": ErrorResponse} for status in (401, 403, 422, 503)},
 )
 
 
@@ -75,3 +84,35 @@ async def inbox(ctx: Authorized) -> JSONResponseSuccess:
 @router.patch("/inbox", response_model=PublicResponse[NotificationInbox])
 async def mark_read(payload: MarkNotificationsRead, ctx: Authorized) -> JSONResponseSuccess:
     return JSONResponseSuccess(data=await service(ctx).mark_read(ctx.actor.id, payload))
+
+
+async def account_user(request: Request, auth: Service) -> UUID:
+    user = await auth.require_user(
+        cookie(request),
+        request.headers.get("X-CSRF-Token"),
+        write=request.method == "PATCH",
+    )
+    return user.id
+
+
+AccountUser = Annotated[UUID, Depends(account_user)]
+
+
+@account_router.get("/inbox", response_model=PublicResponse[NotificationInbox])
+async def account_inbox(
+    request: Request, auth: Service, user_id: AccountUser
+) -> JSONResponseSuccess:
+    return JSONResponseSuccess(
+        data=await NotificationService(auth.session, auth_runtime(request).settings).inbox(user_id)
+    )
+
+
+@account_router.patch("/inbox", response_model=PublicResponse[NotificationInbox])
+async def mark_account_read(
+    payload: MarkNotificationsRead, request: Request, auth: Service, user_id: AccountUser
+) -> JSONResponseSuccess:
+    return JSONResponseSuccess(
+        data=await NotificationService(auth.session, auth_runtime(request).settings).mark_read(
+            user_id, payload
+        )
+    )

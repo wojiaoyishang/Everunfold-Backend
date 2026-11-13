@@ -27,7 +27,11 @@ from app.modules.notifications.email_context import (
     site_variables,
     stored_brand,
 )
-from app.modules.notifications.events import event_registry, subject_address_current
+from app.modules.notifications.events import (
+    event_registry,
+    recipient_event_data,
+    subject_address_current,
+)
 from app.modules.notifications.models import (
     NotificationDelivery,
     NotificationEvent,
@@ -623,18 +627,10 @@ class NotificationService:
                 event.dispatched_at = now
                 continue
             definition = entry.definition
-            event_data = (
-                comment_data(event.data, event.resource_id)
-                if event.event_type == "comment.pending_review"
-                else event.data
-            )
-            variables = {
-                **event_data,
-                "event": {
-                    "id": str(event.id),
-                    "title": definition.title,
-                    "occurred_at": event.occurred_at.isoformat(),
-                },
+            event_variables = {
+                "id": str(event.id),
+                "title": definition.title,
+                "occurred_at": event.occurred_at.isoformat(),
             }
             event_routes = [route for route in routes if route.event_type == event.event_type]
             targets: dict[tuple[str, UUID], NotificationRoute] = {}
@@ -655,6 +651,12 @@ class NotificationService:
                     and not subject_address_current(event, target_user)
                 ):
                     continue
+                event_data = (
+                    comment_data(event.data, event.resource_id)
+                    if event.event_type == "comment.pending_review"
+                    else recipient_event_data(event, target_user)
+                )
+                variables = {**event_data, "event": event_variables}
                 template, subject, text, html_text, html_enabled, href = await self._template_for(
                     event.event_type,
                     platform_id,

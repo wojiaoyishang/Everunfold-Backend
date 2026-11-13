@@ -38,7 +38,11 @@ from app.modules.auth.models import AuthAuditEvent, User
 from app.modules.auth.recovery_delivery import deliver as deliver_recovery
 from app.modules.auth.registration_delivery import deliver as deliver_registration
 from app.modules.auth.service import AuthFailure, AuthService
-from app.modules.notifications.catalog import REGISTRATION_SUCCEEDED, USER_CREATED
+from app.modules.notifications.catalog import (
+    EMAIL_VERIFIED,
+    REGISTRATION_SUCCEEDED,
+    USER_CREATED,
+)
 from app.modules.notifications.delivery import deliver_notifications
 from app.modules.notifications.models import NotificationEvent, NotificationInbox
 from app.modules.settings.mail_schemas import MailSenderProfileInput, SaveMailSettings
@@ -171,7 +175,17 @@ async def verify_invitation_registration(
         assert user["username"] == f"qa_{suffix}_{winner}"
         assert user["role"] == "user" and user["permissions"] == {}
         browser = (first, second)[winner]
-        assert browser.get("/v1/account/profile").json()["data"]["email_verified"] is True
+        account = browser.get("/v1/account/profile").json()["data"]
+        assert (
+            account["email_verified"] is True and account["email_verification_source"] == "mailbox"
+        )
+        redundant = browser.post(
+            "/v1/account/email-verification/request",
+            json={"operation_id": str(uuid4()), "email": account["email"].upper()},
+            headers=headers(browser),
+        )
+        assert redundant.status_code == 409 and redundant.json()["code"] == 40976
+        assert await deliver(settings) == {"processed": 0}
         assert browser.get("/v1/admin/session").status_code == 403
         assert (
             browser.post(
@@ -183,6 +197,15 @@ async def verify_invitation_registration(
         database = Database(settings.database.url.get_secret_value())
         try:
             async with database.session_factory() as session:
+                published = (
+                    await session.scalars(
+                        select(NotificationEvent.event_type).where(
+                            NotificationEvent.resource_type == "user",
+                            NotificationEvent.resource_id == user["id"],
+                        )
+                    )
+                ).all()
+                assert list(published) == [REGISTRATION_SUCCEEDED]
                 notices = (
                     await session.execute(
                         select(NotificationEvent, NotificationInbox, User)
@@ -194,13 +217,70 @@ async def verify_invitation_registration(
                 assert notices
                 assert all(
                     event.event_type == REGISTRATION_SUCCEEDED
-                    and event.event_type != USER_CREATED
                     and target.role == "admin"
                     and user["username"] in notice.title
                     for event, notice, target in notices
                 )
         finally:
             await database.close()
+        inbox = "/v1/account/notifications/inbox"
+        assert browser.get(inbox).json()["data"]["items"] == []
+        state = admin.get("/v1/admin/notifications/state").json()["data"]
+        routes = []
+        for route in state["routes"]:
+            item = {key: value for key, value in route.items() if key != "id"}
+            if item["event_type"] == USER_CREATED:
+                item.update(recipient_type="user", recipient_value=user["id"])
+            routes.append(item)
+        # Leave the default administrator recipient in place and add a member
+        # rule; the existing registration event must not be redispatched.
+        routes.append(
+            {
+                "event_type": REGISTRATION_SUCCEEDED,
+                "recipient_type": "role",
+                "recipient_value": "user",
+                "platform_id": "in-app",
+            }
+        )
+        policy_saved = admin.patch(
+            "/v1/admin/notifications/routes",
+            json={"expected_revision": state["revision"], "routes": routes},
+            headers=headers(admin),
+        )
+        assert policy_saved.status_code == 200, policy_saved.text
+        created = admin.post(
+            "/v1/admin/users",
+            json={
+                "operation_id": str(uuid4()),
+                "username": f"qa_notice_{suffix}",
+                "display_name": "Account notice proof",
+                "password": PASSWORD,
+            },
+            headers=headers(admin),
+        )
+        assert created.status_code == 201
+        await deliver_notifications(settings)
+        items = browser.get(inbox).json()["data"]["items"]
+        assert len(items) == 1
+        notice = items[0]
+        assert notice["title"] == f"新增用户 · qa_notice_{suffix}"
+        assert not notice["href"] and "/admin/users/" not in notice["text"]
+        assert browser.get("/v1/admin/notifications/inbox").status_code == 403
+        admin_items = admin.get(inbox).json()["data"]["items"]
+        admin_notice = next(item for item in admin_items if user["username"] in item["title"])
+        assert admin_notice["href"] == f"/admin/users/{user['id']}"
+        assert not any(item["title"] == notice["title"] for item in admin_items)
+        assert browser.patch(inbox, json={"ids": []}, headers={"Origin": ORIGIN}).status_code == 403
+        no_effect = browser.patch(
+            inbox, json={"ids": [admin_notice["id"]]}, headers=headers(browser)
+        )
+        assert no_effect.status_code == 200 and no_effect.json()["data"]["unread"] == 1
+        marked = browser.patch(inbox, json={"ids": [notice["id"]]}, headers=headers(browser))
+        assert marked.status_code == 200 and marked.json()["data"]["unread"] == 0
+        assert any(
+            item["id"] == admin_notice["id"] and item["read_at"] is None
+            for item in admin.get(inbox).json()["data"]["items"]
+        )
     listed = {item["id"]: item for item in admin.get(invitations).json()["data"]["items"]}
     assert listed[invite["id"]]["consumed_at"] is not None
     assert listed[invite["id"]]["expires_at"] is None
@@ -701,6 +781,12 @@ def test_email_verification_is_one_time_rate_limited_and_clears_after_change(
                         assert verified.email == "verified@example.test"
                         assert verified.email_verified is True
                         assert verified.email_verification_source == "mailbox"
+                        assert await session.scalar(
+                            select(NotificationEvent.id).where(
+                                NotificationEvent.event_type == EMAIL_VERIFIED,
+                                NotificationEvent.subject_id == user.id,
+                            )
+                        )
                     async with database.session_factory() as session:
                         user = await session.scalar(select(User).where(User.username == username))
                         assert user is not None

@@ -222,16 +222,14 @@ ACCOUNT_EVENTS = (
     EventDefinition(
         REGISTRATION_SUCCEEDED,
         "注册成功",
-        "用户完成邮箱验证并成功注册后通知管理员。",
+        "用户通过邮箱验证完成注册后发送通知。",
         ("account.username", "account.display_name", "admin.url"),
-        recipient_mode="admins",
     ),
     EventDefinition(
         USER_CREATED,
         "新增用户",
-        "管理员在用户管理中创建账号后通知管理员。",
+        "管理员在用户管理中创建账号后发送通知。",
         ("account.username", "account.display_name", "admin.url"),
-        recipient_mode="admins",
     ),
 )
 
@@ -271,7 +269,7 @@ SECURITY_ALERT_COPY = {
 }
 
 SECURITY_ALERT_DESCRIPTIONS = {
-    EMAIL_VERIFIED: "邮箱通过验证码验证后，向该邮箱发送确认。",
+    EMAIL_VERIFIED: "在账号中心验证或更换邮箱成功后发送。邮箱验证码注册完成时不重复发送。",
     TWO_FACTOR_ENABLED: "启用两步验证后，向该账号的已验证邮箱发送提醒。",
     TWO_FACTOR_DISABLED: "关闭两步验证后，向该账号的已验证邮箱发送提醒。",
     TWO_FACTOR_RECOVERY_ROTATED: "重新生成恢复码后，向该账号的已验证邮箱发送提醒。",
@@ -282,7 +280,7 @@ SECURITY_EVENTS = (
     EventDefinition(
         id=EMAIL_VERIFICATION,
         title="验证邮箱",
-        description="向待验证的邮箱发送验证码。",
+        description="账号中心验证未验证的邮箱或更换邮箱时发送验证码。",
         variables=("verification.code", "verification.expires_minutes", "verification.purpose"),
         requires_code=True,
         recipient_mode="subject",
@@ -292,7 +290,7 @@ SECURITY_EVENTS = (
     EventDefinition(
         id=REGISTRATION_VERIFICATION,
         title="注册验证码",
-        description="向注册申请填写的邮箱发送验证码。",
+        description="向注册申请的邮箱发码。通过后创建账号，邮箱同时标为已验证。",
         variables=("verification.code", "verification.expires_minutes", "verification.purpose"),
         requires_code=True,
         recipient_mode="subject",
@@ -332,6 +330,7 @@ SECURITY_EVENTS = (
 
 BUILTIN_EVENTS = (*SECURITY_EVENTS, *ACCOUNT_EVENTS, *EVENTS)
 BUILTIN_BY_ID = {event.id: event for event in BUILTIN_EVENTS}
+ACCOUNT_EVENT_IDS = frozenset(event.id for event in ACCOUNT_EVENTS)
 SECURITY_EVENT_IDS = frozenset(event.id for event in SECURITY_EVENTS)
 
 
@@ -354,7 +353,7 @@ def account_template(event: str, platform: str, locale: str) -> DefaultTemplate:
     action = "Review account" if english else "查看账号"
     return DefaultTemplate(
         subject=f"{title} · {{{{account.username}}}}",
-        text=f"{body}\n\n{action}: {{{{admin.url}}}}",
+        text=f"{body}\n\n{{{{admin.url}}}}" if platform == "email" else body,
         html=alert_email(title, title, body, action, "{{admin.url}}", locale)
         if platform == "email"
         else "",

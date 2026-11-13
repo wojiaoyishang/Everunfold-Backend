@@ -12,8 +12,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.plugins.loader import plugin_catalog
 from app.core.plugins.state import enabled_ids, installed_info
 from app.modules.auth.models import User
+from app.modules.auth.permissions import user_permissions
 from app.modules.content.models import SiteSettings
-from app.modules.notifications.catalog import BUILTIN_BY_ID, BUILTIN_EVENTS
+from app.modules.notifications.catalog import ACCOUNT_EVENT_IDS, BUILTIN_BY_ID, BUILTIN_EVENTS
 from app.modules.notifications.definitions import NotificationEventDefinition
 from app.modules.notifications.models import NotificationEvent
 
@@ -160,3 +161,11 @@ def subject_address_current(event: NotificationEvent, user: User) -> bool:
         and user.email_verified_at is not None
         and user.email_verified_at == event.subject_email_verified_at
     )
+
+
+def recipient_event_data(event: NotificationEvent, recipient: User) -> dict[str, Any]:
+    if event.event_type in ACCOUNT_EVENT_IDS and (
+        recipient.must_change_password or user_permissions(recipient).get("users:manage") != "all"
+    ):
+        return {key: value for key, value in event.data.items() if key != "admin"}
+    return event.data

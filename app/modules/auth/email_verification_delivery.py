@@ -10,6 +10,7 @@ from app.core.config import Settings
 from app.core.database import Database
 from app.core.jobs.progress import task_progress
 from app.modules.auth.email_verification_models import EmailVerification
+from app.modules.auth.email_verification_service import is_verified_address
 from app.modules.auth.models import User
 from app.modules.auth.security_delivery import send_security_mail, verification_message
 from app.modules.content.models import SiteSettings
@@ -78,6 +79,10 @@ async def deliver(config: Settings) -> dict[str, Any]:
                     "recipient_unavailable",
                     "",
                 )
+                await session.commit()
+                return {"processed": 1}
+            if is_verified_address(user, row.email):
+                row.status, row.error, row.delivery_code = "expired", "already_verified", ""
                 await session.commit()
                 return {"processed": 1}
             lease_until = now + timedelta(seconds=150)

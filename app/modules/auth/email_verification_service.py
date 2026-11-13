@@ -41,6 +41,17 @@ def code_digest(request_id: UUID, salt: str, code: str) -> str:
     return hashlib.sha256(f"{request_id}:{salt}:{code}".encode()).hexdigest()
 
 
+def is_verified_address(user: User, email: str) -> bool:
+    return (
+        user.email_verified_at is not None and user.email.strip().lower() == email.strip().lower()
+    )
+
+
+def require_address_verification(user: User, email: str) -> None:
+    if is_verified_address(user, email):
+        raise AuthFailure(409, 40976, "此邮箱已验证，请填写新的邮箱地址。")
+
+
 def verification_state(row: EmailVerification) -> EmailVerificationState:
     now = datetime.now(UTC)
     status = row.status
@@ -69,11 +80,12 @@ class EmailVerificationService:
             raise AuthFailure(404, 40473, "验证请求不存在")
         return verification_state(row)
 
-    async def replay(
+    async def request_preflight(
         self, actor: User, payload: EmailVerificationRequest
     ) -> EmailVerificationState | None:
         previous = await self.session.get(EmailVerification, payload.operation_id)
         if previous is None:
+            require_address_verification(actor, payload.email)
             return None
         if previous.user_id != actor.id or previous.email != payload.email:
             raise AuthFailure(409, 40972, "验证请求编号已被使用")
@@ -82,7 +94,7 @@ class EmailVerificationService:
     async def request(
         self, actor: User, payload: EmailVerificationRequest
     ) -> EmailVerificationState:
-        if previous := await self.replay(actor, payload):
+        if previous := await self.request_preflight(actor, payload):
             return previous
         now = datetime.now(UTC)
         latest = await self.session.scalar(
@@ -168,6 +180,7 @@ class EmailVerificationService:
             raise AuthFailure(422, 42273, "验证码无效或已过期")
         if row.status == "verified" and actor.email == row.email and actor.email_verified_at:
             return profile(actor)
+        require_address_verification(actor, row.email)
         now = datetime.now(UTC)
         if row.expires_at <= now:
             row.status, row.error, row.delivery_code = "expired", "expired", ""

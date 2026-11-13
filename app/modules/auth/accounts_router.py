@@ -168,7 +168,7 @@ async def request_email_verification(
     from app.modules.captcha.service import CaptchaService, guard
 
     service = EmailVerificationService(ctx.service.session)
-    if existing := await service.replay(ctx.actor, payload):
+    if existing := await service.request_preflight(ctx.actor, payload):
         return JSONResponseSuccess(data=existing)
     permit = await CaptchaService(auth_runtime(request), peer(request)).enforce(
         "email_verification", None, payload.captcha

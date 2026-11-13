@@ -12,7 +12,11 @@ from app.core.plugins.loader import plugin_catalog
 from app.core.plugins.state import enabled_ids, installed_info
 from app.modules.auth.models import User
 from app.modules.content.models import SiteSettings
-from app.modules.notifications.events import event_registry, subject_address_current
+from app.modules.notifications.events import (
+    event_registry,
+    recipient_event_data,
+    subject_address_current,
+)
 from app.modules.notifications.models import NotificationDelivery, NotificationEvent
 from app.modules.notifications.platforms import NotificationDeliveryRequest
 from app.modules.notifications.routing import EMAIL
@@ -203,7 +207,7 @@ async def _deliver_one(config: Settings, identity: UUID, lease: UUID) -> tuple[s
                     NotificationDeliveryRequest(
                         delivery_id=row.id,
                         event_type=event.event_type,
-                        event_data=event.data,
+                        event_data=recipient_event_data(event, user),
                         recipient_id=row.user_id,
                         recipient_name=user.display_name,
                         locale=row.locale,

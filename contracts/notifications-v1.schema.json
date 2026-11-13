@@ -866,7 +866,7 @@
   "title": "NotificationsContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "1.6.0",
+  "x-everunfold-contract-version": "1.7.0",
   "x-everunfold-operations": [
     {
       "name": "saveMailBrand",
@@ -904,6 +904,19 @@
     {
       "name": "markNotificationsRead",
       "path": "/v1/admin/notifications/inbox",
+      "method": "PATCH",
+      "input": "mark_read",
+      "response": "inbox"
+    },
+    {
+      "name": "readAccountNotificationInbox",
+      "path": "/v1/account/notifications/inbox",
+      "method": "GET",
+      "response": "inbox"
+    },
+    {
+      "name": "markAccountNotificationsRead",
+      "path": "/v1/account/notifications/inbox",
       "method": "PATCH",
       "input": "mark_read",
       "response": "inbox"
