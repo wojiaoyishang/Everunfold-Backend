@@ -14,6 +14,7 @@ from app.modules.auth.permissions import user_permissions
 from app.modules.auth.service import AuthFailure
 from app.modules.content.publication import ContentPublication
 from app.modules.media.locking import lock_references
+from app.modules.pages.groups import source_value
 from app.modules.pages.models import ManagedPage, PageTemplate
 from app.modules.pages.schemas import (
     TEMPLATE_TYPE_PREFIX,
@@ -58,7 +59,8 @@ def page_data(value: PageValue, template: PageTemplate | None) -> dict[str, Any]
 
 
 def effective_value(data: dict[str, Any], template: PageTemplate | None) -> PageValue:
-    return PageValue.model_validate(data | template.code if template else data)
+    # Older applied snapshots also contain the public record's identity and revision.
+    return source_value(data | template.code if template else data)
 
 
 def require_page_size(value: PageValue | TitledPageCode) -> None:

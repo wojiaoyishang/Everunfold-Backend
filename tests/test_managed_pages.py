@@ -321,8 +321,23 @@ def test_code_page_deployment_options_and_node_versions(pages: AccountsTest) -> 
     }
     response = ctx.root.post("/v1/admin/pages/save", json=second, headers=headers(ctx.root))
     assert response.status_code == 200, response.text
+
+    async def restore_legacy_snapshot_format() -> None:
+        db = Database(ctx.settings.database.url.get_secret_value())
+        try:
+            async with db.session_factory() as session:
+                row = await session.get(ManagedPage, identifier)
+                assert row is not None and row.published is not None
+                row.applied_snapshot = dict(row.published)
+                await session.commit()
+        finally:
+            await db.close()
+
+    asyncio.run(restore_legacy_snapshot_format())
     asyncio.run(install())
-    directory = ctx.root.get("/v1/admin/pages").json()["data"]["items"]
+    catalog = ctx.root.get("/v1/admin/pages")
+    assert catalog.status_code == 200, catalog.text
+    directory = catalog.json()["data"]["items"]
     assert {row["id"] for row in directory if row["type_id"] == identity} == {identifier, second_id}
     page_type = next(
         row
