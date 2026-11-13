@@ -144,14 +144,27 @@ class Translations:
                 if published
                 else source.edit_mode
             )
+            source_revision = (
+                await self.session.get(DraftRevision, (source.id, source.published_revision))
+                if published and source.published_revision and payload.copy_source
+                else None
+            )
             component_document = None
             if mode == "components":
-                component_document = (
-                    source.component_document
-                    if payload.copy_source and source.component_document is not None
-                    else ComponentDocument(version=1, nodes=[]).model_dump(mode="json")
-                )
-            blocks = (published.content if published else source.body) or source.body
+                component_document = ComponentDocument(version=1, nodes=[]).model_dump(mode="json")
+                if payload.copy_source:
+                    original_document = (
+                        source_revision.snapshot.get("component_document")
+                        if source_revision is not None
+                        else source.component_document
+                    )
+                    if original_document is not None:
+                        component_document = original_document
+            blocks = (
+                source_revision.snapshot["body"]
+                if source_revision is not None
+                else (published.content if published else source.body) or source.body
+            )
             body = (
                 [{**item, "id": str(uuid4())} for item in blocks]
                 if payload.copy_source
