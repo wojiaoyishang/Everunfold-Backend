@@ -19,6 +19,7 @@ from app.modules.pages.schemas import (
     PageValue,
 )
 from app.modules.pages.service import PagesService
+from app.modules.settings.cache_event_schema import CacheChange
 from app.modules.settings.languages import require_language
 from app.modules.settings.models import SettingsAudit
 from app.modules.settings.service import SettingsService
@@ -118,7 +119,9 @@ class PageTranslations:
         await self.session.flush()
         # A membership change must reach readers with the same durable full-snapshot mechanism.
         if action in {"link", "unlink"}:
-            await ContentPublication(self.session, self.service.config).stage()
+            await ContentPublication(self.session, self.service.config).stage(
+                CacheChange("translations_changed")
+            )
         self.session.add(
             SettingsAudit(
                 user_id=actor.id,

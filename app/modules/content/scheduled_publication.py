@@ -113,8 +113,8 @@ async def publish_scheduled(session: AsyncSession, config: Settings, draft_id: U
                 access_password_hash=payload["access_password_hash"],
             )
             publication = ContentPublication(session, config)
-            await publication.publish(captured, published_at=planned_at)
-            await publication.stage()
+            change = await publication.publish(captured, published_at=planned_at)
+            await publication.stage(change)
             row.published_revision = captured.published_revision
             row.published_at, row.public_path = captured.published_at, captured.public_path
     except AuthFailure as failure:

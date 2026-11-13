@@ -9,6 +9,7 @@ from app.core.jobs.definitions import TaskDefinition
 from app.core.plugins.routes import RouteRegistry
 from app.modules.captcha.providers import CaptchaProvider
 from app.modules.notifications.platforms import NotificationPlatform
+from app.modules.settings.cache_event_schema import CacheEventHandler
 from app.modules.shortcodes.compiler import compile_shortcode
 from app.modules.shortcodes.schemas import ShortcodeItem, ShortcodeSource
 
@@ -121,6 +122,18 @@ class NotificationPlatformRegistry:
         self.items.append(platform)
 
 
+class CacheEventRegistry:
+    def __init__(self, owner: "PluginRegistry") -> None:
+        self.owner = owner
+        self.handler: CacheEventHandler | None = None
+
+    def register(self, handler: CacheEventHandler) -> None:
+        self.owner.check_open()
+        if self.handler is not None or not inspect.iscoroutinefunction(handler):
+            raise ValueError("Register one async cache event handler per plugin")
+        self.handler = handler
+
+
 class PluginRegistry:
     def __init__(self, identity: str) -> None:
         self.id = identity
@@ -131,6 +144,7 @@ class PluginRegistry:
         self.tasks = TaskRegistry(self)
         self.routes = RouteRegistry(self)
         self.notifications = NotificationPlatformRegistry(self)
+        self.cache_events = CacheEventRegistry(self)
 
     def check_open(self) -> None:
         if not self._open:

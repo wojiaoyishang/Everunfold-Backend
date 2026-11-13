@@ -33,6 +33,7 @@ from app.modules.content.models import Content, ContentTaxonomy, Taxonomy, Taxon
 from app.modules.content.publication import ContentPublication
 from app.modules.content.taxonomy_names import TermDirectory, ensure_term
 from app.modules.media.locking import lock_references
+from app.modules.settings.cache_event_schema import CacheChange
 from app.modules.settings.models import SettingsAudit
 
 
@@ -261,8 +262,7 @@ class TaxonomyService:
             content.public_generation += 1
             content.updated_at = now
             await publish_taxonomies(self.session, content.id, settings)
-        if public:
-            await ContentPublication(self.session, self.config).stage()
+        await ContentPublication(self.session, self.config).stage(CacheChange("taxonomy_changed"))
         self.session.add(
             SettingsAudit(
                 user_id=actor.id,

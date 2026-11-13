@@ -10,6 +10,8 @@ from app.core.plugins.loader import PluginCatalog, plugin_catalog
 from app.core.plugins.state import CATALOG_KEY, installed_info
 from app.modules.auth.service import AuthFailure
 from app.modules.media.locking import lock_references
+from app.modules.settings.cache_event_schema import CacheChange
+from app.modules.settings.cache_events import stage_cache_events
 from app.modules.settings.defaults import public_settings
 from app.modules.settings.extensions_schemas import ExtensionInventory
 from app.modules.settings.models import FrontendExtensionInventory, SettingsAudit
@@ -46,6 +48,9 @@ async def install_backend_plugins(session: AsyncSession, config: Settings) -> bo
     value = await service.resolve(public_settings(data))
     site.data = data
     site.generation += 1
+    await stage_cache_events(
+        session, site, "public-settings", site.generation, (CacheChange("settings_changed"),)
+    )
     session.add(
         SettingsAudit(
             user_id=UUID(int=0),

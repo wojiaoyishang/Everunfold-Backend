@@ -48,6 +48,13 @@ class TaskDefinition:
 
 BUILTINS = (
     TaskDefinition(
+        "core.cache-events",
+        "缓存事件投递",
+        "app.modules.settings.cache_events:deliver_cache_events",
+        interval=3,
+        enabled=True,
+    ),
+    TaskDefinition(
         "core.notifications",
         "通知投递",
         "app.modules.notifications.jobs:deliver",

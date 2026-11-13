@@ -4,7 +4,7 @@ from sqlalchemy import MetaData, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
 
-SCHEMA_REVISION = "0053_frontend_node_registry"
+SCHEMA_REVISION = "0054_cache_events"
 
 
 class Base(DeclarativeBase):

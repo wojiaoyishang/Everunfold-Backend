@@ -144,6 +144,9 @@ def route_permission(path: str, method: str, body: dict[str, object]) -> tuple[s
         "/v1/admin/extensions",
         "/v1/admin/frontend-nodes",
         "/v1/admin/frontend-nodes/{node_id}/cache-policy",
+        "/v1/admin/frontend-nodes/{node_id}/cache",
+        "/v1/admin/frontend-nodes/{node_id}/cache/rebuild",
+        "/v1/admin/frontend-nodes/{node_id}/cache/prune",
         "/v1/admin/frontend-nodes/{node_id}/sync",
     }:
         return ("settings:read", True) if method == "GET" else ("settings:write", False)

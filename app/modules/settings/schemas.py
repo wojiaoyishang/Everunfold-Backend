@@ -30,6 +30,15 @@ from app.modules.media.schemas import (
     MediaUpdate,
     MediaUpload,
 )
+from app.modules.settings.cache_event_schema import CacheEvent
+from app.modules.settings.cache_schemas import (
+    CacheNodeState,
+    CachePruneReceipt,
+    CacheRebuild,
+    CacheRebuildResult,
+    CacheReceiverStatus,
+    CacheReceiverTarget,
+)
 from app.modules.settings.extensions_schemas import (
     ExtensionCatalog,
     ExtensionPreferences,
@@ -550,3 +559,10 @@ class SettingsContract(PublicModel):
     nodes_monitor_result: PublicResponse[NodeChangeResult]
     nodes_local_proof_request: NodeProofRequest
     nodes_local_proof: PublicResponse[NodeProof]
+    cache_event: CacheEvent
+    cache_receiver_state: CacheReceiverStatus
+    cache_receiver_target: CacheReceiverTarget
+    cache_node_state: PublicResponse[CacheNodeState]
+    cache_rebuild: CacheRebuild
+    cache_rebuild_result: PublicResponse[CacheRebuildResult]
+    cache_prune_result: PublicResponse[CachePruneReceipt]

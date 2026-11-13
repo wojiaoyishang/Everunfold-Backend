@@ -33,6 +33,7 @@ from app.modules.content.merge_lock import require_unlocked
 from app.modules.content.models import Content
 from app.modules.content.publication import ContentPublication
 from app.modules.media.locking import lock_references
+from app.modules.settings.cache_event_schema import CacheChange
 from app.modules.settings.languages import require_language
 from app.modules.settings.models import SettingsAudit
 
@@ -108,6 +109,7 @@ class Translations:
         source = next(item for item in members if item.id == group.source_id)
         now = datetime.now(UTC)
         publication = ContentPublication(self.session, self.config)
+        changes: list[CacheChange] = []
         refresh_public = False
         if action == "create" and isinstance(payload, TranslationCreate):
             await require_language(self.session, payload.language)
@@ -232,7 +234,9 @@ class Translations:
                     from app.modules.content.scheduled_publication import clear_schedule
 
                     clear_schedule(item)
-                    refresh_public = await publication.withdraw(item) or refresh_public
+                    change = await publication.withdraw(item)
+                    if change is not None:
+                        changes.append(change)
                 self.session.add(
                     DraftRevision(
                         draft_id=item.id,
@@ -256,8 +260,8 @@ class Translations:
             raise AuthFailure(422, 42290, "不支持此语言操作")
         group.revision += 1
         await self.session.flush()
-        if refresh_public:
-            await publication.stage()
+        if refresh_public or changes:
+            await publication.stage(*(changes or [CacheChange("translations_changed")]))
         result = await self.read(source.id)
         self.session.add(
             SettingsAudit(

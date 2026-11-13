@@ -11,9 +11,28 @@ from app.modules.settings.schemas import SettingsContract
 def build_schema() -> dict[str, Any]:
     schema = SettingsContract.model_json_schema()
     schema["$schema"] = "http://json-schema.org/draft-07/schema#"
-    schema["x-everunfold-contract-version"] = "1.38.0"
+    schema["x-everunfold-contract-version"] = "1.39.0"
     schema["x-everunfold-language-regions"] = LANGUAGE_REGIONS
     schema["x-everunfold-operations"] = [
+        {
+            "name": "readNodeCache",
+            "path": "/v1/admin/frontend-nodes/{node_id}/cache",
+            "method": "GET",
+            "response": "cache_node_state",
+        },
+        {
+            "name": "rebuildNodeCache",
+            "path": "/v1/admin/frontend-nodes/{node_id}/cache/rebuild",
+            "method": "POST",
+            "input": "cache_rebuild",
+            "response": "cache_rebuild_result",
+        },
+        {
+            "name": "pruneNodeCache",
+            "path": "/v1/admin/frontend-nodes/{node_id}/cache/prune",
+            "method": "POST",
+            "response": "cache_prune_result",
+        },
         {
             "name": "readNodesMonitor",
             "path": "/v1/admin/nodes-monitor",

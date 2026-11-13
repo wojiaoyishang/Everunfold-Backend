@@ -28,6 +28,7 @@ from app.modules.pages.schemas import (
     SaveManagedPage,
     SetPageEnabled,
 )
+from app.modules.settings.cache_event_schema import CacheChange
 from app.modules.settings.languages import (
     language_catalog,
     require_language,
@@ -215,7 +216,7 @@ class PagesService:
             )
             row.published = self.public_value(row, value, definition) if value.enabled else None
             await self.session.flush()
-            await ContentPublication(self.session, self.config).stage()
+            await ContentPublication(self.session, self.config).stage(CacheChange("page_changed"))
         self.session.add(
             SettingsAudit(
                 user_id=actor.id,
@@ -284,7 +285,7 @@ class PagesService:
             row.applied_revision = row.revision
         row.published = self.public_value(row, value, definition) if payload.enabled else None
         await self.session.flush()
-        await ContentPublication(self.session, self.config).stage()
+        await ContentPublication(self.session, self.config).stage(CacheChange("page_changed"))
         self.session.add(
             SettingsAudit(
                 user_id=actor.id,
@@ -327,7 +328,7 @@ class PagesService:
         row.updated_at = datetime.now(UTC)
         await promote_original(self.session, row)
         await self.session.flush()
-        await ContentPublication(self.session, self.config).stage()
+        await ContentPublication(self.session, self.config).stage(CacheChange("page_changed"))
         self.session.add(
             SettingsAudit(
                 user_id=actor.id,

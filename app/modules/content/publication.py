@@ -20,9 +20,21 @@ from app.modules.content.repository import ContentRepository
 from app.modules.content.schemas import PublicSnapshot
 from app.modules.content.service import PublicContentService
 from app.modules.content.text_preview import content_preview
+from app.modules.settings.cache_event_schema import CacheChange
+from app.modules.settings.cache_events import stage_cache_events
 from app.modules.settings.models import SettingsAudit, SettingsDeliveryEvent
 from app.modules.settings.node_registry import read_directory
 from app.modules.settings.service import SettingsService
+
+
+def cache_path(item: Content | None) -> str | None:
+    if (
+        item
+        and item.publication_status == "published"
+        and item.visibility in {"public", "password"}
+    ):
+        return item.path
+    return None
 
 
 class ContentPublication:
@@ -69,10 +81,13 @@ class ContentPublication:
             raise AuthFailure(422, 42295, "该地址由语言导航使用，请更换内容地址")
         return settings, path
 
-    async def publish(self, draft: ContentDraft, *, published_at: datetime | None = None) -> None:
+    async def publish(
+        self, draft: ContentDraft, *, published_at: datetime | None = None
+    ) -> CacheChange:
         now = datetime.now(UTC)
         settings, path = await self.prepare(draft, now=now)
         existing = await self.session.get(Content, draft.id)
+        previous_path = cache_path(existing)
         draft.public_path = path
         draft.published_at = (
             settings.display_published_at or draft.published_at or published_at or now
@@ -129,18 +144,44 @@ class ContentPublication:
                 index_elements=["content_id"], set_={"title": draft.title, "body": body}
             )
         )
+        paths = tuple(
+            item
+            for item in (
+                previous_path,
+                path if settings.visibility in {"public", "password"} else None,
+            )
+            if item is not None
+        )
+        return (
+            CacheChange(
+                "content_withdrawn"
+                if previous_path and settings.visibility not in {"public", "password"}
+                else "content_updated"
+                if previous_path
+                else "content_published",
+                draft.id,
+                paths,
+            )
+            if paths
+            else CacheChange("projection_changed")
+        )
 
-    async def withdraw(self, draft: ContentDraft) -> bool:
+    async def withdraw(self, draft: ContentDraft) -> CacheChange | None:
         if draft.published_revision is None:
-            return False
+            return None
         existing = await self.session.get(Content, draft.id)
+        previous_path = cache_path(existing)
         if existing:
             existing.publication_status = "withdrawn"
             existing.public_generation += 1
         draft.published_revision = None
-        return True
+        return (
+            CacheChange("content_withdrawn", draft.id, (previous_path,))
+            if previous_path
+            else CacheChange("projection_changed")
+        )
 
-    async def stage(self, *, node_id: str | None = None) -> ContentRelease:
+    async def stage(self, *changes: CacheChange) -> ContentRelease:
         # All writers share the reference lock followed by this row lock. The snapshot and
         # immutable release are created before commit, without external network side effects.
         site = await SettingsService(self.session, self.config).site(locked=True)
@@ -155,7 +196,14 @@ class ContentPublication:
             snapshot=snapshot.model_dump(mode="json"),
         )
         self.session.add(release)
-        await self.enqueue(release, node_id=node_id)
+        await self.enqueue(release)
+        await stage_cache_events(
+            self.session,
+            site,
+            "public-content",
+            release.revision,
+            changes or (CacheChange("projection_changed"),),
+        )
         return release
 
     async def enqueue(self, release: ContentRelease, *, node_id: str | None = None) -> None:

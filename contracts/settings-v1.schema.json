@@ -283,6 +283,229 @@
       "title": "BackendPluginInfo",
       "type": "object"
     },
+    "CacheDiskResource": {
+      "additionalProperties": false,
+      "properties": {
+        "resource": {
+          "enum": [
+            "public-content",
+            "public-settings",
+            "cache-policy"
+          ],
+          "title": "Resource",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "ready",
+            "missing",
+            "unavailable"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "revision": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Revision"
+        },
+        "files": {
+          "minimum": 0,
+          "title": "Files",
+          "type": "integer"
+        },
+        "bytes": {
+          "maximum": 9007199254740991,
+          "minimum": 0,
+          "title": "Bytes",
+          "type": "integer"
+        },
+        "reclaimable_bytes": {
+          "maximum": 9007199254740991,
+          "minimum": 0,
+          "title": "Reclaimable Bytes",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "resource",
+        "status",
+        "revision",
+        "files",
+        "bytes",
+        "reclaimable_bytes"
+      ],
+      "title": "CacheDiskResource",
+      "type": "object"
+    },
+    "CacheEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "protocol": {
+          "const": "cache-event-1",
+          "default": "cache-event-1",
+          "title": "Protocol",
+          "type": "string"
+        },
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "source_epoch": {
+          "format": "uuid",
+          "title": "Source Epoch",
+          "type": "string"
+        },
+        "resource": {
+          "enum": [
+            "public-content",
+            "public-settings",
+            "cache-policy"
+          ],
+          "title": "Resource",
+          "type": "string"
+        },
+        "revision": {
+          "title": "Revision",
+          "type": "integer"
+        },
+        "occurred_at": {
+          "format": "date-time",
+          "title": "Occurred At",
+          "type": "string"
+        },
+        "reason": {
+          "enum": [
+            "content_published",
+            "content_updated",
+            "content_withdrawn",
+            "content_opened",
+            "projection_changed",
+            "page_changed",
+            "translations_changed",
+            "taxonomy_changed",
+            "comments_changed",
+            "settings_changed",
+            "policy_changed"
+          ],
+          "title": "Reason",
+          "type": "string"
+        },
+        "node_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Node Id"
+        },
+        "content_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Content Id"
+        },
+        "paths": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Paths",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "source_epoch",
+        "resource",
+        "revision",
+        "occurred_at",
+        "reason",
+        "node_id",
+        "content_id",
+        "paths"
+      ],
+      "title": "CacheEvent",
+      "type": "object"
+    },
+    "CacheNodeState": {
+      "additionalProperties": false,
+      "properties": {
+        "node_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$",
+          "title": "Node Id",
+          "type": "string"
+        },
+        "checked_at": {
+          "format": "date-time",
+          "title": "Checked At",
+          "type": "string"
+        },
+        "receiver": {
+          "enum": [
+            "ready",
+            "disabled",
+            "not_configured",
+            "credential_missing",
+            "unreachable",
+            "rejected",
+            "unsupported",
+            "invalid",
+            "identity_mismatch"
+          ],
+          "title": "Receiver",
+          "type": "string"
+        },
+        "storage": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CacheReceiverStatus"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sync": {
+          "additionalProperties": {
+            "$ref": "#/$defs/DeliverySummary"
+          },
+          "propertyNames": {
+            "enum": [
+              "public-content",
+              "public-settings",
+              "cache-policy"
+            ]
+          },
+          "title": "Sync",
+          "type": "object"
+        }
+      },
+      "required": [
+        "node_id",
+        "checked_at",
+        "receiver",
+        "storage",
+        "sync"
+      ],
+      "title": "CacheNodeState",
+      "type": "object"
+    },
     "CachePolicy": {
       "additionalProperties": false,
       "description": "First operational policy: request lifetime, refresh freshness and batching.",
@@ -317,6 +540,148 @@
         }
       },
       "title": "CachePolicy",
+      "type": "object"
+    },
+    "CachePruneReceipt": {
+      "additionalProperties": false,
+      "properties": {
+        "node_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$",
+          "title": "Node Id",
+          "type": "string"
+        },
+        "source_epoch": {
+          "title": "Source Epoch",
+          "type": "string"
+        },
+        "protocol": {
+          "const": "cache-prune-1",
+          "title": "Protocol",
+          "type": "string"
+        },
+        "removed_files": {
+          "minimum": 0,
+          "title": "Removed Files",
+          "type": "integer"
+        },
+        "removed_bytes": {
+          "maximum": 9007199254740991,
+          "minimum": 0,
+          "title": "Removed Bytes",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "node_id",
+        "source_epoch",
+        "protocol",
+        "removed_files",
+        "removed_bytes"
+      ],
+      "title": "CachePruneReceipt",
+      "type": "object"
+    },
+    "CacheRebuild": {
+      "additionalProperties": false,
+      "properties": {
+        "scope": {
+          "enum": [
+            "all",
+            "public-content",
+            "public-settings",
+            "cache-policy"
+          ],
+          "title": "Scope",
+          "type": "string"
+        }
+      },
+      "required": [
+        "scope"
+      ],
+      "title": "CacheRebuild",
+      "type": "object"
+    },
+    "CacheRebuildResult": {
+      "additionalProperties": false,
+      "properties": {
+        "queued": {
+          "title": "Queued",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "queued"
+      ],
+      "title": "CacheRebuildResult",
+      "type": "object"
+    },
+    "CacheReceiverStatus": {
+      "additionalProperties": false,
+      "properties": {
+        "protocol": {
+          "const": "cache-status-1",
+          "title": "Protocol",
+          "type": "string"
+        },
+        "node_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$",
+          "title": "Node Id",
+          "type": "string"
+        },
+        "source_epoch": {
+          "title": "Source Epoch",
+          "type": "string"
+        },
+        "resources": {
+          "items": {
+            "$ref": "#/$defs/CacheDiskResource"
+          },
+          "maxItems": 3,
+          "title": "Resources",
+          "type": "array"
+        },
+        "free_bytes": {
+          "anyOf": [
+            {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Free Bytes"
+        }
+      },
+      "required": [
+        "protocol",
+        "node_id",
+        "source_epoch",
+        "resources",
+        "free_bytes"
+      ],
+      "title": "CacheReceiverStatus",
+      "type": "object"
+    },
+    "CacheReceiverTarget": {
+      "additionalProperties": false,
+      "properties": {
+        "node_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$",
+          "title": "Node Id",
+          "type": "string"
+        },
+        "source_epoch": {
+          "title": "Source Epoch",
+          "type": "string"
+        }
+      },
+      "required": [
+        "node_id",
+        "source_epoch"
+      ],
+      "title": "CacheReceiverTarget",
       "type": "object"
     },
     "CodePreferences": {
@@ -3139,6 +3504,90 @@
         "value"
       ],
       "title": "PreviewShortcode",
+      "type": "object"
+    },
+    "PublicResponse_CacheNodeState_": {
+      "additionalProperties": false,
+      "properties": {
+        "success": {
+          "default": true,
+          "title": "Success",
+          "type": "boolean"
+        },
+        "code": {
+          "default": 200,
+          "title": "Code",
+          "type": "integer"
+        },
+        "msg": {
+          "default": "请求成功",
+          "title": "Msg",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/CacheNodeState"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "title": "PublicResponse[CacheNodeState]",
+      "type": "object"
+    },
+    "PublicResponse_CachePruneReceipt_": {
+      "additionalProperties": false,
+      "properties": {
+        "success": {
+          "default": true,
+          "title": "Success",
+          "type": "boolean"
+        },
+        "code": {
+          "default": 200,
+          "title": "Code",
+          "type": "integer"
+        },
+        "msg": {
+          "default": "请求成功",
+          "title": "Msg",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/CachePruneReceipt"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "title": "PublicResponse[CachePruneReceipt]",
+      "type": "object"
+    },
+    "PublicResponse_CacheRebuildResult_": {
+      "additionalProperties": false,
+      "properties": {
+        "success": {
+          "default": true,
+          "title": "Success",
+          "type": "boolean"
+        },
+        "code": {
+          "default": 200,
+          "title": "Code",
+          "type": "integer"
+        },
+        "msg": {
+          "default": "请求成功",
+          "title": "Msg",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/CacheRebuildResult"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "title": "PublicResponse[CacheRebuildResult]",
       "type": "object"
     },
     "PublicResponse_ExtensionCatalog_": {
@@ -6331,6 +6780,27 @@
     },
     "nodes_local_proof": {
       "$ref": "#/$defs/PublicResponse_NodeProof_"
+    },
+    "cache_event": {
+      "$ref": "#/$defs/CacheEvent"
+    },
+    "cache_receiver_state": {
+      "$ref": "#/$defs/CacheReceiverStatus"
+    },
+    "cache_receiver_target": {
+      "$ref": "#/$defs/CacheReceiverTarget"
+    },
+    "cache_node_state": {
+      "$ref": "#/$defs/PublicResponse_CacheNodeState_"
+    },
+    "cache_rebuild": {
+      "$ref": "#/$defs/CacheRebuild"
+    },
+    "cache_rebuild_result": {
+      "$ref": "#/$defs/PublicResponse_CacheRebuildResult_"
+    },
+    "cache_prune_result": {
+      "$ref": "#/$defs/PublicResponse_CachePruneReceipt_"
     }
   },
   "required": [
@@ -6387,12 +6857,19 @@
     "nodes_monitor_command",
     "nodes_monitor_result",
     "nodes_local_proof_request",
-    "nodes_local_proof"
+    "nodes_local_proof",
+    "cache_event",
+    "cache_receiver_state",
+    "cache_receiver_target",
+    "cache_node_state",
+    "cache_rebuild",
+    "cache_rebuild_result",
+    "cache_prune_result"
   ],
   "title": "SettingsContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "1.38.0",
+  "x-everunfold-contract-version": "1.39.0",
   "x-everunfold-language-regions": {
     "zh": "CN",
     "en": "GB",
@@ -6428,6 +6905,25 @@
     "sw": "TZ"
   },
   "x-everunfold-operations": [
+    {
+      "name": "readNodeCache",
+      "path": "/v1/admin/frontend-nodes/{node_id}/cache",
+      "method": "GET",
+      "response": "cache_node_state"
+    },
+    {
+      "name": "rebuildNodeCache",
+      "path": "/v1/admin/frontend-nodes/{node_id}/cache/rebuild",
+      "method": "POST",
+      "input": "cache_rebuild",
+      "response": "cache_rebuild_result"
+    },
+    {
+      "name": "pruneNodeCache",
+      "path": "/v1/admin/frontend-nodes/{node_id}/cache/prune",
+      "method": "POST",
+      "response": "cache_prune_result"
+    },
     {
       "name": "readNodesMonitor",
       "path": "/v1/admin/nodes-monitor",

@@ -27,6 +27,7 @@ from app.modules.content.publication import ContentPublication
 from app.modules.content.schemas import ContentKind
 from app.modules.media.locking import lock_references
 from app.modules.pages.models import ManagedPage
+from app.modules.settings.cache_event_schema import CacheChange
 from app.modules.settings.models import SettingsAudit
 from app.modules.settings.service import SettingsService
 
@@ -220,7 +221,9 @@ class CommentService:
                 changed.append(row.id)
         if changed:
             await self.session.flush()
-            await ContentPublication(self.session, self.config).stage()
+            await ContentPublication(self.session, self.config).stage(
+                CacheChange("comments_changed")
+            )
             for row in rows:
                 if row.id in changed:
                     self.session.add(

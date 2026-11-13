@@ -40,6 +40,7 @@ from app.modules.content.publication import ContentPublication
 from app.modules.content.type_registry import ContentTypeDefinition, content_types
 from app.modules.media.locking import lock_references
 from app.modules.media.models import MediaAsset
+from app.modules.settings.cache_event_schema import CacheChange
 from app.modules.settings.languages import require_language
 
 Action = Literal[
@@ -250,11 +251,13 @@ class DraftService:
             if self.config is None:
                 raise RuntimeError("Publication requires configured delivery targets")
             publication = ContentPublication(self.session, self.config)
+            change: CacheChange | None
             if action == "publish":
-                await publication.publish(row)
+                change = await publication.publish(row)
             else:
-                await publication.withdraw(row)
-            await publication.stage()
+                change = await publication.withdraw(row)
+            if change is not None:
+                await publication.stage(change)
         result = detail(row)
         result.media_urls = await editor_media(
             self.session, self.config, json.dumps(row.body), result.settings, strict=False

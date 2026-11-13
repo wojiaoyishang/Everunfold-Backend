@@ -17,6 +17,8 @@ from app.modules.content.models import Content, SiteSettings, Taxonomy
 from app.modules.media.locking import lock_references
 from app.modules.media.service import MediaService
 from app.modules.pages.models import ManagedPage
+from app.modules.settings.cache_event_schema import CacheChange
+from app.modules.settings.cache_events import stage_cache_events
 from app.modules.settings.defaults import public_settings, stored_settings
 from app.modules.settings.languages import language_route_pattern
 from app.modules.settings.models import NodePolicy, SettingsAudit, SettingsDeliveryEvent
@@ -352,6 +354,13 @@ class SettingsService:
         if before != payload.value:
             record.data = stored_settings(record.data, payload.value)
             record.generation += 1
+            await stage_cache_events(
+                self.session,
+                record,
+                "public-settings",
+                record.generation,
+                (CacheChange("settings_changed"),),
+            )
             self.session.add(
                 SettingsAudit(
                     user_id=actor,
@@ -414,6 +423,14 @@ class SettingsService:
         if before != payload.value:
             row.data = payload.value.model_dump()
             row.revision += 1
+            await stage_cache_events(
+                self.session,
+                site,
+                "cache-policy",
+                row.revision,
+                (CacheChange("policy_changed"),),
+                node_id=node,
+            )
             self.session.add(
                 SettingsAudit(
                     user_id=actor,
@@ -432,59 +449,75 @@ class SettingsService:
         await self.session.commit()
         return await self.nodes()
 
-    async def stage_retry(self, node: str, actor: uuid.UUID | None) -> None:
+    async def stage_retry(
+        self,
+        node: str,
+        actor: uuid.UUID | None,
+        *,
+        scope: Literal["all", "public-settings", "cache-policy"] = "all",
+    ) -> None:
         site = await self.site(locked=True)
         policy = await self.policy(node)
         if not policy.delivery.enabled:
             raise AuthFailure(409, 40925, "请先启用节点并绑定同步接收器")
-        public = await self.resolve(public_settings(site.data))
-        previous = await self.session.scalar(
-            select(SettingsDeliveryEvent)
-            .where(
-                SettingsDeliveryEvent.source_epoch == site.source_epoch,
-                SettingsDeliveryEvent.resource == "public-settings",
-                SettingsDeliveryEvent.revision == site.generation,
-            )
-            .limit(1)
-        )
-        # Deployment-owned media URLs may change without editing menu identities.
-        # Publish a new immutable revision instead of rewriting an acknowledged file.
-        if previous and public != PublicSettings.model_validate(previous.payload["value"]):
-            site.generation += 1
-            if actor is not None:
-                self.session.add(
-                    SettingsAudit(
-                        user_id=actor,
-                        resource="public-settings",
-                        revision=site.generation,
-                        changes={"operation": "republish-derived-media-urls"},
-                    )
+        revisions = []
+        if scope != "cache-policy":
+            public = await self.resolve(public_settings(site.data))
+            previous = await self.session.scalar(
+                select(SettingsDeliveryEvent)
+                .where(
+                    SettingsDeliveryEvent.source_epoch == site.source_epoch,
+                    SettingsDeliveryEvent.resource == "public-settings",
+                    SettingsDeliveryEvent.revision == site.generation,
                 )
-            for target, config in (await read_targets(self.session, self.config)).items():
-                if config.enabled and config.settings_receiver_url:
+                .limit(1)
+            )
+            # Deployment media URL changes require a new immutable settings revision.
+            if previous and public != PublicSettings.model_validate(previous.payload["value"]):
+                site.generation += 1
+                await stage_cache_events(
+                    self.session,
+                    site,
+                    "public-settings",
+                    site.generation,
+                    (CacheChange("settings_changed"),),
+                )
+                if actor is not None:
+                    self.session.add(
+                        SettingsAudit(
+                            user_id=actor,
+                            resource="public-settings",
+                            revision=site.generation,
+                            changes={"operation": "republish-derived-media-urls"},
+                        )
+                    )
+                for target in sorted((await read_directory(self.session, self.config)).receivers):
                     await self.enqueue(
                         target, site.source_epoch, "public-settings", site.generation, public
                     )
-        for resource, revision, value in [
-            ("public-settings", site.generation, public),
-            ("cache-policy", policy.revision, policy.value),
-        ]:
-            await self.enqueue(node, site.source_epoch, resource, revision, value)  # type: ignore[arg-type]
+            await self.enqueue(node, site.source_epoch, "public-settings", site.generation, public)
+            revisions.append(
+                and_(
+                    SettingsDeliveryEvent.resource == "public-settings",
+                    SettingsDeliveryEvent.revision == site.generation,
+                )
+            )
+        if scope != "public-settings":
+            await self.enqueue(
+                node, site.source_epoch, "cache-policy", policy.revision, policy.value
+            )
+            revisions.append(
+                and_(
+                    SettingsDeliveryEvent.resource == "cache-policy",
+                    SettingsDeliveryEvent.revision == policy.revision,
+                )
+            )
         events = await self.session.scalars(
             select(SettingsDeliveryEvent)
             .where(
                 SettingsDeliveryEvent.node_id == node,
                 SettingsDeliveryEvent.source_epoch == site.source_epoch,
-                or_(
-                    and_(
-                        SettingsDeliveryEvent.resource == "public-settings",
-                        SettingsDeliveryEvent.revision == site.generation,
-                    ),
-                    and_(
-                        SettingsDeliveryEvent.resource == "cache-policy",
-                        SettingsDeliveryEvent.revision == policy.revision,
-                    ),
-                ),
+                or_(*revisions),
             )
             .with_for_update()
         )

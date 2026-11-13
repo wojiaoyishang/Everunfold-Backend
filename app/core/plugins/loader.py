@@ -19,6 +19,7 @@ from app.core.plugins.registry import PluginRegistry
 from app.core.plugins.routes import RouteContribution
 from app.modules.captcha.providers import CaptchaProvider
 from app.modules.notifications.platforms import NotificationPlatform
+from app.modules.settings.cache_event_schema import CacheEventHandler
 from app.modules.settings.extensions_schemas import BackendPluginInfo
 from app.modules.shortcodes.schemas import ShortcodeItem
 
@@ -33,6 +34,7 @@ class LoadedPlugin:
     captcha: tuple[CaptchaProvider, ...]
     notifications: tuple[NotificationPlatform, ...]
     locales: Mapping[str, Mapping[str, str]]
+    cache_event_handler: CacheEventHandler | None = None
 
 
 @dataclass(frozen=True)
@@ -162,6 +164,8 @@ def collect_plugins(entries: Iterable[tuple[Plugin, str]]) -> PluginCatalog:
             }
             if registry.routes.items:
                 fingerprint["routes"] = [item.manifest() for item in registry.routes.items]
+            if registry.cache_events.handler is not None:
+                fingerprint["cache_events"] = "cache-event-1"
             info.build = hashlib.sha256(
                 json.dumps(fingerprint, sort_keys=True).encode()
             ).hexdigest()
@@ -180,6 +184,7 @@ def collect_plugins(entries: Iterable[tuple[Plugin, str]]) -> PluginCatalog:
                             for locale, messages in registry.locales._items.items()
                         }
                     ),
+                    cache_event_handler=registry.cache_events.handler,
                 )
             )
     return PluginCatalog(tuple(completed))

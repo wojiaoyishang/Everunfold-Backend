@@ -14,6 +14,8 @@ from app.core.config import Settings
 from app.core.i18n import i18n
 from app.modules.auth.service import AuthFailure
 from app.modules.media.locking import lock_references
+from app.modules.settings.cache_event_schema import CacheChange
+from app.modules.settings.cache_events import stage_cache_events
 from app.modules.settings.defaults import public_settings
 from app.modules.settings.models import (
     SettingsAudit,
@@ -211,6 +213,13 @@ class TranslationService:
             return await self.state()
         state.revision += 1
         site.generation += 1
+        await stage_cache_events(
+            self.session,
+            site,
+            "public-settings",
+            site.generation,
+            (CacheChange("translations_changed"),),
+        )
         self.session.add(
             SettingsAudit(
                 user_id=actor,
