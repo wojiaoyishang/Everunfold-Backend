@@ -1,5 +1,10 @@
 # 后端交接状态
 
+## 开发节点诊断的回环入口
+
+- 开发实例允许精确的 `http://127.0.0.1:3000` Origin。Nginx 将同源 `/v1/*` 转发至 FastAPI 8001，沿用 `Path=/v1` 会话。已重启 API，实测回环与原测试入口均可获取会话，其他未授权 Origin 仍返回 403。见[容器部署](../development/container-deployment.md)。
+- Chromium 用开发管理员会话通过回环代理完成登录、读取节点状态、申请本机操作凭据及返回后台。公开代理上的内部接口返回 404。无数据库迁移或契约变更。
+
 ## 独立节点控制台
 
 - `/_nodes` 支持新增、编辑、停用、删除及单节点重发。节点部署清单一次性导入 PostgreSQL 后，API 和 Worker 使用统一修订。接收器与凭据引用由部署人员登记。前端管理员接口只提供全站状态及本机操作授权。见 [操作指南](../development/nodes-monitor.md) 和 [ADR0130](../decisions/0130-independent-node-consoles.md)。

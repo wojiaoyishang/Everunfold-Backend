@@ -28,6 +28,8 @@ Worker / Scheduler → Node 设置与内容接收器 :3001
 
 Nginx 保留原 API 与 WS 路径，不引入 `/api` 前缀；`/internal` 和 `/internal/*` 在公开入口返回 404。Uvicorn 保留 `--no-proxy-headers`，实际 socket 来源经过代理后是回环地址，当前远程浏览器会共享该来源的限流桶。生产若需按客户端 IP 限流，应单独设计受信代理边界，不能直接信任任意转发头。
 
+本机节点诊断使用 `http://127.0.0.1:3000/admin/_nodes`。前端活动连接的 `browser_loopback_origin` 和前端 `nodes_monitor.origin` 都配置为 `http://127.0.0.1:3000`，后端 `cors.allowed_origins` 显式加入同一地址。`localhost:3000` 是不同的 Origin。经回环入口登录、查看诊断或返回后台时，浏览器请求使用回环 Nginx，登录 Cookie 沿用 `/v1` 路径。
+
 ## 实际配置
 
 实例文件均在 Git 忽略范围内，权限为 0600，运行目录为 0700：
@@ -37,7 +39,8 @@ Nginx 保留原 API 与 WS 路径，不引入 `/api` 前缀；`/internal` 和 `/
 | 后端 `config.toml` | 数据库、Redis、公开地址、精确 Origin、媒体路径、节点和 HTTP 开发开关 |
 | 后端 `.env.container.local` | 两个方向的独立随机内部 Token、开发允许的主机名 |
 | 后端 `var/container/admin-credentials.json` | 首次管理员用户名与独立随机密码；不复用系统或数据库密码 |
-| 前端 `config.toml` | 浏览器 API 地址、服务端回环连接、缓存目录、显式绑定的 source_epoch |
+| 前端 `config.toml` | 节点身份、缓存目录、本机诊断和独立连接文件路径 |
+| 前端 `backend-node.toml` | 公开 API 地址、浏览器回环入口、服务端连接和来源 UUID |
 | 后端 `var/container/nginx.conf` | 从 `deploy/nginx.container.conf.template` 替换占位符生成 |
 
 测试时前后端公开 `BACKEND_BASE_URL`、前端 `PUBLIC_SITE_URL` 与后端 `frontends.web-main.base_url` 指向同一临时入口；实际值只在忽略配置中维护。仅服务端API和内部接收器使用回环连接，精确Origin按测试需要配置，不使用通配符。回环地址是内部通信方式，不是对外部署入口。
