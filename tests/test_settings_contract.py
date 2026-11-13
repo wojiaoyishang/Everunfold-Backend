@@ -242,3 +242,21 @@ def test_notice_title_is_optional_and_round_trips_without_losing_legacy_content(
     assert stored["notice"] == "Existing notice"
     with pytest.raises(ValidationError):
         SitePreferences(name="Site", author="A", description="", notice_title="x" * 121)
+
+
+def test_sidebar_profile_preserves_empty_links_and_validates_destinations() -> None:
+    value = public_settings({"name": "Campfire", "author": "Yishang"})
+    assert value.theme.sidebar_profile.personal_links is None
+    value.theme.sidebar_profile.personal_links = []
+    value.theme.hero_animation = "typewriter"
+    stored = public_settings(stored_settings({}, value))
+    assert stored.theme.sidebar_profile.personal_links == []
+    assert stored.theme.hero_animation == "typewriter"
+
+    for profile in (
+        {"articles_url": "//example.test/path"},
+        {"friend_links": [{"id": "friend", "label": "Friend", "href": "javascript:alert(1)"}]},
+        {"personal_links": [{"id": "link", "label": " ", "href": "/about"}]},
+    ):
+        with pytest.raises(ValidationError):
+            ThemePreferences.model_validate({"sidebar_profile": profile})

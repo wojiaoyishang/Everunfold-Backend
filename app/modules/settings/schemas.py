@@ -285,6 +285,43 @@ class FeedPreferences(SettingsModel):
     page_size: int = Field(default=10, ge=1, le=30)
 
 
+class SidebarLink(SettingsModel):
+    id: str = Field(pattern=r"^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,63}$")
+    label: str = Field(min_length=1, max_length=60)
+    href: str = Field(min_length=1, max_length=2048)
+
+    @field_validator("label", "href", mode="before")
+    @classmethod
+    def trim(cls, value: str) -> str:
+        return value.strip() if isinstance(value, str) else value
+
+    _url = field_validator("href")(safe_url)
+
+
+class SidebarProfilePreferences(SettingsModel):
+    display_name: str = Field(default="", max_length=100)
+    show_tagline: bool = True
+    show_stats: bool = True
+    articles_url: str = Field(default="/archives", max_length=2048)
+    categories_url: str = Field(default="/categories", max_length=2048)
+    tags_url: str = Field(default="/tags", max_length=2048)
+    friends_title: str = Field(default="Links", max_length=60)
+    personal_links: list[SidebarLink] | None = Field(default=None, max_length=12)
+    friend_links: list[SidebarLink] | None = Field(default=None, max_length=24)
+
+    @field_validator("articles_url", "categories_url", "tags_url")
+    @classmethod
+    def stats_url(cls, value: str) -> str:
+        return safe_url(value.strip())
+
+    @field_validator("personal_links", "friend_links")
+    @classmethod
+    def unique_links(cls, links: list[SidebarLink] | None) -> list[SidebarLink] | None:
+        if links is not None and len({link.id for link in links}) != len(links):
+            raise ValueError("duplicate sidebar link identifiers")
+        return links
+
+
 class ThemePreferences(SettingsModel):
     author_avatar_media_id: str = Field(default="", pattern=MediaReference)
     author_avatar_url: str | None = Field(default=None, max_length=2048)
@@ -306,6 +343,10 @@ class ThemePreferences(SettingsModel):
     mode: Literal["system", "light", "dark"] = "system"
     hero_title: str = Field(default="", max_length=160)
     hero_subtitle: str = Field(default="", max_length=300)
+    hero_show_subtitle: bool = True
+    hero_animation: Literal["none", "fade", "rise", "typewriter"] = "rise"
+    hero_typing_ms: int = Field(default=30, ge=10, le=120)
+    sidebar_profile: SidebarProfilePreferences = Field(default_factory=SidebarProfilePreferences)
     background_media_id: str = Field(default="", pattern=MediaReference)
     background_video_media_id: str = Field(default="", pattern=MediaReference)
     background_url: str = Field(default="", max_length=2048)
