@@ -24,8 +24,13 @@ from app.modules.content.editor_schema import EditorSettings
 RegionKind = Literal["reply-only", "password-area"]
 SourceType = Literal["markdown", "html"]
 REGION_TOKEN = re.compile(r"{{<\s*(/?)\s*(reply-only|password-area)(?=[\s/>}]|$)")
+PUBLIC_REGION = re.compile(r'{{< (reply-only|password-area) region="[a-f0-9-]{36}" >}}{{< /\1 >}}')
 REGION_END = re.compile(r"\s*>}}")
 PASSWORD_ARGUMENT = re.compile(r'\s+credential="([a-f0-9-]{36})"\s*>}}')
+
+
+def without_region_markers(source: str) -> str:
+    return PUBLIC_REGION.sub("", source)
 
 
 class RegionPassword(Base):

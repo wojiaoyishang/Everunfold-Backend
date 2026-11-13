@@ -110,6 +110,10 @@ async def unlock_region(
         if replied is None:
             raise AuthFailure(403, 40382, "请登录并提交评论，评论通过审核后即可查看")
     else:
+        allowed = await rate.consume_limit(f"region-password-attempt:{identity}", 60, 300, now)
+        await session.commit()
+        if not allowed:
+            raise AuthFailure(429, 42982, "尝试较多，请稍后重试")
         credential = (
             await session.get(RegionPassword, region.credential) if region.credential else None
         )
@@ -126,4 +130,4 @@ async def unlock_region(
         source=open_body(runtime.settings, region),
         media_urls=region.media_urls,
     )
-    return JSONResponseSuccess(data=result)
+    return JSONResponseSuccess(data=result, headers={"Cache-Control": "private, no-store"})

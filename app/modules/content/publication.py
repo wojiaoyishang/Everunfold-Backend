@@ -99,7 +99,7 @@ class ContentPublication:
             settings.display_published_at or draft.published_at or published_at or now
         )
         draft.published_revision = draft.revision
-        from app.modules.shortcodes.regions import RegionPublication
+        from app.modules.shortcodes.regions import RegionPublication, without_region_markers
 
         regions = RegionPublication(self.session, self.config, "content", draft.id)
         component_document = None
@@ -109,7 +109,7 @@ class ContentPublication:
             assert document is not None
             component_document = document.model_dump(mode="json")
             public_body = []
-            body = document.text()
+            body = without_region_markers(document.text())
             source = document.model_dump_json()
             preview_blocks = [{"content": body}]
         else:
@@ -117,13 +117,17 @@ class ContentPublication:
                 {**block, "content": regions.redact(str(block["content"]), block["type"])}
                 for block in draft.body
             ]
-            body = "\n\n".join(str(block["content"]) for block in public_body)
+            body = "\n\n".join(
+                without_region_markers(str(block["content"])) for block in public_body
+            )
             source = json.dumps(public_body)
-            preview_blocks = public_body
+            preview_blocks = [{"content": body}]
         media = await editor_media(self.session, self.config, source, settings)
         excerpt = regions.redact(draft.excerpt, "markdown") if draft.excerpt else ""
         excerpt = (
-            content_preview([{"content": excerpt}], 1000) if excerpt != draft.excerpt else excerpt
+            content_preview([{"content": without_region_markers(excerpt)}], 1000)
+            if excerpt != draft.excerpt
+            else excerpt
         )
         excerpt = excerpt or content_preview(preview_blocks)
         await regions.store()

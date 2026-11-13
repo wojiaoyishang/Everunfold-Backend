@@ -289,6 +289,8 @@ def compile_css(source: str, scope: str, depth: int = 0) -> str:
 
 
 def compile_shortcode(source: ShortcodeSource, identity: str, revision: int) -> PublicShortcode:
+    if source.name in {"reply-only", "password-area"}:
+        raise ValueError("此名称由系统可见区域保留")
     scope = "ef-sc-" + uuid.UUID(identity).hex
     parser = TemplateParser(source, scope)
     parser.feed(source.html)
