@@ -141,6 +141,12 @@ class DraftRepository:
                         ),
                         Text,
                     ).icontains(search, autoescape=True),
+                    (
+                        (ContentDraft.edit_mode == "components")
+                        & cast(ContentDraft.component_document, Text).icontains(
+                            search, autoescape=True
+                        )
+                    ),
                 )
             )
         # Match every member first, then page group anchors. A translated search

@@ -37,7 +37,7 @@ class DraftBlock(PublicModel):
 class DraftFields(PublicModel):
     title: str = Field(default="", max_length=200)
     excerpt: str = Field(default="", max_length=1000)
-    body: list[DraftBlock] = Field(default_factory=list, max_length=128)
+    body: list[DraftBlock] = Field(max_length=128)
     edit_mode: ContentEditMode = Field(default="blocks", exclude_if=lambda v: v == "blocks")
     component_document: ComponentDocument | None = Field(
         default=None, exclude_if=lambda v: v is None

@@ -982,6 +982,9 @@
           "title": "Access Password"
         }
       },
+      "required": [
+        "body"
+      ],
       "title": "DraftFields",
       "type": "object"
     },
