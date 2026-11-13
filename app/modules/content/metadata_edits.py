@@ -7,6 +7,7 @@ from uuid import UUID, uuid4
 from pycrdt import Map, Text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.modules.auth.service import AuthFailure
 from app.modules.content.collaboration.document import decode, project
 from app.modules.content.collaboration.models import CollaborationDocument, CollaborationUpdate
 from app.modules.content.draft_models import ContentDraft, DraftRevision
@@ -36,6 +37,8 @@ async def stage_metadata(
     *,
     note: str,
 ) -> None:
+    if row.edit_mode == "components":
+        raise AuthFailure(409, 40973, "此内容使用组件模式，请在实时编辑器中修改")
     head = await session.get(CollaborationDocument, row.id, with_for_update=True)
     doc = decode(head.state) if head else None
     policy = EditorSettings.model_validate(row.editor_settings)

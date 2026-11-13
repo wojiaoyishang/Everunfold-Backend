@@ -31,6 +31,8 @@ class BusinessCORSMiddleware:
                 "Content-Type",
                 "Authorization",
                 "X-CSRF-Token",
+                "X-Everunfold-Read-Receipt",
+                "X-Everunfold-Read-Target",
                 "X-Site-Locale",
                 "X-Site-UI-Locale",
             ],
@@ -144,6 +146,10 @@ class AuthBoundaryMiddleware:
                         "/v1/admin/content/save",
                         "/v1/admin/content/publish",
                         "/v1/admin/content/schedule",
+                        "/v1/admin/content/components/create",
+                        "/v1/admin/content/components/save",
+                        "/v1/admin/content/components/publish",
+                        "/v1/admin/content/components/schedule",
                     }
                     else 1500000
                     if path == "/v1/admin/icons/upload"

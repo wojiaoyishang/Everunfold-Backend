@@ -9,8 +9,10 @@ from pydantic import Field, JsonValue, field_validator, model_validator
 
 from app.core.schemas import PublicModel, PublicResponse
 from app.modules.captcha.schemas import CaptchaOverride
+from app.modules.content.component_document import ComponentDocument, PageEditMode, PageLayout
 from app.modules.content.editor_schema import content_path
 from app.modules.content.seo import SeoFields
+from app.modules.media.schemas import MediaURL
 from app.modules.pages.options import bounded_options
 from app.modules.settings.languages import LanguageCode
 
@@ -97,6 +99,10 @@ class PageManifest(PublicModel):
 
 
 class PageCode(PublicModel):
+    edit_mode: PageEditMode = Field(default="source", exclude_if=lambda v: v == "source")
+    component_document: ComponentDocument | None = Field(
+        default=None, exclude_if=lambda v: v is None
+    )
     html: str = Field(default="", max_length=200000)
     css: str = Field(default="", max_length=100000)
     javascript: str = Field(default="", max_length=100000)
@@ -105,6 +111,7 @@ class PageCode(PublicModel):
 
 
 class TitledPageCode(PageCode):
+    layout: PageLayout = Field(default="wide", exclude_if=lambda v: v == "wide")
     title: str = Field(min_length=1, max_length=120)
     description: str = Field(default="", max_length=500)
 
@@ -117,6 +124,10 @@ class TitledPageCode(PageCode):
 
 
 class PageSettings(TitledPageCode, SeoFields):
+    component_parameters: dict[str, JsonValue] = Field(
+        default_factory=dict, exclude_if=lambda v: not v
+    )
+    _component_parameters = field_validator("component_parameters")(bounded_options)
     captcha_read: CaptchaOverride = "inherit"
     captcha_comment: CaptchaOverride = "inherit"
     comments_open: bool = True
@@ -165,6 +176,7 @@ class SavePageTemplate(PublicModel):
 
 
 class PublicManagedPage(PageAtPath):
+    media_urls: dict[str, MediaURL] = Field(default_factory=dict, exclude_if=lambda v: not v)
     read_receipt: str = ""
     access: Literal["public", "captcha"] = "public"
     share_image_url: str | None = Field(default=None, exclude_if=lambda value: value is None)
@@ -200,6 +212,7 @@ class PageTranslationCatalog(PublicModel):
 
 
 class ManagedPageItem(PublicModel):
+    media_urls: dict[str, MediaURL] = Field(default_factory=dict, exclude_if=lambda v: not v)
     id: UUID
     source: Literal["custom", "registered"]
     implementation_id: str | None

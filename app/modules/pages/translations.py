@@ -6,6 +6,7 @@ from uuid import uuid4
 
 from app.modules.auth.models import User
 from app.modules.auth.service import AuthFailure
+from app.modules.content.component_document import ComponentDocument
 from app.modules.content.content_paths import initial_path
 from app.modules.content.publication import ContentPublication
 from app.modules.media.locking import lock_references
@@ -75,6 +76,12 @@ class PageTranslations:
                 if payload.copy_source
                 else PageValue(title=source.data["title"], path=path)
             )
+            if not payload.copy_source and template is None:
+                source_value = PageValue.model_validate(source.data)
+                value.layout = source_value.layout
+                value.edit_mode = source_value.edit_mode
+                if value.edit_mode == "components":
+                    value.component_document = ComponentDocument()
             value.path, value.enabled, value.javascript_enabled = path, False, False
             value.seo_title = value.seo_description = value.seo_canonical_path = ""
             value.seo_share_title = value.seo_share_description = value.seo_image_alt = ""

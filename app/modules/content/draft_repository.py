@@ -7,6 +7,7 @@ from sqlalchemy.dialects.postgresql import JSONPATH
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
+from app.modules.content.component_document import ComponentDocument
 from app.modules.content.draft_models import ContentDraft, TranslationGroup
 from app.modules.content.draft_schemas import (
     DraftAuthor,
@@ -24,13 +25,21 @@ from app.modules.content.text_preview import content_preview
 
 
 def summary(row: ContentDraft) -> DraftSummary:
+    components = (
+        ComponentDocument.model_validate(row.component_document)
+        if row.edit_mode == "components"
+        else None
+    )
     return DraftSummary(
+        edit_mode="components" if components is not None else "blocks",
         owner_id=row.created_by,
         id=row.id,
         type_id=row.type_id,
         title=row.title,
         excerpt=row.excerpt,
-        preview=content_preview(row.body),
+        preview=content_preview(
+            [{"content": components.text()}] if components is not None else row.body
+        ),
         author=row.author,
         revision=row.revision,
         status="trash" if row.deleted_at else "draft",
@@ -53,6 +62,7 @@ def detail(row: ContentDraft) -> DraftDetail:
         {
             **summary(row).model_dump(),
             "body": row.body,
+            "component_document": row.component_document,
             "settings": row.editor_settings or {},
             "has_password": bool(row.access_password_hash),
         }

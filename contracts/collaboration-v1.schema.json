@@ -504,6 +504,100 @@
       "title": "CommittedDraft",
       "type": "object"
     },
+    "ComponentDocument": {
+      "additionalProperties": false,
+      "properties": {
+        "version": {
+          "const": 1,
+          "default": 1,
+          "title": "Version",
+          "type": "integer"
+        },
+        "nodes": {
+          "items": {
+            "$ref": "#/$defs/ComponentNode"
+          },
+          "maxItems": 300,
+          "title": "Nodes",
+          "type": "array"
+        }
+      },
+      "title": "ComponentDocument",
+      "type": "object"
+    },
+    "ComponentNode": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,79}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "type": {
+          "maxLength": 100,
+          "pattern": "^[a-z][a-z0-9_-]*\\.[a-z][a-z0-9_.-]{0,63}$",
+          "title": "Type",
+          "type": "string"
+        },
+        "props": {
+          "additionalProperties": {
+            "$ref": "#/$defs/JsonValue"
+          },
+          "maxProperties": 64,
+          "title": "Props",
+          "type": "object"
+        },
+        "children": {
+          "items": {
+            "$ref": "#/$defs/ComponentNode"
+          },
+          "maxItems": 300,
+          "title": "Children",
+          "type": "array"
+        },
+        "parameters": {
+          "additionalProperties": {
+            "$ref": "#/$defs/ComponentParameter"
+          },
+          "maxProperties": 32,
+          "title": "Parameters",
+          "type": "object"
+        }
+      },
+      "required": [
+        "id",
+        "type"
+      ],
+      "title": "ComponentNode",
+      "type": "object"
+    },
+    "ComponentParameter": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,79}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "label": {
+          "maxLength": 120,
+          "minLength": 1,
+          "title": "Label",
+          "type": "string"
+        },
+        "keep_default": {
+          "default": true,
+          "title": "Keep Default",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "label"
+      ],
+      "title": "ComponentParameter",
+      "type": "object"
+    },
     "ConflictResolution": {
       "additionalProperties": false,
       "properties": {
@@ -587,6 +681,15 @@
     "DraftDetail": {
       "additionalProperties": false,
       "properties": {
+        "edit_mode": {
+          "default": "blocks",
+          "enum": [
+            "blocks",
+            "components"
+          ],
+          "title": "Edit Mode",
+          "type": "string"
+        },
         "collaboration_seq": {
           "anyOf": [
             {
@@ -755,6 +858,17 @@
           "default": null,
           "title": "Translation Group Id"
         },
+        "component_document": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ComponentDocument"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "body": {
           "items": {
             "$ref": "#/$defs/DraftBlock"
@@ -815,9 +929,28 @@
             "$ref": "#/$defs/DraftBlock"
           },
           "maxItems": 128,
-          "minItems": 1,
           "title": "Body",
           "type": "array"
+        },
+        "edit_mode": {
+          "default": "blocks",
+          "enum": [
+            "blocks",
+            "components"
+          ],
+          "title": "Edit Mode",
+          "type": "string"
+        },
+        "component_document": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ComponentDocument"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         },
         "settings": {
           "anyOf": [
@@ -845,9 +978,6 @@
           "title": "Access Password"
         }
       },
-      "required": [
-        "body"
-      ],
       "title": "DraftFields",
       "type": "object"
     },
@@ -2763,7 +2893,7 @@
   "title": "CollaborationContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "2.9.0",
+  "x-everunfold-contract-version": "2.10.0",
   "x-everunfold-operations": [
     {
       "name": "acquireHtmlSource",

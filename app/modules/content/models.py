@@ -50,6 +50,7 @@ class Content(Base):
     public_generation: Mapped[int] = mapped_column(Integer, default=1)
     content: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, default=list)
     media_urls: Mapped[dict[str, dict[str, str]]] = mapped_column(JSONB, default=dict)
+    component_document: Mapped[dict[str, Any] | None] = mapped_column(JSONB(none_as_null=True))
     editor_settings: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
     captcha_read_required: Mapped[bool] = mapped_column(
         Boolean, default=False, server_default="false"

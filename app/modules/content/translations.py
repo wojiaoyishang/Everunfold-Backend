@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import Settings
 from app.modules.auth.permissions import AuthSubject
 from app.modules.auth.service import AuthFailure
+from app.modules.content.component_document import ComponentDocument
 from app.modules.content.content_paths import initial_path
 from app.modules.content.draft_models import (
     ContentDraft,
@@ -138,13 +139,27 @@ class Translations:
             ) = ""
             settings.seo_image_alt = ""
             settings.opens_at = None
-            blocks = published.content if published else source.body
+            mode = (
+                ("components" if published.component_document is not None else "blocks")
+                if published
+                else source.edit_mode
+            )
+            component_document = None
+            if mode == "components":
+                component_document = (
+                    source.component_document
+                    if payload.copy_source and source.component_document is not None
+                    else ComponentDocument().model_dump(mode="json")
+                )
+            blocks = (published.content if published else source.body) or source.body
             body = (
                 [{**item, "id": str(uuid4())} for item in blocks]
                 if payload.copy_source
                 else [{"id": str(uuid4()), "type": "markdown", "content": ""}]
             )
-            await editor_media(self.session, self.config, json.dumps(body), settings)
+            await editor_media(
+                self.session, self.config, json.dumps(component_document or body), settings
+            )
             created = ContentDraft(
                 id=identity,
                 language=payload.language,
@@ -154,6 +169,8 @@ class Translations:
                 title=published.title if published else source.title,
                 excerpt="",
                 body=body,
+                edit_mode=mode,
+                component_document=component_document,
                 editor_settings=settings.model_dump(mode="json"),
                 author=actor.display_name,
                 created_by=actor.id,
@@ -172,6 +189,7 @@ class Translations:
                     snapshot={
                         **summary(created).model_dump(mode="json"),
                         "body": body,
+                        "component_document": component_document,
                         "settings": settings.model_dump(mode="json"),
                         "has_password": False,
                     },
@@ -250,6 +268,7 @@ class Translations:
                         snapshot={
                             **summary(item).model_dump(mode="json"),
                             "body": item.body,
+                            "component_document": item.component_document,
                             "settings": item.editor_settings,
                             "has_password": bool(item.access_password_hash),
                         },

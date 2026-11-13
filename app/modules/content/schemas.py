@@ -10,9 +10,10 @@ from pydantic import Field, model_validator
 from app.core.schemas import ErrorResponse as ErrorResponse
 from app.core.schemas import PublicModel as PublicModel
 from app.core.schemas import PublicResponse as PublicResponse
+from app.modules.content.component_document import ComponentDocument, ContentEditMode
 from app.modules.content.editor_schema import PublicEditorSettings
 from app.modules.content.seo import GlossaryDiscoveryEntry
-from app.modules.media.schemas import FontInfo
+from app.modules.media.schemas import MediaURL as MediaURL
 from app.modules.pages.schemas import PublicManagedPage
 
 ContentKind = Literal["article", "shuoshuo", "page"]
@@ -101,13 +102,11 @@ class ContentBlock(PublicModel):
     content: str
 
 
-class MediaURL(PublicModel):
-    original: str
-    webp: str = ""
-    font: FontInfo | None = None
-
-
 class ContentDetail(ContentSummary):
+    edit_mode: ContentEditMode = Field(default="blocks", exclude_if=lambda v: v == "blocks")
+    component_document: ComponentDocument | None = Field(
+        default=None, exclude_if=lambda v: v is None
+    )
     read_receipt: str = ""
     unlocked_comments: list[PublicComment] = Field(default_factory=list)
     content: list[ContentBlock]
@@ -117,6 +116,7 @@ class ContentDetail(ContentSummary):
     def no_restricted_payload(self) -> Self:
         if self.access != "public" and (
             self.content
+            or self.component_document is not None
             or self.media_urls
             or self.excerpt
             or self.cover_url

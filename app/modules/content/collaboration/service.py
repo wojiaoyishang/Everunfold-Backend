@@ -95,11 +95,15 @@ async def authorize(
     return actor
 
 
-async def draft_row(session: AsyncSession, draft_id: UUID, *, lock: bool = False) -> ContentDraft:
+async def draft_row(
+    session: AsyncSession, draft_id: UUID, *, lock: bool = False, blocks_only: bool = False
+) -> ContentDraft:
     statement = select(ContentDraft).where(ContentDraft.id == draft_id)
     row = await session.scalar(statement.with_for_update() if lock else statement)
     if row is None or row.deleted_at is not None:
         raise AuthFailure(404, 40450, "草稿不存在或已移入回收站")
+    if blocks_only and row.edit_mode == "components":
+        raise AuthFailure(409, 40973, "此内容使用组件模式，请在实时编辑器中修改")
     return row
 
 
@@ -107,7 +111,7 @@ async def ticket(
     session: AsyncSession, draft_id: UUID, session_hash: str, *, source_first: bool = False
 ) -> TicketState:
     await lock_references(session)
-    row = await draft_row(session, draft_id, lock=True)
+    row = await draft_row(session, draft_id, lock=True, blocks_only=True)
     document = await session.get(CollaborationDocument, draft_id)
     now = datetime.now(UTC)
     if document is None:
@@ -201,7 +205,7 @@ async def consume_ticket(session: AsyncSession, draft_id: UUID, secret: str) -> 
     if not record or record.draft_id != draft_id or record.expires_at <= datetime.now(UTC):
         raise AuthFailure(401, 40102, "协同连接凭据已失效")
     actor = await authorize(session, record.session_hash, draft_id=draft_id)
-    await draft_row(session, draft_id)
+    await draft_row(session, draft_id, blocks_only=True)
     session_hash = record.session_hash
     await session.delete(record)
     await session.commit()
@@ -237,7 +241,7 @@ async def accept_update(
         raise AuthFailure(413, 41370, "协同更新过大，请导出本地内容")
     digest = hashlib.sha256(payload).hexdigest()
     await lock_references(session)
-    draft = await draft_row(session, draft_id, lock=True)
+    draft = await draft_row(session, draft_id, lock=True, blocks_only=True)
     document = await session.get(CollaborationDocument, draft_id, with_for_update=True)
     if not document or document.epoch != update.epoch:
         raise AuthFailure(409, 40970, "协同版本已变化，请先导出本地内容")
@@ -321,7 +325,7 @@ async def commit_draft(
     session: AsyncSession, config: Settings, actor: AuthSubject, payload: CommitDraft
 ) -> CommittedDraft:
     await lock_references(session)
-    row = await draft_row(session, payload.id, lock=True)
+    row = await draft_row(session, payload.id, lock=True, blocks_only=True)
     await require_unlocked(session, payload.id)
     document = await session.get(CollaborationDocument, payload.id, with_for_update=True)
     if (

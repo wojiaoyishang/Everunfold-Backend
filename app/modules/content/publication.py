@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
 from app.modules.auth.service import AuthFailure
+from app.modules.content.component_document import ComponentDocument
 from app.modules.content.draft_models import ContentDraft
 from app.modules.content.editor_schema import EditorSettings
 from app.modules.content.editor_service import editor_media, publish_taxonomies
@@ -46,7 +47,12 @@ class ContentPublication:
     ) -> tuple[EditorSettings, str]:
         if draft.type_id not in {"article", "shuoshuo"}:
             raise AuthFailure(422, 42254, "此类型尚未配置公开展示")
-        if not any(str(block["content"]).strip() for block in draft.body):
+        if draft.edit_mode == "components":
+            document = ComponentDocument.model_validate(draft.component_document).public_document()
+            has_body = bool(document.nodes)
+        else:
+            has_body = any(str(block["content"]).strip() for block in draft.body)
+        if not has_body:
             raise AuthFailure(422, 42255, "请填写正文后再发布")
         now = now or datetime.now(UTC)
         settings = EditorSettings.model_validate(draft.editor_settings or {})
@@ -93,9 +99,34 @@ class ContentPublication:
             settings.display_published_at or draft.published_at or published_at or now
         )
         draft.published_revision = draft.revision
-        body = "\n\n".join(str(block["content"]) for block in draft.body)
-        media = await editor_media(self.session, self.config, json.dumps(draft.body), settings)
-        excerpt = draft.excerpt or content_preview(draft.body)
+        from app.modules.shortcodes.regions import RegionPublication
+
+        regions = RegionPublication(self.session, self.config, "content", draft.id)
+        component_document = None
+        if draft.edit_mode == "components":
+            document = ComponentDocument.model_validate(draft.component_document).public_document()
+            document = regions.redact_document(document)
+            assert document is not None
+            component_document = document.model_dump(mode="json")
+            public_body = []
+            body = document.text()
+            source = document.model_dump_json()
+            preview_blocks = [{"content": body}]
+        else:
+            public_body = [
+                {**block, "content": regions.redact(str(block["content"]), block["type"])}
+                for block in draft.body
+            ]
+            body = "\n\n".join(str(block["content"]) for block in public_body)
+            source = json.dumps(public_body)
+            preview_blocks = public_body
+        media = await editor_media(self.session, self.config, source, settings)
+        excerpt = regions.redact(draft.excerpt, "markdown") if draft.excerpt else ""
+        excerpt = (
+            content_preview([{"content": excerpt}], 1000) if excerpt != draft.excerpt else excerpt
+        )
+        excerpt = excerpt or content_preview(preview_blocks)
+        await regions.store()
         from app.modules.captcha.service import current_config, required
 
         captcha_required = required(
@@ -113,7 +144,8 @@ class ContentPublication:
             updated_at=now,
             reading_minutes=max(1, (len(body) + 399) // 400),
             word_count=len(body),
-            content=draft.body,
+            content=public_body,
+            component_document=component_document,
             media_urls={key: value.model_dump() for key, value in media.items()},
             cover_url=media[str(settings.cover_media_id)].original
             if settings.cover_media_id

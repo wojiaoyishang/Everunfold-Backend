@@ -43,6 +43,16 @@ from app.modules.media.models import MediaAsset
 from app.modules.settings.cache_event_schema import CacheChange
 from app.modules.settings.languages import require_language
 
+
+def media_sources(row: ContentDraft) -> str:
+    return json.dumps(row.component_document if row.edit_mode == "components" else row.body)
+
+
+def require_block_mode(row: ContentDraft) -> None:
+    if row.edit_mode == "components":
+        raise AuthFailure(409, 40973, "此内容使用组件模式，请在实时编辑器中修改")
+
+
 Action = Literal[
     "create", "save", "trash", "restore", "publish", "withdraw", "schedule", "cancel_schedule"
 ]
@@ -86,7 +96,7 @@ class DraftService:
         head = await self.session.get(CollaborationDocument, row.id)
         result.collaboration_seq = head.committed_seq if head else None
         result.media_urls = await editor_media(
-            self.session, self.config, json.dumps(row.body), result.settings, strict=False
+            self.session, self.config, media_sources(row), result.settings, strict=False
         )
         return result
 
@@ -101,6 +111,7 @@ class DraftService:
         note: str = "",
         live_fields: DraftFields | None = None,
         commit: bool = True,
+        component_editor: bool = False,
     ) -> DraftDetail:
         serialized = payload.model_dump(mode="json")
         if isinstance(payload, DraftCreate | DraftSave) and payload.fields.access_password:
@@ -117,6 +128,8 @@ class DraftService:
                 ).hex()
             )
         digest_input: dict[str, object] = {"action": action, "payload": serialized, "demo": demo}
+        if component_editor:
+            digest_input["component_editor"] = True
         if collaboration_cutoff is not None:
             digest_input["collaboration_cutoff"] = str(collaboration_cutoff)
         if note:
@@ -135,11 +148,6 @@ class DraftService:
             if receipt.actor_id != actor.id or receipt.digest != digest:
                 raise AuthFailure(409, 40950, "操作标识已用于另一项修改，请重新操作")
             return DraftDetail.model_validate(receipt.response)
-        if isinstance(payload, DraftSave) and collaboration_cutoff is None:
-            from app.modules.content.collaboration.models import CollaborationDocument
-
-            if await self.session.get(CollaborationDocument, payload.id) is not None:
-                raise AuthFailure(409, 40972, "此草稿已启用协同，请使用协同编辑器保存")
         now = datetime.now(UTC)
         if isinstance(payload, DraftCreate):
             selected_language = await require_language(self.session, payload.language)
@@ -150,6 +158,7 @@ class DraftService:
                 title="",
                 excerpt="",
                 body=[],
+                edit_mode="blocks",
                 editor_settings={},
                 author=actor.display_name,
                 created_by=actor.id,
@@ -180,13 +189,39 @@ class DraftService:
             if row.deleted_at:
                 raise AuthFailure(409, 40952, "请先从回收站恢复，再编辑")
             fields = payload.fields
+            if fields.edit_mode == "components" and not component_editor:
+                raise AuthFailure(409, 40973, "请在实时编辑器中启用组件模式")
+            if not component_editor:
+                require_block_mode(row)
+            if (
+                component_editor
+                and fields.edit_mode == "blocks"
+                and (action != "save" or row.edit_mode != "components")
+            ):
+                raise AuthFailure(409, 40973, "此操作需要组件模式")
+
+            from app.modules.content.collaboration.models import CollaborationDocument
+
+            head = None
+            if isinstance(payload, DraftSave) and collaboration_cutoff is None:
+                head = await self.session.get(CollaborationDocument, row.id, with_for_update=True)
+                if head is not None and row.edit_mode != "components":
+                    if not component_editor:
+                        raise AuthFailure(409, 40972, "此草稿已启用协同，请使用协同编辑器保存")
+                    if payload.expected_collaboration_seq != head.committed_seq:
+                        raise AuthFailure(409, 40972, "协同内容已更新，请刷新后切换编辑模式")
             if definition.title_required and not fields.title.strip():
                 raise AuthFailure(422, 42251, "请填写标题")
             if not definition.supports_excerpt and fields.excerpt:
                 raise AuthFailure(422, 42252, "此内容类型不使用独立摘要")
-            await self._check_media(
-                json.dumps([block.model_dump(mode="json") for block in fields.body])
+            source_blocks = [block.model_dump(mode="json") for block in fields.body]
+            component_document = fields.component_document
+            source = (
+                component_document.model_dump_json()
+                if component_document is not None
+                else json.dumps(source_blocks)
             )
+            await self._check_media(source)
             settings = fields.settings or EditorSettings.model_validate(row.editor_settings or {})
             if isinstance(payload, DraftCreate) and row.type_id == "article":
                 from app.modules.settings.defaults import public_settings
@@ -222,14 +257,23 @@ class DraftService:
                 raise AuthFailure(422, 42259, "请先设置文章密码")
             if settings.visibility == "public" and settings.opens_at is not None:
                 raise AuthFailure(422, 42259, "定时开放需要先选择密码保护")
-            await editor_media(
-                self.session,
-                self.config,
-                json.dumps([block.model_dump(mode="json") for block in fields.body]),
-                settings,
-            )
+            await editor_media(self.session, self.config, source, settings)
             row.title, row.excerpt = fields.title.strip(), fields.excerpt.strip()
-            row.body = [block.model_dump(mode="json") for block in fields.body]
+            if fields.edit_mode == "blocks":
+                row.body = source_blocks
+                if row.edit_mode == "components" and head is not None:
+                    from app.modules.content.collaboration.epochs import replace_epoch
+
+                    await replace_epoch(
+                        self.session, head, fields.model_copy(update={"settings": settings})
+                    )
+            elif component_document is not None:
+                row.component_document = component_document.model_dump(mode="json")
+                if isinstance(payload, DraftCreate):
+                    row.body = source_blocks or [
+                        {"id": str(uuid4()), "type": "markdown", "content": ""}
+                    ]
+            row.edit_mode = fields.edit_mode
             row.editor_settings = settings.model_dump(mode="json")
         elif action == "trash":
             if row.deleted_at:
@@ -260,7 +304,7 @@ class DraftService:
                 await publication.stage(change)
         result = detail(row)
         result.media_urls = await editor_media(
-            self.session, self.config, json.dumps(row.body), result.settings, strict=False
+            self.session, self.config, media_sources(row), result.settings, strict=False
         )
         snapshot = result.model_dump(mode="json")
         try:

@@ -14,6 +14,7 @@ from app.modules.auth.permissions import user_permissions
 from app.modules.auth.service import AuthFailure
 from app.modules.content.publication import ContentPublication
 from app.modules.media.locking import lock_references
+from app.modules.pages.component_values import check_component_sources, page_document
 from app.modules.pages.groups import source_value
 from app.modules.pages.models import ManagedPage, PageTemplate
 from app.modules.pages.schemas import (
@@ -55,12 +56,25 @@ def template_reference(template: PageTemplate) -> PageTemplateReference:
 
 def page_data(value: PageValue, template: PageTemplate | None) -> dict[str, Any]:
     # Child drafts and applied settings keep their own fields. The source is read from the template.
-    return value.model_dump(mode="json", exclude=set(PageCode.model_fields) if template else None)
+    data = value.model_dump(mode="json", exclude=set(PageCode.model_fields) if template else None)
+    if template is not None:
+        data["layout"] = value.layout
+    return data
 
 
 def effective_value(data: dict[str, Any], template: PageTemplate | None) -> PageValue:
     # Older applied snapshots also contain the public record's identity and revision.
-    return source_value(data | template.code if template else data)
+    if template is None:
+        return source_value(data)
+    code = PageCode.model_validate(
+        {key: value for key, value in template.code.items() if key in PageCode.model_fields}
+    )
+    source = {
+        **code.model_dump(),
+        "edit_mode": code.edit_mode,
+        "component_document": code.component_document,
+    }
+    return source_value({"layout": template.code.get("layout", "wide"), **data, **source})
 
 
 def require_page_size(value: PageValue | TitledPageCode) -> None:
@@ -97,6 +111,16 @@ class PageTemplates:
         if template is not None and template.revision != payload.expected_revision:
             raise AuthFailure(409, 40992, "页面模板已被修改，请刷新后合并输入。")
         value = payload.value
+        previous_value = (
+            TitledPageCode(**template.code, title=template.title, description=template.description)
+            if template
+            else None
+        )
+        check_component_sources(value, previous_value)
+        if value.edit_mode == "components":
+            value.component_document = page_document(value)
+        elif value.component_document is None and previous_value:
+            value.component_document = previous_value.component_document
         if actor.role != "admin" and (
             value.javascript_enabled or (template and template.code.get("javascript_enabled"))
         ):
@@ -139,6 +163,9 @@ class PageTemplates:
         )
         if any(row.published for row in rows) and "pages:publish" not in user_permissions(actor):
             raise AuthFailure(403, 40399, "更新已发布页面使用的模板需要页面发布权限。")
+        from app.modules.pages.service import PagesService
+
+        service = PagesService(self.accounts, self.config)
         changes = []
         now = datetime.now(UTC)
         for row in rows:
@@ -149,7 +176,10 @@ class PageTemplates:
                 continue
             row.revision += 1
             row.updated_at = now
-            row.published = {**row.published, **template.code, "revision": row.revision}
+            value = effective_value(row.applied_snapshot or row.published, template)
+            row.published = await service.public_value(
+                row, value, None, row.published.get("share_image_url")
+            )
             changes.append(CacheChange("page_changed", row.id, (row.published["path"],)))
         if changes:
             await ContentPublication(self.session, self.config).stage(*changes)

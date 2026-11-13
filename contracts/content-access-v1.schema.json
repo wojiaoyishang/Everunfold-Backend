@@ -28,6 +28,100 @@
       "title": "CaptchaAnswer",
       "type": "object"
     },
+    "ComponentDocument": {
+      "additionalProperties": false,
+      "properties": {
+        "version": {
+          "const": 1,
+          "default": 1,
+          "title": "Version",
+          "type": "integer"
+        },
+        "nodes": {
+          "items": {
+            "$ref": "#/$defs/ComponentNode"
+          },
+          "maxItems": 300,
+          "title": "Nodes",
+          "type": "array"
+        }
+      },
+      "title": "ComponentDocument",
+      "type": "object"
+    },
+    "ComponentNode": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,79}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "type": {
+          "maxLength": 100,
+          "pattern": "^[a-z][a-z0-9_-]*\\.[a-z][a-z0-9_.-]{0,63}$",
+          "title": "Type",
+          "type": "string"
+        },
+        "props": {
+          "additionalProperties": {
+            "$ref": "#/$defs/JsonValue"
+          },
+          "maxProperties": 64,
+          "title": "Props",
+          "type": "object"
+        },
+        "children": {
+          "items": {
+            "$ref": "#/$defs/ComponentNode"
+          },
+          "maxItems": 300,
+          "title": "Children",
+          "type": "array"
+        },
+        "parameters": {
+          "additionalProperties": {
+            "$ref": "#/$defs/ComponentParameter"
+          },
+          "maxProperties": 32,
+          "title": "Parameters",
+          "type": "object"
+        }
+      },
+      "required": [
+        "id",
+        "type"
+      ],
+      "title": "ComponentNode",
+      "type": "object"
+    },
+    "ComponentParameter": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,79}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "label": {
+          "maxLength": 120,
+          "minLength": 1,
+          "title": "Label",
+          "type": "string"
+        },
+        "keep_default": {
+          "default": true,
+          "title": "Keep Default",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "label"
+      ],
+      "title": "ComponentParameter",
+      "type": "object"
+    },
     "ContentAccessInput": {
       "additionalProperties": false,
       "properties": {
@@ -406,6 +500,26 @@
           "title": "Pinned",
           "type": "boolean"
         },
+        "edit_mode": {
+          "default": "blocks",
+          "enum": [
+            "blocks",
+            "components"
+          ],
+          "title": "Edit Mode",
+          "type": "string"
+        },
+        "component_document": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ComponentDocument"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "read_receipt": {
           "default": "",
           "title": "Read Receipt",
@@ -545,6 +659,7 @@
       "title": "FontInfo",
       "type": "object"
     },
+    "JsonValue": {},
     "MediaURL": {
       "additionalProperties": false,
       "properties": {
@@ -714,7 +829,7 @@
   "title": "ContentAccessContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "1.7.0",
+  "x-everunfold-contract-version": "1.8.0",
   "x-everunfold-reader-authorization": {
     "optional_api_key": true,
     "audience": "everunfold",

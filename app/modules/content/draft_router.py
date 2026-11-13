@@ -165,3 +165,55 @@ async def sync(ctx: Authorized) -> JSONResponseSuccess:
     return JSONResponseSuccess(
         data=await ContentPublication(ctx.service.session, ctx.service.config).retry(ctx.actor.id)
     )
+
+
+@router.post(
+    "/components/create",
+    operation_id="createComponentDraft",
+    response_model=PublicResponse[DraftDetail],
+)
+async def create_components(payload: DraftCreate, ctx: Authorized) -> JSONResponseSuccess:
+    return JSONResponseSuccess(
+        data=await DraftService(ctx.service.session, ctx.service.config).mutate(
+            "create", payload, ctx.actor, component_editor=True
+        )
+    )
+
+
+@router.post(
+    "/components/save",
+    operation_id="saveComponentDraft",
+    response_model=PublicResponse[DraftDetail],
+)
+async def save_components(payload: DraftSave, ctx: Authorized) -> JSONResponseSuccess:
+    return JSONResponseSuccess(
+        data=await DraftService(ctx.service.session, ctx.service.config).mutate(
+            "save", payload, ctx.actor, component_editor=True
+        )
+    )
+
+
+@router.post(
+    "/components/publish",
+    operation_id="publishComponentDraft",
+    response_model=PublicResponse[DraftDetail],
+)
+async def publish_components(payload: DraftSave, ctx: Authorized) -> JSONResponseSuccess:
+    return JSONResponseSuccess(
+        data=await DraftService(ctx.service.session, ctx.service.config).mutate(
+            "publish", payload, ctx.actor, component_editor=True
+        )
+    )
+
+
+@router.post(
+    "/components/schedule",
+    operation_id="scheduleComponentDraft",
+    response_model=PublicResponse[DraftDetail],
+)
+async def schedule_components(payload: DraftSchedule, ctx: Authorized) -> JSONResponseSuccess:
+    return JSONResponseSuccess(
+        data=await DraftService(ctx.service.session, ctx.service.config).mutate(
+            "schedule", payload, ctx.actor, component_editor=True
+        )
+    )

@@ -11,7 +11,7 @@ from app.modules.content.type_registry import content_types
 def build_schema() -> dict[str, Any]:
     schema = ContentAdminContract.model_json_schema()
     schema["$schema"] = "http://json-schema.org/draft-07/schema#"
-    schema["x-everunfold-contract-version"] = "1.22.0"
+    schema["x-everunfold-contract-version"] = "1.23.0"
     schema["x-everunfold-content-types"] = [item.model_dump() for item in content_types.all()]
     schema["x-everunfold-operations"] = [
         {
@@ -78,6 +78,10 @@ def build_schema() -> dict[str, Any]:
                 ("saveTaxonomyChange", "taxonomy/save", "taxonomy_command", "taxonomy_result"),
                 ("queryDrafts", "query", "query", "catalog"),
                 ("readDraft", "detail", "lookup", "detail"),
+                ("createComponentDraft", "components/create", "create", "detail"),
+                ("saveComponentDraft", "components/save", "save", "detail"),
+                ("publishComponentDraft", "components/publish", "save", "detail"),
+                ("scheduleComponentDraft", "components/schedule", "schedule", "detail"),
                 ("createDraft", "create", "create", "detail"),
                 ("saveDraft", "save", "save", "detail"),
                 ("publishDraft", "publish", "save", "detail"),

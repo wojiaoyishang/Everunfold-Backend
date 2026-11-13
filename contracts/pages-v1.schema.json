@@ -1,5 +1,99 @@
 {
   "$defs": {
+    "ComponentDocument": {
+      "additionalProperties": false,
+      "properties": {
+        "version": {
+          "const": 1,
+          "default": 1,
+          "title": "Version",
+          "type": "integer"
+        },
+        "nodes": {
+          "items": {
+            "$ref": "#/$defs/ComponentNode"
+          },
+          "maxItems": 300,
+          "title": "Nodes",
+          "type": "array"
+        }
+      },
+      "title": "ComponentDocument",
+      "type": "object"
+    },
+    "ComponentNode": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,79}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "type": {
+          "maxLength": 100,
+          "pattern": "^[a-z][a-z0-9_-]*\\.[a-z][a-z0-9_.-]{0,63}$",
+          "title": "Type",
+          "type": "string"
+        },
+        "props": {
+          "additionalProperties": {
+            "$ref": "#/$defs/JsonValue"
+          },
+          "maxProperties": 64,
+          "title": "Props",
+          "type": "object"
+        },
+        "children": {
+          "items": {
+            "$ref": "#/$defs/ComponentNode"
+          },
+          "maxItems": 300,
+          "title": "Children",
+          "type": "array"
+        },
+        "parameters": {
+          "additionalProperties": {
+            "$ref": "#/$defs/ComponentParameter"
+          },
+          "maxProperties": 32,
+          "title": "Parameters",
+          "type": "object"
+        }
+      },
+      "required": [
+        "id",
+        "type"
+      ],
+      "title": "ComponentNode",
+      "type": "object"
+    },
+    "ComponentParameter": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,79}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "label": {
+          "maxLength": 120,
+          "minLength": 1,
+          "title": "Label",
+          "type": "string"
+        },
+        "keep_default": {
+          "default": true,
+          "title": "Keep Default",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "label"
+      ],
+      "title": "ComponentParameter",
+      "type": "object"
+    },
     "CreatePageTranslation": {
       "additionalProperties": false,
       "properties": {
@@ -38,6 +132,54 @@
         "language"
       ],
       "title": "CreatePageTranslation",
+      "type": "object"
+    },
+    "FontInfo": {
+      "additionalProperties": false,
+      "properties": {
+        "family": {
+          "title": "Family",
+          "type": "string"
+        },
+        "style": {
+          "enum": [
+            "normal",
+            "italic"
+          ],
+          "title": "Style",
+          "type": "string"
+        },
+        "weight_min": {
+          "maximum": 1000,
+          "minimum": 1,
+          "title": "Weight Min",
+          "type": "integer"
+        },
+        "weight_max": {
+          "maximum": 1000,
+          "minimum": 1,
+          "title": "Weight Max",
+          "type": "integer"
+        },
+        "format": {
+          "enum": [
+            "woff2",
+            "woff",
+            "truetype",
+            "opentype"
+          ],
+          "title": "Format",
+          "type": "string"
+        }
+      },
+      "required": [
+        "family",
+        "style",
+        "weight_min",
+        "weight_max",
+        "format"
+      ],
+      "title": "FontInfo",
       "type": "object"
     },
     "JsonValue": {},
@@ -94,6 +236,13 @@
     "ManagedPageItem": {
       "additionalProperties": false,
       "properties": {
+        "media_urls": {
+          "additionalProperties": {
+            "$ref": "#/$defs/MediaURL"
+          },
+          "title": "Media Urls",
+          "type": "object"
+        },
         "id": {
           "format": "uuid",
           "title": "Id",
@@ -431,6 +580,36 @@
       "title": "ManagedPageSummary",
       "type": "object"
     },
+    "MediaURL": {
+      "additionalProperties": false,
+      "properties": {
+        "original": {
+          "title": "Original",
+          "type": "string"
+        },
+        "webp": {
+          "default": "",
+          "title": "Webp",
+          "type": "string"
+        },
+        "font": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FontInfo"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "original"
+      ],
+      "title": "MediaURL",
+      "type": "object"
+    },
     "PageCategories": {
       "additionalProperties": false,
       "properties": {
@@ -561,6 +740,26 @@
           "default": null,
           "title": "Seo Structured Data"
         },
+        "edit_mode": {
+          "default": "source",
+          "enum": [
+            "source",
+            "components"
+          ],
+          "title": "Edit Mode",
+          "type": "string"
+        },
+        "component_document": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ComponentDocument"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "html": {
           "default": "",
           "maxLength": 200000,
@@ -593,6 +792,17 @@
           "title": "Javascript Position",
           "type": "string"
         },
+        "layout": {
+          "default": "wide",
+          "enum": [
+            "wide",
+            "sidebar",
+            "wide_transparent",
+            "blank"
+          ],
+          "title": "Layout",
+          "type": "string"
+        },
         "title": {
           "maxLength": 120,
           "minLength": 1,
@@ -604,6 +814,13 @@
           "maxLength": 500,
           "title": "Description",
           "type": "string"
+        },
+        "component_parameters": {
+          "additionalProperties": {
+            "$ref": "#/$defs/JsonValue"
+          },
+          "title": "Component Parameters",
+          "type": "object"
         },
         "captcha_read": {
           "default": "inherit",
@@ -1279,6 +1496,26 @@
           "default": null,
           "title": "Seo Structured Data"
         },
+        "edit_mode": {
+          "default": "source",
+          "enum": [
+            "source",
+            "components"
+          ],
+          "title": "Edit Mode",
+          "type": "string"
+        },
+        "component_document": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ComponentDocument"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "html": {
           "default": "",
           "maxLength": 200000,
@@ -1311,6 +1548,17 @@
           "title": "Javascript Position",
           "type": "string"
         },
+        "layout": {
+          "default": "wide",
+          "enum": [
+            "wide",
+            "sidebar",
+            "wide_transparent",
+            "blank"
+          ],
+          "title": "Layout",
+          "type": "string"
+        },
         "title": {
           "maxLength": 120,
           "minLength": 1,
@@ -1322,6 +1570,13 @@
           "maxLength": 500,
           "title": "Description",
           "type": "string"
+        },
+        "component_parameters": {
+          "additionalProperties": {
+            "$ref": "#/$defs/JsonValue"
+          },
+          "title": "Component Parameters",
+          "type": "object"
         },
         "captcha_read": {
           "default": "inherit",
@@ -1490,6 +1745,26 @@
           "default": null,
           "title": "Seo Structured Data"
         },
+        "edit_mode": {
+          "default": "source",
+          "enum": [
+            "source",
+            "components"
+          ],
+          "title": "Edit Mode",
+          "type": "string"
+        },
+        "component_document": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ComponentDocument"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "html": {
           "default": "",
           "maxLength": 200000,
@@ -1522,6 +1797,17 @@
           "title": "Javascript Position",
           "type": "string"
         },
+        "layout": {
+          "default": "wide",
+          "enum": [
+            "wide",
+            "sidebar",
+            "wide_transparent",
+            "blank"
+          ],
+          "title": "Layout",
+          "type": "string"
+        },
         "title": {
           "maxLength": 120,
           "minLength": 1,
@@ -1533,6 +1819,13 @@
           "maxLength": 500,
           "title": "Description",
           "type": "string"
+        },
+        "component_parameters": {
+          "additionalProperties": {
+            "$ref": "#/$defs/JsonValue"
+          },
+          "title": "Component Parameters",
+          "type": "object"
         },
         "captcha_read": {
           "default": "inherit",
@@ -1592,6 +1885,13 @@
           "minLength": 2,
           "title": "Path",
           "type": "string"
+        },
+        "media_urls": {
+          "additionalProperties": {
+            "$ref": "#/$defs/MediaURL"
+          },
+          "title": "Media Urls",
+          "type": "object"
         },
         "read_receipt": {
           "default": "",
@@ -2108,6 +2408,26 @@
     "TitledPageCode": {
       "additionalProperties": false,
       "properties": {
+        "edit_mode": {
+          "default": "source",
+          "enum": [
+            "source",
+            "components"
+          ],
+          "title": "Edit Mode",
+          "type": "string"
+        },
+        "component_document": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ComponentDocument"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "html": {
           "default": "",
           "maxLength": 200000,
@@ -2138,6 +2458,17 @@
             "body_end"
           ],
           "title": "Javascript Position",
+          "type": "string"
+        },
+        "layout": {
+          "default": "wide",
+          "enum": [
+            "wide",
+            "sidebar",
+            "wide_transparent",
+            "blank"
+          ],
+          "title": "Layout",
           "type": "string"
         },
         "title": {
@@ -2240,7 +2571,7 @@
   "title": "PagesContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "1.14.0",
+  "x-everunfold-contract-version": "1.15.0",
   "x-everunfold-operations": [
     {
       "name": "setPageEnabled",

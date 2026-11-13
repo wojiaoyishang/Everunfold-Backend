@@ -110,7 +110,7 @@ async def serve(socket: WebSocket, draft_id: UUID) -> None:
         await pubsub.subscribe(channel)
         async with runtime.database.session_factory() as session:
             document = await session.get(CollaborationDocument, draft_id)
-            draft = await draft_row(session, draft_id)
+            draft = await draft_row(session, draft_id, blocks_only=True)
             assert document is not None
             seq, revision = document.committed_seq, draft.revision
             epoch = document.epoch
@@ -195,7 +195,7 @@ async def serve(socket: WebSocket, draft_id: UUID) -> None:
             while True:
                 async with runtime.database.session_factory() as session:
                     await authorize(session, session_hash, draft_id=draft_id)
-                    draft = await draft_row(session, draft_id)
+                    draft = await draft_row(session, draft_id, blocks_only=True)
                     head = await session.get(CollaborationDocument, draft_id)
                     assert head is not None
                     locked = await lock_state(session, draft_id)

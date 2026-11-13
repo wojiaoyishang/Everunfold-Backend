@@ -1,5 +1,99 @@
 {
   "$defs": {
+    "ComponentDocument": {
+      "additionalProperties": false,
+      "properties": {
+        "version": {
+          "const": 1,
+          "default": 1,
+          "title": "Version",
+          "type": "integer"
+        },
+        "nodes": {
+          "items": {
+            "$ref": "#/$defs/ComponentNode"
+          },
+          "maxItems": 300,
+          "title": "Nodes",
+          "type": "array"
+        }
+      },
+      "title": "ComponentDocument",
+      "type": "object"
+    },
+    "ComponentNode": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,79}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "type": {
+          "maxLength": 100,
+          "pattern": "^[a-z][a-z0-9_-]*\\.[a-z][a-z0-9_.-]{0,63}$",
+          "title": "Type",
+          "type": "string"
+        },
+        "props": {
+          "additionalProperties": {
+            "$ref": "#/$defs/JsonValue"
+          },
+          "maxProperties": 64,
+          "title": "Props",
+          "type": "object"
+        },
+        "children": {
+          "items": {
+            "$ref": "#/$defs/ComponentNode"
+          },
+          "maxItems": 300,
+          "title": "Children",
+          "type": "array"
+        },
+        "parameters": {
+          "additionalProperties": {
+            "$ref": "#/$defs/ComponentParameter"
+          },
+          "maxProperties": 32,
+          "title": "Parameters",
+          "type": "object"
+        }
+      },
+      "required": [
+        "id",
+        "type"
+      ],
+      "title": "ComponentNode",
+      "type": "object"
+    },
+    "ComponentParameter": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,79}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "label": {
+          "maxLength": 120,
+          "minLength": 1,
+          "title": "Label",
+          "type": "string"
+        },
+        "keep_default": {
+          "default": true,
+          "title": "Keep Default",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "label"
+      ],
+      "title": "ComponentParameter",
+      "type": "object"
+    },
     "ContentActions": {
       "additionalProperties": false,
       "properties": {
@@ -406,6 +500,26 @@
         "pinned": {
           "title": "Pinned",
           "type": "boolean"
+        },
+        "edit_mode": {
+          "default": "blocks",
+          "enum": [
+            "blocks",
+            "components"
+          ],
+          "title": "Edit Mode",
+          "type": "string"
+        },
+        "component_document": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ComponentDocument"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         },
         "read_receipt": {
           "default": "",
@@ -892,6 +1006,15 @@
     "DraftDetail": {
       "additionalProperties": false,
       "properties": {
+        "edit_mode": {
+          "default": "blocks",
+          "enum": [
+            "blocks",
+            "components"
+          ],
+          "title": "Edit Mode",
+          "type": "string"
+        },
         "collaboration_seq": {
           "anyOf": [
             {
@@ -1060,6 +1183,17 @@
           "default": null,
           "title": "Translation Group Id"
         },
+        "component_document": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ComponentDocument"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "body": {
           "items": {
             "$ref": "#/$defs/DraftBlock"
@@ -1120,9 +1254,28 @@
             "$ref": "#/$defs/DraftBlock"
           },
           "maxItems": 128,
-          "minItems": 1,
           "title": "Body",
           "type": "array"
+        },
+        "edit_mode": {
+          "default": "blocks",
+          "enum": [
+            "blocks",
+            "components"
+          ],
+          "title": "Edit Mode",
+          "type": "string"
+        },
+        "component_document": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ComponentDocument"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         },
         "settings": {
           "anyOf": [
@@ -1150,15 +1303,21 @@
           "title": "Access Password"
         }
       },
-      "required": [
-        "body"
-      ],
       "title": "DraftFields",
       "type": "object"
     },
     "DraftListItem": {
       "additionalProperties": false,
       "properties": {
+        "edit_mode": {
+          "default": "blocks",
+          "enum": [
+            "blocks",
+            "components"
+          ],
+          "title": "Edit Mode",
+          "type": "string"
+        },
         "collaboration_seq": {
           "anyOf": [
             {
@@ -1614,6 +1773,19 @@
         },
         "fields": {
           "$ref": "#/$defs/DraftFields"
+        },
+        "expected_collaboration_seq": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Expected Collaboration Seq"
         }
       },
       "required": [
@@ -1645,6 +1817,19 @@
         },
         "fields": {
           "$ref": "#/$defs/DraftFields"
+        },
+        "expected_collaboration_seq": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Expected Collaboration Seq"
         },
         "scheduled_for": {
           "format": "date-time",
@@ -2526,6 +2711,26 @@
           "default": null,
           "title": "Seo Structured Data"
         },
+        "edit_mode": {
+          "default": "source",
+          "enum": [
+            "source",
+            "components"
+          ],
+          "title": "Edit Mode",
+          "type": "string"
+        },
+        "component_document": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ComponentDocument"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "html": {
           "default": "",
           "maxLength": 200000,
@@ -2558,6 +2763,17 @@
           "title": "Javascript Position",
           "type": "string"
         },
+        "layout": {
+          "default": "wide",
+          "enum": [
+            "wide",
+            "sidebar",
+            "wide_transparent",
+            "blank"
+          ],
+          "title": "Layout",
+          "type": "string"
+        },
         "title": {
           "maxLength": 120,
           "minLength": 1,
@@ -2569,6 +2785,13 @@
           "maxLength": 500,
           "title": "Description",
           "type": "string"
+        },
+        "component_parameters": {
+          "additionalProperties": {
+            "$ref": "#/$defs/JsonValue"
+          },
+          "title": "Component Parameters",
+          "type": "object"
         },
         "captcha_read": {
           "default": "inherit",
@@ -2628,6 +2851,13 @@
           "minLength": 2,
           "title": "Path",
           "type": "string"
+        },
+        "media_urls": {
+          "additionalProperties": {
+            "$ref": "#/$defs/MediaURL"
+          },
+          "title": "Media Urls",
+          "type": "object"
         },
         "read_receipt": {
           "default": "",
@@ -3820,6 +4050,15 @@
     "TranslationMember": {
       "additionalProperties": false,
       "properties": {
+        "edit_mode": {
+          "default": "blocks",
+          "enum": [
+            "blocks",
+            "components"
+          ],
+          "title": "Edit Mode",
+          "type": "string"
+        },
         "collaboration_seq": {
           "anyOf": [
             {
@@ -4159,7 +4398,7 @@
   "title": "ContentAdminContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "1.22.0",
+  "x-everunfold-contract-version": "1.23.0",
   "x-everunfold-content-types": [
     {
       "id": "article",
@@ -4283,6 +4522,34 @@
       "path": "/v1/admin/content/detail",
       "method": "POST",
       "input": "lookup",
+      "response": "detail"
+    },
+    {
+      "name": "createComponentDraft",
+      "path": "/v1/admin/content/components/create",
+      "method": "POST",
+      "input": "create",
+      "response": "detail"
+    },
+    {
+      "name": "saveComponentDraft",
+      "path": "/v1/admin/content/components/save",
+      "method": "POST",
+      "input": "save",
+      "response": "detail"
+    },
+    {
+      "name": "publishComponentDraft",
+      "path": "/v1/admin/content/components/publish",
+      "method": "POST",
+      "input": "save",
+      "response": "detail"
+    },
+    {
+      "name": "scheduleComponentDraft",
+      "path": "/v1/admin/content/components/schedule",
+      "method": "POST",
+      "input": "schedule",
       "response": "detail"
     },
     {

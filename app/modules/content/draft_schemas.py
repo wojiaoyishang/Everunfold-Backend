@@ -8,6 +8,7 @@ from uuid import UUID
 from pydantic import AwareDatetime, Field, model_validator
 
 from app.core.schemas import PublicModel, PublicResponse
+from app.modules.content.component_document import ComponentDocument, ContentEditMode
 from app.modules.content.editor_schema import EditorCatalog, EditorSettings, EditorTermCreate
 from app.modules.content.management_schemas import (
     DraftBatch,
@@ -36,12 +37,25 @@ class DraftBlock(PublicModel):
 class DraftFields(PublicModel):
     title: str = Field(default="", max_length=200)
     excerpt: str = Field(default="", max_length=1000)
-    body: list[DraftBlock] = Field(min_length=1, max_length=128)
+    body: list[DraftBlock] = Field(default_factory=list, max_length=128)
+    edit_mode: ContentEditMode = Field(default="blocks", exclude_if=lambda v: v == "blocks")
+    component_document: ComponentDocument | None = Field(
+        default=None, exclude_if=lambda v: v is None
+    )
     settings: EditorSettings | None = None
     access_password: str | None = Field(default=None, min_length=1, max_length=200, repr=False)
 
     @model_validator(mode="after")
     def bounded_unique_blocks(self) -> Self:
+        if self.edit_mode == "components":
+            if self.component_document is None:
+                raise ValueError("组件模式需要组件文档")
+            if has_upload_placeholder(self.component_document.text()):
+                raise ValueError("请等待图片上传完成或移除上传占位")
+        elif not self.body:
+            raise ValueError("区块模式需要正文区块")
+        if self.edit_mode == "blocks" and self.component_document is not None:
+            raise ValueError("请切换至组件模式后编辑组件文档")
         if any(has_upload_placeholder(block.content) for block in self.body):
             raise ValueError("请等待图片上传完成或移除上传占位")
         if len({block.id for block in self.body}) != len(self.body):
@@ -92,6 +106,9 @@ class DraftMutation(DraftLookup):
 
 class DraftSave(DraftMutation):
     fields: DraftFields
+    expected_collaboration_seq: int | None = Field(
+        default=None, ge=0, exclude_if=lambda v: v is None
+    )
 
 
 class DraftSchedule(DraftSave):
@@ -99,6 +116,7 @@ class DraftSchedule(DraftSave):
 
 
 class DraftSummary(PublicModel):
+    edit_mode: ContentEditMode = Field(default="blocks", exclude_if=lambda v: v == "blocks")
     collaboration_seq: int | None = None
     id: UUID
     owner_id: UUID | None = None
@@ -123,6 +141,9 @@ class DraftSummary(PublicModel):
 
 
 class DraftDetail(DraftSummary):
+    component_document: ComponentDocument | None = Field(
+        default=None, exclude_if=lambda v: v is None
+    )
     body: list[DraftBlock]
     settings: EditorSettings = Field(default_factory=EditorSettings)
     media_urls: dict[str, MediaURL] = Field(default_factory=dict)

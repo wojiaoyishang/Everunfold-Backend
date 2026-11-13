@@ -104,6 +104,13 @@ def route_permission(path: str, method: str, body: dict[str, object]) -> tuple[s
         return "comments:moderate", False
     if path.startswith("/v1/admin/content/"):
         action = path.removeprefix("/v1/admin/content/")
+        if action in {
+            "components/create",
+            "components/save",
+            "components/publish",
+            "components/schedule",
+        }:
+            action = action.removeprefix("components/")
         if (
             action == "collaboration/commit"
             and isinstance(body.get("action"), str)
@@ -130,6 +137,8 @@ def route_permission(path: str, method: str, body: dict[str, object]) -> tuple[s
         return "media:delete", False
     if path == "/v1/admin/shortcodes" or path == "/v1/admin/shortcodes/preview":
         return "shortcodes:read", True
+    if path == "/v1/admin/shortcodes/region-password":
+        return "shortcodes:read", False
     if path in {
         "/v1/admin/shortcodes/save",
         "/v1/admin/shortcodes/apply",

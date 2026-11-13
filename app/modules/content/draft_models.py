@@ -74,6 +74,8 @@ class ContentDraft(Base):
     author: Mapped[str] = mapped_column(String(100))
     created_by: Mapped[UUID] = mapped_column(ForeignKey("users.id"))
     body: Mapped[list[dict[str, Any]]] = mapped_column(JSONB)
+    edit_mode: Mapped[str] = mapped_column(String(16), default="blocks", server_default="blocks")
+    component_document: Mapped[dict[str, Any] | None] = mapped_column(JSONB(none_as_null=True))
     editor_settings: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
     access_password_hash: Mapped[str | None] = mapped_column(Text)
     revision: Mapped[int] = mapped_column(Integer)

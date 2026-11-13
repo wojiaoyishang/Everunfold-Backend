@@ -65,6 +65,8 @@ def snapshot_fields(row: ContentDraft) -> DraftFields:
             "title": row.title,
             "excerpt": row.excerpt,
             "body": row.body,
+            "edit_mode": row.edit_mode,
+            "component_document": row.component_document if row.edit_mode == "components" else None,
             "settings": row.editor_settings,
         }
     )
@@ -72,7 +74,17 @@ def snapshot_fields(row: ContentDraft) -> DraftFields:
 
 def historical_fields(item: DraftRevision) -> DraftFields:
     return DraftFields.model_validate(
-        {key: item.snapshot[key] for key in ("title", "excerpt", "body", "settings")}
+        {
+            **{key: item.snapshot[key] for key in ("title", "excerpt", "body", "settings")},
+            **(
+                {
+                    "edit_mode": "components",
+                    "component_document": item.snapshot.get("component_document"),
+                }
+                if item.snapshot.get("edit_mode") == "components"
+                else {}
+            ),
+        }
     )
 
 
@@ -187,7 +199,9 @@ async def upload_branch(
     session: AsyncSession, config: Settings, actor: AuthSubject, payload: BranchUpload
 ) -> BranchDetail:
     await lock_references(session)
-    row = await draft_row(session, payload.id, lock=True)
+    row = await draft_row(session, payload.id, lock=True, blocks_only=True)
+    if payload.fields.edit_mode != "blocks":
+        raise AuthFailure(422, 42281, "组件内容请在实时编辑器中恢复历史")
     digest = hashlib.sha256(payload.model_dump_json().encode()).hexdigest()
     branch = await session.get(DraftBranch, payload.branch_id)
     if branch:
@@ -250,6 +264,8 @@ async def upload_branch(
             if old is None:
                 raise AuthFailure(404, 40451, "历史草稿不存在或已删除")
             base = historical_fields(old)
+            if base.edit_mode != "blocks":
+                raise AuthFailure(422, 42281, "组件内容请在实时编辑器中恢复历史")
         else:
             raise AuthFailure(422, 42281, "请提供草稿的共同基线")
         fields = safe_fields(payload.fields)
@@ -366,6 +382,8 @@ async def auto_checkpoint(session: AsyncSession, draft_id: UUID) -> None:
         return
     await lock_references(session)
     row = await draft_row(session, draft_id, lock=True)
+    if row.edit_mode == "components":
+        return
     head = await session.get(
         CollaborationDocument, draft_id, populate_existing=True, with_for_update=True
     )
@@ -416,7 +434,7 @@ async def begin_merge(
     session: AsyncSession, actor: AuthSubject, payload: MergeBegin
 ) -> MergeDetail:
     await lock_references(session)
-    row = await draft_row(session, payload.id, lock=True)
+    row = await draft_row(session, payload.id, lock=True, blocks_only=True)
     previous = await session.get(DraftMerge, payload.merge_id)
     if previous:
         if (
@@ -493,7 +511,7 @@ async def owned_merge(
     session: AsyncSession, actor: AuthSubject, payload: MergeLookup, *, active: bool = True
 ) -> DraftMerge:
     await lock_references(session)
-    await draft_row(session, payload.id, lock=True)
+    await draft_row(session, payload.id, lock=True, blocks_only=active)
     item = await session.get(DraftMerge, payload.merge_id, with_for_update=True)
     if item is None or item.draft_id != payload.id:
         raise AuthFailure(404, 40453, "找不到这项合并")
@@ -562,7 +580,7 @@ async def command_merge(
     elif command == "finish":
         if set(item.resolved) != {conflict["key"] for conflict in item.conflicts}:
             raise AuthFailure(409, 40985, "请先处理全部合并冲突")
-        row = await draft_row(session, payload.id, lock=True)
+        row = await draft_row(session, payload.id, lock=True, blocks_only=True)
         head = await session.get(CollaborationDocument, row.id, with_for_update=True)
         if not head or (head.epoch, head.committed_seq, row.revision) != (
             item.epoch,
@@ -571,6 +589,8 @@ async def command_merge(
         ):
             raise AuthFailure(409, 40984, "合并目标已变化，请重新比较")
         fields = DraftFields.model_validate(item.result)
+        if fields.edit_mode != "blocks":
+            raise AuthFailure(422, 42281, "组件内容请在实时编辑器中恢复历史")
         from app.modules.content.taxonomy_names import TermDirectory, register_draft_terms
 
         settings = (await TermDirectory.load(session)).normalize(

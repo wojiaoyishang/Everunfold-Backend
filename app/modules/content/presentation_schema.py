@@ -9,6 +9,7 @@ from typing import Literal, Self
 
 from pydantic import Field, model_validator
 
+from app.modules.content.component_document import ComponentDocument, ContentEditMode
 from app.modules.content.editor_schema import ArticleOverrides
 from app.modules.content.schemas import (
     ContentBlock,
@@ -40,6 +41,10 @@ class ContentPresentation(ArticleOverrides, SeoFields):
     comment_count: int = Field(ge=0)
     pinned: bool
     content: list[ContentBlock]
+    edit_mode: ContentEditMode = Field(default="blocks", exclude_if=lambda v: v == "blocks")
+    component_document: ComponentDocument | None = Field(
+        default=None, exclude_if=lambda v: v is None
+    )
     media_urls: dict[str, MediaURL]
     comments_open: bool
     show_image_viewer: bool = True
@@ -55,7 +60,9 @@ class ContentPresentation(ArticleOverrides, SeoFields):
     def validate_public_projection(self) -> Self:
         if self.type != "shuoshuo" and not self.title.strip():
             raise ValueError("Only shuoshuo may omit its display title")
-        if self.access != "public" and (self.content or self.media_urls or self.excerpt):
+        if self.access != "public" and (
+            self.content or self.media_urls or self.excerpt or self.component_document is not None
+        ):
             raise ValueError("Locked projections must not contain body, media or excerpts")
         if self.access == "scheduled" and self.opens_at is None:
             raise ValueError("Scheduled projections require an opening time")

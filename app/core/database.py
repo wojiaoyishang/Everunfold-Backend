@@ -4,7 +4,7 @@ from sqlalchemy import MetaData, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
 
-SCHEMA_REVISION = "0059_glossary_seo"
+SCHEMA_REVISION = "0061_component_documents"
 
 
 class Base(DeclarativeBase):

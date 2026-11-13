@@ -109,6 +109,10 @@ async def publish_scheduled(session: AsyncSession, config: Settings, draft_id: U
                 revision=frozen.revision,
                 public_path=frozen.public_path,
                 published_at=frozen.published_at,
+                edit_mode=frozen.edit_mode,
+                component_document=frozen.component_document.model_dump(mode="json")
+                if frozen.component_document
+                else None,
                 editor_settings=frozen.settings.model_dump(mode="json"),
                 access_password_hash=payload["access_password_hash"],
             )

@@ -16,6 +16,11 @@ from app.modules.content.editor_schema import EditorSettings
 from app.modules.content.editor_service import editor_media
 from app.modules.content.publication import ContentPublication
 from app.modules.media.locking import lock_references
+from app.modules.pages.component_values import (
+    check_component_sources,
+    page_document,
+    public_page_value,
+)
 from app.modules.pages.groups import promote_original, translations, unapplied
 from app.modules.pages.models import ManagedPage, PageTemplate, PageTranslationGroup
 from app.modules.pages.options import bounded_options
@@ -86,7 +91,19 @@ class PagesService:
         )
         group = await translations(self.session, row) if row.source == "custom" else None
         value = effective_value(row.data, template)
+        media_urls = (
+            await editor_media(
+                self.session,
+                self.config,
+                value.model_dump_json(include={"component_document", "component_parameters"}),
+                EditorSettings(),
+                strict=False,
+            )
+            if value.component_document is not None
+            else {}
+        )
         return ManagedPageItem(
+            media_urls=media_urls,
             id=row.id,
             source=cast(Literal["custom", "registered"], row.source),
             implementation_id=row.implementation_id,
@@ -180,6 +197,8 @@ class PagesService:
         # Keep fingerprints of pre-template page operations with explicit paths replayable.
         if payload.value.path is not None:
             fingerprint["value"]["path"] = normalize_page_path(payload.value.path)
+        if "layout" in payload.value.model_fields_set:
+            fingerprint["value"]["layout"] = payload.value.layout
         cached = await self.accounts.operations.read(
             payload.operation_id, actor.id, "page_save", fingerprint
         )
@@ -243,7 +262,19 @@ class PagesService:
                 )
             else:
                 path = row.data["path"]
-        value = effective_value({**payload.value.model_dump(), "path": path}, template)
+        submitted = payload.value.model_dump()
+        if "layout" in payload.value.model_fields_set:
+            submitted["layout"] = payload.value.layout
+        elif template and "layout" in row.data:
+            submitted["layout"] = row.data["layout"]
+        value = effective_value({**submitted, "path": path}, template)
+        if template is None and row.source == "custom":
+            previous_value = effective_value(row.data, None) if not creating else None
+            check_component_sources(value, previous_value)
+            if value.edit_mode == "components":
+                value.component_document = page_document(value)
+            elif value.component_document is None and previous_value:
+                value.component_document = previous_value.component_document
         definition, available = await self.registration(row.type_id)
         if row.source == "registered":
             if creating and definition is None:
@@ -254,7 +285,10 @@ class PagesService:
                 except ValueError as exc:
                     raise AuthFailure(422, 42296, "页面配置过大或嵌套过深") from exc
             if (
-                value.html
+                value.edit_mode != "source"
+                or value.component_document is not None
+                or value.component_parameters
+                or value.html
                 or value.css
                 or value.javascript
                 or value.javascript_enabled
@@ -271,7 +305,7 @@ class PagesService:
                     previous.share_image_media_id if previous else None
                 ):
                     raise AuthFailure(403, 40396, "该页面类型不允许修改搜索与分享设置")
-        if value.javascript_enabled and actor.role != "admin":
+        if value.edit_mode == "source" and value.javascript_enabled and actor.role != "admin":
             raise AuthFailure(403, 40397, "只有管理员可以启用或修改页面脚本")
         require_page_size(value)
         await self.validate_path(value.path, row.id)
@@ -287,7 +321,9 @@ class PagesService:
             row.applied_revision = row.revision
             row.applied_snapshot = page_data(value.model_copy(update={"enabled": True}), template)
             row.published = (
-                self.public_value(row, value, definition, share_image) if value.enabled else None
+                await self.public_value(row, value, definition, share_image)
+                if value.enabled
+                else None
             )
             await self.session.flush()
             await ContentPublication(self.session, self.config).stage(CacheChange("page_changed"))
@@ -324,13 +360,40 @@ class PagesService:
         image = images.get(str(value.share_image_media_id))
         return image.original if image else None
 
-    @staticmethod
-    def public_value(
-        row: ManagedPage, value: PageValue, definition: PageRegistration | None, image: str | None
+    async def public_value(
+        self,
+        row: ManagedPage,
+        value: PageValue,
+        definition: PageRegistration | None,
+        image: str | None,
     ) -> dict[str, Any]:
+        from app.modules.shortcodes.regions import REGION_TOKEN, RegionPublication
+
+        value = public_page_value(value, linked=row.template_id is not None)
+        regions = RegionPublication(self.session, self.config, "page", row.id)
+        if any(REGION_TOKEN.search(text) for text in (value.css, value.javascript)):
+            raise AuthFailure(422, 42284, "可见区域只能放在页面正文中")
+        value = value.model_copy(
+            update={
+                "html": regions.redact(value.html, "html"),
+                "component_document": regions.redact_document(value.component_document),
+            }
+        )
+        await regions.store()
+        media = (
+            await editor_media(
+                self.session,
+                self.config,
+                value.component_document.model_dump_json(),
+                EditorSettings(),
+            )
+            if value.component_document
+            else {}
+        )
         return PublicManagedPage(
             **{**value.model_dump(exclude={"share_image_media_id"}), "enabled": True},
             share_image_url=image,
+            media_urls=media,
             id=row.id,
             source=cast(Literal["custom", "registered"], row.source),
             revision=row.revision
@@ -359,7 +422,7 @@ class PagesService:
             raise AuthFailure(409, 40993, "此页面尚无已应用内容，请确认应用当前草稿")
         template = await page_template(self.session, row.template_id) if row.template_id else None
         value = effective_value(row.applied_snapshot or row.data, template)
-        if value.javascript_enabled and actor.role != "admin":
+        if value.edit_mode == "source" and value.javascript_enabled and actor.role != "admin":
             raise AuthFailure(403, 40397, "只有管理员可以启用或修改页面脚本")
         definition, available = await self.registration(row.type_id)
         if payload.enabled:
@@ -373,7 +436,9 @@ class PagesService:
             row.applied_snapshot = page_data(value.model_copy(update={"enabled": True}), template)
             row.applied_revision = row.revision
         row.published = (
-            self.public_value(row, value, definition, await self.share_image(value, strict=True))
+            await self.public_value(
+                row, value, definition, await self.share_image(value, strict=True)
+            )
             if payload.enabled
             else None
         )
@@ -482,4 +547,7 @@ async def public_pages(
                 page.html, page.css, page.javascript = "", "", ""
                 page.javascript_enabled = False
                 page.options = {}
+                page.media_urls = {}
+                page.component_document = None
+                page.component_parameters = {}
     return pages

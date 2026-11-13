@@ -54,6 +54,7 @@ async def require_unreferenced(
         select(ContentDraft.id).where(
             or_(
                 cast(ContentDraft.body, Text).contains(token),
+                cast(ContentDraft.component_document, Text).contains(token),
                 cast(ContentDraft.editor_settings, Text).contains(token),
                 cast(ContentDraft.scheduled_payload, Text).contains(token),
             )
@@ -62,6 +63,7 @@ async def require_unreferenced(
         select(Content.id).where(
             or_(
                 cast(Content.content, Text).contains(token),
+                cast(Content.component_document, Text).contains(token),
                 cast(Content.media_urls, Text).contains(token),
                 Content.cover_url.contains(token),
                 cast(Content.editor_settings, Text).contains(token),

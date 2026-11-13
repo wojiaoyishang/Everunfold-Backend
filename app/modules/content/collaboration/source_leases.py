@@ -58,7 +58,7 @@ async def acquire_source(
 ) -> SourceAcquired:
     await authorize(session, session_hash, lock=True, draft_id=payload.id)
     await lock_references(session)
-    await draft_row(session, payload.id, lock=True)
+    await draft_row(session, payload.id, lock=True, blocks_only=True)
     await require_unlocked(session, payload.id)
     document = await session.get(CollaborationDocument, payload.id, with_for_update=True)
     if document is None:
@@ -102,7 +102,7 @@ async def command_source(
 ) -> SourceAcquired | None:
     await authorize(session, session_hash, lock=True, draft_id=payload.id)
     await lock_references(session)
-    await draft_row(session, payload.id, lock=True)
+    await draft_row(session, payload.id, lock=True, blocks_only=True)
     await require_unlocked(session, payload.id)
     lease = await session.get(SourceLease, (payload.id, payload.block_id), with_for_update=True)
     now = datetime.now(UTC)
@@ -139,7 +139,7 @@ async def apply_source(
         ).encode()
     ).hexdigest()
     await lock_references(session)
-    draft = await draft_row(session, payload.id, lock=True)
+    draft = await draft_row(session, payload.id, lock=True, blocks_only=True)
     await require_unlocked(session, payload.id)
     document = await session.get(CollaborationDocument, payload.id, with_for_update=True)
     lease = await session.get(SourceLease, (payload.id, payload.block_id), with_for_update=True)

@@ -48,7 +48,7 @@ def main() -> None:
         ],
         "default": None,
     }
-    schema["x-everunfold-contract-version"] = "0.16.0"
+    schema["x-everunfold-contract-version"] = "0.17.0"
     schema["description"] = "公开阅读快照，包含内容 SEO 与已发布术语的发现索引，兼容已有快照。"
     target.write_text(
         json.dumps(schema, ensure_ascii=False, indent=2) + "\n", encoding="utf-8", newline="\n"

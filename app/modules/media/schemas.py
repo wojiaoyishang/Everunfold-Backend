@@ -26,6 +26,12 @@ class FontInfo(PublicModel):
     format: Literal["woff2", "woff", "truetype", "opentype"]
 
 
+class MediaURL(PublicModel):
+    original: str
+    webp: str = ""
+    font: FontInfo | None = None
+
+
 class IconCatalog(PublicModel):
     items: list[IconAsset]
     page: int

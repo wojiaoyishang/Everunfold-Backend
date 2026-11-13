@@ -167,6 +167,10 @@ class PublicContentService:
             {
                 **summary.model_dump(),
                 "content": item.content if readable else [],
+                "edit_mode": "components"
+                if readable and item.component_document is not None
+                else "blocks",
+                "component_document": item.component_document if readable else None,
                 "media_urls": item.media_urls if readable else {},
             }
         )
