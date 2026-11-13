@@ -28,10 +28,19 @@ from app.modules.content.models import SiteSettings
 from app.modules.content.publication import ContentPublication
 from app.modules.content.repository import ContentRepository
 from app.modules.content.service import PublicContentService
+from app.modules.notifications.service import NotificationService
 from app.modules.pages.schemas import PageManifest
 from app.modules.settings.extensions_schemas import ExtensionInventory
 from app.modules.settings.extensions_service import install_inventory
-from tests.test_accounts import ORIGIN, PASSWORD, AccountsTest, headers, signed_in
+from tests.test_accounts import (
+    ORIGIN,
+    PASSWORD,
+    TEMPORARY,
+    AccountsTest,
+    create_user,
+    headers,
+    signed_in,
+)
 from tests.test_managed_pages import body
 from tests.test_settings_processes import toml_text
 
@@ -201,6 +210,61 @@ def approve(ctx: AccountsTest, operation_id: str) -> None:
         headers=headers(ctx.root),
     )
     assert response.status_code == 200, response.text
+
+
+def test_account_receives_approved_reply_once_in_private_inbox(comments: AccountsTest) -> None:
+    ctx = comments
+    target = custom(ctx)
+    member = create_user(ctx)
+    reader = ctx.client()
+    signed_in(reader, member["username"], TEMPORARY)
+    preferences = "/v1/account/notifications/preferences"
+    assert reader.get(preferences).json()["data"] == {"comment_reply_email": False}
+    assert (
+        reader.patch(
+            preferences, json={"comment_reply_email": True}, headers=headers(reader)
+        ).status_code
+        == 422
+    )
+    submission = comment(target["id"], author="Untrusted client label")
+    route = "/v1/reader/comments"
+    assert reader.post(route, json=submission, headers=headers(reader)).status_code == 200
+    assert ctx.root.post(route, json=submission).status_code == 409
+    approve(ctx, submission["operation_id"])
+    reply = comment(target["id"], parent_id=submission["operation_id"])
+    assert ctx.root.post(route, json=reply, headers=headers(ctx.root)).status_code == 200
+
+    async def dispatch() -> None:
+        db = Database(ctx.settings.database.url.get_secret_value())
+        try:
+            async with db.session_factory() as session:
+                await NotificationService(session, ctx.settings).dispatch_events()
+        finally:
+            await db.close()
+
+    inbox = "/v1/account/notifications/inbox"
+    asyncio.run(dispatch())
+    assert reader.get(inbox).json()["data"]["items"] == []
+    approve(ctx, reply["operation_id"])
+    for action, revision in [("reject", 2), ("approve", 3)]:
+        response = ctx.root.post(
+            "/v1/admin/comments/moderate",
+            json={
+                "operation_id": str(uuid4()),
+                "items": [{"id": reply["operation_id"], "revision": revision}],
+                "action": action,
+            },
+            headers=headers(ctx.root),
+        )
+        assert response.status_code == 200, response.text
+    asyncio.run(dispatch())
+    items = reader.get(inbox).json()["data"]["items"]
+    href = target["value"]["path"] + "#comment-" + reply["operation_id"]
+    assert [item["href"] for item in items] == [href]
+    assert all(item["href"] != href for item in ctx.root.get(inbox).json()["data"]["items"])
+    public_comments = snapshot(ctx)["comments"][target["id"]]
+    assert public_comments[0]["author"] == member["display_name"]
+    assert all("author_user_id" not in item for item in public_comments)
 
 
 @pytest.mark.parametrize("source", ["custom", "registered"])

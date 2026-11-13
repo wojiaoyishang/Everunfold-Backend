@@ -209,10 +209,17 @@ class CommentService:
                         raise AuthFailure(409, 40989, "请先恢复回收站中的评论")
                     if status == row.status:
                         continue
+                    restored_approved = (
+                        payload.action == "restore" and row.previous_status == "approved"
+                    )
                     if payload.action == "trash":
                         row.previous_status = row.status
                     row.status = status or "pending"
-                    if row.status == "approved" and row.parent_id is not None:
+                    if (
+                        row.status == "approved"
+                        and row.parent_id is not None
+                        and not restored_approved
+                    ):
                         approved_replies.append(row)
                 elif kind == "edit":
                     if row.status == "trash":

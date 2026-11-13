@@ -1,5 +1,11 @@
 # 后端交接状态
 
+## 首页配置和评论回复通知
+
+- settings-v1 1.40.0 保存首页布局、密度和隐藏分类/标签。captcha-v1 与 notifications-v1 1.8.0 增加会话评论提交与账号通知偏好。迁移 `0056_comment_reply_notices` 保存新评论账号归属和邮件订阅，并预置评论回复的两条策略。见 [ADR0134](../decisions/0134-home-feed-and-comment-reply-notifications.md)。
+- Ruff、应用 mypy 和 41 项定向回归通过。隔离 API、Scheduler、Worker、PostgreSQL、Redis 和本地 SMTP 验证会话归属、CSRF、审核后投递、站内及邮件渠道、审核重放、撤下、自回复和匿名评论。
+- 开发库已迁移，Alembic 结构检查通过，API、Worker、Scheduler 和前端已重启。备份的 55 篇日记及「关于网站」只导入隔离库用于验收。开发库保持 12 条内容、2 个页面。
+
 ## 注册验证与用户通知接收人
 
 - 注册验证码通过时直接标记邮箱已验证，只发布「注册成功」。账号中心和认证 Worker 都跳过当前已验证地址；换绑或验证未验证地址仍走独立流程。

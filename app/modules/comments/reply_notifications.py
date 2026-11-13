@@ -1,5 +1,6 @@
 """Deliver only replies that the account holder can reach on the public site."""
 
+from urllib.parse import quote
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -53,7 +54,7 @@ async def reply_link(session: AsyncSession, reply: Comment) -> str | None:
         return None
     if not isinstance(path, str) or not path.startswith("/") or path.startswith("//"):
         return None
-    return f"{path}#comment-{reply.id}"
+    return f"{quote(path, safe='/!$&()*+,;=:@-._~')}#comment-{reply.id}"
 
 
 async def publish_reply_notice(session: AsyncSession, reply: Comment) -> None:

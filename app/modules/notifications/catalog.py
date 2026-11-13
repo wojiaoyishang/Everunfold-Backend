@@ -174,11 +174,10 @@ def comment_reply_template(locale: str, *, email: bool) -> DefaultTemplate:
     )
     action = "查看回复" if zh else "View reply"
     link = "{{resource.url}}"
+    separator = "：" if zh else ": "
     return DefaultTemplate(
         subject=f"[{{{{site.name}}}}] {title}" if email else title,
-        text=f"{body}\n\n{action}：{link}"
-        if email and zh
-        else (f"{body}\n\n{action}: {link}" if email else body),
+        text=f"{body}\n\n{action}{separator}{link}" if email else body,
         html=alert_email(title, title, body, action, link, locale) if email else "",
         href=link,
     )
