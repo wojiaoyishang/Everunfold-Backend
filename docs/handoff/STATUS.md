@@ -1,5 +1,9 @@
 # 后端交接状态
 
+## 登录标识与副本目录
+
+- 同步 [ADR 0140](../decisions/0140-admin-brand-and-node-deployment.md) 和操作文档。登录入口读取现有节点设置副本，部署配置按当前节点与后端连接显示目录。隔离 API、Worker、Scheduler 与前端接收器验证了设置和公开内容投递。
+
 ## 后台标识与节点部署配置
 
 - 同步 [ADR 0140](../decisions/0140-admin-brand-and-node-deployment.md) 与设置指南。前端从已应用的站点设置和既有保存结果读取标识，在「节点状态」展示部署配置。沿用现有 API、权限和版本投递。
