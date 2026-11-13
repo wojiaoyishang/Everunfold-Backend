@@ -60,6 +60,7 @@ def setup(registry: PluginRegistry) -> None:
 
 plugin = define_plugin(
     id="core.basic-shortcodes",
+    preview="asset:assets/preview.webp",
     title="基础短代码",
     author="Everunfold",
     description="提示框与折叠内容，保留已有文章的调用和样式。",

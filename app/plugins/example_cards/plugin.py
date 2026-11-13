@@ -5,6 +5,7 @@ from app.plugin_sdk import Plugin, PluginRegistry, ShortcodeParameter, Shortcode
 
 class CardsPlugin(Plugin):
     id = "example.cards"
+    preview = "asset:assets/preview.webp"
     title = "示例卡片"
     version = "1.0.0"
     author = "Everunfold"

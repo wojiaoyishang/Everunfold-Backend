@@ -11,6 +11,7 @@ from pydantic import ValidationError
 
 from app.modules.content.schemas import SiteDTO
 from app.modules.settings.defaults import public_settings, stored_settings
+from app.modules.settings.extensions_schemas import InstalledTheme
 from app.modules.settings.schemas import (
     CachePolicy,
     CodePreferences,
@@ -28,6 +29,25 @@ def test_settings_contract_matches_published_artifact() -> None:
         json.loads(Path("contracts/settings-v1.schema.json").read_text(encoding="utf-8"))
         == build_schema()
     )
+
+
+def test_theme_recommendations_are_optional_and_canonical() -> None:
+    assert InstalledTheme(id="argon", title="Argon").recommended_plugins is None
+    assert (
+        InstalledTheme(id="argon", title="Argon", recommended_plugins=[]).recommended_plugins == []
+    )
+    assert InstalledTheme(
+        id="argon", title="Argon", recommended_plugins=["core.gallery", "core.book"]
+    ).recommended_plugins == ["core.book", "core.gallery"]
+
+
+@pytest.mark.parametrize(
+    "plugins",
+    [["book"], ["core.book", "core.book"], [f"core.plugin-{index}" for index in range(101)]],
+)
+def test_theme_recommendations_reject_invalid_lists(plugins: list[str]) -> None:
+    with pytest.raises(ValidationError):
+        InstalledTheme(id="argon", title="Argon", recommended_plugins=plugins)
 
 
 def test_public_snapshot_site_contract_matches_public_dto() -> None:

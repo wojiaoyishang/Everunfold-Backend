@@ -29,6 +29,7 @@ def setup(registry: PluginRegistry) -> None:
 
 plugin = define_plugin(
     id="example.runtime",
+    preview="asset:assets/preview.webp",
     title="常驻任务示例",
     description="由 Scheduler 子进程维护 Redis 订阅；默认不启动，可在运行与任务中启用。",
     setup=setup,

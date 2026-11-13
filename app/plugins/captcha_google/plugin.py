@@ -9,6 +9,7 @@ def setup(registry: PluginRegistry) -> None:
 
 plugin = define_plugin(
     id="core.captcha-google",
+    preview="asset:assets/preview.webp",
     title="Google 验证码",
     description="Google reCAPTCHA v2 服务端校验，配合前端验证码组件使用。",
     author="Everunfold",

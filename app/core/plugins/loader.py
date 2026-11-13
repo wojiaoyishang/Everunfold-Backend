@@ -14,6 +14,7 @@ from types import MappingProxyType
 from typing import Any, cast
 
 from app.core.jobs.definitions import TaskDefinition
+from app.core.plugins.artwork import PluginArtwork, read_artwork
 from app.core.plugins.definition import Plugin, PluginRuntime
 from app.core.plugins.registry import PluginRegistry
 from app.core.plugins.routes import RouteContribution
@@ -37,6 +38,7 @@ class LoadedPlugin:
     locales: Mapping[str, Mapping[str, str]]
     cache_event_handler: CacheEventHandler | None = None
     notification_events: tuple[NotificationEventDefinition, ...] = ()
+    artwork: PluginArtwork | None = None
 
 
 @dataclass(frozen=True)
@@ -83,11 +85,15 @@ class PluginCatalog:
             yield
 
 
-def collect_plugins(entries: Iterable[tuple[Plugin, str]]) -> PluginCatalog:
+def collect_plugins(
+    entries: Iterable[tuple[Plugin, str]], *, artwork: Mapping[str, PluginArtwork] | None = None
+) -> PluginCatalog:
+    previews = artwork or {}
     pending: dict[str, tuple[Plugin, BackendPluginInfo]] = {}
     for plugin, digest in entries:
         if not isinstance(plugin, Plugin) or plugin.api_version != 1:
             raise ValueError("Unsupported backend plugin interface")
+        preview = previews.get(plugin.id)
         info = BackendPluginInfo(
             id=plugin.id,
             title=plugin.title,
@@ -96,7 +102,9 @@ def collect_plugins(entries: Iterable[tuple[Plugin, str]]) -> PluginCatalog:
             author=plugin.author,
             homepage=plugin.homepage,
             license=plugin.license,
-            preview=plugin.preview,
+            preview=f"/v1/extensions/artwork/{plugin.id}/{preview.filename}"
+            if preview
+            else plugin.preview,
             readme=plugin.readme,
             requires=list(plugin.requires),
             build=digest,
@@ -198,6 +206,7 @@ def collect_plugins(entries: Iterable[tuple[Plugin, str]]) -> PluginCatalog:
                     ),
                     cache_event_handler=registry.cache_events.handler,
                     notification_events=tuple(registry.notifications.events),
+                    artwork=previews.get(key),
                 )
             )
     return PluginCatalog(tuple(completed))
@@ -219,6 +228,7 @@ def directory_digest(directory: Path) -> str:
 
 def discover_plugins(root: Path, package: str = "app.plugins") -> PluginCatalog:
     entries: list[tuple[Plugin, str]] = []
+    artwork: dict[str, PluginArtwork] = {}
     for entry in sorted(root.glob("*/plugin.py")):
         # The operations monitor has an explicit API-only mount and config-owned enablement.
         if package == "app.plugins" and entry.parent.name == "nodes_monitor":
@@ -234,7 +244,9 @@ def discover_plugins(root: Path, package: str = "app.plugins") -> PluginCatalog:
         if not isinstance(plugin, Plugin):
             raise ValueError(f"Entry must export a Plugin object: {entry.parent.name}")
         entries.append((plugin, directory_digest(entry.parent)))
-    return collect_plugins(entries)
+        if plugin.preview.startswith("asset:"):
+            artwork[plugin.id] = read_artwork(entry.parent, plugin.preview)
+    return collect_plugins(entries, artwork=artwork)
 
 
 @lru_cache(maxsize=1)

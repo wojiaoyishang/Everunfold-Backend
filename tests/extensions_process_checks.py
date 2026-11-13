@@ -1,6 +1,7 @@
 """Runtime activation through real replicas and the durable settings receiver."""
 
 import copy
+import hashlib
 import json
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -27,7 +28,7 @@ def check_extensions(
     inventory = {
         "protocol": "extensions-1",
         "themes": [
-            {"id": "argon", "title": "Argon"},
+            {"id": "argon", "title": "Argon", "recommended_plugins": ["extension.p0"]},
             {
                 "id": "paper",
                 "title": "Paper",
@@ -74,8 +75,18 @@ def check_extensions(
     deployed = client.get("/v1/admin/extensions")
     assert deployed.status_code == 200 and "no-store" in deployed.headers["cache-control"]
     assert deployed.json()["data"]["nodes"][0]["inventory"]["plugins"][0]["id"] == "extension.p0"
-    paper = deployed.json()["data"]["nodes"][0]["inventory"]["themes"][1]
+    argon, paper = deployed.json()["data"]["nodes"][0]["inventory"]["themes"]
+    assert argon["recommended_plugins"] == ["extension.p0"]
+    assert paper["recommended_plugins"] is None
     assert paper["preview"] == "/themes/paper.svg" and paper["author"]["name"] == "Everunfold"
+    for plugin in deployed.json()["data"]["backend_plugins"]:
+        preview = plugin["preview"]
+        assert preview.startswith(f"/v1/extensions/artwork/{plugin['id']}/")
+        cover = httpx.get(api_b + preview)
+        assert cover.status_code == 200 and cover.headers["content-type"] == "image/webp"
+        assert "immutable" in cover.headers["cache-control"]
+        assert hashlib.sha256(cover.content).hexdigest() == preview.split(".")[-2]
+    assert httpx.get(api_b + "/v1/extensions/artwork/example.cards/plugin.py").status_code == 404
     page_type = next(
         item
         for item in client.get("/v1/admin/pages/types").json()["data"]["items"]

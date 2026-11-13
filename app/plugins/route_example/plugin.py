@@ -11,6 +11,7 @@ def setup(registry: PluginRegistry) -> None:
 
 plugin = define_plugin(
     id="example.routes",
+    preview="asset:assets/preview.webp",
     title="HTTP 路由示例",
     description="公开问候与回显、登录会话及权限保护的原生 FastAPI 路由。",
     setup=setup,

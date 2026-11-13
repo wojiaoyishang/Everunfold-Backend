@@ -4,9 +4,10 @@ import hmac
 import ipaddress
 import os
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, HTTPException, Request, Response
 from pydantic import ValidationError
 
+from app.core.plugins.loader import plugin_catalog
 from app.core.responses import JSONResponseSuccess
 from app.core.schemas import ErrorResponse, PublicResponse
 from app.modules.auth.router import auth_runtime
@@ -28,6 +29,22 @@ router = APIRouter(
         status: {"model": ErrorResponse} for status in (401, 403, 404, 409, 413, 415, 422, 500, 503)
     },
 )
+
+
+@router.get("/v1/extensions/artwork/{plugin_id}/{filename}", include_in_schema=False)
+async def plugin_artwork(plugin_id: str, filename: str) -> Response:
+    for item in plugin_catalog().plugins:
+        artwork = item.artwork
+        if item.info.id == plugin_id and artwork is not None and artwork.filename == filename:
+            return Response(
+                content=artwork.body,
+                media_type=artwork.media_type,
+                headers={
+                    "Cache-Control": "public, max-age=31536000, immutable",
+                    "X-Content-Type-Options": "nosniff",
+                },
+            )
+    raise HTTPException(status_code=404)
 
 
 @router.get("/v1/admin/extensions", response_model=PublicResponse[ExtensionCatalog])

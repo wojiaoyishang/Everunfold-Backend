@@ -1,5 +1,11 @@
 # 后端交接状态
 
+## 主题推荐插件与特色图
+
+- settings-v1 1.42.0 由 `4a0f40f` 发布。扩展清单可选 `recommended_plugins`，旧节点清单仍可读取。后端登记 7 张独立的扁平 WebP，公开路径只读取目录声明的特色图，以内容哈希作缓存键。无需迁移。见 [ADR 0139](../decisions/0139-theme-plugin-recommendations.md)。
+- Ruff、应用 mypy、30 项契约和插件测试，以及双 API、Worker、Scheduler 与 Node 接收器联测通过。联测读取推荐元数据，逐张核对后端图片的内容哈希并检查未知资源返回 404。
+- 开发 API、Worker、Scheduler 和前端已重启。显式登记后端插件目录后，设置修订为 62，既有主题和插件开关已核对。开发代理可读取前后端共 12 张新版图片。
+
 ## 自定义页面模板
 
 - pages-v1 1.13.0 支持自定义代码模板类型、模板修订及首存标题生成 URL。模板代码更新随公开内容版本一次发布，子页各自的草稿、已应用设置和启停状态保持。见 [ADR 0138](../decisions/0138-custom-page-templates.md)。
