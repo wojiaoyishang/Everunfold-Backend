@@ -282,3 +282,29 @@ def test_sidebar_navigation_keeps_empty_values_separate_from_inherited_values() 
                 }
             }
         )
+
+
+def test_header_brand_preserves_legacy_logo_and_stores_mode_per_theme() -> None:
+    state = public_settings(
+        {
+            "name": "Campfire",
+            "hero_title": "Banner title",
+            "theme": {"header_logo_url": "/mark.png"},
+            "theme_options": {"paper": {"header_brand_text": "Paper"}},
+        }
+    )
+    assert state.theme.header_brand_mode == "both"
+    assert state.theme.header_brand_text == ""
+    assert state.theme.header_logo_url == "/mark.png"
+    state.theme.header_brand_mode = "text"
+    state.theme.header_brand_text = "Top bar"
+    restored = public_settings(stored_settings({}, state))
+    assert restored.theme.header_brand_mode == "text"
+    assert restored.theme.header_brand_text == "Top bar"
+    assert restored.theme.header_logo_url == "/mark.png"
+    assert restored.theme.hero_title == "Banner title"
+    assert restored.theme_options["paper"].header_brand_text == "Paper"
+
+    for invalid in ({"header_brand_mode": "hidden"}, {"header_brand_text": "x" * 161}):
+        with pytest.raises(ValidationError):
+            ThemePreferences.model_validate(invalid)

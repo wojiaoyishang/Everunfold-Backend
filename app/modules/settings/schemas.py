@@ -335,6 +335,8 @@ class SidebarNavigationPreferences(SettingsModel):
 class ThemePreferences(SettingsModel):
     author_avatar_media_id: str = Field(default="", pattern=MediaReference)
     author_avatar_url: str | None = Field(default=None, max_length=2048)
+    header_brand_mode: Literal["text", "image", "both"] = "both"
+    header_brand_text: str = Field(default="", max_length=160)
     header_logo_media_id: str = Field(default="", pattern=MediaReference)
     header_logo_url: str = Field(default="", max_length=2048)
 

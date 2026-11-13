@@ -11,7 +11,7 @@ from app.modules.settings.schemas import SettingsContract
 def build_schema() -> dict[str, Any]:
     schema = SettingsContract.model_json_schema()
     schema["$schema"] = "http://json-schema.org/draft-07/schema#"
-    schema["x-everunfold-contract-version"] = "1.35.0"
+    schema["x-everunfold-contract-version"] = "1.36.0"
     schema["x-everunfold-language-regions"] = LANGUAGE_REGIONS
     schema["x-everunfold-operations"] = [
         {
