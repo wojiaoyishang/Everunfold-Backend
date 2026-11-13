@@ -185,6 +185,16 @@ class ManagedPageCatalog(PublicModel):
     items: list[ManagedPageSummary]
 
 
+class PageCategory(PublicModel):
+    id: UUID
+    name: str
+    slug: str
+
+
+class PageCategories(PublicModel):
+    items: list[PageCategory]
+
+
 class SaveManagedPage(PublicModel):
     id: UUID
     expected_revision: int = Field(ge=0)
@@ -250,6 +260,7 @@ class SavePageMetadata(PublicModel):
 
 class PagesContract(PublicModel):
     catalog: PublicResponse[ManagedPageCatalog]
+    categories: PublicResponse[PageCategories]
     item: PublicResponse[ManagedPageItem]
     save: SaveManagedPage
     remove: RemoveManagedPage

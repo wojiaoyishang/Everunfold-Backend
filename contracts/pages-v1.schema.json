@@ -393,6 +393,48 @@
       "title": "ManagedPageSummary",
       "type": "object"
     },
+    "PageCategories": {
+      "additionalProperties": false,
+      "properties": {
+        "items": {
+          "items": {
+            "$ref": "#/$defs/PageCategory"
+          },
+          "title": "Items",
+          "type": "array"
+        }
+      },
+      "required": [
+        "items"
+      ],
+      "title": "PageCategories",
+      "type": "object"
+    },
+    "PageCategory": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "slug": {
+          "title": "Slug",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "slug"
+      ],
+      "title": "PageCategory",
+      "type": "object"
+    },
     "PageManifest": {
       "additionalProperties": false,
       "properties": {
@@ -1120,6 +1162,34 @@
       "title": "PublicResponse[ManagedPageItem]",
       "type": "object"
     },
+    "PublicResponse_PageCategories_": {
+      "additionalProperties": false,
+      "properties": {
+        "success": {
+          "default": true,
+          "title": "Success",
+          "type": "boolean"
+        },
+        "code": {
+          "default": 200,
+          "title": "Code",
+          "type": "integer"
+        },
+        "msg": {
+          "default": "请求成功",
+          "title": "Msg",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/PageCategories"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "title": "PublicResponse[PageCategories]",
+      "type": "object"
+    },
     "PublicResponse_PageMetadata_": {
       "additionalProperties": false,
       "properties": {
@@ -1344,6 +1414,9 @@
     "catalog": {
       "$ref": "#/$defs/PublicResponse_ManagedPageCatalog_"
     },
+    "categories": {
+      "$ref": "#/$defs/PublicResponse_PageCategories_"
+    },
     "item": {
       "$ref": "#/$defs/PublicResponse_ManagedPageItem_"
     },
@@ -1386,6 +1459,7 @@
   },
   "required": [
     "catalog",
+    "categories",
     "item",
     "save",
     "remove",
@@ -1403,7 +1477,7 @@
   "title": "PagesContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "1.10.0",
+  "x-everunfold-contract-version": "1.11.0",
   "x-everunfold-operations": [
     {
       "name": "setPageEnabled",
@@ -1471,6 +1545,12 @@
       "path": "/v1/admin/pages",
       "method": "GET",
       "response": "catalog"
+    },
+    {
+      "name": "readPageCategories",
+      "path": "/v1/admin/pages/categories",
+      "method": "GET",
+      "response": "categories"
     },
     {
       "name": "saveManagedPage",

@@ -127,7 +127,6 @@ class LanguageDefinition(PublicModel):
             "uploads",
             "archives",
             "article",
-            "gzrj",
             "about",
             "categories",
             "category",

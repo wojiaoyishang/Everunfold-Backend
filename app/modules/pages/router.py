@@ -12,6 +12,7 @@ from app.modules.auth.accounts_router import AccountAccess, Authorized
 from app.modules.auth.permissions import user_permissions
 from app.modules.auth.router import auth_runtime
 from app.modules.auth.service import AuthFailure
+from app.modules.content.models import Taxonomy
 from app.modules.pages.groups import translations
 from app.modules.pages.metadata import PageMetadataService
 from app.modules.pages.models import ManagedPage
@@ -20,6 +21,8 @@ from app.modules.pages.schemas import (
     LinkPageTranslation,
     ManagedPageCatalog,
     ManagedPageItem,
+    PageCategories,
+    PageCategory,
     PageMetadata,
     PageTranslationCatalog,
     PageTranslationLookup,
@@ -58,6 +61,20 @@ def service(ctx: AccountAccess, request: Request) -> PagesService:
 @router.get("", response_model=PublicResponse[ManagedPageCatalog])
 async def catalog(ctx: Access, request: Request) -> JSONResponseSuccess:
     return JSONResponseSuccess(data=await service(ctx, request).catalog())
+
+
+@router.get("/categories", response_model=PublicResponse[PageCategories])
+async def categories(ctx: Access) -> JSONResponseSuccess:
+    rows = await ctx.service.session.execute(
+        select(Taxonomy.id, Taxonomy.name, Taxonomy.slug)
+        .where(Taxonomy.kind == "category", Taxonomy.retired.is_(False))
+        .order_by(Taxonomy.name, Taxonomy.id)
+    )
+    return JSONResponseSuccess(
+        data=PageCategories(
+            items=[PageCategory(id=identity, name=name, slug=slug) for identity, name, slug in rows]
+        )
+    )
 
 
 @router.post("/save", response_model=PublicResponse[ManagedPageItem])
