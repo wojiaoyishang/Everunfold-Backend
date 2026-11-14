@@ -1,5 +1,10 @@
 # 后端交接状态
 
+## AI 写作插件特色图
+
+- `core.ai-writing` 通过现有插件特色图入口提供扁平 WebP，与前端插件包使用同一资源。后台配置页与菜单注册见 [ADR 0148](../decisions/0148-admin-plugin-navigation.md)。
+- 插件测试 9 项通过。已更新开发环境插件登记及前端对应插件契约的构建摘要。
+
 ## 后台字段钩子与 AI 写作
 
 - 内置 `core.ai-writing` 插件支持私有配置、字段级开关、会话授权和 Worker 生成。数据库迁移 `0064_ai_writing` 已在隔离数据库和当前开发数据库应用，开发 API、Worker、Scheduler 与前端已重启。模型功能默认关闭，需由管理员配置并启用。见 [ADR 0147](../decisions/0147-admin-form-hooks-and-ai-writing.md)。

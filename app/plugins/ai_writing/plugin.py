@@ -26,5 +26,6 @@ plugin = define_plugin(
     description="在后台为摘要、搜索与分享等字段生成待审阅的文字。",
     version="1.0.0",
     author="Everunfold",
+    preview="asset:assets/preview.webp",
     setup=setup,
 )
