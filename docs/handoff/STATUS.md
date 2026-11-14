@@ -1,5 +1,11 @@
 # 后端交接状态
 
+## 预发布文档
+
+- Sphinx 手册从 `docs/source/index.rst` 进入，覆盖双仓库起步与部署、后端源码职责、API、任务、缓存、节点同步、插件及测试。保留历史文档，Pages 只构建 RST 手册。
+- 严格构建、相对链接检查和插件示例加载通过。锁文件、Ruff、应用 `mypy app` 通过。全量 `mypy` 报告 176 个既有测试类型错误。默认 pytest 为 313 通过、83 跳过、1 项失败，失败项为公开 OpenAPI 缺少部分 `404` 响应声明。
+- GitHub Pages workflow 已配置，远程来源设置及首次部署仍待确认。发布门槛和配套版本记录模板见 RST 预发布说明。
+
 ## AI 写作多服务商
 
 - 迁移 `0065_ai_writing_providers` 将已配置的单服务商保留为默认项，沿用加密密钥、配置修订与字段开关。Worker 按入队时的服务商和修订执行。编辑端只取得服务商 ID、名称和模型。见 [ADR 0149](../decisions/0149-ai-writing-providers.md)。

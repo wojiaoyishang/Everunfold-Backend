@@ -54,3 +54,7 @@ Thumbs.db
 !/app/plugins/nodes_monitor/
 !/app/plugins/route_example/
 !/app/plugins/runtime_example/
+
+# Local Sphinx output
+/_build/
+.venv-docs/
