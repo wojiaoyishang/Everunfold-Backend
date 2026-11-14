@@ -89,14 +89,14 @@ class ShortcodeService:
         )
 
     async def locked(self, identity: str, revision: int) -> ShortcodeDefinition:
+        if any(item.id == identity for item in builtin_catalog()):
+            raise AuthFailure(403, 40380, "代码注册的短代码不可编辑")
         try:
             key = uuid.UUID(identity)
         except ValueError as error:
             raise AuthFailure(404, 40480, "短代码不存在") from error
         row = await self.session.get(ShortcodeDefinition, key, with_for_update=True)
         if row is None:
-            if any(item.id == identity for item in builtin_catalog()):
-                raise AuthFailure(403, 40380, "代码注册的短代码不可编辑")
             raise AuthFailure(404, 40480, "短代码不存在或由前端代码注册")
         if row.revision != revision:
             raise AuthFailure(409, 40980, "短代码已被修改，请先读取服务器版本")
@@ -118,12 +118,12 @@ class ShortcodeService:
         await lock_references(self.session)
         await self.settings.site(locked=True)
         identity = payload.id or str(uuid.uuid4())
+        row = await self.locked(payload.id, payload.expected_revision) if payload.id else None
         compiled = self.compile(payload.value, identity, max(1, payload.expected_revision + 1))
         check = public_settings((await self.settings.site()).data)
         check.shortcodes = [compiled]
         await self.settings.resolve(check)
-        if payload.id:
-            row = await self.locked(payload.id, payload.expected_revision)
+        if row is not None:
             if row.name != payload.value.name:
                 raise AuthFailure(422, 42280, "调用名称创建后不能修改")
             if row.applied_revision is not None and row.data.get("kind") != payload.value.kind:

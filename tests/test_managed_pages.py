@@ -21,6 +21,7 @@ from app.modules.pages.models import (
 )
 from app.modules.pages.registration import install_manifest
 from app.modules.pages.schemas import PageManifest
+from app.modules.shortcodes.regions import RegionPassword, ShortcodeRegion
 from tests.test_accounts import PASSWORD, AccountsTest, headers, signed_in
 from tests.test_accounts import accounts as accounts_fixture
 
@@ -35,6 +36,29 @@ def pages(accounts: AccountsTest) -> Iterator[AccountsTest]:
         db = Database(accounts.settings.database.url.get_secret_value())
         try:
             async with db.session_factory() as session:
+                page_ids = select(ManagedPage.id).where(
+                    ManagedPage.data["title"].astext.startswith(accounts.name)
+                )
+                credentials = list(
+                    await session.scalars(
+                        select(ShortcodeRegion.credential).where(
+                            ShortcodeRegion.owner_kind == "page",
+                            ShortcodeRegion.owner_id.in_(page_ids),
+                        )
+                    )
+                )
+                await session.execute(
+                    delete(ShortcodeRegion).where(
+                        ShortcodeRegion.owner_kind == "page", ShortcodeRegion.owner_id.in_(page_ids)
+                    )
+                )
+                await session.execute(
+                    delete(RegionPassword).where(
+                        RegionPassword.id.in_(
+                            [identity for identity in credentials if identity is not None]
+                        )
+                    )
+                )
                 await session.execute(
                     delete(PageTranslationGroup).where(
                         PageTranslationGroup.id.in_(
@@ -801,3 +825,295 @@ def test_active_frontend_version_mismatch_blocks_only_application(pages: Account
             headers=headers(client),
         )
         assert draft.status_code == 200 and not draft.json()["data"]["enabled"]
+
+
+def test_page_version_restore_keeps_public_snapshot_and_records_source(pages: AccountsTest) -> None:
+    prefix = "/v1/admin/pages"
+    page = body(pages, html="<p>First draft</p>", seo_title="SEO title", hide_title=True)
+    identity = page["id"]
+    url = f"{prefix}/{identity}/versions"
+
+    def post(path: str, payload: dict[str, Any], status: int = 200) -> dict[str, Any]:
+        response = pages.root.post(path, json=payload, headers=headers(pages.root))
+        assert response.status_code == status, response.text
+        return dict(response.json())
+
+    post(f"{prefix}/save", page)
+    applied = post(
+        f"{prefix}/save",
+        {
+            **page,
+            "expected_revision": 1,
+            "operation_id": str(uuid4()),
+            "apply": True,
+            "value": {
+                **page["value"],
+                "html": "<p>Public now</p>",
+                "enabled": True,
+                "hide_title": False,
+            },
+        },
+    )["data"]
+    versions = pages.root.get(url).json()["data"]
+    assert [item["revision"] for item in versions["items"]] == [2, 1]
+    assert [
+        item["revision"]
+        for item in pages.root.get(url, params={"before": 2}).json()["data"]["items"]
+    ] == [1]
+    assert pages.client().get(url + "/1").status_code == 401
+    assert pages.root.get(url + "/99").status_code == 404
+    assert pages.root.get(url + "/1").json()["data"]["value"]["hide_title"]
+    before = next(item for item in published(pages) if item["id"] == identity)
+    assert not before.get("hide_title")
+    restore = {
+        "revision": 1,
+        "expected_revision": applied["revision"],
+        "operation_id": str(uuid4()),
+    }
+    assert pages.root.post(url + "/restore", json=restore).status_code == 403
+    result = post(url + "/restore", restore)["data"]
+    assert result["value"]["html"] == "<p>First draft</p>"
+    assert result["value"]["hide_title"] and result["value"]["enabled"]
+    assert result["applied_revision"] == 2 and result["has_unapplied_changes"]
+    assert post(url + "/restore", restore)["data"] == result
+    assert post(url + "/restore", {**restore, "operation_id": str(uuid4())}, 409)["code"] == 40996
+    assert next(item for item in published(pages) if item["id"] == identity) == before
+    latest = pages.root.get(url + "/3").json()["data"]["version"]
+    assert latest["action"] == "restore_draft" and latest["from_revision"] == 1
+    post(
+        f"{prefix}/save",
+        {
+            **page,
+            "expected_revision": 3,
+            "operation_id": str(uuid4()),
+            "apply": True,
+            "value": result["value"],
+        },
+    )
+    live = next(item for item in published(pages) if item["id"] == identity)
+    assert live["hide_title"] and live["seo_title"] == "SEO title"
+
+
+def test_template_restore_requires_fresh_confirmation_before_children_change(
+    pages: AccountsTest,
+) -> None:
+    prefix = "/v1/admin/pages"
+    identity = uuid4()
+    url = f"{prefix}/templates/{identity}"
+
+    def post(path: str, payload: dict[str, Any], status: int = 200) -> dict[str, Any]:
+        response = pages.root.post(path, json=payload, headers=headers(pages.root))
+        assert response.status_code == status, response.text
+        return dict(response.json())
+
+    old = {"title": f"{pages.name} template", "html": "<p>Original template</p>"}
+    newer = {**old, "html": "<p>Current template</p>"}
+    definition = {
+        "id": str(identity),
+        "expected_revision": 0,
+        "operation_id": str(uuid4()),
+        "value": old,
+    }
+    template = post(f"{prefix}/templates", definition)["data"]
+    assert template["applied_revision"] == 1
+    child = {
+        **body(pages, path=f"/{pages.name}-first", enabled=True),
+        "type_id": template["type_id"],
+        "apply": True,
+    }
+    first = post(f"{prefix}/save", child)["data"]
+    post(
+        f"{prefix}/templates",
+        {**definition, "expected_revision": 1, "operation_id": str(uuid4()), "value": newer},
+    )
+    child_draft = post(
+        f"{prefix}/save",
+        {
+            **child,
+            "expected_revision": 2,
+            "operation_id": str(uuid4()),
+            "apply": False,
+            "value": {**child["value"], "description": "Child's unsubmitted change"},
+        },
+    )["data"]
+    ready = pages.root.get(url + "/impact").json()["data"]
+    assert [page["id"] for page in ready["pages"]] == [first["id"]]
+    assert pages.root.get(url + "/versions/1").json()["data"]["value"] == template["value"]
+    restored = post(
+        url + "/versions/restore",
+        {"revision": 1, "expected_revision": 2, "operation_id": str(uuid4())},
+    )["data"]
+    assert restored["value"]["html"] == old["html"]
+    assert restored["applied_revision"] == 2 and restored["applied_value"]["html"] == newer["html"]
+    assert pages.root.get(url + "/versions").json()["data"]["items"][0]["from_revision"] == 1
+    assert (
+        next(item for item in published(pages) if item["id"] == child["id"])["html"]
+        == newer["html"]
+    )
+    assert (
+        post(
+            f"{prefix}/templates",
+            {**definition, "expected_revision": restored["revision"], "operation_id": str(uuid4())},
+            409,
+        )["code"]
+        == 40992
+    )
+    preview = pages.root.get(url + "/impact").json()["data"]
+    second = post(
+        f"{prefix}/save",
+        {
+            **body(pages, path=f"/{pages.name}-second"),
+            "type_id": template["type_id"],
+        },
+    )["data"]
+    assert second["value"]["html"] == newer["html"] and not second["enabled"]
+    apply = {
+        "expected_revision": restored["revision"],
+        "operation_id": str(uuid4()),
+        "digest": preview["digest"],
+    }
+    assert post(url + "/apply", apply, 409)["code"] == 40988
+    preview = pages.root.get(url + "/impact").json()["data"]
+    assert {page["id"]: page["published"] for page in preview["pages"]} == {
+        first["id"]: True,
+        second["id"]: False,
+    }
+    confirmed = {**apply, "operation_id": str(uuid4()), "digest": preview["digest"]}
+    applied = post(url + "/apply", confirmed)["data"]
+    assert applied["revision"] == applied["applied_revision"] == 4
+    assert applied["applied_value"] is None
+    assert post(url + "/apply", confirmed)["data"] == applied
+    live = next(item for item in published(pages) if item["id"] == child["id"])
+    assert live["html"] == old["html"] and not live["description"]
+    loaded = pages.root.get(f"{prefix}/{first['id']}").json()["data"]
+    assert loaded["value"]["description"] == child_draft["value"]["description"]
+    assert loaded["has_unapplied_changes"]
+
+
+def test_protected_shortcodes_are_registered_and_only_unlocked_by_backend(
+    pages: AccountsTest, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from datetime import UTC, datetime
+    from uuid import UUID
+
+    from app.modules.content.models import Comment
+
+    monkeypatch.setenv(pages.settings.auth.application_master_key_env, uuid4().hex * 2)
+    catalog = pages.root.get("/v1/admin/shortcodes")
+    assert catalog.status_code == 200, catalog.text
+    native = {
+        item["source"]["name"]: item
+        for item in catalog.json()["data"]["items"]
+        if item["id"] in {"core.reply-only", "core.password-area"}
+    }
+    assert set(native) == {"reply-only", "password-area"}
+    assert all(item["origin"] == "backend" and not item["editable"] for item in native.values())
+    password = uuid4().hex
+
+    def save(path: str, payload: dict[str, Any]) -> Any:
+        return pages.root.post(path, json=payload, headers=headers(pages.root))
+
+    credential = save("/v1/admin/shortcodes/region-password", {"password": password})
+    assert credential.status_code == 200, credential.text
+    reference = credential.json()["data"]["credential"]
+    reply_secret, password_secret = uuid4().hex, uuid4().hex
+    payload = body(pages, enabled=True, html="", captcha_read="off")
+    payload["apply"] = True
+    payload["value"].update(
+        edit_mode="components",
+        component_document={
+            "version": 1,
+            "nodes": [
+                {
+                    "id": "reply",
+                    "type": "core.markdown",
+                    "props": {
+                        "source": "{{< reply-only >}}" + reply_secret + "{{< /reply-only >}}"
+                    },
+                },
+                {
+                    "id": "locked",
+                    "type": "core.html",
+                    "props": {
+                        "source": '{{< password-area credential="'
+                        + reference
+                        + '" >}}'
+                        + password_secret
+                        + "{{< /password-area >}}"
+                    },
+                },
+            ],
+        },
+    )
+    rejected = save(
+        "/v1/admin/pages/save",
+        {
+            **payload,
+            "operation_id": str(uuid4()),
+            "value": {
+                **payload["value"],
+                "description": "{{< reply-only >}}secret{{< /reply-only >}}",
+            },
+        },
+    )
+    assert rejected.status_code == 422 and rejected.json()["code"] == 42284
+    applied = save("/v1/admin/pages/save", payload)
+    assert applied.status_code == 200, applied.text
+    live = next(page for page in published(pages) if page["id"] == payload["id"])
+    for secret in (password, reference, password_secret, reply_secret):
+        assert secret not in str(live)
+    nodes = live["component_document"]["nodes"]
+    reply_id = nodes[0]["props"]["source"].split('"')[1]
+    password_id = nodes[1]["props"]["source"].split('"')[1]
+    anonymous = pages.client()
+    url = "/v1/reader/shortcode-region"
+    denied = anonymous.post(url, json={"id": reply_id}, headers=headers(anonymous))
+    assert denied.status_code == 401, denied.text
+    denied = save(url, {"id": reply_id})
+    assert denied.status_code == 403 and denied.json()["code"] == 40382, denied.text
+    wrong = anonymous.post(
+        url, json={"id": password_id, "password": "wrong"}, headers=headers(anonymous)
+    )
+    assert wrong.status_code == 403 and wrong.json()["code"] == 40383, wrong.text
+    unlocked = anonymous.post(
+        url, json={"id": password_id, "password": password}, headers=headers(anonymous)
+    )
+    assert unlocked.status_code == 200 and unlocked.json()["data"]["source"] == password_secret
+    assert unlocked.headers["Cache-Control"] == "private, no-store"
+
+    async def moderate(status: str) -> None:
+        database = Database(pages.settings.database.url.get_secret_value())
+        try:
+            async with database.session_factory() as session:
+                region = await session.get(ShortcodeRegion, UUID(password_id))
+                assert region is not None and password_secret not in region.body
+                actor = await session.scalar(select(User).where(User.username == pages.name))
+                assert actor is not None
+                comment = await session.scalar(
+                    select(Comment).where(
+                        Comment.page_id == UUID(payload["id"]), Comment.author_user_id == actor.id
+                    )
+                )
+                if comment is None:
+                    session.add(
+                        Comment(
+                            page_id=UUID(payload["id"]),
+                            author_user_id=actor.id,
+                            author=pages.name,
+                            content="Test reply",
+                            status=status,
+                            created_at=datetime.now(UTC),
+                        )
+                    )
+                else:
+                    comment.status = status
+                await session.commit()
+        finally:
+            await database.close()
+
+    asyncio.run(moderate("pending"))
+    assert save(url, {"id": reply_id}).status_code == 403
+    asyncio.run(moderate("approved"))
+    reply = save(url, {"id": reply_id})
+    assert reply.status_code == 200 and reply.json()["data"]["source"] == reply_secret
+    assert reply.headers["Cache-Control"] == "private, no-store"

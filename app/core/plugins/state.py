@@ -3,6 +3,7 @@
 from typing import Any
 
 from app.modules.settings.extensions_schemas import BackendPluginInfo
+from app.modules.shortcodes.registry import region_catalog
 from app.modules.shortcodes.schemas import PublicShortcode, ShortcodeItem
 
 CATALOG_KEY = "_backend_plugins"
@@ -30,10 +31,13 @@ def enabled_ids(data: dict[str, Any], disabled: list[str] | None = None) -> set[
 def shortcode_items(data: dict[str, Any], disabled: list[str] | None = None) -> list[ShortcodeItem]:
     active = enabled_ids(data, disabled)
     return [
-        ShortcodeItem.model_validate(code)
-        for item in data.get(CATALOG_KEY, [])
-        if item["info"]["id"] in active
-        for code in item["shortcodes"]
+        *region_catalog(),
+        *(
+            ShortcodeItem.model_validate(code)
+            for item in data.get(CATALOG_KEY, [])
+            if item["info"]["id"] in active
+            for code in item["shortcodes"]
+        ),
     ]
 
 

@@ -99,9 +99,14 @@ class ContentPublication:
             settings.display_published_at or draft.published_at or published_at or now
         )
         draft.published_revision = draft.revision
-        from app.modules.shortcodes.regions import RegionPublication, without_region_markers
+        from app.modules.shortcodes.regions import (
+            RegionPublication,
+            require_no_regions,
+            without_region_markers,
+        )
 
         regions = RegionPublication(self.session, self.config, "content", draft.id)
+        require_no_regions((draft.title, draft.author, settings.model_dump(mode="json")))
         component_document = None
         if draft.edit_mode == "components":
             document = ComponentDocument.model_validate(draft.component_document).public_document()

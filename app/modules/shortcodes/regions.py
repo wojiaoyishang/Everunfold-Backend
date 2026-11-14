@@ -2,6 +2,7 @@
 
 import base64
 import hmac
+import json
 import os
 import re
 from collections.abc import Callable
@@ -31,6 +32,11 @@ PASSWORD_ARGUMENT = re.compile(r'\s+credential="([a-f0-9-]{36})"\s*>}}')
 
 def without_region_markers(source: str) -> str:
     return PUBLIC_REGION.sub("", source)
+
+
+def require_no_regions(value: object) -> None:
+    if REGION_TOKEN.search(json.dumps(value, default=str)):
+        raise AuthFailure(422, 42284, "可见区域只能放在正文或短代码组件中")
 
 
 class RegionPassword(Base):
@@ -174,13 +180,10 @@ class RegionPublication:
             )
         )
         for node, _ in redacted.walk():
-            if any(
-                REGION_TOKEN.search(str(value))
-                for key, value in node.props.items()
-                if key != "source"
-                or node.type not in {"core.html", "core.markdown", "core.shortcode"}
-            ):
-                raise AuthFailure(422, 42284, "可见区域只能放在正文或短代码组件中")
+            props = node.props
+            if node.type in {"core.html", "core.markdown", "core.shortcode"}:
+                props = {key: value for key, value in props.items() if key != "source"}
+            require_no_regions(props)
         return redacted
 
     async def store(self) -> None:

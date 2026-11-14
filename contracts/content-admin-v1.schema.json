@@ -2861,6 +2861,11 @@
           "title": "Show Glossary Footnotes",
           "type": "boolean"
         },
+        "hide_title": {
+          "default": false,
+          "title": "Hide Title",
+          "type": "boolean"
+        },
         "enabled": {
           "const": true,
           "default": true,
@@ -4426,7 +4431,7 @@
   "title": "ContentAdminContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "1.24.0",
+  "x-everunfold-contract-version": "1.25.0",
   "x-everunfold-content-types": [
     {
       "id": "article",

@@ -11,7 +11,7 @@
 | collaboration-v1.schema.json | 2.7.0 | 持久协同、逐内容图片查看、源码租约、光标/合并暂停及提交回执拥有者字段 |
 | comment-likes-v0.1.schema.json | 0.2.0 | 匿名历史评论点赞 |
 | content-access-v1.schema.json | 1.9.0 | 私有受限正文读取与评论格式 |
-| content-admin-v1.schema.json | 1.24.0 | 内容草稿、修订及公开投影与评论格式 |
+| content-admin-v1.schema.json | 1.25.0 | 内容草稿、修订和公开投影，支持页面标题显示设置 |
 | glossary-v1.schema.json | 3.7.0 | 术语索引/详情、特色图片/图片查看开关、按内容匹配与跨页面 DOM/脚本触发 |
 | maintenance-v1.schema.json | 1.0.0 | 原生数据包、导入预检与导入记录、健康检查 |
 | notifications-v1.schema.json | 1.4.0 | 通知模板、邮件品牌、模板变量、投递记录与当前账号 Inbox |

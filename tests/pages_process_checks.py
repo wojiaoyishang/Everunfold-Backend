@@ -322,3 +322,31 @@ def check_template_release(
             initial[identity]["title"],
         )
     assert not any(row["id"] == payload["id"] for row in snapshot()["pages"])
+    template = f"{template_url}/{payload['id']}"
+    assert [
+        item["revision"] for item in client.get(template + "/versions").json()["data"]["items"]
+    ] == [2, 1]
+    restored = client.post(
+        template + "/versions/restore",
+        json={"revision": 1, "expected_revision": 2, "operation_id": str(uuid4())},
+        headers=csrf,
+    )
+    assert restored.status_code == 200, restored.text
+    assert restored.json()["data"]["applied_revision"] == 2
+    assert state()["revision"] == revision + 1
+    assert "Template first" not in json.dumps(snapshot())
+    impact = client.get(template + "/impact").json()["data"]
+    assert {page["id"] for page in impact["pages"]} == ids
+    apply = httpx.post(
+        api_b + template + "/apply",
+        json={"digest": impact["digest"], "expected_revision": 3, "operation_id": str(uuid4())},
+        cookies=cookies,
+        headers={**csrf, "Origin": "http://127.0.0.1:3000"},
+        timeout=15,
+    )
+    assert apply.status_code == 200, apply.text
+    wait_for(delivered)
+    assert state()["revision"] == revision + 2
+    assert all(
+        row["html"] == "<p>Template first</p>" for row in snapshot()["pages"] if row["id"] in ids
+    )
