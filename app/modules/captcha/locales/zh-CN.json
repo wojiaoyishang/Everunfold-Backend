@@ -22,5 +22,8 @@
   "comment_empty": "请填写称呼和评论内容",
   "operation_used": "提交标识已使用，请刷新后重试",
   "operation_conflict": "提交标识已使用",
-  "api_key_login": "API Key不能用于浏览器登录"
+  "api_key_login": "API Key不能用于浏览器登录",
+  "discussion_account_required": "请登录后再发表评论",
+  "discussion_blocked": "这条评论不符合站点讨论规则",
+  "comment_website_invalid": "网站地址必须是有效的 HTTP 或 HTTPS 地址"
 }

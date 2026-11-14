@@ -240,6 +240,8 @@ class PublicContentService:
                     content=item.content,
                     created_at=item.created_at,
                     reply_to=parent.author if parent else None,
+                    format="markdown" if item.body_format == "markdown" else "plain",
+                    website=item.website,
                 )
             )
         return results

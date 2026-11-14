@@ -11,6 +11,7 @@ from app.core.jobs.progress_schemas import TaskProgress, WatchTask
 from app.core.jobs.schemas import RuntimeCommand, RuntimeOverview
 from app.core.query_cache_schemas import QueryCacheReport, QueryCacheReportRequest
 from app.core.schemas import PublicModel, PublicResponse
+from app.modules.comments.discussion_schema import DiscussionSettings
 from app.modules.media.fonts import FontCatalog
 from app.modules.media.schemas import (
     FontInfo,
@@ -557,6 +558,8 @@ class SettingsContract(PublicModel):
     icon: PublicResponse[IconAsset]
     settings: PublicResponse[SettingsState]
     save_settings: SaveSettings
+    discussion_settings: PublicResponse[DiscussionSettings]
+    save_discussion_settings: DiscussionSettings
     policy: PublicResponse[PolicyState]
     save_policy: SavePolicy
     nodes: PublicResponse[NodeList]

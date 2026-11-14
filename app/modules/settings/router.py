@@ -11,6 +11,8 @@ from app.core.schemas import ErrorResponse, PublicResponse
 from app.modules.auth.business_auth import authorize_business
 from app.modules.auth.permissions import Actor
 from app.modules.auth.router import auth_runtime
+from app.modules.comments.discussion import save_discussion_settings, settings_from_data
+from app.modules.comments.discussion_schema import DiscussionSettings
 from app.modules.settings.navigation import navigation_resources
 from app.modules.settings.schemas import (
     NavigationCatalog,
@@ -53,6 +55,21 @@ Authorized = Annotated[Access, Depends(access, scope="function")]
 @router.get("/settings", response_model=PublicResponse[SettingsState])
 async def get_settings(ctx: Authorized) -> JSONResponseSuccess:
     return JSONResponseSuccess(data=await ctx.service.state())
+
+
+@router.get("/settings/discussion", response_model=PublicResponse[DiscussionSettings])
+async def get_discussion_settings(ctx: Authorized) -> JSONResponseSuccess:
+    site = await ctx.service.site()
+    return JSONResponseSuccess(data=settings_from_data(site.data))
+
+
+@router.patch("/settings/discussion", response_model=PublicResponse[DiscussionSettings])
+async def update_discussion_settings(
+    payload: DiscussionSettings, ctx: Authorized
+) -> JSONResponseSuccess:
+    return JSONResponseSuccess(
+        data=await save_discussion_settings(ctx.service, payload, ctx.actor.id)
+    )
 
 
 @router.post("/settings/navigation-resources", response_model=PublicResponse[NavigationCatalog])

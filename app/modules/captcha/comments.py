@@ -1,17 +1,17 @@
-"""Submission admission: a successful CAPTCHA never grants publication approval."""
+"""Admit reader comments and apply the site discussion policy."""
 
 import hashlib
 import hmac
 import json
 from dataclasses import replace
 from datetime import UTC, datetime
-from typing import Any, Literal
+from typing import Any
 from uuid import UUID
 
 from fastapi import Request
 from pydantic import Field
 from redis.exceptions import RedisError
-from sqlalchemy import DateTime, String, text
+from sqlalchemy import DateTime, String, select, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Mapped, mapped_column
@@ -20,14 +20,24 @@ from app.core.database import Base
 from app.core.redis_keys import redis_key
 from app.core.responses import JSONResponseSuccess
 from app.core.schemas import PublicModel, PublicResponse
-from app.modules.auth.models import User
+from app.modules.auth.models import AuthAuditEvent, User
 from app.modules.auth.router import auth_runtime, cookie, peer
 from app.modules.auth.service import AuthFailure, AuthService
 from app.modules.captcha.router import router
 from app.modules.captcha.schemas import CaptchaAnswer
 from app.modules.captcha.service import CaptchaContext, CaptchaService, context, guard
+from app.modules.comments.discussion import (
+    SubmissionStatus,
+    classify_comment,
+    comment_website,
+    require_comment_account,
+    settings_from_data,
+)
+from app.modules.comments.discussion_schema import DiscussionPolicy, DiscussionSettings
 from app.modules.content.access_policy import publicly_readable
-from app.modules.content.models import Comment, Content
+from app.modules.content.models import Comment, Content, SiteSettings
+from app.modules.content.schemas import CommentFormat, PublicComment
+from app.modules.media.locking import lock_references
 from app.modules.pages.models import ManagedPage
 
 
@@ -51,11 +61,17 @@ class SubmitComment(PublicModel):
     body: str = Field(min_length=1, max_length=5000)
     captcha: CaptchaAnswer | None = None
     read_receipt: str = Field(default="", max_length=100, repr=False)
+    # Omit defaults from the request hash to preserve existing submission receipts.
+    format: CommentFormat = Field(default="plain", exclude_if=lambda value: value == "plain")
+    website: str | None = Field(
+        default=None, max_length=300, exclude_if=lambda value: value is None
+    )
 
 
 class CommentReceipt(PublicModel):
     id: UUID
-    status: Literal["pending"] = "pending"
+    status: SubmissionStatus = "pending"
+    comment: PublicComment | None = Field(default=None, exclude_if=lambda value: value is None)
 
 
 class CommentSubmissionContract(PublicModel):
@@ -152,11 +168,84 @@ async def comment_account(session: AsyncSession, request: Request) -> User | Non
     )
 
 
+async def discussion_settings(session: AsyncSession) -> DiscussionSettings:
+    site = await session.get(SiteSettings, 1)
+    if site is None:
+        raise AuthFailure(503, 50320, "站点设置尚未初始化，请先执行数据库初始化")
+    return settings_from_data(site.data)
+
+
+@router.get("/v1/reader/discussion", response_model=PublicResponse[DiscussionPolicy])
+async def read_discussion(request: Request) -> JSONResponseSuccess:
+    async with auth_runtime(request).database.session_factory() as session:
+        policy = await discussion_settings(session)
+    return JSONResponseSuccess(
+        data=DiscussionPolicy(allow_guest_comments=policy.allow_guest_comments)
+    )
+
+
+async def approved_receipt(session: AsyncSession, comment: Comment) -> CommentReceipt:
+    from app.modules.content.service import PublicContentService
+
+    parent = await session.get(Comment, comment.parent_id) if comment.parent_id else None
+    parents = {parent.id: parent} if parent and parent.status == "approved" else {}
+    public = PublicContentService._comment_projections([comment], parents)[0]
+    return CommentReceipt(id=comment.id, status="approved", comment=public)
+
+
+async def replay_receipt(
+    session: AsyncSession, existing: CommentSubmission, client_hash: str, fingerprint: str
+) -> CommentReceipt:
+    if (
+        not hmac.compare_digest(existing.client_hash, client_hash)
+        or existing.request_hash != fingerprint
+    ):
+        raise AuthFailure(409, 40987, "提交标识已使用，请刷新后重试")
+    if existing.status == "approved":
+        row = await session.get(Comment, existing.id)
+        if row and row.status == "approved":
+            return await approved_receipt(session, row)
+    return CommentReceipt(id=existing.id)
+
+
+async def publish_pending_notice(
+    session: AsyncSession, comment: Comment, item: Content | None
+) -> None:
+    from app.modules.notifications.events import publish_event
+
+    if item:
+        resource_title, resource_url = item.title, item.path
+    else:
+        page = await session.get(ManagedPage, comment.page_id)
+        assert page is not None
+        published = page.published or {}
+        resource_title = str(published.get("title") or "页面")
+        resource_url = str(published.get("path") or "/")
+    await publish_event(
+        session,
+        event_type="comment.pending_review",
+        dedupe_key=f"comment.pending_review:{comment.id}",
+        resource_type="comment",
+        resource_id=str(comment.id),
+        actor_id=comment.author_user_id,
+        data={
+            "actor": {"name": comment.author},
+            "content": {"excerpt": comment.content[:300]},
+            "resource": {
+                "title": resource_title,
+                "url": resource_url,
+                "review_url": "/admin/comments",
+            },
+        },
+    )
+
+
 @router.post("/v1/reader/comments", response_model=PublicResponse[CommentReceipt])
 async def submit_comment(payload: SubmitComment, request: Request) -> JSONResponseSuccess:
     runtime = auth_runtime(request)
     service = CaptchaService(runtime, peer(request), request.headers.get("Authorization"))
     policy = await service.policy("comment", payload.content_id)
+    payload.website = comment_website(payload.website)
     fingerprint = hashlib.sha256(
         payload.model_dump_json(exclude={"captcha", "read_receipt"}).encode()
     ).hexdigest()
@@ -165,21 +254,19 @@ async def submit_comment(payload: SubmitComment, request: Request) -> JSONRespon
         client_identity += ":" + policy.credential.digest
     async with runtime.database.session_factory() as session:
         account = await comment_account(session, request)
+        require_comment_account(await discussion_settings(session), account)
         account_id = account.id if account else None
         if account_id is not None:
             client_identity += f":account:{account_id}"
         client_hash = hashlib.sha256(client_identity.encode()).hexdigest()
         existing = await session.get(CommentSubmission, payload.operation_id)
         if existing:
-            if (
-                not hmac.compare_digest(existing.client_hash, client_hash)
-                or existing.request_hash != fingerprint
-            ):
-                raise AuthFailure(409, 40987, "提交标识已使用，请刷新后重试")
             await guard(session, policy)
+            require_comment_account(await discussion_settings(session), account)
             await admit_target(session, request, payload, policy)
+            replayed = await replay_receipt(session, existing, client_hash, fingerprint)
             await session.commit()
-            return JSONResponseSuccess(data=CommentReceipt(id=existing.id))
+            return JSONResponseSuccess(data=replayed)
     try:
         if policy.credential is None:
             await service._limit("comment", 10)
@@ -188,77 +275,90 @@ async def submit_comment(payload: SubmitComment, request: Request) -> JSONRespon
     permit = await service.enforce("comment", payload.content_id, payload.captcha, policy=policy)
     async with runtime.database.session_factory() as session:
         account = await comment_account(session, request)
+        if account is not None:
+            # Account profile updates acquire the user lock before the media lock.
+            # Refresh mailbox proof under that lock before testing automatic approval.
+            account = await session.scalar(
+                select(User)
+                .where(User.id == account.id, User.active.is_(True))
+                .with_for_update(read=True)
+                .execution_options(populate_existing=True)
+            )
+            await lock_references(session)
         if (account.id if account else None) != account_id:
             raise AuthFailure(409, 40987, "登录状态已更新，请重新检查后重试")
-        await guard(session, permit)
+        await guard(session, permit, publishing=account is not None)
+        discussion = await discussion_settings(session)
+        require_comment_account(discussion, account)
         item = await admit_target(session, request, payload, permit)
         author = (account.display_name or account.username) if account else payload.author.strip()
-        if not author or not payload.body.strip():
+        body = payload.body.strip()
+        if not author or not body:
             raise AuthFailure(422, 42287, "请填写称呼和评论内容")
-        # Site read lock serializes with withdrawal, policy changes and publication.
         await session.execute(
             text("SELECT pg_advisory_xact_lock(:id)"), {"id": payload.operation_id.int % (2**63)}
         )
         existing = await session.get(CommentSubmission, payload.operation_id)
-        if existing is None:
-            session.add(
-                CommentSubmission(
-                    id=payload.operation_id,
-                    content_id=payload.content_id,
-                    client_hash=client_hash,
-                    request_hash=fingerprint,
-                    data={
-                        "author": author,
-                        "body": payload.body.strip(),
-                        "parent_id": str(payload.parent_id) if payload.parent_id else None,
-                    },
-                    created_at=datetime.now(UTC),
-                )
-            )
-            session.add(
-                Comment(
-                    id=payload.operation_id,
-                    content_id=item.id if item else None,
-                    page_id=None if item else payload.content_id,
-                    parent_id=payload.parent_id,
-                    author=author,
-                    author_user_id=account_id,
-                    content=payload.body.strip(),
-                    created_at=datetime.now(UTC),
-                    status="pending",
-                )
-            )
-            from app.modules.notifications.events import publish_event
-
-            if item:
-                resource_title, resource_url = item.title, item.path
-            else:
-                page = await session.get(ManagedPage, payload.content_id)
-                assert page is not None
-                published = page.published or {}
-                resource_title = str(published.get("title") or "页面")
-                resource_url = str(published.get("path") or "/")
-            await publish_event(
-                session,
-                event_type="comment.pending_review",
-                dedupe_key=f"comment.pending_review:{payload.operation_id}",
-                resource_type="comment",
-                resource_id=str(payload.operation_id),
-                actor_id=account_id,
-                data={
-                    "actor": {"name": author},
-                    "content": {"excerpt": payload.body.strip()[:300]},
-                    "resource": {
-                        "title": resource_title,
-                        "url": resource_url,
-                        "review_url": "/admin/comments",
-                    },
-                },
-            )
-            from app.modules.auth.models import AuthAuditEvent
-
-            session.add(AuthAuditEvent(action="comment_submit", created_at=datetime.now(UTC)))
+        if existing is not None:
+            result = await replay_receipt(session, existing, client_hash, fingerprint)
             await session.commit()
-        elif existing.request_hash != fingerprint or existing.client_hash != client_hash:
-            raise AuthFailure(409, 40987, "提交标识已使用")
-    return JSONResponseSuccess(data=CommentReceipt(id=payload.operation_id))
+            return JSONResponseSuccess(data=result)
+        status = await classify_comment(
+            session, discussion, account, author=author, body=body, website=payload.website
+        )
+        now = datetime.now(UTC)
+        session.add(
+            CommentSubmission(
+                id=payload.operation_id,
+                content_id=payload.content_id,
+                client_hash=client_hash,
+                request_hash=fingerprint,
+                data={
+                    "author": author,
+                    "body": body,
+                    "parent_id": str(payload.parent_id) if payload.parent_id else None,
+                    "format": payload.format,
+                    "website": payload.website,
+                },
+                created_at=now,
+                status=status,
+            )
+        )
+        comment = Comment(
+            id=payload.operation_id,
+            content_id=item.id if item else None,
+            page_id=None if item else payload.content_id,
+            parent_id=payload.parent_id,
+            author=author,
+            author_user_id=account_id,
+            content=body,
+            body_format=payload.format,
+            website=payload.website,
+            created_at=now,
+            status=status,
+        )
+        session.add(comment)
+        if status == "approved":
+            from app.modules.comments.reply_notifications import publish_reply_notice
+            from app.modules.content.publication import ContentPublication
+            from app.modules.settings.cache_event_schema import CacheChange
+
+            await ContentPublication(session, runtime.settings).stage(
+                CacheChange("comments_changed")
+            )
+            await publish_reply_notice(session, comment)
+            result = await approved_receipt(session, comment)
+        else:
+            await publish_pending_notice(session, comment, item)
+            result = CommentReceipt(id=comment.id)
+
+        session.add(
+            AuthAuditEvent(
+                user_id=account_id,
+                action="comment_submit",
+                created_at=now,
+                details={"status": status},
+            )
+        )
+        await session.commit()
+    return JSONResponseSuccess(data=result)

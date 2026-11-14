@@ -22,5 +22,8 @@
   "comment_empty": "Enter your name and comment.",
   "operation_used": "The submission ID was already used. Refresh and retry.",
   "operation_conflict": "The submission ID was already used.",
-  "api_key_login": "API keys cannot be used for browser login."
+  "api_key_login": "API keys cannot be used for browser login.",
+  "discussion_account_required": "Sign in to leave a comment.",
+  "discussion_blocked": "This comment does not meet the site's discussion rules.",
+  "comment_website_invalid": "Enter a valid HTTP or HTTPS website address."
 }

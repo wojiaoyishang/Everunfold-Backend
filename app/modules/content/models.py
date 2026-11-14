@@ -114,6 +114,7 @@ class Comment(Base):
         ),
         CheckConstraint("(content_id IS NULL) <> (page_id IS NULL)", name="target"),
         CheckConstraint("revision >= 1", name="revision"),
+        CheckConstraint("body_format IN ('plain', 'markdown')", name="body_format"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -135,6 +136,8 @@ class Comment(Base):
     )
     author: Mapped[str] = mapped_column(String(200))
     content: Mapped[str] = mapped_column(Text)
+    body_format: Mapped[str] = mapped_column(String(8), default="plain", server_default="plain")
+    website: Mapped[str | None] = mapped_column(String(300))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
     status: Mapped[str] = mapped_column(String(16), default="approved")
 

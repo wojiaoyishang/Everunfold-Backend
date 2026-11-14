@@ -18,6 +18,7 @@ from app.modules.pages.schemas import PublicManagedPage
 
 ContentKind = Literal["article", "shuoshuo", "page"]
 TaxonomyKind = Literal["category", "tag"]
+CommentFormat = Literal["plain", "markdown"]
 
 
 class Page[T](PublicModel):
@@ -135,9 +136,11 @@ class PublicComment(PublicModel):
     id: str
     parent_id: str | None
     author: str
-    content: str = Field(description="纯文本，按文本展示，不再作为 HTML 解析")
+    content: str = Field(description="按 format 以纯文本或安全 Markdown 展示")
     created_at: datetime
     reply_to: str | None = None
+    format: CommentFormat = Field(default="plain", exclude_if=lambda value: value == "plain")
+    website: str | None = Field(default=None, exclude_if=lambda value: value is None)
 
 
 class TaxonomyList(PublicModel):

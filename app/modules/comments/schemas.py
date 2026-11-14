@@ -7,6 +7,7 @@ from uuid import UUID
 from pydantic import Field, field_validator
 
 from app.core.schemas import PublicModel, PublicResponse
+from app.modules.content.schemas import CommentFormat
 
 CommentStatus = Literal["pending", "approved", "rejected", "spam", "trash", "hidden"]
 
@@ -25,6 +26,8 @@ class ModerationItem(PublicModel):
     revision: int
     author: str
     body: str
+    format: CommentFormat = "plain"
+    website: str | None = None
     status: CommentStatus
     created_at: datetime
     updated_at: datetime | None

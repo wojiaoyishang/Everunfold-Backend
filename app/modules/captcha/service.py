@@ -268,14 +268,14 @@ class CaptchaService:
         return policy
 
 
-async def guard(session: AsyncSession, permit: CaptchaContext) -> None:
+async def guard(session: AsyncSession, permit: CaptchaContext, *, publishing: bool = False) -> None:
     if permit.credential:
         await fence(session, permit.credential, permit.action)
     # Site-before-content order matches publication. External HTTP has already finished.
     await session.scalar(
         select(SiteSettings)
         .where(SiteSettings.id == 1)
-        .with_for_update(read=True)
+        .with_for_update(read=not publishing)
         .execution_options(populate_existing=True)
     )
     current = await context(session, permit.action, permit.content_id)

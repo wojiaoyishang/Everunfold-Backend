@@ -1036,6 +1036,58 @@
       "title": "DeliverySummary",
       "type": "object"
     },
+    "DiscussionSettings": {
+      "additionalProperties": false,
+      "properties": {
+        "allow_guest_comments": {
+          "title": "Allow Guest Comments",
+          "type": "boolean"
+        },
+        "revision": {
+          "minimum": 1,
+          "title": "Revision",
+          "type": "integer"
+        },
+        "auto_approve_previously_approved": {
+          "title": "Auto Approve Previously Approved",
+          "type": "boolean"
+        },
+        "moderation_link_threshold": {
+          "maximum": 50,
+          "minimum": 0,
+          "title": "Moderation Link Threshold",
+          "type": "integer"
+        },
+        "moderation_keywords": {
+          "items": {
+            "maxLength": 100,
+            "type": "string"
+          },
+          "maxItems": 100,
+          "title": "Moderation Keywords",
+          "type": "array"
+        },
+        "blocked_keywords": {
+          "items": {
+            "maxLength": 100,
+            "type": "string"
+          },
+          "maxItems": 100,
+          "title": "Blocked Keywords",
+          "type": "array"
+        }
+      },
+      "required": [
+        "allow_guest_comments",
+        "revision",
+        "auto_approve_previously_approved",
+        "moderation_link_threshold",
+        "moderation_keywords",
+        "blocked_keywords"
+      ],
+      "title": "DiscussionSettings",
+      "type": "object"
+    },
     "ExtensionCatalog": {
       "additionalProperties": false,
       "properties": {
@@ -3672,6 +3724,34 @@
         "data"
       ],
       "title": "PublicResponse[CacheRebuildResult]",
+      "type": "object"
+    },
+    "PublicResponse_DiscussionSettings_": {
+      "additionalProperties": false,
+      "properties": {
+        "success": {
+          "default": true,
+          "title": "Success",
+          "type": "boolean"
+        },
+        "code": {
+          "default": 200,
+          "title": "Code",
+          "type": "integer"
+        },
+        "msg": {
+          "default": "请求成功",
+          "title": "Msg",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/DiscussionSettings"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "title": "PublicResponse[DiscussionSettings]",
       "type": "object"
     },
     "PublicResponse_ExtensionCatalog_": {
@@ -7205,6 +7285,12 @@
     "save_settings": {
       "$ref": "#/$defs/SaveSettings"
     },
+    "discussion_settings": {
+      "$ref": "#/$defs/PublicResponse_DiscussionSettings_"
+    },
+    "save_discussion_settings": {
+      "$ref": "#/$defs/DiscussionSettings"
+    },
     "policy": {
       "$ref": "#/$defs/PublicResponse_PolicyState_"
     },
@@ -7316,6 +7402,8 @@
     "icon",
     "settings",
     "save_settings",
+    "discussion_settings",
+    "save_discussion_settings",
     "policy",
     "save_policy",
     "nodes",
@@ -7343,7 +7431,7 @@
   "title": "SettingsContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "1.44.0",
+  "x-everunfold-contract-version": "1.45.0",
   "x-everunfold-language-regions": {
     "zh": "CN",
     "en": "GB",
@@ -7616,6 +7704,19 @@
       "method": "PATCH",
       "input": "save_settings",
       "response": "settings"
+    },
+    {
+      "name": "readDiscussionSettings",
+      "path": "/v1/admin/settings/discussion",
+      "method": "GET",
+      "response": "discussion_settings"
+    },
+    {
+      "name": "saveDiscussionSettings",
+      "path": "/v1/admin/settings/discussion",
+      "method": "PATCH",
+      "input": "save_discussion_settings",
+      "response": "discussion_settings"
     },
     {
       "name": "readFrontendNodes",

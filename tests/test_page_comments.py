@@ -9,9 +9,10 @@ import sys
 import tomllib
 from collections.abc import Iterator
 from contextlib import ExitStack
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import asyncpg  # type: ignore[import-untyped]
 import pytest
@@ -24,6 +25,8 @@ from app.core.database import Database
 from app.core.redis_keys import redis_key
 from app.entrypoints.api import create_app
 from app.modules.auth.bootstrap import seed_admin
+from app.modules.auth.models import User
+from app.modules.captcha.comments import SubmitComment
 from app.modules.content.models import SiteSettings
 from app.modules.content.publication import ContentPublication
 from app.modules.content.repository import ContentRepository
@@ -221,6 +224,138 @@ def approve(ctx: AccountsTest, operation_id: str) -> None:
         headers=headers(ctx.root),
     )
     assert response.status_code == 200, response.text
+
+
+def test_comment_fingerprint_preserves_existing_plain_submission() -> None:
+    request = SubmitComment.model_validate(comment(str(uuid4())))
+    # Receipts produced before comment formatting hashed the same fields in this order.
+    previous = json.dumps(
+        {
+            "operation_id": str(request.operation_id),
+            "content_id": str(request.content_id),
+            "client_id": str(request.client_id),
+            "parent_id": None,
+            "author": request.author,
+            "body": request.body,
+        },
+        ensure_ascii=False,
+        separators=(",", ":"),
+    )
+    excluded = {"captcha", "read_receipt"}
+    assert request.model_dump_json(exclude=excluded) == previous
+    assert request.model_copy(update={"format": "markdown"}).model_dump_json(exclude=excluded) != (
+        previous
+    )
+    assert (
+        request.model_copy(update={"website": "https://example.org/"}).model_dump_json(
+            exclude=excluded
+        )
+        != previous
+    )
+
+
+def test_discussion_policy_admits_filters_and_publishes(comments: AccountsTest) -> None:
+    ctx = comments
+    target = custom(ctx)
+    member = create_user(ctx)
+    reader = ctx.client()
+    signed_in(reader, member["username"], TEMPORARY)
+    submit = "/v1/reader/comments"
+    settings = "/v1/admin/settings/discussion"
+    defaults = ctx.root.get(settings).json()["data"]
+    assert defaults == {
+        "revision": 1,
+        "allow_guest_comments": True,
+        "auto_approve_previously_approved": False,
+        "moderation_link_threshold": 0,
+        "moderation_keywords": [],
+        "blocked_keywords": [],
+    }
+    assert reader.get(settings).status_code == 403
+    desired = {
+        **defaults,
+        "allow_guest_comments": False,
+        "auto_approve_previously_approved": True,
+        "moderation_keywords": [" ＲＥＶＩＥＷ ", "review"],
+        "blocked_keywords": ["forbidden"],
+        "moderation_link_threshold": 2,
+    }
+    result = ctx.root.patch(settings, json=desired, headers=headers(ctx.root))
+    assert result.status_code == 200, result.text
+    assert result.json()["data"]["moderation_keywords"] == ["ＲＥＶＩＥＷ"]
+    assert ctx.root.patch(settings, json=desired, headers=headers(ctx.root)).status_code == 409
+    public = reader.get("/v1/reader/discussion")
+    assert public.headers["cache-control"] == "private, no-store"
+    assert public.json()["data"] == {"allow_guest_comments": False}
+    guest_headers, member_headers = {"Origin": ORIGIN}, headers(reader)
+    guest = ctx.client().post(submit, json=comment(target["id"]), headers=guest_headers)
+    assert guest.status_code == 403 and guest.json()["code"] == 40389
+    assert "_discussion_private" not in json.dumps(snapshot(ctx))
+
+    async def prove_mailbox(*, complete: bool) -> None:
+        database = Database(ctx.settings.database.url.get_secret_value())
+        try:
+            async with database.session_factory() as session:
+                user = await session.get(User, UUID(member["id"]))
+                assert user is not None
+                user.email = "member@example.org"
+                user.email_verified_at = datetime.now(UTC) if complete else None
+                user.email_reviewed_at = None if complete else datetime.now(UTC)
+                await session.commit()
+        finally:
+            await database.close()
+
+    def post(**values: Any) -> dict[str, Any]:
+        response = reader.post(submit, json=comment(target["id"], **values), headers=member_headers)
+        assert response.status_code == 200, response.text
+        return dict(response.json()["data"])
+
+    first = post(body="Needs a first approval")
+    assert first["status"] == "pending" and "comment" not in first
+    approve(ctx, first["id"])
+    asyncio.run(prove_mailbox(complete=False))
+    assert post(body="Administrator-reviewed address")["status"] == "pending"
+
+    asyncio.run(prove_mailbox(complete=True))
+    queued = post(body="Please rEvIeW this")
+    assert queued["status"] == "pending"
+    assert post(body="[site](https://example.com)", website="https://example.org")["status"] == (
+        "pending"
+    )
+    blocked_payload = comment(target["id"], body="This has ＦＯＲＢＩＤＤＥＮ terms")
+    blocked = reader.post(submit, json=blocked_payload, headers=member_headers)
+    assert blocked.status_code == 422 and blocked.json()["code"] == 42288
+    unsafe = reader.post(
+        submit, json=comment(target["id"], website="javascript:alert(1)"), headers=member_headers
+    )
+    assert unsafe.status_code == 422 and unsafe.json()["code"] == 42289
+
+    payload = comment(
+        target["id"],
+        body="An **approved** Markdown reply",
+        format="markdown",
+        website="HTTPS://Example.ORG",
+        parent_id=first["id"],
+        author="This untrusted name is ignored",
+    )
+    before = snapshot(ctx)["generation"]
+    submitted = reader.post(submit, json=payload, headers=member_headers)
+    assert submitted.status_code == 200, submitted.text
+    receipt = submitted.json()["data"]
+    assert receipt["status"] == "approved"
+    assert receipt["comment"]["author"] == member["display_name"]
+    assert receipt["comment"]["format"] == "markdown"
+    assert receipt["comment"]["website"] == "https://example.org/"
+    assert receipt["comment"]["parent_id"] == first["id"]
+    retry = reader.post(submit, json=payload, headers=member_headers)
+    assert retry.status_code == 200 and retry.json()["data"] == receipt
+    current = snapshot(ctx)
+    assert current["generation"] == before + 1
+    assert receipt["comment"] in current["comments"][target["id"]]
+    assert set(message["id"] for message in current["comments"][target["id"]]) == {
+        first["id"],
+        receipt["id"],
+    }
 
 
 def test_account_receives_approved_reply_once_in_private_inbox(comments: AccountsTest) -> None:

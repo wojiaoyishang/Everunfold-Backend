@@ -206,10 +206,24 @@
           "type": "string"
         },
         "status": {
-          "const": "pending",
           "default": "pending",
+          "enum": [
+            "pending",
+            "approved"
+          ],
           "title": "Status",
           "type": "string"
+        },
+        "comment": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PublicComment"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
@@ -368,6 +382,20 @@
         }
       },
       "title": "ContentRules",
+      "type": "object"
+    },
+    "DiscussionPolicy": {
+      "additionalProperties": false,
+      "properties": {
+        "allow_guest_comments": {
+          "title": "Allow Guest Comments",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "allow_guest_comments"
+      ],
+      "title": "DiscussionPolicy",
       "type": "object"
     },
     "FontInfo": {
@@ -566,7 +594,7 @@
           "type": "string"
         },
         "content": {
-          "description": "纯文本，按文本展示，不再作为 HTML 解析",
+          "description": "按 format 以纯文本或安全 Markdown 展示",
           "title": "Content",
           "type": "string"
         },
@@ -586,6 +614,27 @@
           ],
           "default": null,
           "title": "Reply To"
+        },
+        "format": {
+          "default": "plain",
+          "enum": [
+            "plain",
+            "markdown"
+          ],
+          "title": "Format",
+          "type": "string"
+        },
+        "website": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Website"
         }
       },
       "required": [
@@ -708,6 +757,34 @@
         "data"
       ],
       "title": "PublicResponse[CommentReceipt]",
+      "type": "object"
+    },
+    "PublicResponse_DiscussionPolicy_": {
+      "additionalProperties": false,
+      "properties": {
+        "success": {
+          "default": true,
+          "title": "Success",
+          "type": "boolean"
+        },
+        "code": {
+          "default": 200,
+          "title": "Code",
+          "type": "integer"
+        },
+        "msg": {
+          "default": "请求成功",
+          "title": "Msg",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/DiscussionPolicy"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "title": "PublicResponse[DiscussionPolicy]",
       "type": "object"
     },
     "PublicResponse_Page_PublicComment__": {
@@ -932,6 +1009,28 @@
           "maxLength": 100,
           "title": "Read Receipt",
           "type": "string"
+        },
+        "format": {
+          "default": "plain",
+          "enum": [
+            "plain",
+            "markdown"
+          ],
+          "title": "Format",
+          "type": "string"
+        },
+        "website": {
+          "anyOf": [
+            {
+              "maxLength": 300,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Website"
         }
       },
       "required": [
@@ -1323,6 +1422,9 @@
     "comment_response": {
       "$ref": "#/$defs/PublicResponse_CommentReceipt_"
     },
+    "discussion_policy": {
+      "$ref": "#/$defs/PublicResponse_DiscussionPolicy_"
+    },
     "page_comments_request": {
       "$ref": "#/$defs/PageCommentsRequest"
     },
@@ -1339,13 +1441,14 @@
     "page_response",
     "comment_request",
     "comment_response",
+    "discussion_policy",
     "page_comments_request",
     "page_comments_response"
   ],
   "title": "CaptchaAPIContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "1.10.0",
+  "x-everunfold-contract-version": "1.11.0",
   "x-everunfold-reader-authorization": {
     "header": "Authorization: Bearer <API Key>",
     "audience": "everunfold",
@@ -1398,6 +1501,14 @@
       "method": "POST",
       "input": "page_comments_request",
       "response": "page_comments_response",
+      "csrf": false,
+      "credentials": "omit"
+    },
+    {
+      "name": "readDiscussionPolicy",
+      "path": "/v1/reader/discussion",
+      "method": "GET",
+      "response": "discussion_policy",
       "csrf": false,
       "credentials": "omit"
     },

@@ -247,6 +247,27 @@
           "title": "Body",
           "type": "string"
         },
+        "format": {
+          "default": "plain",
+          "enum": [
+            "plain",
+            "markdown"
+          ],
+          "title": "Format",
+          "type": "string"
+        },
+        "website": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Website"
+        },
         "status": {
           "enum": [
             "pending",
@@ -613,7 +634,7 @@
   "title": "OperationsContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "1.1.0",
+  "x-everunfold-contract-version": "1.2.0",
   "x-everunfold-operations": [
     {
       "name": "readWorkspace",

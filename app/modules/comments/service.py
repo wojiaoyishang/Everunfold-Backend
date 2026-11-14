@@ -61,6 +61,8 @@ class CommentService:
                 revision=comment.revision,
                 author=comment.author,
                 body=comment.content,
+                format="markdown" if comment.body_format == "markdown" else "plain",
+                website=comment.website,
                 status=cast(CommentStatus, comment.status),
                 created_at=comment.created_at,
                 updated_at=comment.updated_at,

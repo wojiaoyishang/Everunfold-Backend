@@ -7,6 +7,7 @@ from app.modules.content.schemas import (
     ContentDetail,
     ContentTranslation,
     MediaURL,
+    PublicComment,
     PublicSnapshot,
     SiteDTO,
 )
@@ -28,6 +29,7 @@ def main() -> None:
     detail = ContentDetail.model_json_schema(ref_template="#/definitions/{model}")
     schema["definitions"].update(detail.pop("$defs", {}))
     schema["definitions"]["ContentDetail"] = detail
+    schema["definitions"]["PublicComment"] = PublicComment.model_json_schema()
     schema["definitions"]["ContentTranslation"] = ContentTranslation.model_json_schema()
     pages = PublicManagedPage.model_json_schema(ref_template="#/definitions/{model}")
     schema["definitions"].update(pages.pop("$defs", {}))
@@ -48,8 +50,8 @@ def main() -> None:
         ],
         "default": None,
     }
-    schema["x-everunfold-contract-version"] = "0.17.0"
-    schema["description"] = "公开阅读快照，包含内容 SEO 与已发布术语的发现索引，兼容已有快照。"
+    schema["x-everunfold-contract-version"] = "0.18.0"
+    schema["description"] = "公开阅读快照，包含内容 SEO、已发布术语与评论展示格式，兼容已有快照。"
     target.write_text(
         json.dumps(schema, ensure_ascii=False, indent=2) + "\n", encoding="utf-8", newline="\n"
     )
