@@ -3,7 +3,7 @@
 from typing import Annotated, Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Path, Query, Request
 from sqlalchemy import select
 
 from app.core.responses import JSONResponseSuccess
@@ -13,32 +13,41 @@ from app.modules.auth.permissions import user_permissions
 from app.modules.auth.router import auth_runtime
 from app.modules.auth.service import AuthFailure
 from app.modules.content.models import Taxonomy
-from app.modules.pages.groups import translations
+from app.modules.pages.groups import source_value, translations
 from app.modules.pages.metadata import PageMetadataService
 from app.modules.pages.models import ManagedPage
 from app.modules.pages.schemas import (
+    ApplyPageTemplate,
     CreatePageTranslation,
     LinkPageTranslation,
     ManagedPageCatalog,
     ManagedPageItem,
+    ManagedPageVersion,
     PageCategories,
     PageCategory,
     PageMetadata,
     PageTemplateItem,
+    PageTemplateVersion,
     PageTranslationCatalog,
     PageTranslationLookup,
     PageTranslationMutation,
     PageTypeCatalog,
+    PageVersionCatalog,
+    PageVersionQuery,
     RemoveManagedPage,
+    RestorePageVersion,
     SaveManagedPage,
     SavePageMetadata,
     SavePageTemplate,
     SetPageEnabled,
+    TemplateImpact,
+    TitledPageCode,
 )
 from app.modules.pages.service import PagesService
 from app.modules.pages.templates import PageTemplates, page_template
 from app.modules.pages.translations import PageTranslations
 from app.modules.pages.types import page_types
+from app.modules.pages.versions import get_version, version_catalog, version_metadata
 
 router = APIRouter(
     prefix="/v1/admin/pages",
@@ -56,6 +65,17 @@ async def reader(ctx: Authorized) -> AccountAccess:
 
 
 Access = Annotated[AccountAccess, Depends(reader)]
+
+
+async def writer(ctx: Access) -> AccountAccess:
+    if "pages:write" not in user_permissions(ctx.actor):
+        raise AuthFailure(403, 40364, "没有执行此操作的权限")
+    return ctx
+
+
+WriteAccess = Annotated[AccountAccess, Depends(writer)]
+VersionNumber = Annotated[int, Path(ge=1)]
+VersionQuery = Annotated[PageVersionQuery, Query()]
 
 
 def service(ctx: AccountAccess, request: Request) -> PagesService:
@@ -98,12 +118,64 @@ async def read_template(template_id: UUID, ctx: Access, request: Request) -> JSO
 
 @router.post("/templates", response_model=PublicResponse[PageTemplateItem])
 async def save_template(
-    payload: SavePageTemplate, ctx: Access, request: Request
+    payload: SavePageTemplate, ctx: WriteAccess, request: Request
 ) -> JSONResponseSuccess:
-    if "pages:write" not in user_permissions(ctx.actor):
-        raise AuthFailure(403, 40364, "没有执行此操作的权限")
     templates = PageTemplates(ctx.service, auth_runtime(request).settings)
     return JSONResponseSuccess(data=await templates.save(ctx.actor, payload))
+
+
+@router.get("/templates/{template_id}/versions", response_model=PublicResponse[PageVersionCatalog])
+async def template_versions(
+    template_id: UUID, ctx: Access, query: VersionQuery
+) -> JSONResponseSuccess:
+    session = ctx.service.session
+    return JSONResponseSuccess(
+        data=await version_catalog(session, await page_template(session, template_id), query.before)
+    )
+
+
+@router.get(
+    "/templates/{template_id}/versions/{revision}",
+    response_model=PublicResponse[PageTemplateVersion],
+)
+async def template_version(
+    template_id: UUID, revision: VersionNumber, ctx: Access
+) -> JSONResponseSuccess:
+    row = await get_version(ctx.service.session, "template", template_id, revision)
+    return JSONResponseSuccess(
+        data=PageTemplateVersion(
+            version=version_metadata(row), value=TitledPageCode.model_validate(row.value)
+        )
+    )
+
+
+@router.post(
+    "/templates/{template_id}/versions/restore", response_model=PublicResponse[PageTemplateItem]
+)
+async def restore_template_version(
+    template_id: UUID, payload: RestorePageVersion, ctx: WriteAccess, request: Request
+) -> JSONResponseSuccess:
+    templates = PageTemplates(ctx.service, auth_runtime(request).settings)
+    return JSONResponseSuccess(
+        data=await templates.restore_version(ctx.actor, template_id, payload)
+    )
+
+
+@router.get("/templates/{template_id}/impact", response_model=PublicResponse[TemplateImpact])
+async def template_impact(template_id: UUID, ctx: Access, request: Request) -> JSONResponseSuccess:
+    templates = PageTemplates(ctx.service, auth_runtime(request).settings)
+    template = await page_template(ctx.service.session, template_id)
+    return JSONResponseSuccess(
+        data=templates.impact(template, await templates.affected_pages(template_id))
+    )
+
+
+@router.post("/templates/{template_id}/apply", response_model=PublicResponse[PageTemplateItem])
+async def apply_template(
+    template_id: UUID, payload: ApplyPageTemplate, ctx: WriteAccess, request: Request
+) -> JSONResponseSuccess:
+    templates = PageTemplates(ctx.service, auth_runtime(request).settings)
+    return JSONResponseSuccess(data=await templates.apply(ctx.actor, template_id, payload))
 
 
 @router.post("/save", response_model=PublicResponse[ManagedPageItem])
@@ -180,10 +252,42 @@ async def review_translation(
 
 @router.get("/{page_id}", response_model=PublicResponse[ManagedPageItem])
 async def detail(page_id: UUID, ctx: Access, request: Request) -> JSONResponseSuccess:
-    value = await ctx.service.session.scalar(select(ManagedPage).where(ManagedPage.id == page_id))
+    return JSONResponseSuccess(
+        data=await service(ctx, request).item(await require_page(page_id, ctx))
+    )
+
+
+async def require_page(page_id: UUID, ctx: AccountAccess) -> ManagedPage:
+    value = await ctx.service.session.get(ManagedPage, page_id)
     if value is None:
         raise AuthFailure(404, 40496, "页面不存在")
-    return JSONResponseSuccess(data=await service(ctx, request).item(value))
+    return value
+
+
+@router.get("/{page_id}/versions", response_model=PublicResponse[PageVersionCatalog])
+async def page_versions(page_id: UUID, ctx: Access, query: VersionQuery) -> JSONResponseSuccess:
+    return JSONResponseSuccess(
+        data=await version_catalog(
+            ctx.service.session, await require_page(page_id, ctx), query.before
+        )
+    )
+
+
+@router.get("/{page_id}/versions/{revision}", response_model=PublicResponse[ManagedPageVersion])
+async def page_version(page_id: UUID, revision: VersionNumber, ctx: Access) -> JSONResponseSuccess:
+    row = await get_version(ctx.service.session, "page", page_id, revision)
+    return JSONResponseSuccess(
+        data=ManagedPageVersion(version=version_metadata(row), value=source_value(row.value))
+    )
+
+
+@router.post("/{page_id}/versions/restore", response_model=PublicResponse[ManagedPageItem])
+async def restore_page_version(
+    page_id: UUID, payload: RestorePageVersion, ctx: WriteAccess, request: Request
+) -> JSONResponseSuccess:
+    return JSONResponseSuccess(
+        data=await service(ctx, request).restore_version(ctx.actor, page_id, payload)
+    )
 
 
 @router.get("/{page_id}/metadata", response_model=PublicResponse[PageMetadata])

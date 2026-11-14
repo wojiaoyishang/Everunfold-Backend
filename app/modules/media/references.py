@@ -11,7 +11,12 @@ from app.modules.content.collaboration.models import CollaborationDocument
 from app.modules.content.draft_models import ContentDraft, DraftBranch, DraftMerge, DraftRevision
 from app.modules.content.models import Comment, Content, SiteSettings
 from app.modules.media.models import MediaAsset
-from app.modules.pages.models import ManagedPage, PageTemplate
+from app.modules.pages.models import (
+    ManagedPage,
+    ManagedPageRevision,
+    PageTemplate,
+    PageTemplateRevision,
+)
 from app.modules.settings.models import SettingsAudit, SettingsDeliveryEvent
 from app.modules.shortcodes.models import ShortcodeDefinition, ShortcodeVersion
 
@@ -36,7 +41,12 @@ async def require_unreferenced(
                 cast(ManagedPage.applied_snapshot, Text).contains(token),
             )
         ),
-        select(PageTemplate.id).where(cast(PageTemplate.code, Text).contains(token)),
+        select(PageTemplate.id).where(
+            or_(
+                cast(PageTemplate.code, Text).contains(token),
+                cast(PageTemplate.draft_value, Text).contains(token),
+            )
+        ),
         select(UserAvatar.id).where(
             UserAvatar.asset_id == asset.id, UserAvatar.removed_at.is_(None)
         ),
@@ -86,6 +96,12 @@ async def require_unreferenced(
             select(ShortcodeVersion.id).where(cast(ShortcodeVersion.data, Text).contains(token)),
             select(DraftRevision.draft_id).where(
                 cast(DraftRevision.snapshot, Text).contains(token)
+            ),
+            select(ManagedPageRevision.owner_id).where(
+                cast(ManagedPageRevision.value, Text).contains(token)
+            ),
+            select(PageTemplateRevision.owner_id).where(
+                cast(PageTemplateRevision.value, Text).contains(token)
             ),
             select(SettingsDeliveryEvent.id).where(
                 cast(SettingsDeliveryEvent.payload, Text).contains(token)

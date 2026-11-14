@@ -1,5 +1,32 @@
 {
   "$defs": {
+    "ApplyPageTemplate": {
+      "additionalProperties": false,
+      "properties": {
+        "expected_revision": {
+          "minimum": 1,
+          "title": "Expected Revision",
+          "type": "integer"
+        },
+        "operation_id": {
+          "format": "uuid",
+          "title": "Operation Id",
+          "type": "string"
+        },
+        "digest": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Digest",
+          "type": "string"
+        }
+      },
+      "required": [
+        "expected_revision",
+        "operation_id",
+        "digest"
+      ],
+      "title": "ApplyPageTemplate",
+      "type": "object"
+    },
     "ComponentDocument": {
       "additionalProperties": false,
       "properties": {
@@ -584,6 +611,23 @@
       "title": "ManagedPageSummary",
       "type": "object"
     },
+    "ManagedPageVersion": {
+      "additionalProperties": false,
+      "properties": {
+        "version": {
+          "$ref": "#/$defs/PageVersion"
+        },
+        "value": {
+          "$ref": "#/$defs/PageValue"
+        }
+      },
+      "required": [
+        "version",
+        "value"
+      ],
+      "title": "ManagedPageVersion",
+      "type": "object"
+    },
     "MediaURL": {
       "additionalProperties": false,
       "properties": {
@@ -864,6 +908,11 @@
         "show_glossary_footnotes": {
           "default": true,
           "title": "Show Glossary Footnotes",
+          "type": "boolean"
+        },
+        "hide_title": {
+          "default": false,
+          "title": "Hide Title",
           "type": "boolean"
         },
         "enabled": {
@@ -1153,6 +1202,29 @@
         },
         "value": {
           "$ref": "#/$defs/TitledPageCode"
+        },
+        "applied_revision": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Applied Revision"
+        },
+        "applied_value": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TitledPageCode"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
@@ -1188,6 +1260,23 @@
         "revision"
       ],
       "title": "PageTemplateReference",
+      "type": "object"
+    },
+    "PageTemplateVersion": {
+      "additionalProperties": false,
+      "properties": {
+        "version": {
+          "$ref": "#/$defs/PageVersion"
+        },
+        "value": {
+          "$ref": "#/$defs/TitledPageCode"
+        }
+      },
+      "required": [
+        "version",
+        "value"
+      ],
+      "title": "PageTemplateVersion",
       "type": "object"
     },
     "PageTranslationCatalog": {
@@ -1629,6 +1718,11 @@
           "title": "Show Glossary Footnotes",
           "type": "boolean"
         },
+        "hide_title": {
+          "default": false,
+          "title": "Hide Title",
+          "type": "boolean"
+        },
         "enabled": {
           "default": false,
           "title": "Enabled",
@@ -1666,6 +1760,145 @@
         "path"
       ],
       "title": "PageValue",
+      "type": "object"
+    },
+    "PageVersion": {
+      "additionalProperties": false,
+      "properties": {
+        "revision": {
+          "minimum": 1,
+          "title": "Revision",
+          "type": "integer"
+        },
+        "actor": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Actor"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "action": {
+          "enum": [
+            "baseline",
+            "save",
+            "apply",
+            "restore_draft",
+            "enable",
+            "disable",
+            "remove",
+            "restore",
+            "translate",
+            "import",
+            "template_apply"
+          ],
+          "title": "Action",
+          "type": "string"
+        },
+        "from_revision": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "From Revision"
+        }
+      },
+      "required": [
+        "revision",
+        "actor",
+        "created_at",
+        "action",
+        "from_revision"
+      ],
+      "title": "PageVersion",
+      "type": "object"
+    },
+    "PageVersionCatalog": {
+      "additionalProperties": false,
+      "properties": {
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "revision": {
+          "title": "Revision",
+          "type": "integer"
+        },
+        "applied_revision": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Applied Revision"
+        },
+        "archived": {
+          "default": false,
+          "title": "Archived",
+          "type": "boolean"
+        },
+        "items": {
+          "items": {
+            "$ref": "#/$defs/PageVersion"
+          },
+          "title": "Items",
+          "type": "array"
+        },
+        "next_before": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Next Before"
+        }
+      },
+      "required": [
+        "title",
+        "revision",
+        "applied_revision",
+        "items"
+      ],
+      "title": "PageVersionCatalog",
+      "type": "object"
+    },
+    "PageVersionQuery": {
+      "additionalProperties": false,
+      "properties": {
+        "before": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Before"
+        }
+      },
+      "title": "PageVersionQuery",
       "type": "object"
     },
     "PublicManagedPage": {
@@ -1878,6 +2111,11 @@
           "title": "Show Glossary Footnotes",
           "type": "boolean"
         },
+        "hide_title": {
+          "default": false,
+          "title": "Hide Title",
+          "type": "boolean"
+        },
         "enabled": {
           "const": true,
           "default": true,
@@ -2069,6 +2307,34 @@
       "title": "PublicResponse[ManagedPageItem]",
       "type": "object"
     },
+    "PublicResponse_ManagedPageVersion_": {
+      "additionalProperties": false,
+      "properties": {
+        "success": {
+          "default": true,
+          "title": "Success",
+          "type": "boolean"
+        },
+        "code": {
+          "default": 200,
+          "title": "Code",
+          "type": "integer"
+        },
+        "msg": {
+          "default": "请求成功",
+          "title": "Msg",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/ManagedPageVersion"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "title": "PublicResponse[ManagedPageVersion]",
+      "type": "object"
+    },
     "PublicResponse_PageCategories_": {
       "additionalProperties": false,
       "properties": {
@@ -2153,6 +2419,34 @@
       "title": "PublicResponse[PageTemplateItem]",
       "type": "object"
     },
+    "PublicResponse_PageTemplateVersion_": {
+      "additionalProperties": false,
+      "properties": {
+        "success": {
+          "default": true,
+          "title": "Success",
+          "type": "boolean"
+        },
+        "code": {
+          "default": 200,
+          "title": "Code",
+          "type": "integer"
+        },
+        "msg": {
+          "default": "请求成功",
+          "title": "Msg",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/PageTemplateVersion"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "title": "PublicResponse[PageTemplateVersion]",
+      "type": "object"
+    },
     "PublicResponse_PageTranslationCatalog_": {
       "additionalProperties": false,
       "properties": {
@@ -2209,6 +2503,62 @@
       "title": "PublicResponse[PageTypeCatalog]",
       "type": "object"
     },
+    "PublicResponse_PageVersionCatalog_": {
+      "additionalProperties": false,
+      "properties": {
+        "success": {
+          "default": true,
+          "title": "Success",
+          "type": "boolean"
+        },
+        "code": {
+          "default": 200,
+          "title": "Code",
+          "type": "integer"
+        },
+        "msg": {
+          "default": "请求成功",
+          "title": "Msg",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/PageVersionCatalog"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "title": "PublicResponse[PageVersionCatalog]",
+      "type": "object"
+    },
+    "PublicResponse_TemplateImpact_": {
+      "additionalProperties": false,
+      "properties": {
+        "success": {
+          "default": true,
+          "title": "Success",
+          "type": "boolean"
+        },
+        "code": {
+          "default": 200,
+          "title": "Code",
+          "type": "integer"
+        },
+        "msg": {
+          "default": "请求成功",
+          "title": "Msg",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/TemplateImpact"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "title": "PublicResponse[TemplateImpact]",
+      "type": "object"
+    },
     "RemoveManagedPage": {
       "additionalProperties": false,
       "properties": {
@@ -2239,6 +2589,33 @@
         "operation_id"
       ],
       "title": "RemoveManagedPage",
+      "type": "object"
+    },
+    "RestorePageVersion": {
+      "additionalProperties": false,
+      "properties": {
+        "expected_revision": {
+          "minimum": 1,
+          "title": "Expected Revision",
+          "type": "integer"
+        },
+        "operation_id": {
+          "format": "uuid",
+          "title": "Operation Id",
+          "type": "string"
+        },
+        "revision": {
+          "minimum": 1,
+          "title": "Revision",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "expected_revision",
+        "operation_id",
+        "revision"
+      ],
+      "title": "RestorePageVersion",
       "type": "object"
     },
     "SaveManagedPage": {
@@ -2361,6 +2738,11 @@
         },
         "value": {
           "$ref": "#/$defs/TitledPageCode"
+        },
+        "apply": {
+          "default": true,
+          "title": "Apply",
+          "type": "boolean"
         }
       },
       "required": [
@@ -2414,6 +2796,75 @@
         "operation_id"
       ],
       "title": "SetPageEnabled",
+      "type": "object"
+    },
+    "TemplateAffectedPage": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "language": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Language"
+        },
+        "published": {
+          "title": "Published",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "path",
+        "language",
+        "published"
+      ],
+      "title": "TemplateAffectedPage",
+      "type": "object"
+    },
+    "TemplateImpact": {
+      "additionalProperties": false,
+      "properties": {
+        "revision": {
+          "title": "Revision",
+          "type": "integer"
+        },
+        "digest": {
+          "title": "Digest",
+          "type": "string"
+        },
+        "pages": {
+          "items": {
+            "$ref": "#/$defs/TemplateAffectedPage"
+          },
+          "title": "Pages",
+          "type": "array"
+        }
+      },
+      "required": [
+        "revision",
+        "digest",
+        "pages"
+      ],
+      "title": "TemplateImpact",
       "type": "object"
     },
     "TitledPageCode": {
@@ -2557,6 +3008,27 @@
     },
     "link_translation": {
       "$ref": "#/$defs/LinkPageTranslation"
+    },
+    "version_query": {
+      "$ref": "#/$defs/PageVersionQuery"
+    },
+    "version_catalog": {
+      "$ref": "#/$defs/PublicResponse_PageVersionCatalog_"
+    },
+    "page_version": {
+      "$ref": "#/$defs/PublicResponse_ManagedPageVersion_"
+    },
+    "template_version": {
+      "$ref": "#/$defs/PublicResponse_PageTemplateVersion_"
+    },
+    "restore_version": {
+      "$ref": "#/$defs/RestorePageVersion"
+    },
+    "template_impact": {
+      "$ref": "#/$defs/PublicResponse_TemplateImpact_"
+    },
+    "apply_template": {
+      "$ref": "#/$defs/ApplyPageTemplate"
     }
   },
   "required": [
@@ -2577,12 +3049,19 @@
     "translation_lookup",
     "translation_mutation",
     "create_translation",
-    "link_translation"
+    "link_translation",
+    "version_query",
+    "version_catalog",
+    "page_version",
+    "template_version",
+    "restore_version",
+    "template_impact",
+    "apply_template"
   ],
   "title": "PagesContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "1.15.0",
+  "x-everunfold-contract-version": "1.16.0",
   "x-everunfold-operations": [
     {
       "name": "setPageEnabled",
@@ -2689,6 +3168,59 @@
       "method": "POST",
       "input": "remove",
       "response": "item"
+    },
+    {
+      "name": "readPageVersions",
+      "path": "/v1/admin/pages/{page_id}/versions",
+      "method": "GET",
+      "input": "version_query",
+      "response": "version_catalog"
+    },
+    {
+      "name": "readPageVersion",
+      "path": "/v1/admin/pages/{page_id}/versions/{revision}",
+      "method": "GET",
+      "response": "page_version"
+    },
+    {
+      "name": "restorePageVersion",
+      "path": "/v1/admin/pages/{page_id}/versions/restore",
+      "method": "POST",
+      "input": "restore_version",
+      "response": "item"
+    },
+    {
+      "name": "readPageTemplateVersions",
+      "path": "/v1/admin/pages/templates/{template_id}/versions",
+      "method": "GET",
+      "input": "version_query",
+      "response": "version_catalog"
+    },
+    {
+      "name": "readPageTemplateVersion",
+      "path": "/v1/admin/pages/templates/{template_id}/versions/{revision}",
+      "method": "GET",
+      "response": "template_version"
+    },
+    {
+      "name": "restorePageTemplateVersion",
+      "path": "/v1/admin/pages/templates/{template_id}/versions/restore",
+      "method": "POST",
+      "input": "restore_version",
+      "response": "template"
+    },
+    {
+      "name": "readTemplateImpact",
+      "path": "/v1/admin/pages/templates/{template_id}/impact",
+      "method": "GET",
+      "response": "template_impact"
+    },
+    {
+      "name": "applyPageTemplate",
+      "path": "/v1/admin/pages/templates/{template_id}/apply",
+      "method": "POST",
+      "input": "apply_template",
+      "response": "template"
     }
   ]
 }

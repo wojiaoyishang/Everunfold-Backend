@@ -6,7 +6,7 @@ from uuid import UUID
 
 from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Integer, String, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
 
@@ -36,6 +36,8 @@ class PageTemplate(Base):
     description: Mapped[str] = mapped_column(String(500))
     revision: Mapped[int] = mapped_column(Integer)
     code: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    applied_revision: Mapped[int] = mapped_column(Integer)
+    draft_value: Mapped[dict[str, Any] | None] = mapped_column(JSONB(none_as_null=True))
 
 
 class ManagedPage(Base):
@@ -87,6 +89,31 @@ class ManagedPage(Base):
         DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class PageRevisionFields:
+    revision: Mapped[int] = mapped_column(Integer, primary_key=True)
+    value: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    action: Mapped[str] = mapped_column(String(24))
+    actor: Mapped[str | None] = mapped_column(String(100))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    from_revision: Mapped[int | None] = mapped_column(Integer)
+
+
+class ManagedPageRevision(PageRevisionFields, Base):
+    __tablename__ = "managed_page_revisions"
+    owner_id: Mapped[UUID] = mapped_column(
+        ForeignKey("managed_pages.id", ondelete="CASCADE"), primary_key=True
+    )
+    owner: Mapped[ManagedPage] = relationship()
+
+
+class PageTemplateRevision(PageRevisionFields, Base):
+    __tablename__ = "page_template_revisions"
+    owner_id: Mapped[UUID] = mapped_column(
+        ForeignKey("page_templates.id", ondelete="CASCADE"), primary_key=True
+    )
+    owner: Mapped[PageTemplate] = relationship()
 
 
 class FrontendPageRegistration(Base):

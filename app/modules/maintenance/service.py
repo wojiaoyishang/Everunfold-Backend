@@ -25,6 +25,7 @@ from app.modules.media.locking import lock_references
 from app.modules.pages.models import ManagedPage, PageTemplate, PageTranslationGroup
 from app.modules.pages.schemas import CUSTOM_PAGE_TYPE, TitledPageCode
 from app.modules.pages.templates import effective_value, page_data
+from app.modules.pages.versions import record_page_version, record_version
 from app.modules.settings.models import SettingsAudit
 from app.plugins.glossary.schemas import GlossaryCreate, GlossaryFields
 from app.plugins.glossary.service import create_term, lock_glossary
@@ -227,15 +228,16 @@ class MaintenanceService:
                 self.config,
             )
         elif isinstance(value, TitledPageCode):
-            self.session.add(
-                PageTemplate(
-                    id=identity,
-                    title=value.title,
-                    description=value.description,
-                    revision=1,
-                    code=value.model_dump(mode="json", exclude={"title", "description"}),
-                )
+            template = PageTemplate(
+                id=identity,
+                title=value.title,
+                description=value.description,
+                revision=1,
+                applied_revision=1,
+                code=value.model_dump(mode="json", exclude={"title", "description"}),
             )
+            self.session.add(template)
+            record_version(self.session, template, value, self.actor, "import")
             self.session.add(
                 SettingsAudit(
                     user_id=self.actor.id,
@@ -352,16 +354,16 @@ class MaintenanceService:
             await self.session.get(PageTemplate, value.template_id) if value.template_id else None
         )
         page = effective_value(value.value.model_dump(mode="json"), template)
-        self.session.add(
-            ManagedPage(
-                id=identity,
-                source="custom" if value.type_id == CUSTOM_PAGE_TYPE else "registered",
-                type_id=value.type_id,
-                template_id=value.template_id,
-                revision=1,
-                language=value.language,
-                translation_group_id=group_id,
-                data=page_data(page, template),
-                updated_at=now,
-            )
+        row = ManagedPage(
+            id=identity,
+            source="custom" if value.type_id == CUSTOM_PAGE_TYPE else "registered",
+            type_id=value.type_id,
+            template_id=value.template_id,
+            revision=1,
+            language=value.language,
+            translation_group_id=group_id,
+            data=page_data(page, template),
+            updated_at=now,
         )
+        self.session.add(row)
+        record_page_version(self.session, row, self.actor, "import")

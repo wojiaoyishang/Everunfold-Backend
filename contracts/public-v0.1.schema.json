@@ -1083,6 +1083,11 @@
           "title": "Show Glossary Footnotes",
           "type": "boolean"
         },
+        "hide_title": {
+          "default": false,
+          "title": "Hide Title",
+          "type": "boolean"
+        },
         "enabled": {
           "const": true,
           "default": true,
@@ -1526,5 +1531,5 @@
       "type": "object"
     }
   },
-  "x-everunfold-contract-version": "0.18.0"
+  "x-everunfold-contract-version": "0.19.0"
 }

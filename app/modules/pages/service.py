@@ -21,7 +21,7 @@ from app.modules.pages.component_values import (
     page_document,
     public_page_value,
 )
-from app.modules.pages.groups import promote_original, translations, unapplied
+from app.modules.pages.groups import promote_original, source_value, translations, unapplied
 from app.modules.pages.models import ManagedPage, PageTemplate, PageTranslationGroup
 from app.modules.pages.options import bounded_options
 from app.modules.pages.paths import content_path_taken, normalize_page_path, page_path_taken
@@ -35,6 +35,7 @@ from app.modules.pages.schemas import (
     PageValue,
     PublicManagedPage,
     RemoveManagedPage,
+    RestorePageVersion,
     SaveManagedPage,
     SetPageEnabled,
     template_type_id,
@@ -48,6 +49,7 @@ from app.modules.pages.templates import (
     template_reference,
 )
 from app.modules.pages.types import CUSTOM_PAGE_TITLE, RegisteredPageType, registered_types
+from app.modules.pages.versions import get_version, record_page_version
 from app.modules.settings.cache_event_schema import CacheChange
 from app.modules.settings.languages import (
     language_catalog,
@@ -327,6 +329,7 @@ class PagesService:
             )
             await self.session.flush()
             await ContentPublication(self.session, self.config).stage(CacheChange("page_changed"))
+        record_page_version(self.session, row, actor, "apply" if payload.apply else "save")
         self.session.add(
             SettingsAudit(
                 user_id=actor.id,
@@ -343,6 +346,63 @@ class PagesService:
             fingerprint,
             result.model_dump(mode="json"),
             sensitive=True,
+        )
+        await self.session.commit()
+        return result
+
+    async def restore_version(
+        self, actor: User, identity: UUID, payload: RestorePageVersion
+    ) -> ManagedPageItem:
+        await lock_references(self.session)
+        await SettingsService(self.session, self.config).site(locked=True)
+        operation = "page_version_restore"
+        fingerprint = {"id": str(identity), **payload.model_dump(mode="json")}
+        cached = await self.accounts.operations.read(
+            payload.operation_id, actor.id, operation, fingerprint
+        )
+        if cached is not None:
+            return ManagedPageItem.model_validate(cached)
+        row = await self.target(identity, payload.expected_revision)
+        if row.deleted_at is not None:
+            raise AuthFailure(409, 40996, "请先恢复回收站中的页面")
+        version = await get_version(self.session, "page", identity, payload.revision)
+        template = await page_template(self.session, row.template_id) if row.template_id else None
+        previous = effective_value(row.data, template)
+        # A linked page owns its settings and parameters. Its source follows the live template.
+        snapshot = source_value(version.value)
+        value = effective_value(page_data(snapshot, template), template)
+        value.enabled = previous.enabled
+        if actor.role != "admin" and (value.javascript_enabled or previous.javascript_enabled):
+            raise AuthFailure(403, 40397, "只有管理员可以启用或修改页面脚本")
+        definition, _ = await self.registration(row.type_id)
+        if (
+            definition
+            and not definition.seo_editable
+            and (
+                value.seo_overrides() != previous.seo_overrides()
+                or value.share_image_media_id != previous.share_image_media_id
+            )
+        ):
+            raise AuthFailure(403, 40396, "该页面类型不允许修改搜索与分享设置")
+        require_page_size(value)
+        await self.validate_path(value.path, row.id)
+        await self.share_image(value, strict=True)
+        row.revision += 1
+        row.data, row.updated_at = page_data(value, template), datetime.now(UTC)
+        record_page_version(
+            self.session, row, actor, "restore_draft", from_revision=version.revision
+        )
+        self.session.add(
+            SettingsAudit(
+                user_id=actor.id,
+                resource=f"page:{row.id}",
+                revision=row.revision,
+                changes={"action": "restore_draft", "from_revision": version.revision},
+            )
+        )
+        result = await self.item(row)
+        await self.accounts.operations.remember(
+            payload.operation_id, actor.id, operation, fingerprint, result.model_dump(mode="json")
         )
         await self.session.commit()
         return result
@@ -367,12 +427,11 @@ class PagesService:
         definition: PageRegistration | None,
         image: str | None,
     ) -> dict[str, Any]:
-        from app.modules.shortcodes.regions import REGION_TOKEN, RegionPublication
+        from app.modules.shortcodes.regions import RegionPublication, require_no_regions
 
         value = public_page_value(value, linked=row.template_id is not None)
         regions = RegionPublication(self.session, self.config, "page", row.id)
-        if any(REGION_TOKEN.search(text) for text in (value.css, value.javascript)):
-            raise AuthFailure(422, 42284, "可见区域只能放在页面正文中")
+        require_no_regions(value.model_dump(mode="json", exclude={"html", "component_document"}))
         value = value.model_copy(
             update={
                 "html": regions.redact(value.html, "html"),
@@ -444,6 +503,7 @@ class PagesService:
         )
         await self.session.flush()
         await ContentPublication(self.session, self.config).stage(CacheChange("page_changed"))
+        record_page_version(self.session, row, actor, "enable" if payload.enabled else "disable")
         self.session.add(
             SettingsAudit(
                 user_id=actor.id,
@@ -485,6 +545,7 @@ class PagesService:
         await promote_original(self.session, row)
         await self.session.flush()
         await ContentPublication(self.session, self.config).stage(CacheChange("page_changed"))
+        record_page_version(self.session, row, actor, "restore" if payload.restore else "remove")
         self.session.add(
             SettingsAudit(
                 user_id=actor.id,

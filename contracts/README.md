@@ -7,7 +7,7 @@
 | auth-v0.1.schema.json | 0.3.0 | Cookie Session、CSRF、当前身份/授权、强制改密状态 |
 | accounts-v1.schema.json | 1.5.0 | 私有资料、会话/密码、用户/授权、身份预设、Key/应用与受限头像库 |
 | api-key-protocol-v1.schema.json | 1.0.0 | 应用签名校验、最小响应、签名回调/ACK与缓存边界 |
-| captcha-v1.schema.json | 1.11.0 | 验证码、阅读限制、讨论准入与评论发布回执 |
+| captcha-v1.schema.json | 1.12.0 | 验证码、阅读限制、讨论准入、评论发布回执与受保护页面标题显示 |
 | collaboration-v1.schema.json | 2.7.0 | 持久协同、逐内容图片查看、源码租约、光标/合并暂停及提交回执拥有者字段 |
 | comment-likes-v0.1.schema.json | 0.2.0 | 匿名历史评论点赞 |
 | content-access-v1.schema.json | 1.9.0 | 私有受限正文读取与评论格式 |
@@ -16,9 +16,9 @@
 | maintenance-v1.schema.json | 1.0.0 | 原生数据包、导入预检与导入记录、健康检查 |
 | notifications-v1.schema.json | 1.4.0 | 通知模板、邮件品牌、模板变量、投递记录与当前账号 Inbox |
 | operations-v1.schema.json | 1.2.0 | 评论查询、审核与评论格式 |
-| pages-v1.schema.json | 1.13.0 | 页面草稿与应用、可信类型、自定义页面模板及 URL 校验 |
+| pages-v1.schema.json | 1.16.0 | 页面与模板版本历史、恢复草稿、模板应用影响确认、隐藏页面标题 |
 | presentation-v0.2.schema.json | 0.2.0-preview.5 | 草稿展示预览（草案） |
-| public-v0.1.schema.json | 0.18.0 | 公开快照、组件内容与评论格式 |
+| public-v0.1.schema.json | 0.19.0 | 公开快照、页面标题显示、组件内容与评论格式 |
 | reader-preview-v0.1.schema.json | 0.1.0-preview.1 | 阅读演示指标（预览） |
 | settings-v1.schema.json | 1.45.0 | 站点、主题、系统、节点与讨论设置 |
 

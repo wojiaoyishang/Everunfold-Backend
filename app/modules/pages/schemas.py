@@ -134,6 +134,7 @@ class PageSettings(TitledPageCode, SeoFields):
     show_image_viewer: bool = True
     show_glossary_tooltips: bool = True
     show_glossary_footnotes: bool = True
+    hide_title: bool = Field(default=False, exclude_if=lambda value: not value)
     enabled: bool = False
     options: dict[str, JsonValue] = Field(default_factory=dict)
     _options = field_validator("options")(bounded_options)
@@ -167,6 +168,8 @@ class PageTemplateItem(PublicModel):
     type_id: str
     revision: int = Field(ge=1)
     value: TitledPageCode
+    applied_revision: int | None = None
+    applied_value: TitledPageCode | None = None
 
 
 class SavePageTemplate(PublicModel):
@@ -174,6 +177,7 @@ class SavePageTemplate(PublicModel):
     expected_revision: int = Field(ge=0)
     operation_id: UUID
     value: TitledPageCode
+    apply: bool = Field(default=True, exclude_if=lambda value: value)
 
 
 class PublicManagedPage(PageAtPath):
@@ -363,6 +367,79 @@ class SavePageMetadata(PublicModel):
         return self
 
 
+RevisionAction = Literal[
+    "baseline",
+    "save",
+    "apply",
+    "restore_draft",
+    "enable",
+    "disable",
+    "remove",
+    "restore",
+    "translate",
+    "import",
+    "template_apply",
+]
+
+
+class PageVersion(PublicModel):
+    revision: int = Field(ge=1)
+    actor: str | None
+    created_at: datetime
+    action: RevisionAction
+    from_revision: int | None
+
+
+class PageVersionQuery(PublicModel):
+    before: int | None = Field(default=None, ge=1)
+
+
+class PageVersionCatalog(PublicModel):
+    title: str
+    revision: int
+    applied_revision: int | None
+    archived: bool = False
+    items: list[PageVersion]
+    next_before: int | None = None
+
+
+class ManagedPageVersion(PublicModel):
+    version: PageVersion
+    value: PageValue
+
+
+class PageTemplateVersion(PublicModel):
+    version: PageVersion
+    value: TitledPageCode
+
+
+class PageVersionMutation(PublicModel):
+    expected_revision: int = Field(ge=1)
+    operation_id: UUID
+
+
+class RestorePageVersion(PageVersionMutation):
+    revision: int = Field(ge=1)
+
+
+class TemplateAffectedPage(PublicModel):
+    id: UUID
+    title: str
+    path: str
+    language: str | None
+    published: bool
+
+
+class TemplateImpact(PublicModel):
+    revision: int
+    digest: str
+    pages: list[TemplateAffectedPage]
+
+
+class ApplyPageTemplate(PageVersionMutation):
+    digest: str = Field(pattern="^[a-f0-9]{64}$")
+
+
 class PagesContract(PublicModel):
     catalog: PublicResponse[ManagedPageCatalog]
     types: PublicResponse[PageTypeCatalog]
@@ -382,3 +459,10 @@ class PagesContract(PublicModel):
     translation_mutation: PageTranslationMutation
     create_translation: CreatePageTranslation
     link_translation: LinkPageTranslation
+    version_query: PageVersionQuery
+    version_catalog: PublicResponse[PageVersionCatalog]
+    page_version: PublicResponse[ManagedPageVersion]
+    template_version: PublicResponse[PageTemplateVersion]
+    restore_version: RestorePageVersion
+    template_impact: PublicResponse[TemplateImpact]
+    apply_template: ApplyPageTemplate

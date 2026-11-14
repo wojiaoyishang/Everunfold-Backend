@@ -10,7 +10,7 @@ from app.modules.pages.schemas import PagesContract
 def build_schema() -> dict[str, Any]:
     schema = PagesContract.model_json_schema()
     schema["$schema"] = "http://json-schema.org/draft-07/schema#"
-    schema["x-everunfold-contract-version"] = "1.15.0"
+    schema["x-everunfold-contract-version"] = "1.16.0"
     schema["x-everunfold-operations"] = [
         {
             "name": "setPageEnabled",
@@ -117,6 +117,59 @@ def build_schema() -> dict[str, Any]:
             "method": "POST",
             "input": "remove",
             "response": "item",
+        },
+        {
+            "name": "readPageVersions",
+            "path": "/v1/admin/pages/{page_id}/versions",
+            "method": "GET",
+            "input": "version_query",
+            "response": "version_catalog",
+        },
+        {
+            "name": "readPageVersion",
+            "path": "/v1/admin/pages/{page_id}/versions/{revision}",
+            "method": "GET",
+            "response": "page_version",
+        },
+        {
+            "name": "restorePageVersion",
+            "path": "/v1/admin/pages/{page_id}/versions/restore",
+            "method": "POST",
+            "input": "restore_version",
+            "response": "item",
+        },
+        {
+            "name": "readPageTemplateVersions",
+            "path": "/v1/admin/pages/templates/{template_id}/versions",
+            "method": "GET",
+            "input": "version_query",
+            "response": "version_catalog",
+        },
+        {
+            "name": "readPageTemplateVersion",
+            "path": "/v1/admin/pages/templates/{template_id}/versions/{revision}",
+            "method": "GET",
+            "response": "template_version",
+        },
+        {
+            "name": "restorePageTemplateVersion",
+            "path": "/v1/admin/pages/templates/{template_id}/versions/restore",
+            "method": "POST",
+            "input": "restore_version",
+            "response": "template",
+        },
+        {
+            "name": "readTemplateImpact",
+            "path": "/v1/admin/pages/templates/{template_id}/impact",
+            "method": "GET",
+            "response": "template_impact",
+        },
+        {
+            "name": "applyPageTemplate",
+            "path": "/v1/admin/pages/templates/{template_id}/apply",
+            "method": "POST",
+            "input": "apply_template",
+            "response": "template",
         },
     ]
     return schema
