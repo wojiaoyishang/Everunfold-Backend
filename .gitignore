@@ -41,3 +41,15 @@ Thumbs.db
 
 /uploads/
 /.everunfold-media-work/
+
+# Bundled plugin sources. Use separate directories for local plugins.
+/app/plugins/*
+!/app/plugins/__init__.py
+!/app/plugins/basic_shortcodes/
+!/app/plugins/captcha_google/
+!/app/plugins/captcha_turnstile/
+!/app/plugins/example_cards/
+!/app/plugins/glossary/
+!/app/plugins/nodes_monitor/
+!/app/plugins/route_example/
+!/app/plugins/runtime_example/
