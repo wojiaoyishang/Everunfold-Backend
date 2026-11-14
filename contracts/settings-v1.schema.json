@@ -4178,6 +4178,34 @@
       "title": "PublicResponse[PolicyState]",
       "type": "object"
     },
+    "PublicResponse_QueryCacheReport_": {
+      "additionalProperties": false,
+      "properties": {
+        "success": {
+          "default": true,
+          "title": "Success",
+          "type": "boolean"
+        },
+        "code": {
+          "default": 200,
+          "title": "Code",
+          "type": "integer"
+        },
+        "msg": {
+          "default": "请求成功",
+          "title": "Msg",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/QueryCacheReport"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "title": "PublicResponse[QueryCacheReport]",
+      "type": "object"
+    },
     "PublicResponse_RuntimeOverview_": {
       "additionalProperties": false,
       "properties": {
@@ -4527,6 +4555,342 @@
         "revision"
       ],
       "title": "PublicShortcode",
+      "type": "object"
+    },
+    "QueryCacheBusinessStats": {
+      "additionalProperties": false,
+      "properties": {
+        "queries": {
+          "title": "Queries",
+          "type": "integer"
+        },
+        "hits": {
+          "title": "Hits",
+          "type": "integer"
+        },
+        "misses": {
+          "title": "Misses",
+          "type": "integer"
+        },
+        "bypasses": {
+          "title": "Bypasses",
+          "type": "integer"
+        },
+        "errors": {
+          "title": "Errors",
+          "type": "integer"
+        },
+        "sql_queries": {
+          "title": "Sql Queries",
+          "type": "integer"
+        },
+        "mean_ms": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Mean Ms"
+        },
+        "p95_ms": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "P95 Ms"
+        },
+        "hit_rate": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Hit Rate"
+        },
+        "business": {
+          "enum": [
+            "site",
+            "taxonomies",
+            "content_list"
+          ],
+          "title": "Business",
+          "type": "string"
+        },
+        "trend": {
+          "items": {
+            "$ref": "#/$defs/QueryCachePoint"
+          },
+          "title": "Trend",
+          "type": "array"
+        }
+      },
+      "required": [
+        "queries",
+        "hits",
+        "misses",
+        "bypasses",
+        "errors",
+        "sql_queries",
+        "mean_ms",
+        "p95_ms",
+        "hit_rate",
+        "business",
+        "trend"
+      ],
+      "title": "QueryCacheBusinessStats",
+      "type": "object"
+    },
+    "QueryCachePoint": {
+      "additionalProperties": false,
+      "properties": {
+        "queries": {
+          "title": "Queries",
+          "type": "integer"
+        },
+        "hits": {
+          "title": "Hits",
+          "type": "integer"
+        },
+        "misses": {
+          "title": "Misses",
+          "type": "integer"
+        },
+        "bypasses": {
+          "title": "Bypasses",
+          "type": "integer"
+        },
+        "errors": {
+          "title": "Errors",
+          "type": "integer"
+        },
+        "sql_queries": {
+          "title": "Sql Queries",
+          "type": "integer"
+        },
+        "mean_ms": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Mean Ms"
+        },
+        "p95_ms": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "P95 Ms"
+        },
+        "hit_rate": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Hit Rate"
+        },
+        "at": {
+          "format": "date-time",
+          "title": "At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "queries",
+        "hits",
+        "misses",
+        "bypasses",
+        "errors",
+        "sql_queries",
+        "mean_ms",
+        "p95_ms",
+        "hit_rate",
+        "at"
+      ],
+      "title": "QueryCachePoint",
+      "type": "object"
+    },
+    "QueryCacheReport": {
+      "additionalProperties": false,
+      "properties": {
+        "cache_status": {
+          "enum": [
+            "disabled",
+            "unconfigured",
+            "ready",
+            "unavailable"
+          ],
+          "title": "Cache Status",
+          "type": "string"
+        },
+        "metrics_status": {
+          "enum": [
+            "ready",
+            "unavailable"
+          ],
+          "title": "Metrics Status",
+          "type": "string"
+        },
+        "hours": {
+          "enum": [
+            1,
+            6,
+            24
+          ],
+          "title": "Hours",
+          "type": "integer"
+        },
+        "bucket_seconds": {
+          "title": "Bucket Seconds",
+          "type": "integer"
+        },
+        "checked_at": {
+          "format": "date-time",
+          "title": "Checked At",
+          "type": "string"
+        },
+        "total": {
+          "$ref": "#/$defs/QueryCacheStats"
+        },
+        "businesses": {
+          "items": {
+            "$ref": "#/$defs/QueryCacheBusinessStats"
+          },
+          "title": "Businesses",
+          "type": "array"
+        },
+        "trend": {
+          "items": {
+            "$ref": "#/$defs/QueryCachePoint"
+          },
+          "title": "Trend",
+          "type": "array"
+        }
+      },
+      "required": [
+        "cache_status",
+        "metrics_status",
+        "hours",
+        "bucket_seconds",
+        "checked_at",
+        "total",
+        "businesses",
+        "trend"
+      ],
+      "title": "QueryCacheReport",
+      "type": "object"
+    },
+    "QueryCacheReportRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "hours": {
+          "default": 6,
+          "enum": [
+            1,
+            6,
+            24
+          ],
+          "title": "Hours",
+          "type": "integer"
+        }
+      },
+      "title": "QueryCacheReportRequest",
+      "type": "object"
+    },
+    "QueryCacheStats": {
+      "additionalProperties": false,
+      "properties": {
+        "queries": {
+          "title": "Queries",
+          "type": "integer"
+        },
+        "hits": {
+          "title": "Hits",
+          "type": "integer"
+        },
+        "misses": {
+          "title": "Misses",
+          "type": "integer"
+        },
+        "bypasses": {
+          "title": "Bypasses",
+          "type": "integer"
+        },
+        "errors": {
+          "title": "Errors",
+          "type": "integer"
+        },
+        "sql_queries": {
+          "title": "Sql Queries",
+          "type": "integer"
+        },
+        "mean_ms": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Mean Ms"
+        },
+        "p95_ms": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "P95 Ms"
+        },
+        "hit_rate": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Hit Rate"
+        }
+      },
+      "required": [
+        "queries",
+        "hits",
+        "misses",
+        "bypasses",
+        "errors",
+        "sql_queries",
+        "mean_ms",
+        "p95_ms",
+        "hit_rate"
+      ],
+      "title": "QueryCacheStats",
       "type": "object"
     },
     "ReadingPreferences": {
@@ -6895,6 +7259,12 @@
     "cache_node_state": {
       "$ref": "#/$defs/PublicResponse_CacheNodeState_"
     },
+    "query_cache_report": {
+      "$ref": "#/$defs/PublicResponse_QueryCacheReport_"
+    },
+    "query_cache_report_request": {
+      "$ref": "#/$defs/QueryCacheReportRequest"
+    },
     "cache_rebuild": {
       "$ref": "#/$defs/CacheRebuild"
     },
@@ -6964,6 +7334,8 @@
     "cache_receiver_state",
     "cache_receiver_target",
     "cache_node_state",
+    "query_cache_report",
+    "query_cache_report_request",
     "cache_rebuild",
     "cache_rebuild_result",
     "cache_prune_result"
@@ -6971,7 +7343,7 @@
   "title": "SettingsContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "1.43.0",
+  "x-everunfold-contract-version": "1.44.0",
   "x-everunfold-language-regions": {
     "zh": "CN",
     "en": "GB",
@@ -7007,6 +7379,13 @@
     "sw": "TZ"
   },
   "x-everunfold-operations": [
+    {
+      "name": "readQueryCacheReport",
+      "path": "/v1/admin/frontend-nodes/query-cache",
+      "method": "GET",
+      "input": "query_cache_report_request",
+      "response": "query_cache_report"
+    },
     {
       "name": "readNodeCache",
       "path": "/v1/admin/frontend-nodes/{node_id}/cache",

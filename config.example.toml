@@ -63,6 +63,15 @@ url = "postgresql+asyncpg://everunfold:change-me@127.0.0.1:5432/everunfold_dev"
 url = "redis://127.0.0.1:6379/0"   # 项目临时 Key 与 Pub/Sub
 namespace_scope = "dev"       # 开发与测试必须使用不同 scope；空值不加环境层
 
+[query_cache]
+enabled = true
+# 容器开发默认启动此独立实例。其他部署可由环境变量 QUERY_CACHE_REDIS_URL 覆盖。
+# 未配置 URL 时走 PostgreSQL。不要把查询缓存指向运行状态或 Broker 使用的 Redis。
+# url = "redis://127.0.0.1:6381/0"
+ttl_seconds = 45
+timeout_ms = 35
+max_value_bytes = 262144
+
 [celery]
 broker_url = "redis://127.0.0.1:6379/1"
 result_backend_url = "redis://127.0.0.1:6379/2"  # 按需使用 Redis 结果后端

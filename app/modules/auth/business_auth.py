@@ -152,6 +152,7 @@ def route_permission(path: str, method: str, body: dict[str, object]) -> tuple[s
         "/v1/admin/settings/translations",
         "/v1/admin/extensions",
         "/v1/admin/frontend-nodes",
+        "/v1/admin/frontend-nodes/query-cache",
         "/v1/admin/frontend-nodes/{node_id}/cache-policy",
         "/v1/admin/frontend-nodes/{node_id}/cache",
         "/v1/admin/frontend-nodes/{node_id}/cache/rebuild",

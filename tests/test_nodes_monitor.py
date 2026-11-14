@@ -54,6 +54,7 @@ def test_monitor_requires_separate_credentials_and_loads_without_storage(
                 ).status_code
                 == 401
             )
+            assert client.get("/_nodes/query-cache?hours=1").status_code == 401
             assert client.post("/_nodes/login", data={"password": PASSWORD}).status_code == 403
             assert (
                 client.post(
@@ -78,6 +79,13 @@ def test_monitor_requires_separate_credentials_and_loads_without_storage(
             assert value["nodes"][0]["id"] == "web-main"
             assert not value["nodes"][0]["sync"]
             assert secret not in str(value)
+            response = client.get("/_nodes/query-cache?hours=1")
+            assert response.status_code == 200
+            assert "no-store" in response.headers["Cache-Control"]
+            report = response.json()
+            assert report["hours"] == 1
+            assert report["metrics_status"] == "unavailable"
+            assert client.get("/_nodes/query-cache?hours=48").status_code == 422
             assert client.post("/_nodes/logout", headers={"Origin": ORIGIN}).status_code == 200
             assert COOKIE_NAME not in client.cookies
             assert client.get("/_nodes/status").status_code == 401

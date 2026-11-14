@@ -9,6 +9,7 @@ from pydantic import ConfigDict, Field, field_validator, model_validator
 
 from app.core.jobs.progress_schemas import TaskProgress, WatchTask
 from app.core.jobs.schemas import RuntimeCommand, RuntimeOverview
+from app.core.query_cache_schemas import QueryCacheReport, QueryCacheReportRequest
 from app.core.schemas import PublicModel, PublicResponse
 from app.modules.media.fonts import FontCatalog
 from app.modules.media.schemas import (
@@ -574,6 +575,8 @@ class SettingsContract(PublicModel):
     cache_receiver_state: CacheReceiverStatus
     cache_receiver_target: CacheReceiverTarget
     cache_node_state: PublicResponse[CacheNodeState]
+    query_cache_report: PublicResponse[QueryCacheReport]
+    query_cache_report_request: QueryCacheReportRequest
     cache_rebuild: CacheRebuild
     cache_rebuild_result: PublicResponse[CacheRebuildResult]
     cache_prune_result: PublicResponse[CachePruneReceipt]

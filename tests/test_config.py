@@ -74,6 +74,35 @@ def test_empty_overrides_never_fall_back(tmp_path: Path, variable: str) -> None:
         load_settings(project_root=tmp_path, environ={variable: ""})
 
 
+def test_query_cache_defaults_and_requires_a_separate_listening_endpoint(tmp_path: Path) -> None:
+    config_file = tmp_path / "config.toml"
+    config_file.write_text(VALID_CONFIG, encoding="utf-8")
+    assert load_settings(config_file, environ={}).query_cache.enabled
+    assert load_settings(config_file, environ={}).query_cache.url is None
+    with pytest.raises(ConfigurationError, match="Invalid configuration fields"):
+        load_settings(config_file, environ={"QUERY_CACHE_REDIS_URL": "redis://127.0.0.1:6379/5"})
+
+    local = {"EVERUNFOLD_QUERY_CACHE_DEFAULT_URL": "redis://127.0.0.1:6381/0"}
+    local_url = load_settings(config_file, environ=local).query_cache.url
+    assert (
+        local_url is not None
+        and local_url.get_secret_value() == local["EVERUNFOLD_QUERY_CACHE_DEFAULT_URL"]
+    )
+    config_file.write_text(
+        VALID_CONFIG + '\n[query_cache]\nurl = "redis://node-cache.example.test:6379/0"\n',
+        encoding="utf-8",
+    )
+    custom_url = load_settings(config_file, environ=local).query_cache.url
+    assert custom_url is not None
+    assert custom_url.get_secret_value() == "redis://node-cache.example.test:6379/0"
+    explicit = {**local, "QUERY_CACHE_REDIS_URL": "redis://another-cache.example.test:6379/0"}
+    override_url = load_settings(config_file, environ=explicit).query_cache.url
+    assert (
+        override_url is not None
+        and override_url.get_secret_value() == explicit["QUERY_CACHE_REDIS_URL"]
+    )
+
+
 @pytest.mark.parametrize(
     "mutation",
     [

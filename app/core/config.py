@@ -132,6 +132,19 @@ class RedisConfig(ConfigModel):
         return value
 
 
+class QueryCacheConfig(ConfigModel):
+    enabled: bool = True
+    url: SecretStr | None = None
+    ttl_seconds: int = Field(default=45, ge=5, le=300)
+    timeout_ms: int = Field(default=35, ge=5, le=500)
+    max_value_bytes: int = Field(default=256 * 1024, ge=1024, le=1024 * 1024)
+
+    @field_validator("url")
+    @classmethod
+    def valid_url(cls, value: SecretStr | None) -> SecretStr | None:
+        return RedisConfig.valid_url(value) if value is not None else None
+
+
 class CeleryConfig(ConfigModel):
     broker_url: SecretStr = SecretStr("redis://127.0.0.1:6379/1")
     result_backend_url: SecretStr = SecretStr("redis://127.0.0.1:6379/2")
@@ -335,6 +348,7 @@ class Settings(ConfigModel):
     project: ProjectConfig = Field(default_factory=ProjectConfig)
     database: DatabaseConfig
     redis: RedisConfig
+    query_cache: QueryCacheConfig = Field(default_factory=QueryCacheConfig)
     celery: CeleryConfig = Field(default_factory=CeleryConfig)
     internal_auth: InternalAuthConfig = Field(default_factory=InternalAuthConfig)
     frontends: dict[str, FrontendConfig] = Field(default_factory=dict)
@@ -359,6 +373,27 @@ class Settings(ConfigModel):
         return self.media.base_url or self.BACKEND_BASE_URL + "/media"
 
     _backend_url = field_validator("BACKEND_BASE_URL")(validate_http_base)
+
+    @model_validator(mode="after")
+    def separate_query_cache_instance(self) -> Self:
+        def endpoint(url: SecretStr) -> tuple[str | None, int]:
+            parsed = urlsplit(url.get_secret_value())
+            return parsed.hostname, parsed.port or 6379
+
+        if (
+            self.query_cache.enabled
+            and self.query_cache.url is not None
+            and endpoint(self.query_cache.url)
+            in {
+                endpoint(self.redis.url),
+                endpoint(self.celery.broker_url),
+                endpoint(self.celery.result_backend_url),
+            }
+        ):
+            raise ValueError(
+                "query_cache requires a Redis instance separate from runtime and broker"
+            )
+        return self
 
     @model_validator(mode="after")
     def valid_auth_deployment(self) -> Self:
@@ -419,6 +454,7 @@ _OVERRIDES: dict[str, tuple[str, ...]] = {
     "BACKEND_BASE_URL": ("BACKEND_BASE_URL",),
     "DATABASE_URL": ("database", "url"),
     "REDIS_URL": ("redis", "url"),
+    "QUERY_CACHE_REDIS_URL": ("query_cache", "url"),
     "CELERY_BROKER_URL": ("celery", "broker_url"),
     "CELERY_RESULT_BACKEND_URL": ("celery", "result_backend_url"),
 }
@@ -474,6 +510,10 @@ def load_settings(
                 raise ConfigurationError(f"Invalid configuration section: {key}")
             target = nested
         target[keys[-1]] = value
+    if local_cache_url := environment.get("EVERUNFOLD_QUERY_CACHE_DEFAULT_URL"):
+        query_cache = data.setdefault("query_cache", {})
+        if isinstance(query_cache, dict):
+            query_cache.setdefault("url", local_cache_url)
     try:
         settings = Settings.model_validate(data)
         settings._config_directory = path.resolve().parent

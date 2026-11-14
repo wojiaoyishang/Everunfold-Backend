@@ -1,8 +1,10 @@
 """Owned async engine and per-operation sessions, without automatic DDL."""
 
-from sqlalchemy import MetaData, text
+from sqlalchemy import MetaData, event, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
+
+from app.core.query_cache_metrics import count_cursor_execute
 
 SCHEMA_REVISION = "0061_component_documents"
 
@@ -27,6 +29,7 @@ class Database:
             hide_parameters=True,
             connect_args={"timeout": timeout_seconds, "command_timeout": 10},
         )
+        event.listen(self.engine.sync_engine, "before_cursor_execute", count_cursor_execute)
         self.session_factory = async_sessionmaker(self.engine, expire_on_commit=False)
 
     async def ping(self) -> None:

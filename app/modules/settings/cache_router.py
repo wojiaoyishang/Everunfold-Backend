@@ -3,13 +3,14 @@
 import asyncio
 import os
 from datetime import UTC, datetime
-from typing import Literal
+from typing import Annotated, Literal
 
 import httpx2 as httpx
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Query, Request
 from pydantic import ValidationError
 
 from app.core.config import FrontendConfig
+from app.core.query_cache_schemas import QueryCacheReport, QueryCacheReportRequest
 from app.core.responses import JSONResponseSuccess
 from app.core.runtime import Runtime
 from app.core.schemas import ErrorResponse, PublicModel, PublicResponse
@@ -125,6 +126,17 @@ async def cache_node(node_id: str, ctx: Authorized) -> tuple[NodeStatus, Fronten
         receiver_configured=bool(target and target.settings_receiver_url),
         receiver=ReceiverProbe(state="unavailable"),
     ), target
+
+
+@router.get("/query-cache", response_model=PublicResponse[QueryCacheReport])
+async def read_query_cache(
+    request: Request, ctx: Authorized, query: Annotated[QueryCacheReportRequest, Query()]
+) -> JSONResponseSuccess:
+    runtime = auth_runtime(request)
+    report = await runtime.query_cache_metrics.report(
+        query.hours, await runtime.query_cache.status()
+    )
+    return JSONResponseSuccess(data=report, headers={"Cache-Control": "private, no-store"})
 
 
 @router.get("/{node_id}/cache", response_model=PublicResponse[CacheNodeState])

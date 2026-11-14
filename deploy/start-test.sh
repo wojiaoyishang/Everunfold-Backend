@@ -54,7 +54,7 @@ if [[ "$mode" == start ]]; then
   fi
 fi
 
-services=(api frontend proxy receiver worker scheduler)
+services=(api frontend proxy query-cache receiver worker scheduler)
 ports=(3000 3100 8001 3001)
 status=''
 listeners=''
@@ -83,9 +83,9 @@ ready() {
 
 deadline=$((SECONDS + startup_timeout))
 if [[ "$mode" == start ]]; then
-  echo "等待六个进程、0.0.0.0 监听与 HTTP 就绪（等待时限 ${startup_timeout} 秒）…"
+  echo "等待七个进程、0.0.0.0 监听与 HTTP 就绪（等待时限 ${startup_timeout} 秒）…"
 else
-  echo '检查当前六个进程、0.0.0.0 监听与 HTTP 就绪状态…'
+  echo '检查当前七个进程、0.0.0.0 监听与 HTTP 就绪状态…'
 fi
 until ready; do
   if [[ "$mode" == check ]] || (( SECONDS >= deadline )); then

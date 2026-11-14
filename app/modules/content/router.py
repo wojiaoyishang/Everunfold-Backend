@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.runtime import Runtime
+from app.modules.content.query_cache import PublicQueryCache
 from app.modules.content.repository import ContentQuery, ContentRepository
 from app.modules.content.schemas import (
     ContentDetail,
@@ -26,7 +27,6 @@ from app.modules.settings.languages import (
     LanguageCatalog,
     LanguageCode,
     language_catalog,
-    preferred_language,
 )
 
 router = APIRouter(
@@ -67,8 +67,9 @@ async def languages(service: Service) -> PublicResponse[LanguageCatalog]:
 
 
 @router.get("/site", response_model=PublicResponse[SiteDTO])
-async def site(service: Service) -> PublicResponse[SiteDTO]:
-    return PublicResponse(data=await service.site())
+async def site(service: Service, request: Request) -> PublicResponse[SiteDTO]:
+    queries = PublicQueryCache(runtime_from_request(request), service)
+    return PublicResponse(data=await queries.site())
 
 
 @router.get("/contents", response_model=PublicResponse[Page[ContentSummary]])
@@ -84,24 +85,13 @@ async def contents(
     language: LanguageCode | None = None,
     all_languages: bool = False,
 ) -> PublicResponse[Page[ContentSummary]]:
-    if page_size > runtime_from_request(request).settings.http.max_page_size:
+    runtime = runtime_from_request(request)
+    if page_size > runtime.settings.http.max_page_size:
         raise HTTPException(status_code=422)
-    catalog = await language_catalog(service.repository.session)
-    query = ContentQuery(
-        page,
-        page_size,
-        q,
-        kind,
-        category,
-        tag,
-        language
-        or preferred_language(
-            catalog, request.headers.get("X-Site-Locale") or request.headers.get("Accept-Language")
-        ),
-        all_languages,
-        catalog.default_code,
-    )
-    return PublicResponse(data=await service.list_contents(query))
+    query = ContentQuery(page, page_size, q, kind, category, tag, language, all_languages)
+    queries = PublicQueryCache(runtime, service)
+    locale = request.headers.get("X-Site-Locale") or request.headers.get("Accept-Language")
+    return PublicResponse(data=await queries.contents(query, locale))
 
 
 @router.get("/contents/resolve", response_model=PublicResponse[ContentDetail])
@@ -126,6 +116,7 @@ async def comments(
 
 @router.get("/taxonomies", response_model=PublicResponse[TaxonomyList])
 async def taxonomies(
-    service: Service, kind: TaxonomyKind | None = None
+    service: Service, request: Request, kind: TaxonomyKind | None = None
 ) -> PublicResponse[TaxonomyList]:
-    return PublicResponse(data=TaxonomyList(items=await service.taxonomies(kind)))
+    queries = PublicQueryCache(runtime_from_request(request), service)
+    return PublicResponse(data=await queries.taxonomies(kind))

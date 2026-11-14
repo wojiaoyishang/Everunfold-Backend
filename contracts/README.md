@@ -19,7 +19,7 @@
 | presentation-v0.2.schema.json | 0.2.0-preview.5 | 草稿展示预览（草案） |
 | public-v0.1.schema.json | 0.14.0 | 完整公开快照、多语言导航与逐页图片查看/术语/验证码边界 |
 | reader-preview-v0.1.schema.json | 0.1.0-preview.1 | 阅读演示指标（预览） |
-| settings-v1.schema.json | 1.42.0 | 站点/主题/系统、语言目录、主题独立导航、插件通知平台能力与主题推荐插件 |
+| settings-v1.schema.json | 1.44.0 | 站点、主题、系统与节点设置，含 Redis 查询缓存报告 |
 
 权威导出入口为`tools/export_*_contract.py`；例如`uv run --locked python -m tools.export_accounts_contract`。协议Schema与独立Node参考对应，见[接入指南](../docs/development/api-key-applications.md)。`presentation-v0.2.schema.json`和`reader-preview-v0.1.schema.json`仍分别标记preview，不把展示草案当作正式写接口。`public-openapi-v0.1.json`由现有FastAPI公开业务路由导出，完整应用另含诊断路由。
 

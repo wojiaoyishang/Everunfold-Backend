@@ -13,6 +13,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from starlette.requests import ClientDisconnect
 from starlette.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 
+from app.core.query_cache_schemas import QueryCacheReportRequest
 from app.core.runtime import Runtime
 from app.modules.auth.service import AuthFailure
 from app.modules.settings.nodes_schemas import MonitorStatus, NodeChange
@@ -163,6 +164,26 @@ def monitor_router(access: MonitorAccess | None) -> APIRouter:
                 value = await read_status(runtime)
                 cached = (clock.time(), value)
         return JSONResponse(cached[1].model_dump(mode="json"), headers=headers)
+
+    @router.get("/query-cache")
+    async def query_cache(request: Request) -> Response:
+        blocked = unavailable(request)
+        if blocked is not None:
+            return blocked
+        assert access is not None
+        if not access.authenticated(request):
+            return JSONResponse({"error": "monitor_login_required"}, 401, headers)
+        runtime: Runtime | None = getattr(request.app.state, "runtime", None)
+        if runtime is None:
+            return JSONResponse({"error": "monitor_unavailable"}, 503, headers)
+        try:
+            query = QueryCacheReportRequest.model_validate(dict(request.query_params))
+        except ValidationError:
+            return JSONResponse({"error": "invalid_query_cache_range"}, 422, headers)
+        report = await runtime.query_cache_metrics.report(
+            query.hours, await runtime.query_cache.status()
+        )
+        return JSONResponse(report.model_dump(mode="json"), headers=headers)
 
     @router.post("/manage")
     async def manage(request: Request) -> Response:

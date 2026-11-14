@@ -31,7 +31,7 @@
     h1 { font-size: clamp(1.5rem, 4vw, 2rem); }
     h2 { font-size: 1.12rem; overflow-wrap: anywhere; }
     .muted, dt { color: var(--muted); }
-    button, input { font: inherit; border: 1px solid var(--line); border-radius: .45rem; }
+    button, input, select { font: inherit; border: 1px solid var(--line); border-radius: .45rem; }
     button { color: var(--accent); background: var(--panel); cursor: pointer; padding: .46rem .75rem; }
     button:hover { border-color: var(--accent); }
     button:disabled { cursor: wait; opacity: .65; }
@@ -60,6 +60,29 @@
     .resource dl { display: grid; grid-template-columns: 1fr auto; gap: .2rem .65rem; margin: 0; }
     .resource dd { text-align: right; font-variant-numeric: tabular-nums; }
     .detail { margin-top: .4rem; color: var(--muted); overflow-wrap: anywhere; }
+    .query-panel { margin: .85rem 0; padding: 1rem; }
+    .query-panel select { padding: .4rem .6rem; background: var(--panel); color: var(--text); }
+    .query-caption { margin: .45rem 0; font-size: .88rem; }
+    .query-charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 24rem), 1fr)); gap: .75rem 1rem; }
+    .query-charts figure { min-width: 0; margin: .35rem 0; }
+    .query-charts figcaption { font-size: .92rem; font-weight: 600; }
+    .query-chart { display: block; width: 100%; height: auto; max-height: 12rem; color: var(--muted); }
+    .query-chart text { fill: currentColor; font-size: 12px; }
+    .query-chart .grid { stroke: var(--line); }
+    .query-rate-empty { display: grid; min-height: 6.5rem; align-items: center; }
+    .query-line { fill: none; stroke: currentColor; stroke-width: 2; vector-effect: non-scaling-stroke; }
+    .query-line.hits { color: var(--positive); }
+    .query-line.misses { color: var(--accent); stroke-dasharray: 7 3; }
+    .query-line.bypasses { color: var(--warning); stroke-dasharray: 2 3; }
+    .query-line.errors { color: var(--negative); stroke-dasharray: 1 2; }
+    .query-legend { display: flex; flex-wrap: wrap; gap: .35rem 1rem; margin: .45rem 0; font-size: .88rem; }
+    .query-legend span { display: inline-flex; align-items: center; gap: .3rem; }
+    .query-legend svg { width: 1.4rem; height: .7rem; }
+    .query-overflow { overflow-x: auto; }
+    .query-table { width: 100%; border-collapse: collapse; white-space: nowrap; font-size: .88rem; }
+    .query-table th, .query-table td { padding: .45rem .6rem; border-bottom: 1px solid var(--line); text-align: right; }
+    .query-table th:first-child { text-align: left; }
+    .query-table thead th { color: var(--muted); font-weight: 500; }
     dialog { width: min(100% - 2rem, 28rem); padding: 1.2rem; color: var(--text); }
     dialog::backdrop { background: #10182680; }
     dialog form, dialog .fields { display: grid; gap: .8rem; }
@@ -92,6 +115,23 @@
       <p id="notice" role="status"></p>
       <p id="operation" role="status"></p>
       <dl id="health" class="health"></dl>
+      <section class="panel query-panel" aria-labelledby="query-heading">
+        <header class="node-heading">
+          <h2 id="query-heading">Redis 查询缓存</h2>
+          <select id="query-hours" aria-label="查询监控时间范围">
+            <option value="1">最近 1 小时</option>
+            <option value="6" selected>最近 6 小时</option>
+            <option value="24">最近 24 小时</option>
+          </select>
+        </header>
+        <p id="query-status" class="query-caption muted" role="status">正在读取查询指标…</p>
+        <div id="query-results" hidden>
+          <div id="query-chart" class="query-charts"></div>
+          <div class="query-overflow" tabindex="0" role="region" aria-label="业务查询统计">
+            <table id="query-table" class="query-table"></table>
+          </div>
+        </div>
+      </section>
       <div id="nodes"></div>
       <noscript>启用 JavaScript 后可查看状态。</noscript>
     </section>
@@ -154,6 +194,122 @@
         ? "good"
         : ["failed", "unreachable", "wrong_node", "wrong_source", "invalid", "rejected"].includes(state)
           ? "bad" : "muted";
+      const querySeries = [["hits", "命中"], ["misses", "未命中"], ["bypasses", "跳过"], ["errors", "错误"]];
+      const queryBusinesses = {site: "站点信息", taxonomies: "分类与标签", content_list: "内容列表"};
+      const queryStates = {ready: "已连接", unavailable: "连接异常", disabled: "已停用", unconfigured: "未配置"};
+      const number = Intl.NumberFormat("zh-CN", {maximumFractionDigits: 2});
+      const percent = Intl.NumberFormat("zh-CN", {style: "percent", maximumFractionDigits: 1});
+      const svg = (tag, attributes) => {
+        const node = document.createElementNS("http://www.w3.org/2000/svg", tag);
+        for (const [name, value] of Object.entries(attributes)) node.setAttribute(name, value);
+        return node;
+      };
+      function queryPlot(title, trend, series, ceiling, axisNumber) {
+        const chart = svg("svg", {viewBox: "0 0 480 156", class: "query-chart", role: "img", "aria-label": title});
+        const coordinate = (index, value) => [45 + index * 424 / Math.max(1, trend.length - 1), 126 - value * 114 / ceiling];
+        const legend = el("div", undefined, "query-legend");
+        for (const [y, label] of [[12, ceiling], [126, 0]]) {
+          chart.append(svg("line", {x1: 45, x2: 469, y1: y, y2: y, class: "grid"}));
+          const text = svg("text", {x: 41, y: y + 4, "text-anchor": "end"});
+          text.textContent = axisNumber.format(label);
+          chart.append(text);
+        }
+        for (const [key, label, style = key] of series) {
+          let points = [];
+          const draw = () => {
+            const line = "query-line " + style;
+            if (points.length > 1) {
+              chart.append(svg("polyline", {points: points.map((point) => point.join(",")).join(" "), class: line}));
+            } else if (points.length === 1) {
+              const [cx, cy] = points[0];
+              chart.append(svg("circle", {cx, cy, r: 2, class: line}));
+            }
+            points = [];
+          };
+          trend.forEach((point, index) => {
+            if (point[key] === null) draw();
+            else points.push(coordinate(index, point[key]));
+          });
+          draw();
+          const labelNode = el("span");
+          const swatch = svg("svg", {viewBox: "0 0 22 10", "aria-hidden": "true"});
+          swatch.append(svg("line", {x1: 0, x2: 22, y1: 5, y2: 5, class: "query-line " + style}));
+          labelNode.append(swatch, document.createTextNode(label));
+          legend.append(labelNode);
+        }
+        const clock = Intl.DateTimeFormat("zh-CN", {hour: "2-digit", minute: "2-digit"});
+        for (const [point, x, anchor] of [[trend[0], 45, "start"], [trend.at(-1), 469, "end"]]) {
+          const text = svg("text", {x, y: 149, "text-anchor": anchor});
+          text.textContent = clock.format(new Date(point.at));
+          chart.append(text);
+        }
+        const figure = el("figure");
+        figure.append(el("figcaption", title), chart, legend);
+        return figure;
+      }
+      function renderQueryChart(trend) {
+        if (!trend.some((point) => point.queries > 0)) {
+          byId("query-chart").replaceChildren(el("p", "所选时段暂无查询。", "query-caption muted"));
+          return;
+        }
+        const ceiling = Math.max(1, ...trend.map((point) => Math.max(...querySeries.map(([key]) => point[key]))));
+        const rate = trend.some((point) => point.hit_rate !== null)
+          ? queryPlot("Redis 命中率", trend, [["hit_rate", "命中 ÷（命中 + 未命中）", "hits"]], 1, percent)
+          : el("figure");
+        if (!rate.childElementCount) {
+          rate.append(el("figcaption", "Redis 命中率"), el("p", "所选时段无 Redis 命中或未命中记录。", "query-caption query-rate-empty muted"));
+        }
+        byId("query-chart").replaceChildren(
+          queryPlot("查询趋势", trend, querySeries, ceiling, number),
+          rate,
+        );
+      }
+      let queryRequest = null;
+      async function refreshQueryCache() {
+        queryRequest?.abort();
+        const request = new AbortController();
+        queryRequest = request;
+        try {
+          const response = await fetch("/_nodes/query-cache?hours=" + encodeURIComponent(byId("query-hours").value), {cache: "no-store", signal: request.signal});
+          if (response.status === 401) { location.replace("/_nodes"); return; }
+          if (!response.ok) throw new Error("query metrics unavailable");
+          const report = await response.json();
+          if (request.signal.aborted) return;
+          const status = "查询缓存" + (queryStates[report.cache_status] ?? "状态未知");
+          const available = report.metrics_status === "ready";
+          byId("query-status").textContent = available ? status : status + "，统计暂不可用。";
+          byId("query-results").hidden = !available;
+          if (!available) return;
+          renderQueryChart(report.trend);
+          const head = el("thead");
+          const labels = el("tr");
+          for (const label of ["业务", "查询", "命中率", ...querySeries.map(([, label]) => label), "SQL 次数", "平均耗时", "P95 耗时"]) {
+            const cell = el("th", label);
+            cell.scope = "col";
+            labels.append(cell);
+          }
+          head.append(labels);
+          const body = el("tbody");
+          for (const metrics of [report.total, ...report.businesses]) {
+            const row = el("tr");
+            const title = el("th", queryBusinesses[metrics.business] ?? "总查询审计");
+            title.scope = "row";
+            row.append(title);
+            const latency = (value) => value === null ? "—" : number.format(value) + " ms";
+            for (const value of [number.format(metrics.queries), metrics.hit_rate === null ? "—" : percent.format(metrics.hit_rate), ...querySeries.map(([key]) => number.format(metrics[key])), number.format(metrics.sql_queries), latency(metrics.mean_ms), latency(metrics.p95_ms)]) {
+              row.append(el("td", value));
+            }
+            body.append(row);
+          }
+          byId("query-table").replaceChildren(head, body);
+        } catch {
+          if (request.signal.aborted) return;
+          byId("query-status").textContent = "查询缓存监控暂不可用。";
+          byId("query-results").hidden = true;
+        } finally {
+          if (queryRequest === request) queryRequest = null;
+        }
+      }
       function syncCard(name, history, replica) {
         const card = el("section", undefined, "resource");
         const grid = el("dl");
@@ -285,6 +441,7 @@
       async function refresh() {
         const button = byId("refresh");
         if (button.disabled || editor.open || mutating) return;
+        if (!queryRequest) void refreshQueryCache();
         button.disabled = true;
         try {
           const response = await fetch("/_nodes/status", { cache: "no-store" });
@@ -322,6 +479,7 @@
         }
       }
       byId("refresh").addEventListener("click", refresh);
+      byId("query-hours").addEventListener("change", refreshQueryCache);
       document.addEventListener("visibilitychange", () => { if (!document.hidden) void refresh(); });
       setInterval(() => { if (!document.hidden) void refresh(); }, 15000);
       void refresh();
