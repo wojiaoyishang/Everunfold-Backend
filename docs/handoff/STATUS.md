@@ -1,5 +1,11 @@
 # 后端交接状态
 
+## AI 开发协作入口与本地 API 就绪检查
+
+- 前后端的开发协作约定已统一移至 [AGENTS.md](AGENTS.md)，由仓库 README 和文档索引链接。两份约定内容相同。
+- 本容器首次启动 API 时，旧 `.venv` 缺少 `tinycss2`。按锁文件同步后重新启动，`/health/live` 与 `/health/ready` 均返回 HTTP 200，数据库、Redis 和迁移状态均为 `ok`。
+- 只读核对了数据库的 `alembic_version` 和代码迁移头，均为 `0065_ai_writing_providers`，Redis `PING` 成功。本轮运行检查覆盖 API。
+
 ## 预发布 README
 
 - 两仓库互链，并提供已上线的 GitHub Pages 手册。README 说明架构由项目发起人确定、AI 辅助开发及预发布初测状态。
