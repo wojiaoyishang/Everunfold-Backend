@@ -99,14 +99,23 @@ HTTP 接口按 ``/v1/plugins/<插件 ID>/`` 挂载。注册默认使用 ``access
 本地检查与部署
 --------------
 
-检查插件声明和资源时可以直接运行目录检查。登记使用已配置的数据库，执行前确认各相关进程已加载同一份插件代码。
+1. 在后端根目录运行清单检查，确认插件被发现且声明有效。
 
-.. code-block:: bash
+   .. code-block:: bash
 
-   uv run --locked python -m tools.register_backend_plugins
-   uv run --locked python -m tools.register_backend_plugins --config config.toml --apply
+      uv run --locked python -m tools.register_backend_plugins
 
-插件代码升级通过部署和受控重启完成。在后台「插件管理」查看登记状态和启停。停用会保留数据。项目按目录追踪内置插件，日常开发可以在仓库内新增已忽略的目录。要分发自定义插件，建议另行管理它的源码。配置、密钥和动态数据应保存在插件目录之外。
+2. 在目标实例部署插件，并重启读取该插件的进程。在相同部署配置下登记清单。
+
+   .. code-block:: bash
+
+      uv run --locked python -m tools.register_backend_plugins --config config.toml --apply
+
+3. 在后台「插件管理」查找登记后的插件并启用。使用测试内容调用示例短代码，确认发布后的公开渲染。
+   如果插件含路由，用具有所需权限的会话检查响应；如果含任务，到「运行与任务」核对执行结果。
+
+停用时会保留插件数据。项目按目录追踪内置插件，日常开发可以在仓库内新增已忽略的目录。
+独立分发的插件可单独维护源码。配置、密钥和动态数据应保存在插件目录之外。
 
 .. toctree::
    :maxdepth: 1

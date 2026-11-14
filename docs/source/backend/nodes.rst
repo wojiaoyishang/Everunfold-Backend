@@ -17,19 +17,37 @@
 公开设置与内容投递
 ------------------
 
-1. 保存站点设置时，``app/modules/settings/service.py`` 更新有效修订，形成公开设置投影。
-   私有设置不能通过调整内容投递接口进入公开快照。
-2. 内容发布由 ``app/modules/content/publication.py`` 形成读者投影并登记可靠投递。
-   设置与内容分别拥有修订或发布代次。
-3. Worker 在事务提交后投递。重试时按节点、站点来源、资源和版本对照回执。
-   已入队表示后端记录了请求，已应用表示节点确认完成。
-4. 若界面仍显示旧内容，在 「节点状态与维护」 对照内容代次、设置修订和接收器状态。
-   节点重新同步使用 ``POST /v1/admin/frontend-nodes/{node_id}/cache/rebuild``；
-   内容、设置与整个节点可按目标范围处理。先确认节点启用并绑定接收器。
+.. figure:: /_static/diagrams/backend-publication.svg
+   :width: 100%
+   :class: flow-diagram
+   :alt: 发布事务提交公开快照和投递记录。Scheduler 派发任务，Worker 认领记录并发送，收到匹配回执后标记已应用，失败时按策略重试。
 
-投递实现从 ``app/modules/settings/delivery.py`` 和
-``app/modules/content/publication_models.py`` 中定位。
-节点收到撤回或转为受限的新内容后，以新状态为准。
+   内容发布从后端事务到前端节点的应用回执。
+
+1. 发布、撤回或移入回收站时，影响公开内容的变更由 ``app/modules/content/publication.py``
+   生成新一代投影，并登记每个同步节点的 Outbox 记录和缓存事件。草稿修订、发布快照和这些记录
+   同事务提交。定时发布由 Worker 运行 ``core.publication``，计划到期后重新检查发布权限，
+   使用计划中保存的草稿修订生成发布快照。
+2. Scheduler 取得 Redis 租约后协调数据库任务计划，将到期的 ``core.settings`` 执行编号交给 Celery。
+   Worker 在认领并提交投递租约后发起 HTTP 请求。发送失败或回执校验失败时，按退避时间和尝试上限重试。
+3. ``app/modules/settings/delivery.py`` 核对回执的节点、来源、资源、版本和内容摘要，通过后才写入
+   ``applied_at``。保存站点设置会由 ``app/modules/settings/service.py`` 生成公开设置投影，复用同一条投递链路。
+   设置与内容分别维护修订或发布代次。节点按最新已应用的发布处理公开、撤回和访问限制。
+
+验证事务和同步结果
+~~~~~~~~~~~~~~~~~~
+
+1. 在测试实例修改并发布一篇公开文章，记下 ``GET /v1/admin/content/publication`` 中的 ``revision``。
+   在「运行与任务」确认 ``core.settings`` 有运行记录。
+2. 在「节点状态与维护」检查目标节点，或请求 ``GET /v1/admin/frontend-nodes/{node_id}/cache``。
+   对照 ``sync`` 中的 ``public-content`` 状态与接收器储存状态，再从该节点打开阅读页。
+3. 测试接收器短时离线时，确认已提交的发布修订留在后端。恢复接收器后等待自动重试；达到尝试上限时，
+   对已启用且已绑定接收器的测试节点调用 ``POST /v1/admin/frontend-nodes/{node_id}/cache/rebuild``，
+   请求体使用 ``{"scope":"public-content"}``。复查状态变为 ``applied`` 后刷新阅读页。
+
+重建也可指定 ``public-settings``、``cache-policy`` 或 ``all``。公开设置投影由服务显式构造，站点私有配置仍保存在后端。
+
+``tests/test_settings_processes.py`` 的进程联测覆盖发布回滚、重复发布请求和接收器重启后的投递恢复。
 
 两类缓存
 --------

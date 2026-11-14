@@ -39,15 +39,19 @@ FastAPI 提供 ``/docs`` 和 ``/openapi.json``，便于在开发环境检查部�
 
 后端的 ``contracts/`` 保存业务模型、WebSocket 和同步协议的版本化契约。精确版本读取 ``x-everunfold-contract-version`` 字段。独立的前端仓库根据 ``contracts.lock.json`` 固定的后端提交和摘要生成客户端类型。
 
-修改契约时同步更新相应导出器和前端锁定值。下列命令分别导出 FastAPI 业务 OpenAPI、页面契约和 AI 写作插件自己的 OpenAPI。
+1. 修改路由与请求、响应模型后，使用相应的导出器生成契约。下列命令依次生成业务 OpenAPI、
+   页面契约和 AI 写作插件的 OpenAPI。
 
-.. code-block:: bash
+   .. code-block:: bash
 
-   uv run --locked python -m tools.export_contracts
-   uv run --locked python -m tools.export_pages_contract
-   uv run --locked python -m tools.export_plugin_routes --plugin-id core.ai-writing
+      uv run --locked python -m tools.export_contracts
+      uv run --locked python -m tools.export_pages_contract
+      uv run --locked python -m tools.export_plugin_routes --plugin-id core.ai-writing
 
-前两类示例的默认输出在 ``contracts/``。插件的 OpenAPI 默认写入 ``var/cache/plugin-contracts/``，发布插件对应类型时须使用匹配的构建产物。
+2. 在 ``contracts/`` 比对业务和页面契约的新增、删除或必填字段变化。插件的 OpenAPI 默认写入
+   ``var/cache/plugin-contracts/``，发布插件对应类型时须使用匹配的构建产物。
+3. 前端消费到契约时，更新其锁定的后端提交和文件摘要，再生成并检查前端类型。
+   在开发环境从正常入口请求变更过的接口，分别验证成功响应和相应的认证、权限或输入错误。
 
 .. toctree::
    :maxdepth: 1

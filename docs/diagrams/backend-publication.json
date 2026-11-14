@@ -1,0 +1,15 @@
+{
+  "steps": [
+    {"title": "触发公开内容变更", "detail": "发布、定时发布、撤回\n或回收已发布内容"},
+    {"title": "提交发布事务", "detail": "原子保存公开快照、Outbox\n和缓存事件"},
+    {"title": "Scheduler 派发", "detail": "持 Redis 租约协调到期计划\n经 Celery 派发 core.settings"},
+    {"title": "Worker 认领投递", "detail": "提交记录租约后向接收器发送"},
+    {"title": "接收器返回回执", "detail": "Worker 核对来源、节点、资源、\n版本和内容摘要"},
+    {"title": "记录已应用", "detail": "写入 applied_at"}
+  ],
+  "transitions": ["", "等待调度", "执行编号", "HTTP 请求", "回执匹配"],
+  "branches": [
+    {"from": 2, "title": "事务失败", "detail": "随业务修改一起回滚"},
+    {"from": 5, "title": "发送或回执异常", "detail": "按退避时间重试\n达到上限后记录失败"}
+  ]
+}

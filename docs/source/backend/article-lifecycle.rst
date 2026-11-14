@@ -22,7 +22,7 @@
    用 ``operation_id`` 表达独立写操作。重试同一请求沿用该 ID。
    编号被其他修改使用或修订有冲突时保留当前输入，重新比对后再提交。
 4. 如需公开，执行发布动作。它会检查发布权限、作者或资源范围和正文状态。
-   从节点投递回执确认公开发布实际应用。
+   参考 :doc:`nodes` 的投递流程和验证步骤，从回执确认节点已应用公开版本。
 
 ``draft_schemas.py`` 定义写入字段和修订，``draft_service.py`` 执行状态转换并检查收据，
 ``publication.py`` 建立公开投影并登记投递。
@@ -32,7 +32,8 @@
 
 ``/v1/admin/content/schedule`` 安排发布，``/v1/admin/content/cancel-schedule`` 取消计划。
 ``scheduled_publication.py`` 领取到期任务后重新检查执行账号、权限和草稿状态，
-再生成发布版本。撤回走 ``/v1/admin/content/withdraw``，读者面以节点最新应用的版本为准。
+用安排时保存的草稿生成发布版本。测试定时发布时，可在安排后再保存一份草稿，
+核对到期版本使用安排时的内容。撤回走 ``/v1/admin/content/withdraw``，读者面以节点最新应用的版本为准。
 
 ``translation_router.py`` 将查询、创建、关联、解除关联和标记审阅放在
 ``/v1/admin/content/translations/``。不同语言拥有各自草稿与发布修订，翻译组记录关联关系。

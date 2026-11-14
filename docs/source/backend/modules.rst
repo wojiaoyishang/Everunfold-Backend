@@ -53,3 +53,33 @@
 
 外置节点配置文件的相对路径以主配置所在目录为准，顶层只包含 ``frontends`` 表。
 节点 ID、实际来源、双向令牌和接收器关系见 :doc:`nodes`。
+
+启动与就绪检查
+--------------
+
+.. figure:: /_static/diagrams/backend-readiness.svg
+   :width: 100%
+   :class: flow-diagram
+   :alt: 先显式初始化或迁移，再启动 API。存活检查确认进程可响应，就绪检查按配置、数据库、Redis 和迁移版本返回 200 或 503。
+
+   API 启动与接收业务流量前的就绪检查。
+
+1. 选定配置和目标数据库。新实例执行 ``init.database.py``，完成迁移和初始数据准备。
+   已有实例按 :doc:`data-and-jobs` 执行 Alembic 升级。部署命令和后端进程须指向同一套配置。
+2. 启动 API。``app/entrypoints/api.py`` 在配置有效时创建 ``Runtime``，应用启动时不执行迁移。
+   ``GET /health/live`` 返回 ``200`` 即表示 API 可以响应探针请求。
+3. 请求 ``GET /health/ready``。配置有效时，探针同时检查数据库连接、运行 Redis 连接和
+   Alembic 版本。后三项应在各自的超时内完成，版本必须匹配 ``app/core/database.py`` 中的
+   ``SCHEMA_REVISION``。三项通过时返回 ``200``。
+
+在开发环境启动 API 后运行以下命令，观察 HTTP 状态与响应体中的 ``data.checks``。
+
+.. code-block:: bash
+
+   curl -sS -i http://127.0.0.1:8001/health/live
+   curl -sS -i http://127.0.0.1:8001/health/ready
+
+就绪检查返回 ``503`` 时，按失败项定位。本地服务的运行 Redis 由 ``[redis]`` 配置，
+``schema`` 单项失败时先用 ``uv run --locked alembic -c migrations/alembic.ini current``
+核对所连接的数据库和迁移位置。另可运行 ``uv run --locked pytest tests/test_bootstrap.py``，
+验证依赖不可用时仍可区分存活和就绪结果。

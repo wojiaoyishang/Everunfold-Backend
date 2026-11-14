@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 731"
+     width="760" height="731">
+  <defs>
+    <marker id="head" viewBox="0 0 10 10" refX="8" refY="5"
+            markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M 0 0 L 9 5 L 0 10 Z" fill="#526a8c"/>
+    </marker>
+  </defs>
+  <style>
+    text {font-family: Noto Sans CJK SC, PingFang SC, Microsoft YaHei, sans-serif}
+    .step {fill: #fff; stroke: #b4c8e1; stroke-width: 1.4}
+    .branch {fill: #fff8ed; stroke: #d6b289; stroke-width: 1.4}
+    .badge {fill: #e1edff}
+    .number {fill: #184485; font-size: 14px; font-weight: 700}
+    .title {fill: #142747; font-size: 21px; font-weight: 700}
+    .detail {fill: #344563; font-size: 17px}
+    .transition {fill: #365b86; font-size: 15px}
+    .arrow {fill: none; stroke: #526a8c; stroke-width: 1.6}
+  </style>
+  <rect x="0.5" y="0.5" width="759" height="730"
+        rx="15" fill="#f4f7fc" stroke="#d6e1f0"/>
+<rect x="20" y="20" width="412" height="111" rx="10" class="step"/><circle cx="53" cy="50" r="15" class="badge"/><text x="53" y="55" class="number" text-anchor="middle">1</text><text x="79" y="56" class="title" text-anchor="start">业务服务登记事件</text><text x="79" y="84" class="detail" text-anchor="start">按 dedupe_key 去重</text><text x="79" y="108" class="detail" text-anchor="start">跟随业务事务提交</text>
+<path d="M 226 136 L 226 163" class="arrow" marker-end="url(#head)"/>
+<text x="240" y="153" class="transition" text-anchor="start">事务提交后</text>
+<rect x="20" y="171" width="412" height="87" rx="10" class="step"/><circle cx="53" cy="201" r="15" class="badge"/><text x="53" y="206" class="number" text-anchor="middle">2</text><text x="79" y="207" class="title" text-anchor="start">Worker 读取待处理事件</text><text x="79" y="235" class="detail" text-anchor="start">core.notifications 检查事件声明</text>
+<path d="M 226 263 L 226 290" class="arrow" marker-end="url(#head)"/>
+
+<rect x="20" y="298" width="412" height="111" rx="10" class="step"/><circle cx="53" cy="328" r="15" class="badge"/><text x="53" y="333" class="number" text-anchor="middle">3</text><text x="79" y="334" class="title" text-anchor="start">匹配规则并生成投递</text><text x="79" y="362" class="detail" text-anchor="start">每位收件人每通道一条</text><text x="79" y="386" class="detail" text-anchor="start">按首选语言选择模板</text>
+<path d="M 436 353 L 478 353" class="arrow" marker-end="url(#head)"/>
+<rect x="485" y="310" width="255" height="87" rx="10" class="branch"/><text x="503" y="346" class="title" text-anchor="start">站内通知</text><text x="503" y="374" class="detail" text-anchor="start">写入收件箱，标记为 sent</text>
+<path d="M 226 414 L 226 441" class="arrow" marker-end="url(#head)"/>
+<text x="240" y="431" class="transition" text-anchor="start">邮件或插件通道</text>
+<rect x="20" y="449" width="412" height="111" rx="10" class="step"/><circle cx="53" cy="479" r="15" class="badge"/><text x="53" y="484" class="number" text-anchor="middle">4</text><text x="79" y="485" class="title" text-anchor="start">认领外部投递</text><text x="79" y="513" class="detail" text-anchor="start">提交发送租约后</text><text x="79" y="537" class="detail" text-anchor="start">再次检查收件人和通道</text>
+<path d="M 226 565 L 226 592" class="arrow" marker-end="url(#head)"/>
+
+<rect x="20" y="600" width="412" height="111" rx="10" class="step"/><circle cx="53" cy="630" r="15" class="badge"/><text x="53" y="635" class="number" text-anchor="middle">5</text><text x="79" y="636" class="title" text-anchor="start">写回发送结果</text><text x="79" y="664" class="detail" text-anchor="start">发送成功、失败或跳过</text><text x="79" y="688" class="detail" text-anchor="start">sent / failed / suppressed</text>
+<path d="M 436 655 L 478 655" class="arrow" marker-end="url(#head)"/>
+<rect x="485" y="600" width="255" height="111" rx="10" class="branch"/><text x="503" y="636" class="title" text-anchor="start">结果不确定</text><text x="503" y="664" class="detail" text-anchor="start">记录为 unknown</text><text x="503" y="688" class="detail" text-anchor="start">等待人工核对</text>
+</svg>

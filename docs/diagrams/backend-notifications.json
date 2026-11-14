@@ -1,0 +1,14 @@
+{
+  "steps": [
+    {"title": "业务服务登记事件", "detail": "按 dedupe_key 去重\n跟随业务事务提交"},
+    {"title": "Worker 读取待处理事件", "detail": "core.notifications 检查事件声明"},
+    {"title": "匹配规则并生成投递", "detail": "每位收件人每通道一条\n按首选语言选择模板"},
+    {"title": "认领外部投递", "detail": "提交发送租约后\n再次检查收件人和通道"},
+    {"title": "写回发送结果", "detail": "发送成功、失败或跳过\nsent / failed / suppressed"}
+  ],
+  "transitions": ["事务提交后", "", "邮件或插件通道", ""],
+  "branches": [
+    {"from": 3, "title": "站内通知", "detail": "写入收件箱，标记为 sent"},
+    {"from": 5, "title": "结果不确定", "detail": "记录为 unknown\n等待人工核对"}
+  ]
+}
