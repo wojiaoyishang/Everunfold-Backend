@@ -2,7 +2,6 @@
 
 import base64
 import hmac
-import json
 import os
 import re
 from collections.abc import Callable
@@ -35,8 +34,16 @@ def without_region_markers(source: str) -> str:
 
 
 def require_no_regions(value: object) -> None:
-    if REGION_TOKEN.search(json.dumps(value, default=str)):
-        raise AuthFailure(422, 42284, "可见区域只能放在正文或短代码组件中")
+    if isinstance(value, str):
+        if REGION_TOKEN.search(value):
+            raise AuthFailure(422, 42284, "可见区域只能放在正文或短代码组件中")
+    elif isinstance(value, dict):
+        for key, entry in value.items():
+            require_no_regions(key)
+            require_no_regions(entry)
+    elif isinstance(value, (list, tuple)):
+        for entry in value:
+            require_no_regions(entry)
 
 
 class RegionPassword(Base):

@@ -1052,7 +1052,7 @@ def test_protected_shortcodes_are_registered_and_only_unlocked_by_backend(
             "operation_id": str(uuid4()),
             "value": {
                 **payload["value"],
-                "description": "{{< reply-only >}}secret{{< /reply-only >}}",
+                "description": "{{<\t reply-only >}}secret{{< /reply-only >}}",
             },
         },
     )
