@@ -38,6 +38,8 @@ Everunfold 是一个 **vibe coding 项目**。项目发起人 [@wojiaoyishang](h
 
 ## 本地开发
 
+源码挂载与容器部署见 [Docker 指南](docker/README.md)。
+
 使用 Python 3.12、uv、PostgreSQL 和 Redis。先创建专用开发数据库，在仓库根目录执行 `uv sync --locked`，再参照 [应用配置示例](config.example.toml) 和 [节点配置示例](frontend-nodes.example.toml) 建立本地配置。配置数据库、Redis、Broker、初始管理员密码和前端连接后，显式初始化数据库。
 
 ```bash

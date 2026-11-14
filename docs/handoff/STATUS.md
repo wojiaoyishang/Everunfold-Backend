@@ -1,5 +1,11 @@
 # 后端交接状态
 
+## 源码挂载 Docker 部署
+
+- [Docker 指南](../../docker/README.md)提供只读源码挂载、独立配置与媒体卷。镜像按锁定依赖安装，入口用环境变量配置 API 和 Celery Worker，维持单 Scheduler。数据库迁移和后端插件登记仍显式执行。
+- Compose 配置和 Bash 语法检查通过。用实际 Python 依赖模拟挂载入口并启动两个 Uvicorn worker，连接当前开发库及 Redis 后 `/health/ready` 返回 200。另在隔离失败配置验证子进程退出会停止其余进程。
+- 当前环境没有 Docker daemon，镜像构建、Compose 容器间通信与真实节点投递仍待在部署机验证。共享设计见 [ADR 0150](../decisions/0150-source-mounted-docker.md)。
+
 ## AI 开发协作入口与本地 API 就绪检查
 
 - 前后端的开发协作约定已统一移至 [AGENTS.md](AGENTS.md)，由仓库 README 和文档索引链接。两份约定内容相同。

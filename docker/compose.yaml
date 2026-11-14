@@ -1,0 +1,41 @@
+name: everunfold-backend
+
+services:
+  backend:
+    image: ${BACKEND_IMAGE:-everunfold-backend:python312}
+    build:
+      context: ${BACKEND_SOURCE_DIR:-..}
+      dockerfile: docker/Dockerfile
+    init: true
+    restart: unless-stopped
+    stop_grace_period: ${BACKEND_STOP_GRACE_PERIOD:-130s}
+    env_file: ${BACKEND_ENV_FILE:-./runtime.env}
+    environment:
+      API_PORT: "${BACKEND_API_PORT:-8001}"
+    ports:
+      - "${BACKEND_BIND_ADDRESS:-127.0.0.1}:${BACKEND_PUBLISH_PORT:-8001}:${BACKEND_API_PORT:-8001}"
+    volumes:
+      - type: bind
+        source: ${BACKEND_SOURCE_DIR:-..}
+        target: /workspace
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${BACKEND_CONFIG_DIR:-./instance}
+        target: /etc/everunfold
+        read_only: true
+        bind:
+          create_host_path: false
+      - media:/data/uploads
+    networks:
+      everunfold:
+        aliases: [everunfold-backend]
+
+volumes:
+  media:
+
+networks:
+  everunfold:
+    external: true
+    name: ${EVERUNFOLD_NETWORK:-everunfold}
