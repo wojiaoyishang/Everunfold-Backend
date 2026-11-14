@@ -6,7 +6,7 @@ from sqlalchemy.orm import DeclarativeBase
 
 from app.core.query_cache_metrics import count_cursor_execute
 
-SCHEMA_REVISION = "0064_ai_writing"
+SCHEMA_REVISION = "0065_ai_writing_providers"
 
 
 class Base(DeclarativeBase):

@@ -19,7 +19,15 @@ from app.modules.auth.service import AuthFailure
 from .models import AiWritingRequest
 from .safety import cipher
 from .schemas import PLUGIN_ID, TARGETS, GenerateAiText, Scene
-from .service import QUEUED_TTL, RESULT_TTL, configuration, now, source_for, target_access
+from .service import (
+    QUEUED_TTL,
+    RESULT_TTL,
+    configuration,
+    configured_provider,
+    now,
+    source_for,
+    target_access,
+)
 from .transport import REQUEST_TIMEOUT, ProviderError, generate
 
 
@@ -84,7 +92,8 @@ async def claim(db: Database, config: Settings) -> tuple[Job | None, bool]:
         job = None
         try:
             user = await session.get(User, row.actor_id)
-            if row.revision == settings.revision and row.input_ciphertext:
+            provider = configured_provider(settings, row.provider_id)
+            if row.revision == settings.revision and row.input_ciphertext and provider:
                 if user is None or not user.active or user.must_change_password:
                     raise AuthFailure(403, 40389, "没有使用 AI 写作助手的权限")
                 actor = Actor.browser(user)
@@ -114,12 +123,14 @@ async def claim(db: Database, config: Settings) -> tuple[Job | None, bool]:
                 elif not actor.allows("settings:write"):
                     raise AuthFailure(403, 40389, "没有测试模型配置的权限")
                 key = ""
-                if settings.key_ciphertext:
-                    key = cipher(config, "key").decrypt(settings.key_ciphertext.encode()).decode()
+                if provider["key_ciphertext"]:
+                    key = (
+                        cipher(config, "key").decrypt(provider["key_ciphertext"].encode()).decode()
+                    )
                 job = Job(
                     row.id,
-                    settings.base_url,
-                    settings.model,
+                    provider["base_url"],
+                    provider["model"],
                     key,
                     language,
                     task,

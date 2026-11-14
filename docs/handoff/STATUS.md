@@ -1,5 +1,11 @@
 # 后端交接状态
 
+## AI 写作多服务商
+
+- 迁移 `0065_ai_writing_providers` 将已配置的单服务商保留为默认项，沿用加密密钥、配置修订与字段开关。Worker 按入队时的服务商和修订执行。编辑端只取得服务商 ID、名称和模型。见 [ADR 0149](../decisions/0149-ai-writing-providers.md)。
+- 后端 13 项定向测试、Ruff、mypy 通过。已在隔离 PostgreSQL 验证旧密钥可解密、已排队请求绑定原服务商以及降级保护。隔离 API、Worker、Redis 与两个模拟网关也核对了连接测试、按选择投递、无效服务商、过期修订和受限正文过滤。
+- 开发数据库已显式迁移，插件登记已更新，API、Worker 和 Scheduler 已重启，API 就绪检查通过。
+
 ## AI 写作插件特色图
 
 - `core.ai-writing` 通过现有插件特色图入口提供扁平 WebP，与前端插件包使用同一资源。后台配置页与菜单注册见 [ADR 0148](../decisions/0148-admin-plugin-navigation.md)。

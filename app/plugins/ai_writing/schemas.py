@@ -15,6 +15,7 @@ SceneFields = dict[Scene, list[str]]
 
 PLUGIN_ID = "core.ai-writing"
 TASK_ID = "core.ai-writing.generate"
+MAX_PROVIDERS = 20
 SEO_FIELDS = {
     "seo_title": (200, "简洁准确的搜索标题"),
     "seo_description": (500, "自然、准确的搜索结果描述"),
@@ -40,36 +41,64 @@ PERMISSIONS: dict[Scene, str] = {
 }
 
 
+class AiProviderSummary(PublicModel):
+    id: UUID
+    name: str
+    model: str
+
+
 class AiAvailability(PublicModel):
     revision: int
     enabled: bool
     fields: SceneFields
-    provider: str
+    default_provider_id: UUID | None
+    providers: list[AiProviderSummary]
     restricted_by_default: dict[str, bool]
+
+
+class AiProviderConfiguration(AiProviderSummary):
+    base_url: str
+    api_key_configured: bool
 
 
 class AiConfiguration(PublicModel):
     revision: int = Field(ge=0)
     enabled: bool
-    base_url: str = Field(max_length=2048)
-    model: str = Field(max_length=160)
     fields: SceneFields
-    api_key_configured: bool
+    default_provider_id: UUID | None
+    providers: list[AiProviderConfiguration]
+
+
+class SaveAiProvider(PublicModel):
+    id: UUID
+    name: str = Field(min_length=1, max_length=80)
+    base_url: str = Field(min_length=1, max_length=2048)
+    model: str = Field(min_length=1, max_length=160)
+    api_key: SecretStr | None = Field(default=None, max_length=4096)
+    clear_api_key: bool = False
+
+    @field_validator("name", "base_url", "model", mode="before")
+    @classmethod
+    def trim(cls, value: object) -> object:
+        return value.strip() if isinstance(value, str) else value
+
+    @model_validator(mode="after")
+    def valid_credential_change(self) -> Self:
+        if self.api_key is not None and (
+            self.clear_api_key
+            or not self.api_key.get_secret_value()
+            or any(ord(char) < 33 or ord(char) > 126 for char in self.api_key.get_secret_value())
+        ):
+            raise ValueError("Invalid credential change")
+        return self
 
 
 class SaveAiConfiguration(PublicModel):
     revision: int = Field(ge=0)
     enabled: bool
-    base_url: str = Field(max_length=2048)
-    model: str = Field(max_length=160)
     fields: SceneFields
-    api_key: SecretStr | None = Field(default=None, max_length=4096)
-    clear_api_key: bool = False
-
-    @field_validator("base_url", "model")
-    @classmethod
-    def trim(cls, value: str) -> str:
-        return value.strip()
+    default_provider_id: UUID | None
+    providers: list[SaveAiProvider] = Field(max_length=MAX_PROVIDERS)
 
     @field_validator("fields")
     @classmethod
@@ -81,22 +110,27 @@ class SaveAiConfiguration(PublicModel):
 
     @model_validator(mode="after")
     def valid_configuration(self) -> Self:
-        if self.enabled and (not self.base_url or not self.model):
-            raise ValueError("Enabled configuration requires an endpoint and model")
-        if self.api_key and (
-            self.clear_api_key
-            or not self.api_key.get_secret_value().strip()
-            or any(ord(char) < 33 or ord(char) > 126 for char in self.api_key.get_secret_value())
-        ):
-            raise ValueError("Invalid credential change")
+        ids = {provider.id for provider in self.providers}
+        names = {provider.name.casefold() for provider in self.providers}
+        if len(ids) != len(self.providers) or len(names) != len(self.providers):
+            raise ValueError("Duplicate provider")
+        if ids and self.default_provider_id not in ids:
+            raise ValueError("Default provider must be configured")
+        if not ids and (self.enabled or self.default_provider_id is not None):
+            raise ValueError("Enabled configuration requires a default provider")
         return self
 
 
-class TestAiConnection(PublicModel):
+class AiProviderRequest(PublicModel):
     request_id: UUID
+    provider_id: UUID | None = None
 
 
-class GenerateAiText(TestAiConnection):
+class TestAiConnection(AiProviderRequest):
+    expected_revision: int | None = Field(default=None, ge=0)
+
+
+class GenerateAiText(AiProviderRequest):
     scene: Scene
     field: str = Field(min_length=1, max_length=40)
     resource_id: UUID | None = None

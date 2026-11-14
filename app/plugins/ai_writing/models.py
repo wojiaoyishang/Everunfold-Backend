@@ -1,6 +1,7 @@
 """Settings and encrypted short-lived requests private to the writing plugin."""
 
 from datetime import datetime
+from typing import TypedDict
 from uuid import UUID
 
 from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, Index, Integer, String, Text
@@ -12,6 +13,14 @@ from app.core.database import Base
 from .schemas import SceneFields
 
 
+class StoredProvider(TypedDict):
+    id: str
+    name: str
+    base_url: str
+    model: str
+    key_ciphertext: str | None
+
+
 class AiWritingSettings(Base):
     __tablename__ = "ai_writing_settings"
     __table_args__ = (CheckConstraint("id = 1 AND revision >= 0", name="singleton_revision"),)
@@ -19,10 +28,9 @@ class AiWritingSettings(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     revision: Mapped[int] = mapped_column(Integer)
     enabled: Mapped[bool] = mapped_column(Boolean)
-    base_url: Mapped[str] = mapped_column(String(2048))
-    model: Mapped[str] = mapped_column(String(160))
     fields: Mapped[SceneFields] = mapped_column(JSONB)
-    key_ciphertext: Mapped[str | None] = mapped_column(Text)
+    default_provider_id: Mapped[UUID | None] = mapped_column()
+    providers: Mapped[list[StoredProvider]] = mapped_column(JSONB)
 
 
 class AiWritingRequest(Base):
@@ -40,6 +48,7 @@ class AiWritingRequest(Base):
     actor_id: Mapped[UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
     revision: Mapped[int] = mapped_column(Integer)
     fingerprint: Mapped[str] = mapped_column(String(64))
+    provider_id: Mapped[UUID | None] = mapped_column()
     scene: Mapped[str | None] = mapped_column(String(32))
     field: Mapped[str | None] = mapped_column(String(40))
     resource_id: Mapped[UUID | None] = mapped_column()
