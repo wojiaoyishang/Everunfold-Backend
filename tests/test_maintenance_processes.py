@@ -129,6 +129,10 @@ def test_native_bundle_preview_and_replay(tmp_path: Path) -> None:
             category = bundle_item(
                 "category", "Maintenance", {"name": "Maintenance", "slug": "maintenance"}
             )
+            archived = bundle_item(
+                "category", "Retired category", {"name": "Retired category", "slug": "retired"}
+            )
+            archived["status"] = "archived"
             template = bundle_item(
                 "template",
                 "Portable template",
@@ -222,12 +226,23 @@ def test_native_bundle_preview_and_replay(tmp_path: Path) -> None:
                 "format": "everunfold-content",
                 "version": 1,
                 "exported_at": datetime.now(UTC).isoformat(),
-                "items": [child, page, article, term, category, template, parent, site, missing],
+                "items": [
+                    child,
+                    page,
+                    article,
+                    term,
+                    category,
+                    template,
+                    parent,
+                    site,
+                    missing,
+                    archived,
+                ],
             }
             plan = checked(
                 admin.post(PREFIX + "import/preview", json={"bundle": package}, headers=csrf)
             )
-            assert plan["counts"] == {"create": 7, "skip": 0, "conflict": 0, "blocked": 2}
+            assert plan["counts"] == {"create": 8, "skip": 0, "conflict": 0, "blocked": 2}
             assert checked(admin.get(PREFIX + "history"))["items"] == []
             tampered = copy.deepcopy(package)
             tampered["items"][0]["value"]["body"] = "Changed after preview"
@@ -277,6 +292,7 @@ def test_native_bundle_preview_and_replay(tmp_path: Path) -> None:
             entries = {item["id"]: item for item in exported["items"]}
             for record in (article, page, parent, child, template, term):
                 assert entries[record["id"]]["status"] == "draft"
+            assert entries[archived["id"]]["status"] == "archived"
             assert entries[child["id"]]["value"]["body_format"] == "markdown"
             assert entries[child["id"]]["value"]["website"] == "https://example.org/"
             assert entries[page_id]["value"]["value"]["enabled"] is False
@@ -285,7 +301,7 @@ def test_native_bundle_preview_and_replay(tmp_path: Path) -> None:
             second = checked(
                 admin.post(PREFIX + "import/preview", json={"bundle": package}, headers=csrf)
             )
-            assert second["counts"]["skip"] == 7, second["items"]
+            assert second["counts"]["skip"] == 8, second["items"]
             conflict = copy.deepcopy(package)
             conflict["items"][2]["value"]["fields"]["title"] = "Overwrite attempt"
             third = checked(

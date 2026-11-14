@@ -253,7 +253,7 @@ class MaintenanceService:
                     slug=value.slug,
                     name=value.name,
                     parent_id=value.parent_id,
-                    retired=False,
+                    retired=plan.source_status == "archived",
                     revision=1,
                 )
             )
