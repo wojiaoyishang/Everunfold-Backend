@@ -16,6 +16,7 @@ from app.core.modules import (
     register_auth_module,
     register_captcha_module,
     register_content_module,
+    register_maintenance_module,
     register_media_module,
     register_notifications_module,
     register_pages_module,
@@ -103,6 +104,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     register_notifications_module(application)
     register_pages_module(application)
     register_media_module(application)
+    register_maintenance_module(application)
     mount_plugin_routes(application, plugins)
     mount_nodes_monitor(application, resolved)
 

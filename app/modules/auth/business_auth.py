@@ -84,6 +84,8 @@ def route_permission(path: str, method: str, body: dict[str, object]) -> tuple[s
         return "settings:write", False
     if path == "/v1/admin/settings/mail":
         return ("settings:read", True) if method == "GET" else ("settings:write", False)
+    if path.startswith("/v1/admin/maintenance/"):
+        return ("settings:read", True) if method == "GET" else ("settings:write", False)
     if path == "/v1/admin/runtime":
         return "settings:read", True
     if path == "/v1/admin/runtime/control":

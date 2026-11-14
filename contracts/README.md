@@ -7,19 +7,20 @@
 | auth-v0.1.schema.json | 0.3.0 | Cookie Session、CSRF、当前身份/授权、强制改密状态 |
 | accounts-v1.schema.json | 1.5.0 | 私有资料、会话/密码、用户/授权、身份预设、Key/应用与受限头像库 |
 | api-key-protocol-v1.schema.json | 1.0.0 | 应用签名校验、最小响应、签名回调/ACK与缓存边界 |
-| captcha-v1.schema.json | 1.5.0 | 验证码策略、挑战/阅读/评论校验与受限页面图片查看投影 |
+| captcha-v1.schema.json | 1.11.0 | 验证码、阅读限制、讨论准入与评论发布回执 |
 | collaboration-v1.schema.json | 2.7.0 | 持久协同、逐内容图片查看、源码租约、光标/合并暂停及提交回执拥有者字段 |
 | comment-likes-v0.1.schema.json | 0.2.0 | 匿名历史评论点赞 |
-| content-access-v1.schema.json | 1.5.0 | 私有受限正文读取，包含逐内容图片查看设置 |
-| content-admin-v1.schema.json | 1.20.0 | 草稿、语言/导航、逐内容图片查看/术语设置、修订/分支/合并与页面预览 |
+| content-access-v1.schema.json | 1.9.0 | 私有受限正文读取与评论格式 |
+| content-admin-v1.schema.json | 1.24.0 | 内容草稿、修订及公开投影与评论格式 |
 | glossary-v1.schema.json | 3.7.0 | 术语索引/详情、特色图片/图片查看开关、按内容匹配与跨页面 DOM/脚本触发 |
+| maintenance-v1.schema.json | 1.0.0 | 原生数据包、导入预检与导入记录、健康检查 |
 | notifications-v1.schema.json | 1.4.0 | 通知模板、邮件品牌、模板变量、投递记录与当前账号 Inbox |
-| operations-v1.schema.json | 1.1.0 | 评论查询、审核、工作台及按评论 ID 定位和仅待审核确认 |
+| operations-v1.schema.json | 1.2.0 | 评论查询、审核与评论格式 |
 | pages-v1.schema.json | 1.13.0 | 页面草稿与应用、可信类型、自定义页面模板及 URL 校验 |
 | presentation-v0.2.schema.json | 0.2.0-preview.5 | 草稿展示预览（草案） |
-| public-v0.1.schema.json | 0.14.0 | 完整公开快照、多语言导航与逐页图片查看/术语/验证码边界 |
+| public-v0.1.schema.json | 0.18.0 | 公开快照、组件内容与评论格式 |
 | reader-preview-v0.1.schema.json | 0.1.0-preview.1 | 阅读演示指标（预览） |
-| settings-v1.schema.json | 1.44.0 | 站点、主题、系统与节点设置，含 Redis 查询缓存报告 |
+| settings-v1.schema.json | 1.45.0 | 站点、主题、系统、节点与讨论设置 |
 
 权威导出入口为`tools/export_*_contract.py`；例如`uv run --locked python -m tools.export_accounts_contract`。协议Schema与独立Node参考对应，见[接入指南](../docs/development/api-key-applications.md)。`presentation-v0.2.schema.json`和`reader-preview-v0.1.schema.json`仍分别标记preview，不把展示草案当作正式写接口。`public-openapi-v0.1.json`由现有FastAPI公开业务路由导出，完整应用另含诊断路由。
 

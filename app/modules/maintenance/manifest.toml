@@ -1,0 +1,4 @@
+id = "maintenance"
+version = "0.1.0"
+dependencies = []
+router_entrypoint = "app.modules.maintenance:router_init"

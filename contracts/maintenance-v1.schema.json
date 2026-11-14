@@ -1,0 +1,648 @@
+{
+  "$defs": {
+    "MaintenanceApplyRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "bundle": {
+          "$ref": "#/$defs/MaintenanceBundle"
+        },
+        "digest": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Digest",
+          "type": "string"
+        }
+      },
+      "required": [
+        "bundle",
+        "digest"
+      ],
+      "title": "MaintenanceApplyRequest",
+      "type": "object"
+    },
+    "MaintenanceBundle": {
+      "additionalProperties": false,
+      "properties": {
+        "format": {
+          "const": "everunfold-content",
+          "title": "Format",
+          "type": "string"
+        },
+        "version": {
+          "const": 1,
+          "title": "Version",
+          "type": "integer"
+        },
+        "exported_at": {
+          "format": "date-time",
+          "title": "Exported At",
+          "type": "string"
+        },
+        "items": {
+          "items": {
+            "$ref": "#/$defs/MaintenanceBundleItem"
+          },
+          "maxItems": 2000,
+          "title": "Items",
+          "type": "array"
+        }
+      },
+      "required": [
+        "format",
+        "version",
+        "exported_at",
+        "items"
+      ],
+      "title": "MaintenanceBundle",
+      "type": "object"
+    },
+    "MaintenanceBundleItem": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "enum": [
+            "article",
+            "shuoshuo",
+            "page",
+            "glossary",
+            "category",
+            "tag",
+            "comment",
+            "template",
+            "site"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "title": {
+          "maxLength": 1000,
+          "title": "Title",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "draft",
+            "published",
+            "archived"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "updated_at": {
+          "format": "date-time",
+          "title": "Updated At",
+          "type": "string"
+        },
+        "value": {
+          "additionalProperties": true,
+          "title": "Value",
+          "type": "object"
+        }
+      },
+      "required": [
+        "kind",
+        "id",
+        "title",
+        "status",
+        "updated_at",
+        "value"
+      ],
+      "title": "MaintenanceBundleItem",
+      "type": "object"
+    },
+    "MaintenanceCounts": {
+      "additionalProperties": false,
+      "properties": {
+        "create": {
+          "title": "Create",
+          "type": "integer"
+        },
+        "skip": {
+          "title": "Skip",
+          "type": "integer"
+        },
+        "conflict": {
+          "title": "Conflict",
+          "type": "integer"
+        },
+        "blocked": {
+          "title": "Blocked",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "create",
+        "skip",
+        "conflict",
+        "blocked"
+      ],
+      "title": "MaintenanceCounts",
+      "type": "object"
+    },
+    "MaintenanceExportRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "kinds": {
+          "items": {
+            "enum": [
+              "article",
+              "shuoshuo",
+              "page",
+              "glossary",
+              "category",
+              "tag",
+              "comment",
+              "template",
+              "site"
+            ],
+            "type": "string"
+          },
+          "maxItems": 9,
+          "minItems": 1,
+          "title": "Kinds",
+          "type": "array"
+        },
+        "statuses": {
+          "anyOf": [
+            {
+              "items": {
+                "enum": [
+                  "draft",
+                  "published",
+                  "archived"
+                ],
+                "type": "string"
+              },
+              "maxItems": 3,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Statuses"
+        },
+        "date_from": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Date From"
+        },
+        "date_to": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Date To"
+        }
+      },
+      "required": [
+        "kinds"
+      ],
+      "title": "MaintenanceExportRequest",
+      "type": "object"
+    },
+    "MaintenanceHealth": {
+      "additionalProperties": false,
+      "properties": {
+        "checked_at": {
+          "format": "date-time",
+          "title": "Checked At",
+          "type": "string"
+        },
+        "checks": {
+          "items": {
+            "$ref": "#/$defs/MaintenanceHealthCheck"
+          },
+          "title": "Checks",
+          "type": "array"
+        }
+      },
+      "required": [
+        "checked_at",
+        "checks"
+      ],
+      "title": "MaintenanceHealth",
+      "type": "object"
+    },
+    "MaintenanceHealthCheck": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "enum": [
+            "database",
+            "redis",
+            "queue",
+            "media",
+            "mail",
+            "query_cache"
+          ],
+          "title": "Id",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "ok",
+            "warning",
+            "unavailable",
+            "not_configured"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "detail": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Detail"
+        }
+      },
+      "required": [
+        "id",
+        "status",
+        "detail"
+      ],
+      "title": "MaintenanceHealthCheck",
+      "type": "object"
+    },
+    "MaintenanceHistory": {
+      "additionalProperties": false,
+      "properties": {
+        "items": {
+          "items": {
+            "$ref": "#/$defs/MaintenanceReceipt"
+          },
+          "title": "Items",
+          "type": "array"
+        }
+      },
+      "required": [
+        "items"
+      ],
+      "title": "MaintenanceHistory",
+      "type": "object"
+    },
+    "MaintenanceImportItem": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "enum": [
+            "article",
+            "shuoshuo",
+            "page",
+            "glossary",
+            "category",
+            "tag",
+            "comment",
+            "template",
+            "site"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "state": {
+          "enum": [
+            "create",
+            "skip",
+            "conflict",
+            "blocked"
+          ],
+          "title": "State",
+          "type": "string"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Reason"
+        }
+      },
+      "required": [
+        "kind",
+        "id",
+        "title",
+        "state",
+        "reason"
+      ],
+      "title": "MaintenanceImportItem",
+      "type": "object"
+    },
+    "MaintenanceImportRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "bundle": {
+          "$ref": "#/$defs/MaintenanceBundle"
+        }
+      },
+      "required": [
+        "bundle"
+      ],
+      "title": "MaintenanceImportRequest",
+      "type": "object"
+    },
+    "MaintenancePreview": {
+      "additionalProperties": false,
+      "properties": {
+        "digest": {
+          "title": "Digest",
+          "type": "string"
+        },
+        "items": {
+          "items": {
+            "$ref": "#/$defs/MaintenanceImportItem"
+          },
+          "title": "Items",
+          "type": "array"
+        },
+        "counts": {
+          "$ref": "#/$defs/MaintenanceCounts"
+        }
+      },
+      "required": [
+        "digest",
+        "items",
+        "counts"
+      ],
+      "title": "MaintenancePreview",
+      "type": "object"
+    },
+    "MaintenanceReceipt": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "counts": {
+          "$ref": "#/$defs/MaintenanceCounts"
+        }
+      },
+      "required": [
+        "id",
+        "created_at",
+        "counts"
+      ],
+      "title": "MaintenanceReceipt",
+      "type": "object"
+    },
+    "PublicResponse_MaintenanceBundle_": {
+      "additionalProperties": false,
+      "properties": {
+        "success": {
+          "default": true,
+          "title": "Success",
+          "type": "boolean"
+        },
+        "code": {
+          "default": 200,
+          "title": "Code",
+          "type": "integer"
+        },
+        "msg": {
+          "default": "请求成功",
+          "title": "Msg",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/MaintenanceBundle"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "title": "PublicResponse[MaintenanceBundle]",
+      "type": "object"
+    },
+    "PublicResponse_MaintenanceHealth_": {
+      "additionalProperties": false,
+      "properties": {
+        "success": {
+          "default": true,
+          "title": "Success",
+          "type": "boolean"
+        },
+        "code": {
+          "default": 200,
+          "title": "Code",
+          "type": "integer"
+        },
+        "msg": {
+          "default": "请求成功",
+          "title": "Msg",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/MaintenanceHealth"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "title": "PublicResponse[MaintenanceHealth]",
+      "type": "object"
+    },
+    "PublicResponse_MaintenanceHistory_": {
+      "additionalProperties": false,
+      "properties": {
+        "success": {
+          "default": true,
+          "title": "Success",
+          "type": "boolean"
+        },
+        "code": {
+          "default": 200,
+          "title": "Code",
+          "type": "integer"
+        },
+        "msg": {
+          "default": "请求成功",
+          "title": "Msg",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/MaintenanceHistory"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "title": "PublicResponse[MaintenanceHistory]",
+      "type": "object"
+    },
+    "PublicResponse_MaintenancePreview_": {
+      "additionalProperties": false,
+      "properties": {
+        "success": {
+          "default": true,
+          "title": "Success",
+          "type": "boolean"
+        },
+        "code": {
+          "default": 200,
+          "title": "Code",
+          "type": "integer"
+        },
+        "msg": {
+          "default": "请求成功",
+          "title": "Msg",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/MaintenancePreview"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "title": "PublicResponse[MaintenancePreview]",
+      "type": "object"
+    },
+    "PublicResponse_MaintenanceReceipt_": {
+      "additionalProperties": false,
+      "properties": {
+        "success": {
+          "default": true,
+          "title": "Success",
+          "type": "boolean"
+        },
+        "code": {
+          "default": 200,
+          "title": "Code",
+          "type": "integer"
+        },
+        "msg": {
+          "default": "请求成功",
+          "title": "Msg",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/MaintenanceReceipt"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "title": "PublicResponse[MaintenanceReceipt]",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "export_request": {
+      "$ref": "#/$defs/MaintenanceExportRequest"
+    },
+    "bundle": {
+      "$ref": "#/$defs/PublicResponse_MaintenanceBundle_"
+    },
+    "import_request": {
+      "$ref": "#/$defs/MaintenanceImportRequest"
+    },
+    "apply_request": {
+      "$ref": "#/$defs/MaintenanceApplyRequest"
+    },
+    "preview": {
+      "$ref": "#/$defs/PublicResponse_MaintenancePreview_"
+    },
+    "receipt": {
+      "$ref": "#/$defs/PublicResponse_MaintenanceReceipt_"
+    },
+    "history": {
+      "$ref": "#/$defs/PublicResponse_MaintenanceHistory_"
+    },
+    "health": {
+      "$ref": "#/$defs/PublicResponse_MaintenanceHealth_"
+    }
+  },
+  "required": [
+    "export_request",
+    "bundle",
+    "import_request",
+    "apply_request",
+    "preview",
+    "receipt",
+    "history",
+    "health"
+  ],
+  "title": "MaintenanceContract",
+  "type": "object",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "x-everunfold-contract-version": "1.0.0",
+  "x-everunfold-operations": [
+    {
+      "name": "readMaintenanceHealth",
+      "path": "/v1/admin/maintenance/health",
+      "method": "GET",
+      "response": "health"
+    },
+    {
+      "name": "readMaintenanceHistory",
+      "path": "/v1/admin/maintenance/history",
+      "method": "GET",
+      "response": "history"
+    },
+    {
+      "name": "exportMaintenanceBundle",
+      "path": "/v1/admin/maintenance/export",
+      "method": "POST",
+      "input": "export_request",
+      "response": "bundle"
+    },
+    {
+      "name": "previewMaintenanceImport",
+      "path": "/v1/admin/maintenance/import/preview",
+      "method": "POST",
+      "input": "import_request",
+      "response": "preview"
+    },
+    {
+      "name": "applyMaintenanceImport",
+      "path": "/v1/admin/maintenance/import/apply",
+      "method": "POST",
+      "input": "apply_request",
+      "response": "receipt"
+    }
+  ]
+}

@@ -7,6 +7,7 @@ from starlette.middleware.cors import CORSMiddleware
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from app.core.responses import JSONResponseFail
+from app.modules.maintenance.schemas import MAX_BUNDLE_BYTES
 
 
 class BusinessCORSMiddleware:
@@ -137,7 +138,13 @@ class AuthBoundaryMiddleware:
                     return
                 length += len(message.get("body", b""))
                 if length > (
-                    1100000
+                    MAX_BUNDLE_BYTES + 1024
+                    if path
+                    in {
+                        "/v1/admin/maintenance/import/preview",
+                        "/v1/admin/maintenance/import/apply",
+                    }
+                    else 1100000
                     if path
                     in {
                         "/v1/admin/pages/save",

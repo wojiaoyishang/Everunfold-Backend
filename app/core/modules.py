@@ -40,6 +40,10 @@ def register_notifications_module(application: FastAPI) -> None:
     _register_module(application, "notifications")
 
 
+def register_maintenance_module(application: FastAPI) -> None:
+    _register_module(application, "maintenance")
+
+
 def _register_module(application: FastAPI, module_id: str) -> None:
     path = Path(__file__).resolve().parents[1] / "modules" / module_id / "manifest.toml"
     with path.open("rb") as handle:
