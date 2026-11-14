@@ -107,3 +107,9 @@ HTTP 接口按 ``/v1/plugins/<插件 ID>/`` 挂载。注册默认使用 ``access
    uv run --locked python -m tools.register_backend_plugins --config config.toml --apply
 
 插件代码升级通过部署和受控重启完成。在后台「插件管理」查看登记状态和启停。停用会保留数据。项目按目录追踪内置插件，日常开发可以在仓库内新增已忽略的目录。要分发自定义插件，建议另行管理它的源码。配置、密钥和动态数据应保存在插件目录之外。
+
+.. toctree::
+   :maxdepth: 1
+
+   notification-delivery
+   ai-writing

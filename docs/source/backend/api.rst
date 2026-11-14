@@ -48,3 +48,9 @@ FastAPI 提供 ``/docs`` 和 ``/openapi.json``，便于在开发环境检查部�
    uv run --locked python -m tools.export_plugin_routes --plugin-id core.ai-writing
 
 前两类示例的默认输出在 ``contracts/``。插件的 OpenAPI 默认写入 ``var/cache/plugin-contracts/``，发布插件对应类型时须使用匹配的构建产物。
+
+.. toctree::
+   :maxdepth: 1
+
+   accounts
+   captcha

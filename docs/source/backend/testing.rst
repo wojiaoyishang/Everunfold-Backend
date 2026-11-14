@@ -30,3 +30,8 @@
      RUN_DATABASE_TESTS=1 uv run --locked pytest tests/test_settings_processes.py
 
 个别用例会创建、清理临时数据库，需要测试角色拥有对应权限。用例跳过时查看 pytest 的结果摘要和原因。迁移、权限、协同和发布边界的修改应同时验证后台真实进程，尤其要覆盖并发写入、旧数据读取、重复投递以及接收器故障后的恢复。
+
+.. toctree::
+   :maxdepth: 1
+
+   troubleshooting

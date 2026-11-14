@@ -30,3 +30,10 @@ Scheduler 扫描已登记的计划并向 Celery 投递执行 ID。Worker 通过�
 站点设置和公开内容发布在数据库事务中登记待投递记录。Worker 在事务完成后逐节点发送，记录重试和回执。开发消费者时应按稳定事件 ID 去重，并按来源、节点和资源版本决定处理顺序。HTTP 接收成功和节点最终应用是两个状态，可通过后台回执分别核对。
 
 需要订阅缓存事件、登记任务或通知渠道时，请参阅 :doc:`plugins`。
+
+.. toctree::
+   :maxdepth: 1
+
+   runtime-jobs
+   nodes
+   maintenance
