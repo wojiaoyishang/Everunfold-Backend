@@ -45,6 +45,7 @@ Thumbs.db
 # Bundled plugin sources. Use separate directories for local plugins.
 /app/plugins/*
 !/app/plugins/__init__.py
+!/app/plugins/ai_writing/
 !/app/plugins/basic_shortcodes/
 !/app/plugins/captcha_google/
 !/app/plugins/captcha_turnstile/

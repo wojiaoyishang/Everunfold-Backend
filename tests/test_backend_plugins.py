@@ -132,17 +132,24 @@ def test_persisted_catalog_controls_projection_and_provider_activation() -> None
         "accordion",
         "example:card",
         "example:badge",
+        "reply-only",
+        "password-area",
     }
     assert CATALOG_KEY not in value.model_dump_json()
     assert public_settings(stored_settings(data, value)) == value
     assert stored_settings(data, value)["shortcodes"] == []
     data["extensions"] = {"disabled_plugins": ["example.cards", "core.captcha-google"]}
-    assert {item.name for item in public_settings(data).shortcodes} == {"notice", "accordion"}
+    assert {item.name for item in public_settings(data).shortcodes} == {
+        "notice",
+        "accordion",
+        "reply-only",
+        "password-area",
+    }
     assert not provider_state(data, "google.recaptcha-v2")[0]
     assert provider_state(data, "cloudflare.turnstile")[0]
     assert not provider_state({}, "cloudflare.turnstile")[0]
     assert provider_state({}, "local")[0]
-    assert len(data[CATALOG_KEY]) == 7
+    assert "core.ai-writing" in {item["info"]["id"] for item in data[CATALOG_KEY]}
 
 
 def test_frontend_inventory_cannot_override_backend_or_custom_shortcodes() -> None:

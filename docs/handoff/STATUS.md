@@ -1,5 +1,10 @@
 # 后端交接状态
 
+## 后台字段钩子与 AI 写作
+
+- 内置 `core.ai-writing` 插件支持私有配置、字段级开关、会话授权和 Worker 生成。数据库迁移 `0064_ai_writing` 已在隔离数据库和当前开发数据库应用，开发 API、Worker、Scheduler 与前端已重启。模型功能默认关闭，需由管理员配置并启用。见 [ADR 0147](../decisions/0147-admin-form-hooks-and-ai-writing.md)。
+- Ruff、mypy 和 9 项插件测试通过。隔离 FastAPI、PostgreSQL、Redis、Worker、Scheduler 与模拟模型联测覆盖停用、CSRF、归属、重复请求、字段开关、配置修订、正文保护与加密结果。
+
 ## 插件源码的 Git 白名单
 
 - `app/plugins/` 保留 8 个内置插件和包入口的跟踪。独立目录下的自定义插件由 Git 忽略，运行时仍按现有入口发现。见 [ADR 0146](../decisions/0146-extension-source-git-allowlists.md)。

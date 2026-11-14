@@ -101,6 +101,7 @@ async def reconcile(session: AsyncSession) -> None:
                     "core.callbacks",
                     "core.publication",
                     "core.mail-test",
+                    "core.ai-writing.generate",
                     "core.email-verification",
                 ]
             ),
