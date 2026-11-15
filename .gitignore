@@ -63,3 +63,7 @@ Thumbs.db
 /docker/runtime.env
 /docker/instance/
 /docker/data/
+
+# Project deployment configuration (contains private values)
+/config.yaml
+/config.yaml.*.bak

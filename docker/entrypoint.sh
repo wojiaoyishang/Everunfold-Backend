@@ -2,6 +2,7 @@
 set -euo pipefail
 
 cd /workspace
+printf 'Everunfold Backend | runtime image %s | source /workspace | data /data\n' "${EVERUNFOLD_IMAGE_REVISION:-unknown}"
 for dependency in pyproject.toml uv.lock; do
   if ! cmp -s "$dependency" "/opt/everunfold/$dependency"; then
     printf 'Mounted %s differs from the image. Rebuild with this source checkout.\n' "$dependency" >&2

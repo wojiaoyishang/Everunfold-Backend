@@ -36,24 +36,25 @@
 
 Everunfold 是一个 **vibe coding 项目**。项目发起人 [@wojiaoyishang](https://github.com/wojiaoyishang) 确定架构、模块边界和关键设计，借助 AI 实现，并通过代码审查和联调持续优化。
 
-## 本地开发
+## 部署与本地运行
 
-源码挂载与容器部署见 [Docker 指南](docker/README.md)。
+前后端各自提供统一的根目录入口，生成并维护根目录 `config.yaml`。密钥自动生成且可编辑，PostgreSQL / Redis 与后端就绪情况可在彩色配置助手中检测。
 
-使用 Python 3.12、uv、PostgreSQL 和 Redis。先创建专用开发数据库，在仓库根目录执行 `uv sync --locked`，再参照 [应用配置示例](config.example.toml) 和 [节点配置示例](frontend-nodes.example.toml) 建立本地配置。配置数据库、Redis、Broker、初始管理员密码和前端连接后，显式初始化数据库。
+| 部署方式        | 在本仓库根目录执行    |
+| --------------- | --------------------- |
+| Docker 从零构建 | `./setup.sh --docker` |
+| 不使用 Docker   | `./setup.sh --native` |
 
-```bash
-uv run --locked python init.database.py --config config.toml --no-create-database
-```
+直接运行 `./setup.sh` 也可先选择部署方式。完整教程按这两种路径分开说明，见[部署教程](deploy/README.md)；镜像构建文件见 [docker/](docker/README.md)。已有配置先导入再保存，原密钥保持稳定；无需逐项编辑多个运行文件。
 
-随后分别启动 FastAPI、Celery Worker 和 Scheduler。默认 API 端口为 `8001`，可从 `http://127.0.0.1:8001/health/ready` 检查数据库、Redis 和迁移状态。五个前后端进程、方向凭据和首次同步的完整命令见 [本地快速开始](https://wojiaoyishang.github.io/Everunfold-Backend/welcome/quickstart.html)。
+开发检查：
 
 ```bash
 uv run --locked ruff check .
 uv run --locked pytest
 ```
 
-隔离数据库、多进程测试和故障排查见 [后端开发手册](https://wojiaoyishang.github.io/Everunfold-Backend/backend/index.html) 与 [运维手册](https://wojiaoyishang.github.io/Everunfold-Backend/operations/index.html)。
+首次同步和运行验收见[快速开始](https://wojiaoyishang.github.io/Everunfold-Backend/welcome/quickstart.html)。
 
 ## 源码入口
 

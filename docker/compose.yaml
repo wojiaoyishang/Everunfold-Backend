@@ -6,7 +6,11 @@ services:
     build:
       context: ${BACKEND_SOURCE_DIR:-..}
       dockerfile: docker/Dockerfile
+      args:
+        BUILD_REVISION: ${EVERUNFOLD_BUILD_REVISION:-unknown}
+        BUILD_CREATED: ${EVERUNFOLD_BUILD_CREATED:-unknown}
     init: true
+    user: "${EVERUNFOLD_UID:-1000}:${EVERUNFOLD_GID:-1000}"
     restart: unless-stopped
     stop_grace_period: ${BACKEND_STOP_GRACE_PERIOD:-130s}
     env_file: ${BACKEND_ENV_FILE:-./runtime.env}
