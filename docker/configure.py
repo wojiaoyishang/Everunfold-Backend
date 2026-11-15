@@ -52,6 +52,29 @@ def valid_port(value: str) -> bool:
     return bool(re.fullmatch(r"[0-9]{1,5}", value)) and 1 <= int(value) <= 65535
 
 
+def public_url(value: str) -> bool:
+    try:
+        url = urlsplit(value)
+        host = url.hostname or ""
+        local = host == "localhost"
+        if ip_address(host):
+            address = ipaddress.ip_address(host)
+            if address.is_unspecified:
+                return False
+            local = address.is_loopback
+        return (
+            (url.scheme == "https" or (url.scheme == "http" and local))
+            and bool(host)
+            and (url.port is None or url.port > 0)
+            and url.username is None
+            and url.password is None
+            and not re.search(r"\s|[\\?#*]", value)
+            and url.path in ("", "/")
+        )
+    except ValueError:
+        return False
+
+
 def peers(label: str) -> list[str]:
     def valid(value: str) -> bool:
         try:
@@ -134,12 +157,19 @@ def configure() -> None:
     section("Everunfold Docker · 后端")
     print("  新站点可生成密钥。迁移已有站点时请带上原密钥和节点令牌。")
     new = ask("部署类型（1 新站点，2 迁移已有站点）", "1", valid=lambda v: v in ("1", "2")) == "1"
-    section("监听与端口")
-    host = ask("容器内 API 监听 IP", "0.0.0.0", valid=ip_address)
-    port = ask("容器内 API 端口", "8001", valid=valid_port)
-    publish_host = ask("宿主发布 IP", "127.0.0.1", valid=ip_address)
+    section("后端发布 URL")
+    print("  填写对外服务的完整根 URL，例如 https://api.example.com；反代部署填反代入口。")
+    print("  用于拼接媒体等公开链接。生产使用 HTTPS，本机可填 http://127.0.0.1:8001。")
+    api = ask("后端发布 URL", valid=public_url).rstrip("/")
+    section("后端进程监听（容器内）")
+    host = ask("API 绑定 IP", "0.0.0.0", valid=ip_address)
+    port = ask("API 监听端口", "8001", valid=valid_port)
+    section("Docker 宿主端口映射")
+    print("  控制宿主机如何转发到容器；上面的发布 URL 独立配置。")
+    publish_host = ask("宿主机映射监听 IP", "127.0.0.1", valid=ip_address)
     publish_host = f"[{publish_host}]" if ":" in publish_host else publish_host
-    publish_port = ask("宿主发布端口", "8001", valid=valid_port)
+    publish_port = ask("宿主机映射端口", "8001", valid=valid_port)
+    section("内部调用来源")
     allowed = peers("内部调用来源 IP/CIDR，逗号分隔（留空暂不开放）")
 
     section("PostgreSQL 与 Redis")
@@ -188,7 +218,10 @@ def configure() -> None:
         else ask("Celery worker 并发数", "1", valid=lambda v: bool(re.fullmatch(r"[1-9][0-9]*", v)))
     )
 
-    config = f"""[project]
+    config = f"""# 后端对外发布根 URL，用于生成公开资源链接；与 API 监听和 Docker 端口映射独立。
+BACKEND_BASE_URL = {json.dumps(api)}
+
+[project]
 key = {json.dumps(project)}
 
 [database]
@@ -206,6 +239,7 @@ allowed_peer_ips = {json.dumps(allowed)}
 
 [media]
 uploads_path = "/data/uploads"
+# 默认公开媒体前缀为 BACKEND_BASE_URL + /media；独立 CDN 可设置 base_url。
 """
     compose = env_text(
         {
@@ -215,7 +249,9 @@ uploads_path = "/data/uploads"
         }
     )
     section("保存")
-    print(f"  API {host}:{port} · 宿主 {publish_host}:{publish_port} · Redis {project}:{namespace}")
+    print(f"  后端发布 URL {api}")
+    print(f"  API 监听 {host}:{port} · 宿主映射 {publish_host}:{publish_port}")
+    print(f"  Redis {project}:{namespace}")
     if ask("写入后端配置（y/N）", "n").lower() != "y":
         print("  已取消，未写入。")
         return

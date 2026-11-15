@@ -151,6 +151,23 @@ def test_media_path_uses_config_directory_and_cdn_prefix(tmp_path: Path) -> None
     assert load_settings(file, environ={}).media_base_url == "http://127.0.0.1:8000/media"
 
 
+def test_public_links_use_the_published_url_independently_of_listeners(tmp_path: Path) -> None:
+    file = tmp_path / "config.toml"
+    file.write_text(VALID_CONFIG.replace("http://127.0.0.1:8000", "https://api.example.test/"))
+    settings = load_settings(
+        file,
+        environ={
+            "API_HOST": "0.0.0.0",
+            "API_PORT": "8001",
+            "BACKEND_BIND_ADDRESS": "127.0.0.1",
+            "BACKEND_PUBLISH_PORT": "18001",
+        },
+    )
+    assert settings.media_base_url == "https://api.example.test/media"
+    assert settings.application_query_url == "https://api.example.test/v1/auth/api-keys/introspect"
+    assert settings.auth.cookie_secure is True
+
+
 @pytest.mark.parametrize(
     "base",
     [

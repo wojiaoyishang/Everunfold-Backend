@@ -7,8 +7,10 @@
 # 配置结构示例：服务域名按部署替换，数据库与 Redis 地址为本地开发示例
 # 不设固定生产基地址；实际凭据通过部署配置或环境变量注入
 
-# 可选公开 API 根地址。用于绝对媒体 URL、第三方应用签名与旧版回环 HTTP 联调。
-# 省略时认证 Cookie 使用 Secure，媒体默认使用同源 /media。
+# 后端对外发布根 URL，用于拼接媒体等资源链接和第三方应用签名查询地址。
+# 反代部署填写外部 HTTPS 入口，例如 https://api.example.com；不带 /api 或 /v1。
+# API 进程监听由启动参数或 Docker API_HOST/API_PORT 控制，与此 URL 独立。
+# 以下仅为本机调试值；生产部署应显式替换为真实发布 URL。
 BACKEND_BASE_URL = "http://127.0.0.1:8001"
 # 复制 frontend-nodes.example.toml 为 frontend-nodes.toml 后取消注释。
 # 相对路径以本配置文件所在目录为准。

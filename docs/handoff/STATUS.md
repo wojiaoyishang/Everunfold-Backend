@@ -1,5 +1,11 @@
 # 后端交接状态
 
+## 发布 URL 与监听配置澄清
+
+- 恢复 Docker 向导中的后端 `BACKEND_BASE_URL`，明确用于拼接媒体等公开资源链接；容器 API 监听和 Docker 宿主映射单独分组。多个前端的公开 URL 继续由 `/_nodes` 管理。示例、Docker README 和配置手册已同步，旧向导产物的补齐步骤见 [部署手册](../../docker/README.md)，决定见 [ADR 0152](../decisions/0152-published-urls-and-listeners.md)。
+- 后端配置与媒体校验 43 项通过，Ruff 与入口 Bash 语法通过。真实终端验证两端向导、密钥生成/导入、拒绝覆盖和文件权限；Compose 核对 IPv4/IPv6 宿主映射与独立端口，两个真实配置加载器通过。确认后端媒体前缀和签名查询 URL 使用发布地址，HTTPS Cookie 不受内部 HTTP 监听影响。
+- 双端 Sphinx 严格构建通过。当前无 Docker daemon，未执行镜像构建及真实容器网络验证；本轮不改实际部署配置、数据库或运行服务。
+
 ## 后端监听与节点公开地址
 
 - 后端 Docker 向导改为询问容器监听与宿主发布参数。公开前端地址由节点控制台管理，内部接收器由部署 CLI 绑定。已用两个真实 Uvicorn 进程和隔离 PostgreSQL 验证多个节点的来源校验及换址。 [ADR 0151](../decisions/0151-listener-and-public-node-origins.md)。

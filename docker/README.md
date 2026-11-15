@@ -10,7 +10,7 @@
 python3 configure.py
 ```
 
-向导询问容器监听、宿主发布、PostgreSQL、Redis、主密钥、令牌和 Worker 参数。前端公开地址在 `/_nodes` 管理。新站点可以为每项密钥、令牌和初始管理员密码输入自定义值，留空时独立生成。迁移方式要求填写原值。密码和密钥输入时隐藏，确认后写入私有的 `runtime.env`。向导跳过已存在的配置文件组。如需调整已有站点，直接编辑原文件。
+向导分别询问后端发布 URL、容器内进程监听、Docker 宿主端口映射，再配置 PostgreSQL、Redis、主密钥、令牌和 Worker 参数。多个前端的公开地址继续在 `/_nodes` 管理。新站点可以为每项密钥、令牌和初始管理员密码输入自定义值，留空时独立生成。迁移方式要求填写原值。密码和密钥输入时隐藏，确认后写入私有的 `runtime.env`。检测到已有目标文件时停止写入。如需调整已有站点，直接编辑原文件。
 
 共用 Docker 网络需要单独创建。使用向导后，可跳过下列复制模板的命令。
 
@@ -26,10 +26,24 @@ cp -n runtime.env.example runtime.env
 | 文件               | 填写内容                                                                                                                                                                                              |
 | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `runtime.env`      | 填写实际的 `DATABASE_URL`、`REDIS_URL`、`CELERY_BROKER_URL` 和所需密钥。已有站点沿用原密钥。新站点初始化前设置 `EVERUNFOLD_ADMIN_PASSWORD`。                                                          |
-| `data/config.toml` | 去掉示例的回环 `BACKEND_BASE_URL`，将 `[cors].allowed_origins` 设为空数组，打开 `[cors].use_frontend_registry`。在 `[internal_auth].allowed_peer_ips` 填写 FastAPI 实际看到的前端服务或内部代理来源。 |
-| `.env`             | 按需设置 `BACKEND_API_PORT`、`BACKEND_BIND_ADDRESS` 和 `BACKEND_PUBLISH_PORT`，控制内部端口和宿主发布地址。                                                                                           |
+| `data/config.toml` | 将 `BACKEND_BASE_URL` 改为后端真实发布 URL。将 `[cors].allowed_origins` 设为空数组，打开 `[cors].use_frontend_registry`。在 `[internal_auth].allowed_peer_ips` 填写 FastAPI 实际看到的前端服务或内部代理来源。 |
+| `.env`             | 按需设置 `BACKEND_API_PORT`、`BACKEND_BIND_ADDRESS` 和 `BACKEND_PUBLISH_PORT`，控制容器监听端口和 Docker 宿主端口映射。 |
 
-数据库和 Redis 地址需从容器内可达。容器里的 `127.0.0.1` 指本容器。默认只向宿主回环地址发布 8001，公开流量由 HTTPS 代理接入。旧站点的显式 `BACKEND_BASE_URL` 和 CORS 白名单继续有效。省略公开 API 根地址时，认证 Cookie 使用 Secure，反代需在各前端公开入口转发 `/media/`，或在后端单独配置 `[media].base_url`。第三方应用的签名查询接入仍需显式设置 `BACKEND_BASE_URL`。
+数据库和 Redis 地址需从容器内可达。容器里的 `127.0.0.1` 指本容器。默认只向宿主回环地址映射 8001，公开流量由 HTTPS 代理接入。已有 CORS 白名单继续有效。
+
+### 三类地址分别配置
+
+| 层次 | 配置位置与示例 | 作用 |
+| --- | --- | --- |
+| 后端进程监听 | `runtime.env` 的 `API_HOST=0.0.0.0`；`.env` 的 `BACKEND_API_PORT=8001` | Uvicorn 在容器内绑定 `0.0.0.0:8001`；Compose 将端口注入为 `API_PORT` |
+| Docker 宿主端口映射 | `.env` 的 `BACKEND_BIND_ADDRESS=127.0.0.1`、`BACKEND_PUBLISH_PORT=18001` | 将宿主 `127.0.0.1:18001` 转发到容器的 `8001` |
+| 后端发布 URL | `data/config.toml` 根级 `BACKEND_BASE_URL = "https://api.example.com"` | 生成对外绝对链接，默认媒体地址为 `https://api.example.com/media/...` |
+
+例如外部请求经过 `https://api.example.com` → 宿主反向代理 → `127.0.0.1:18001` → 容器 `0.0.0.0:8001`。三项独立设置，修改发布 URL 不改变进程监听或 Docker 映射。`0.0.0.0` 是监听所有 IPv4 网卡的绑定值，发布 URL 应填写访问者可达的域名或 IP。Docker 映射要求进程监听容器网卡，通常保留 `API_HOST=0.0.0.0`。
+
+`BACKEND_BASE_URL` 填完整根 URL，不带 `/api`、`/v1`、查询参数或片段。生产填写 HTTPS 反代入口，本机调试可以用 `http://127.0.0.1:8001`；认证 Cookie 按发布 URL 的 HTTPS 配置启用 Secure。使用独立媒体域名或 CDN 时，设置 `[media].base_url = "https://cdn.example.com/assets"` 覆盖媒体 URL 前缀，上传仍写入 `/data/uploads`。
+
+**用上一版向导生成过配置的实例**：在 `data/config.toml` 首个 `[小节]` 之前补上 `BACKEND_BASE_URL = "https://你的后端域名"`，再重新创建容器。加载器兼容旧配置缺省时的相对 `/media` 行为，但多前端部署应显式填写发布 URL，避免资源链接落到各前端域名。环境中的同名 `BACKEND_BASE_URL` 优先于 TOML；修改时检查是否仍有旧覆盖值。
 
 ## 2. 指定宿主数据目录
 
@@ -142,7 +156,7 @@ tar -tzf uploads.tar.gz
 | `WORKER_LOG_LEVEL`           | `INFO` | Worker 日志级别                 |
 | `API_SHUTDOWN_TIMEOUT`       | `30`   | API 优雅退出等待秒数            |
 
-`BACKEND_API_PORT` 和 `BACKEND_PUBLISH_PORT` 在 Compose 环境中分别控制容器与宿主端口，默认为 8001。外部网络名可通过 `EVERUNFOLD_NETWORK` 设置。默认发布地址为 `127.0.0.1`。一次部署保持一个 Scheduler，修改运行参数后用 `docker compose up -d --force-recreate backend` 重新加载。默认停机等待 130 秒，长任务按部署需求调整 `BACKEND_STOP_GRACE_PERIOD`。
+`API_HOST` 在 `runtime.env` 中控制容器进程绑定 IP，默认为 `0.0.0.0`。Compose 从 `.env` 读取 `BACKEND_API_PORT`，将它同时用于容器 `API_PORT` 和映射目标端口；直接 `docker run` 时设置 `API_PORT`。`BACKEND_PUBLISH_PORT` 控制宿主端口，默认 8001，`BACKEND_BIND_ADDRESS` 控制宿主映射 IP，默认 `127.0.0.1`。健康检查访问容器内部监听地址。外部网络名可通过 `EVERUNFOLD_NETWORK` 设置。一次部署保持一个 Scheduler，修改配置后用 `docker compose up -d --force-recreate backend` 重新加载。默认停机等待 130 秒，长任务按部署需求调整 `BACKEND_STOP_GRACE_PERIOD`。
 
 ## 7. 更新主体或插件
 
