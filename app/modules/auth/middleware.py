@@ -8,12 +8,14 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from app.core.responses import JSONResponseFail
 from app.modules.maintenance.schemas import MAX_BUNDLE_BYTES
+from app.modules.settings.browser_origins import managed_origin
 
 
 class BusinessCORSMiddleware:
     """Credentialed auth paths do not widen the existing public API's CORS behavior."""
 
     def __init__(self, app: ASGIApp, allowed_origins: list[str]) -> None:
+        self.app = app
         self.plugins = CORSMiddleware(
             app,
             allow_origins=allowed_origins,
@@ -66,6 +68,16 @@ class BusinessCORSMiddleware:
             )
             else self.public
         )
+        if origin := managed_origin(scope):
+            # Use the standard preflight and response handling for this exact origin.
+            target = CORSMiddleware(
+                self.app,
+                allow_origins=[origin],
+                allow_credentials=target.allow_credentials,
+                allow_methods=target.allow_methods,
+                allow_headers=["*"] if target.allow_all_headers else target.allow_headers,
+                expose_headers=["Retry-After"] if target is not self.public else [],
+            )
         await target(scope, receive, send)
 
 
@@ -111,7 +123,10 @@ class AuthBoundaryMiddleware:
             from app.core.plugins.routes import public_plugin_request
 
             machine = machine or public_plugin_request(scope)
-        if (origin is not None or (write and not machine)) and origin not in self.allowed_origins:
+        allowed = origin in self.allowed_origins or (
+            origin is not None and origin == managed_origin(scope)
+        )
+        if (origin is not None or (write and not machine)) and not allowed:
             await JSONResponseFail(status_code=403, code=40310, msg="请求来源不被允许")(
                 scope, receive, private_send
             )

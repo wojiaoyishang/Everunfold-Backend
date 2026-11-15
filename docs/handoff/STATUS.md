@@ -1,5 +1,9 @@
 # 后端交接状态
 
+## 后端监听与节点公开地址
+
+- 后端 Docker 向导改为询问容器监听与宿主发布参数。公开前端地址由节点控制台管理，内部接收器由部署 CLI 绑定。已用两个真实 Uvicorn 进程和隔离 PostgreSQL 验证多个节点的来源校验及换址。 [ADR 0151](../decisions/0151-listener-and-public-node-origins.md)。
+
 ## Docker 配置向导
 
 - `docker/configure.py` 在终端引导首次部署和迁移，写入 `docker/data/` 下的实例配置以及私有 `runtime.env`。新站点逐项留空可生成密钥和初始管理员密码，迁移使用已有值。检测到已有目标文件时停止写入。

@@ -40,19 +40,16 @@ def ask(
         print("  格式不正确，请重试。")
 
 
-def origin(value: str, *, https: bool = False) -> bool:
+def ip_address(value: str) -> bool:
     try:
-        url = urlsplit(value)
-        return (
-            url.scheme in ({"https"} if https else {"http", "https"})
-            and bool(url.hostname)
-            and (url.port is None or url.port > 0)
-            and not (url.username or url.password or url.query or url.fragment)
-            and not re.search(r"\s|[\\?#]", value)
-            and url.path in ("", "/")
-        )
+        ipaddress.ip_address(value)
+        return True
     except ValueError:
         return False
+
+
+def valid_port(value: str) -> bool:
+    return bool(re.fullmatch(r"[0-9]{1,5}", value)) and 1 <= int(value) <= 65535
 
 
 def peers(label: str) -> list[str]:
@@ -64,7 +61,8 @@ def peers(label: str) -> list[str]:
         except ValueError:
             return False
 
-    return [item.strip() for item in ask(label, valid=valid).split(",")]
+    value = ask(label, valid=lambda value: not value or valid(value))
+    return [item.strip() for item in value.split(",")] if value else []
 
 
 def token(value: str) -> bool:
@@ -96,7 +94,7 @@ def write_new(files: dict[Path, str]) -> None:
         print(f"  已写入 {file.relative_to(DOCKER)}")
 
 
-TARGETS = (DATA / "config.toml", DATA / "frontend-nodes.toml", DOCKER / "runtime.env")
+TARGETS = (DATA / "config.toml", DOCKER / "runtime.env", DOCKER / ".env")
 
 
 def redis_url(value: str) -> bool:
@@ -132,29 +130,17 @@ def automatic(label: str, valid: Callable[[str], bool], *, new: bool = True) -> 
     return value or secrets.token_urlsafe(32)
 
 
-def backend_origin(value: str) -> bool:
-    if not origin(value):
-        return False
-    url = urlsplit(value)
-    return url.scheme == "https" or url.hostname in {"localhost", "127.0.0.1", "::1"}
-
-
 def configure() -> None:
     section("Everunfold Docker · 后端")
     print("  新站点可生成密钥。迁移已有站点时请带上原密钥和节点令牌。")
     new = ask("部署类型（1 新站点，2 迁移已有站点）", "1", valid=lambda v: v in ("1", "2")) == "1"
-    section("公开地址与前端节点")
-    api = ask("浏览器访问的 API 地址", "http://127.0.0.1:8001", valid=backend_origin).rstrip("/")
-    site = ask("前端公开地址", "http://127.0.0.1:3000", valid=origin).rstrip("/")
-    node = ask(
-        "前端节点 ID",
-        "web-main",
-        valid=lambda v: bool(re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]{0,63}", v)),
-    )
-    receiver = ask(
-        "前端接收器 HTTPS 地址（留空暂不启用节点）", valid=lambda v: not v or origin(v, https=True)
-    ).rstrip("/")
-    allowed = peers("FastAPI 实际看到的前端或内部代理 IP/CIDR，逗号分隔")
+    section("监听与端口")
+    host = ask("容器内 API 监听 IP", "0.0.0.0", valid=ip_address)
+    port = ask("容器内 API 端口", "8001", valid=valid_port)
+    publish_host = ask("宿主发布 IP", "127.0.0.1", valid=ip_address)
+    publish_host = f"[{publish_host}]" if ":" in publish_host else publish_host
+    publish_port = ask("宿主发布端口", "8001", valid=valid_port)
+    allowed = peers("内部调用来源 IP/CIDR，逗号分隔（留空暂不开放）")
 
     section("PostgreSQL 与 Redis")
     print("  使用容器内可达的地址。URL 中密码的特殊字符需百分号编码。")
@@ -171,7 +157,12 @@ def configure() -> None:
     )
 
     section("密钥与管理员")
-    env = {"DATABASE_URL": database, "REDIS_URL": redis, "CELERY_BROKER_URL": broker}
+    env = {
+        "API_HOST": host,
+        "DATABASE_URL": database,
+        "REDIS_URL": redis,
+        "CELERY_BROKER_URL": broker,
+    }
     env["EVERUNFOLD_API_APPLICATION_MASTER_KEY"] = automatic(
         "应用主密钥", lambda v: bool(re.fullmatch(r"[A-Za-z0-9_-]{43,128}", v)), new=new
     )
@@ -197,10 +188,7 @@ def configure() -> None:
         else ask("Celery worker 并发数", "1", valid=lambda v: bool(re.fullmatch(r"[1-9][0-9]*", v)))
     )
 
-    config = f"""BACKEND_BASE_URL = {json.dumps(api)}
-frontend_nodes_file = "frontend-nodes.toml"
-
-[project]
+    config = f"""[project]
 key = {json.dumps(project)}
 
 [database]
@@ -211,7 +199,7 @@ key = {json.dumps(project)}
 namespace_scope = {json.dumps(namespace)}
 
 [cors]
-allowed_origins = {json.dumps([site])}
+use_frontend_registry = true
 
 [internal_auth]
 allowed_peer_ips = {json.dumps(allowed)}
@@ -219,23 +207,21 @@ allowed_peer_ips = {json.dumps(allowed)}
 [media]
 uploads_path = "/data/uploads"
 """
-    nodes = f"""[frontends.{node}]
-base_url = {json.dumps(site)}
-enabled = {str(bool(receiver)).lower()}
-nextjs_to_fastapi_token_env = "{TOKEN_NAMES[0]}"
-fastapi_to_nextjs_token_env = "{TOKEN_NAMES[1]}"
-"""
-    if receiver:
-        nodes += f"settings_receiver_url = {json.dumps(receiver)}\n"
-
+    compose = env_text(
+        {
+            "BACKEND_API_PORT": port,
+            "BACKEND_BIND_ADDRESS": publish_host,
+            "BACKEND_PUBLISH_PORT": publish_port,
+        }
+    )
     section("保存")
-    print(f"  API {api} · 前端 {site} · 节点 {node} · Redis 命名空间 {project}:{namespace}")
+    print(f"  API {host}:{port} · 宿主 {publish_host}:{publish_port} · Redis {project}:{namespace}")
     if ask("写入后端配置（y/N）", "n").lower() != "y":
         print("  已取消，未写入。")
         return
     (DATA / "uploads").mkdir(parents=True, exist_ok=True)
-    write_new(dict(zip(TARGETS, (config, nodes, env_text(env)), strict=True)))
-    print("  按 docker/README.md 初始化或检查数据库，再启动后端。")
+    write_new(dict(zip(TARGETS, (config, env_text(env), compose), strict=True)))
+    print("  按 docker/README.md 启动后端并在 /_nodes 登记多个前端公开地址。")
     if new:
         print("  初始管理员密码保存在私有 runtime.env 中。")
 

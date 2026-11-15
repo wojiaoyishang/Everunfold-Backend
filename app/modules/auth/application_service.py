@@ -112,8 +112,9 @@ class ApplicationService:
             auth_version=app.auth_version,
             query_key_id=key_id(app, "query"),
             callback_key_id=key_id(app, "callback"),
-            query_url=self.config.BACKEND_BASE_URL.rstrip("/") + "/v1/auth/api-keys/introspect",
-            signing_available=signing_available(self.config.auth),
+            query_url=self.config.application_query_url,
+            signing_available=bool(self.config.application_query_url)
+            and signing_available(self.config.auth),
             builtin=app.id == BUILTIN_APP,
             callbacks=[
                 CallbackState(
@@ -145,6 +146,8 @@ class ApplicationService:
             raise AuthFailure(409, 40964, "应用标识已存在")
         audience = payload.app_id if payload.audience == "self" else BUILTIN_APP
         self.validate_fields(payload.value, audience)
+        if not self.config.application_query_url:
+            raise AuthFailure(503, 50360, "应用签名服务尚未配置公开 API 地址")
         query_secret = application_secret(self.config.auth, payload.app_id, 1, "query")
         callback_secret = application_secret(self.config.auth, payload.app_id, 1, "callback")
         now = datetime.now(UTC)
@@ -232,6 +235,8 @@ class ApplicationService:
         await self.accounts.confirm_password(actor, payload.current_password)
         query_secret = callback_secret = None
         if payload.direction in {"query", "both"}:
+            if not self.config.application_query_url:
+                raise AuthFailure(503, 50360, "应用签名服务尚未配置公开 API 地址")
             version = app.query_key_version + 1
             query_secret = application_secret(self.config.auth, app.id, version, "query")
             app.query_key_version = version

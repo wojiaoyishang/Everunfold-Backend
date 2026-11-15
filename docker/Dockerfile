@@ -22,6 +22,6 @@ WORKDIR /workspace
 USER 1000:1000
 EXPOSE 8001
 HEALTHCHECK --interval=15s --timeout=5s --start-period=30s \
-    CMD ["python", "-c", "import os, urllib.request; urllib.request.urlopen('http://127.0.0.1:' + os.environ['API_PORT'] + '/health/ready', timeout=4).close()"]
+    CMD ["python", "-c", "import os, urllib.request; host = os.getenv('API_HOST', '0.0.0.0'); host = {'0.0.0.0': '127.0.0.1', '::': '::1'}.get(host, host); host = f'[{host}]' if ':' in host else host; urllib.request.urlopen(f'http://{host}:{os.environ[\"API_PORT\"]}/health/ready', timeout=4).close()"]
 ENTRYPOINT ["/usr/local/bin/everunfold-backend"]
 CMD ["serve"]

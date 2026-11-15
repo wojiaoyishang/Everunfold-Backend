@@ -110,3 +110,36 @@ def test_monitor_config_rejects_plaintext_and_disallows_nonloopback_http() -> No
                 },
             }
         )
+
+
+def test_monitor_behind_tls_proxy_uses_only_its_configured_socket_peer(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    origin = "https://ops.example.test"
+    monkeypatch.setenv("EVERUNFOLD_NODES_SESSION_SECRET", token_urlsafe(32))
+    settings = Settings.model_validate(
+        {
+            "database": {"url": "postgresql+asyncpg://test@127.0.0.1/test"},
+            "redis": {"url": "redis://127.0.0.1"},
+            "nodes_monitor": {
+                "enabled": True,
+                "origin": origin,
+                "password_hash": hash_password(PASSWORD),
+                "trusted_tls_proxy_ips": ["192.0.2.10"],
+            },
+        }
+    )
+    assert settings.auth.cookie_secure
+    assert settings.media_base_url == "/media"
+    assert settings.application_query_url == ""
+    app = FastAPI()
+    mount_nodes_monitor(app, settings)
+    headers = {"X-Forwarded-Proto": "https", "Origin": origin}
+    with TestClient(app, base_url="http://ops.example.test", client=("192.0.2.11", 5000)) as direct:
+        assert direct.get("/_nodes", headers=headers).status_code == 404
+    with TestClient(app, base_url="http://ops.example.test", client=("192.0.2.10", 5000)) as proxy:
+        assert proxy.get("/_nodes").status_code == 404
+        assert proxy.get("/_nodes", headers=headers).status_code == 200
+        response = proxy.post("/_nodes/login", data={"password": PASSWORD}, headers=headers)
+        assert response.history[0].status_code == 303
+        assert "Secure" in response.history[0].headers["Set-Cookie"]

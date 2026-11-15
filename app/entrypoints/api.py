@@ -30,6 +30,7 @@ from app.core.responses import JSONResponseError, JSONResponseFail, JSONResponse
 from app.core.runtime import Runtime
 from app.modules.auth.middleware import AuthBoundaryMiddleware, BusinessCORSMiddleware
 from app.modules.auth.service import AuthFailure
+from app.modules.settings.browser_origins import ManagedBrowserOrigins
 from app.plugins.nodes_monitor.plugin import mount_nodes_monitor
 
 logger = logging.getLogger(__name__)
@@ -88,13 +89,21 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     application.add_middleware(
         AuthBoundaryMiddleware,
         allowed_origins=(
-            [resolved.BACKEND_BASE_URL, *resolved.cors.allowed_origins] if resolved else []
+            [
+                origin
+                for origin in (resolved.BACKEND_BASE_URL, *resolved.cors.allowed_origins)
+                if origin
+            ]
+            if resolved
+            else []
         ),
     )
     application.add_middleware(
         BusinessCORSMiddleware,
         allowed_origins=resolved.cors.allowed_origins if resolved else [],
     )
+    if resolved and resolved.cors.use_frontend_registry:
+        application.add_middleware(ManagedBrowserOrigins)
     application.add_middleware(LocaleMiddleware)
     register_content_module(application)
     register_auth_module(application)

@@ -21,7 +21,14 @@ _SESSION = re.compile(r"([0-9]{1,12}\.[A-Za-z0-9_-]{22})\.([a-f0-9]{64})")
 
 
 class MonitorAccess:
-    def __init__(self, origin: str, password_hash: str, secret: str, lifetime: int) -> None:
+    def __init__(
+        self,
+        origin: str,
+        password_hash: str,
+        secret: str,
+        lifetime: int,
+        trusted_tls_proxy_ips: list[str] | None = None,
+    ) -> None:
         url = urlsplit(origin)
         self.secure = url.scheme == "https"
         self.host = url.netloc.lower()
@@ -36,14 +43,15 @@ class MonitorAccess:
             "sha256",
         )
         self.lifetime = lifetime
+        self.trusted_tls_proxy_ips = frozenset(trusted_tls_proxy_ips or ())
         self.attempts: deque[tuple[float, str]] = deque()
         self.limiter = CapacityLimiter(2)
 
     def accepts_host(self, request: Request) -> bool:
         if request.headers.get("host", "").lower() != self.host:
             return False
-        if self.secure:
-            return request.url.scheme == "https"
+        if self.secure and request.url.scheme == "https":
+            return True
         peer = request.client.host if request.client else ""
         try:
             address = ipaddress.ip_address(peer)
@@ -51,6 +59,12 @@ class MonitorAccess:
             return False
         if isinstance(address, ipaddress.IPv6Address) and address.ipv4_mapped:
             address = address.ipv4_mapped
+        if self.secure:
+            return (
+                request.url.scheme == "http"
+                and str(address) in self.trusted_tls_proxy_ips
+                and request.headers.get("x-forwarded-proto") == "https"
+            )
         return (
             request.url.scheme == "http"
             and address.is_loopback

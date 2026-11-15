@@ -4,13 +4,16 @@ import argparse
 import asyncio
 from datetime import UTC, datetime
 
-from app.core.config import load_settings
+from pydantic import TypeAdapter, ValidationError
+
+from app.core.config import FrontendConfig, load_settings
 from app.core.database import Database
 from app.modules.auth.models import AuthAuditEvent
 from app.modules.media.locking import lock_references
 from app.modules.settings.models import FrontendNodeRegistry
 from app.modules.settings.node_registry import (
     MAX_NODES,
+    NodeId,
     deployment_directory,
     registry_directory,
     registry_record,
@@ -18,7 +21,7 @@ from app.modules.settings.node_registry import (
 from app.modules.settings.service import SettingsService
 
 
-async def run(update_bindings: bool) -> None:
+async def run(update_bindings: bool, binding: tuple[str, FrontendConfig] | None = None) -> None:
     config = load_settings()
     seed = deployment_directory(config)
     if len(seed.entries) > MAX_NODES:
@@ -29,7 +32,8 @@ async def run(update_bindings: bool) -> None:
             await lock_references(session)
             await SettingsService(session, config).site(locked=True)
             current = await registry_record(session, lock=True)
-            bindings = {node: target.model_dump() for node, target in seed.bindings.items()}
+            targets = seed.bindings if binding is None else dict([binding])
+            bindings = {node: target.model_dump() for node, target in targets.items()}
             if current is None and not update_bindings:
                 current = FrontendNodeRegistry(
                     id=1,
@@ -42,7 +46,7 @@ async def run(update_bindings: bool) -> None:
             elif current is not None and update_bindings:
                 directory = registry_directory(current)
                 changed = []
-                for node, target in seed.bindings.items():
+                for node, target in targets.items():
                     previous = directory.bindings.get(node)
                     # Public address and enablement belong to the registry after import.
                     fields = {
@@ -83,9 +87,31 @@ async def run(update_bindings: bool) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--update-bindings", action="store_true")
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--update-bindings", action="store_true")
+    mode.add_argument(
+        "--bind",
+        nargs=4,
+        metavar=("NODE", "RECEIVER", "INBOUND_ENV", "OUTBOUND_ENV"),
+        help="Bind a receiver and credential references without configuring its public URL.",
+    )
     args = parser.parse_args()
-    asyncio.run(run(args.update_bindings))
+    binding = None
+    if args.bind:
+        node, receiver, inbound, outbound = args.bind
+        receiver = receiver.rstrip("/")
+        try:
+            node_id = TypeAdapter(NodeId).validate_python(node)
+            target = FrontendConfig(
+                base_url=receiver,  # Registry membership supplies the actual public URL.
+                settings_receiver_url=receiver,
+                nextjs_to_fastapi_token_env=inbound,
+                fastapi_to_nextjs_token_env=outbound,
+            )
+        except ValidationError:
+            parser.error("invalid node ID, receiver URL or credential environment reference")
+        binding = (node_id, target)
+    asyncio.run(run(args.update_bindings or binding is not None, binding))
 
 
 if __name__ == "__main__":

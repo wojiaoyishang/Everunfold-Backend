@@ -162,13 +162,15 @@ async def command_callback(
 @router.post("/auth/api-keys/introspect", response_model=PublicResponse[IntrospectionState])
 async def introspect(payload: IntrospectionInput, request: Request) -> JSONResponseSuccess:
     runtime = auth_runtime(request)
+    target = runtime.settings.application_query_url
+    if not target:
+        raise AuthFailure(503, 50360, "应用签名服务尚未配置公开 API 地址")
     async with runtime.database.session_factory() as session:
         app = await session.get(ApiApplication, request.headers.get("X-Everunfold-App", ""))
         if app is None or not app.active or app.query_key_version < 1:
             raise AuthFailure(401, 40160, "应用请求签名无效或已过期")
         if request.url.query:
             raise AuthFailure(401, 40160, "应用请求签名无效或已过期")
-        target = runtime.settings.BACKEND_BASE_URL.rstrip("/") + "/v1/auth/api-keys/introspect"
         kid = key_id(app, "query") or ""
         secret = application_secret(runtime.settings.auth, app.id, app.query_key_version, "query")
         nonce = verify_signature(

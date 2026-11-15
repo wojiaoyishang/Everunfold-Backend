@@ -202,6 +202,12 @@ class NodesMonitorConfig(ConfigModel):
     password_hash: SecretStr | None = None
     session_secret_env: str = "EVERUNFOLD_NODES_SESSION_SECRET"
     session_seconds: int = Field(default=1800, ge=300, le=7200)
+    trusted_tls_proxy_ips: list[str] = Field(default_factory=list)
+
+    @field_validator("trusted_tls_proxy_ips")
+    @classmethod
+    def valid_tls_proxy_ips(cls, values: list[str]) -> list[str]:
+        return [str(ipaddress.ip_address(value)) for value in values]
 
     @field_validator("origin")
     @classmethod
@@ -260,6 +266,7 @@ class OutboxConfig(ConfigModel):
 
 class CORSConfig(ConfigModel):
     allowed_origins: list[str] = Field(default_factory=list)
+    use_frontend_registry: bool = False
 
     @field_validator("allowed_origins")
     @classmethod
@@ -344,7 +351,7 @@ class MediaConfig(ConfigModel):
 
 
 class Settings(ConfigModel):
-    BACKEND_BASE_URL: str
+    BACKEND_BASE_URL: str | None = None
     project: ProjectConfig = Field(default_factory=ProjectConfig)
     database: DatabaseConfig
     redis: RedisConfig
@@ -370,9 +377,18 @@ class Settings(ConfigModel):
 
     @property
     def media_base_url(self) -> str:
-        return self.media.base_url or self.BACKEND_BASE_URL + "/media"
+        return self.media.base_url or (self.BACKEND_BASE_URL or "") + "/media"
 
-    _backend_url = field_validator("BACKEND_BASE_URL")(validate_http_base)
+    @field_validator("BACKEND_BASE_URL")
+    @classmethod
+    def valid_backend_url(cls, value: str | None) -> str | None:
+        return validate_http_base(value) if value is not None else None
+
+    @property
+    def application_query_url(self) -> str:
+        return (
+            self.BACKEND_BASE_URL + "/v1/auth/api-keys/introspect" if self.BACKEND_BASE_URL else ""
+        )
 
     @model_validator(mode="after")
     def separate_query_cache_instance(self) -> Self:
@@ -397,6 +413,11 @@ class Settings(ConfigModel):
 
     @model_validator(mode="after")
     def valid_auth_deployment(self) -> Self:
+        if self.BACKEND_BASE_URL is None:
+            if self.auth.cookie_secure is False:
+                raise ValueError("cookie_secure=false requires an explicit local BACKEND_BASE_URL")
+            self.auth.cookie_secure = True
+            return self
         url = urlsplit(self.BACKEND_BASE_URL)
         loopback = is_loopback_host(url.hostname or "")
         local_http = loopback or (
@@ -437,7 +458,10 @@ class Settings(ConfigModel):
     @model_validator(mode="after")
     def valid_monitor(self) -> Self:
         if self.nodes_monitor.enabled:
-            url = urlsplit(self.nodes_monitor.origin or self.BACKEND_BASE_URL)
+            origin = self.nodes_monitor.origin or self.BACKEND_BASE_URL
+            if origin is None:
+                raise ValueError("nodes_monitor.origin is required without BACKEND_BASE_URL")
+            url = urlsplit(origin)
             if url.scheme != "https" and not is_loopback_host(url.hostname or ""):
                 raise ValueError("nodes_monitor requires HTTPS or loopback HTTP")
             if self.nodes_monitor.password_hash is None:

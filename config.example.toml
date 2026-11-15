@@ -7,7 +7,8 @@
 # 配置结构示例：服务域名按部署替换，数据库与 Redis 地址为本地开发示例
 # 不设固定生产基地址；实际凭据通过部署配置或环境变量注入
 
-# 根级地址配置；不得放入某个无关的 TOML 分组中
+# 可选公开 API 根地址。用于绝对媒体 URL、第三方应用签名与旧版回环 HTTP 联调。
+# 省略时认证 Cookie 使用 Secure，媒体默认使用同源 /media。
 BACKEND_BASE_URL = "http://127.0.0.1:8001"
 # 复制 frontend-nodes.example.toml 为 frontend-nodes.toml 后取消注释。
 # 相对路径以本配置文件所在目录为准。
@@ -15,8 +16,10 @@ BACKEND_BASE_URL = "http://127.0.0.1:8001"
 
 [nodes_monitor]
 enabled = false
-# 默认沿用 BACKEND_BASE_URL。HTTPS 可使用独立运维域名，HTTP 仅接受回环。
+# 公网经 HTTPS。省略 BACKEND_BASE_URL 时启用控制台须显式填写 origin。
 # origin = "https://ops.example.com"
+# 可选：只在可信反代终止 TLS 时填写它直接连接后端的实际 IP。
+# trusted_tls_proxy_ips = ["172.28.0.10"]
 # 在终端运行 python -m tools.nodes_monitor_password 生成密码哈希。
 # password_hash = "在本地填写工具输出的哈希"
 session_secret_env = "EVERUNFOLD_NODES_SESSION_SECRET"
@@ -110,6 +113,8 @@ lease_seconds = 60  # 投递租约，须大于单次受控投递时限
 # 浏览器认证/后台请求带凭据；公开读取/匿名点赞仍不带凭据。只允许精确来源。
 [cors]
 allowed_origins = ["http://127.0.0.1:3000", "http://localhost:3000"]
+# 启用后，导入 PostgreSQL 的已绑定且启用节点公开地址也可作为浏览器来源。
+# use_frontend_registry = true
 
 # 本地图标上传；路径相对于此配置文件。CDN 迁移保持 object_key 不变。
 [media]

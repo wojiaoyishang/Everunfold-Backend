@@ -19,6 +19,7 @@ def mount_nodes_monitor(application: FastAPI, settings: Settings | None) -> None
 
     config = settings.nodes_monitor
     origin = config.origin or settings.BACKEND_BASE_URL
+    assert origin is not None  # Enforced by Settings when the console is enabled.
     secret = os.environ.get(config.session_secret_env, "")
     access = None
     if re.fullmatch(r"[A-Za-z0-9_-]{43,128}", secret) and config.password_hash:
@@ -27,5 +28,6 @@ def mount_nodes_monitor(application: FastAPI, settings: Settings | None) -> None
             config.password_hash.get_secret_value(),
             secret,
             config.session_seconds,
+            config.trusted_tls_proxy_ips,
         )
     application.include_router(monitor_router(access))

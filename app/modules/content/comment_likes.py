@@ -25,6 +25,7 @@ from app.modules.content.repository import public_conditions
 from app.modules.content.router import get_session, runtime_from_request
 from app.modules.content.router import router as public_router
 from app.modules.content.schemas import ErrorResponse, PublicResponse
+from app.modules.settings.browser_origins import managed_origin
 
 
 def private_response(response: Response) -> None:
@@ -158,7 +159,11 @@ async def set_like(
     request: Request,
 ) -> PublicResponse[CommentLikeState]:
     origin = request.headers.get("origin")
-    if origin and origin not in runtime_from_request(request).settings.cors.allowed_origins:
+    if (
+        origin
+        and origin not in runtime_from_request(request).settings.cors.allowed_origins
+        and origin != managed_origin(request.scope)
+    ):
         raise HTTPException(status_code=403, headers={"Cache-Control": "no-store"})
     return PublicResponse(
         data=await CommentLikeService(session, await read_grant_target(request, session)).set(

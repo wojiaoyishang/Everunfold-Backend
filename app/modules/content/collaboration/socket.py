@@ -32,6 +32,7 @@ from app.modules.content.collaboration.source_leases import source_states
 from app.modules.content.editor_schema import EditorSettings
 from app.modules.content.editor_service import editor_media
 from app.modules.content.merge_lock import lock_state
+from app.modules.settings.browser_origins import managed_origin
 
 logger = logging.getLogger(__name__)
 
@@ -66,7 +67,15 @@ async def redis_result(command: Any) -> Any:
 
 async def serve(socket: WebSocket, draft_id: UUID) -> None:
     runtime: Runtime | None = socket.app.state.runtime
-    if runtime is None or socket.headers.get("origin") not in runtime.settings.cors.allowed_origins:
+    origin = socket.headers.get("origin")
+    if (
+        runtime is None
+        or origin is None
+        or (
+            origin not in runtime.settings.cors.allowed_origins
+            and origin != managed_origin(socket.scope)
+        )
+    ):
         await socket.close(code=1008)
         return
     await socket.accept()
