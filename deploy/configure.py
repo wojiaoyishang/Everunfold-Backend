@@ -21,6 +21,7 @@ from config_validation import (
     ip_address,
     peer_list,
     positive,
+    private_receiver_url,
     public_url,
     redis_url,
     token,
@@ -181,11 +182,25 @@ def configure(native: bool = False) -> Configuration:
         "receiver",
         "此节点的内部接收器 URL",
         ctx.meta.get("receiver", ""),
-        valid=lambda v: not v or public_url(v),
+        valid=lambda v: (
+            not v
+            or (private_receiver_url(v) if value("receiver_private_http") == "1" else public_url(v))
+        ),
         resolve=lambda v: v.rstrip("/"),
         group="前端配对",
         empty="登记并导出节点前填写",
-        hint="后端访问前端的内部入口，与网页共用端口；本机可用 http://127.0.0.1:3000。",
+        hint="与网页共用端口。推荐 http://everunfold-frontend:3000（同一自定义网络）；宿主网关须使用宿主映射端口。",
+    )
+    add(
+        "receiver_private_http",
+        "允许私有网络 HTTP 接收（1/0）",
+        "1" if ctx.meta.get("allow_private_http", not native) else "0",
+        valid=lambda v: v in {"0", "1"},
+        group="前端配对",
+        hint=(
+            "仅用于可信容器网络：别名、私有 IP 或 host.docker.internal。"
+            "公网仍须 HTTPS；来源 IP 和令牌验证保留。"
+        ),
     )
     names = node_token_names(selected_node)
     for key, label, name in zip(
@@ -202,7 +217,7 @@ def configure(native: bool = False) -> Configuration:
         valid=peer_list,
         group="前端配对",
         empty="关闭内部调用",
-        hint="逗号分隔。默认本机回环；Docker 新配置加入本次选择的部署网络。仍须正确令牌。",
+        hint="逗号分隔，默认本机回环。容器设置可自动追加所选网络 CIDR；仍须正确令牌。",
     )
 
     monitor = config.get("nodes_monitor", {})
@@ -420,6 +435,7 @@ def configure(native: bool = False) -> Configuration:
                     {
                         "node": value("node"),
                         "receiver": value("receiver"),
+                        "allow_private_http": value("receiver_private_http") == "1",
                         "inbound_env": node_names[0],
                         "outbound_env": node_names[1],
                     },

@@ -8,7 +8,7 @@ from pathlib import Path
 from uuid import UUID
 
 from config_files import Files
-from config_validation import identifier, public_url, token
+from config_validation import identifier, internal_url, token
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
@@ -31,7 +31,7 @@ async def export() -> Path:
         data = config_path.parent
         meta = json.loads((data / "setup.json").read_text())
     node, receiver = meta["node"], meta["receiver"]
-    if not identifier(node) or not public_url(receiver):
+    if not identifier(node) or not internal_url(receiver):
         raise ValueError("请在助手中填写有效的节点 ID 和内部接收器 URL。")
     inbound_name, outbound_name = meta["inbound_env"], meta["outbound_env"]
     inbound, outbound = os.environ.get(inbound_name, ""), os.environ.get(outbound_name, "")
@@ -41,6 +41,7 @@ async def export() -> Path:
     target = FrontendConfig(
         base_url=receiver,
         settings_receiver_url=receiver,
+        allow_private_http=meta.get("allow_private_http", False),
         nextjs_to_fastapi_token_env=inbound_name,
         fastapi_to_nextjs_token_env=outbound_name,
     )

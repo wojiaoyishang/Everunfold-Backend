@@ -2,6 +2,8 @@
 
 前后端统一使用项目根目录的 `setup.sh` 与 `config.yaml`。配置助手在 `deploy/`，不需要进入 `docker/` 运行。完整的逐步教程见[部署教程](../deploy/README.md)。
 
+选中配置项可查看/复制，F4 查看完整执行结果；终端不支持剪贴板时使用“终端复制”。后端导出后自动显示前端导入命令，带空格的路径也可直接复制。
+
 ## 一、Docker 从零构建
 
 1. 安装 Docker Engine、Compose v2、Bash 4+ 和 Git，确认 `docker info` 可用。
@@ -23,6 +25,8 @@ curl --fail http://127.0.0.1:8001/health/ready
 后端直接读取 `/workspace/config.yaml`，不再要求 `/data/config.toml`。例如代码 `/opt/everunfold/Everunfold-Backend`、数据 `/opt/everunfold/Everunfold-Data`、主网络 `bridge`、额外网络 `1panel-network`、宿主端口 `3434`、容器端口 `8001`，均可在向导填写。脚本先接入全部网络再启动，不会在同一条创建命令混用两种网络模式。更新后需重新构建后端镜像。
 
 此目录保留 Dockerfile、Compose、入口脚本和一次性工具镜像的构建文件。数据默认位于 `docker/data`，配置来自根目录 YAML。不要手动维护自动生成的 `.env` 和运行配置。
+
+推荐两端加入 `1panel-network`，设置别名 `everunfold-backend`、`everunfold-frontend`，使用容器内部端口 `8001` / `3000` 互访，并保持自动允许所选网络为 `1`。也可开启 `host.docker.internal` 映射，此时使用宿主映射端口，例如 `3434`。详见[容器互通教程](../deploy/README.md#容器互通推荐共享网络和别名)。本轮前端更新需重新 `build` 主体与镜像，再 `start`；后端更新后执行 `deploy`。日常重启不编译。
 
 ## 二、不使用 Docker
 

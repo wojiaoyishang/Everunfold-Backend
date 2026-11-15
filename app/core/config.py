@@ -173,20 +173,35 @@ class InternalAuthConfig(ConfigModel):
 
 class FrontendConfig(ConfigModel):
     settings_receiver_url: str | None = None
+    allow_private_http: bool = False
     base_url: str
     enabled: bool = False
     nextjs_to_fastapi_token_env: str
     fastapi_to_nextjs_token_env: str
 
-    @field_validator("settings_receiver_url")
-    @classmethod
-    def valid_receiver(cls, value: str | None) -> str | None:
+    @model_validator(mode="after")
+    def valid_receiver(self) -> Self:
+        value = self.settings_receiver_url
         if value is not None:
             validate_http_base(value)
             parsed = urlsplit(value)
-            if parsed.scheme != "https" and not is_loopback_host(parsed.hostname or ""):
+            host = parsed.hostname or ""
+            private = host == "host.docker.internal" or bool(
+                re.fullmatch(r"[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?", host)
+            )
+            try:
+                address = ipaddress.ip_address(host)
+                private = any(
+                    address in ipaddress.ip_network(network)
+                    for network in ("10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "fc00::/7")
+                )
+            except ValueError:
+                pass
+            if parsed.scheme != "https" and not (
+                is_loopback_host(host) or (self.allow_private_http and private)
+            ):
                 raise ValueError("internal credentials require HTTPS outside loopback")
-        return value
+        return self
 
     _base_url = field_validator("base_url")(validate_http_base)
 
@@ -560,6 +575,23 @@ def load_settings(
         query_cache = data.setdefault("query_cache", {})
         if isinstance(query_cache, dict):
             query_cache.setdefault("url", local_cache_url)
+    if cidrs := environment.get("EVERUNFOLD_INTERNAL_PEER_CIDRS"):
+        # Derived by the Docker launcher from selected networks, never forwarding headers.
+        try:
+            extra_peers = [
+                str(ipaddress.ip_network(v.strip(), strict=False))
+                for v in cidrs.split(",")
+                if v.strip()
+            ]
+            if any(ipaddress.ip_network(value).prefixlen == 0 for value in extra_peers):
+                raise ValueError
+            auth = data.setdefault("internal_auth", {})
+            peers = auth.get("allowed_peer_ips", [])
+            if not isinstance(peers, list):
+                raise ValueError
+            auth["allowed_peer_ips"] = list(dict.fromkeys([*peers, *extra_peers]))
+        except (ValueError, TypeError, AttributeError):
+            raise ConfigurationError("Invalid EVERUNFOLD_INTERNAL_PEER_CIDRS") from None
     try:
         settings = Settings.model_validate(data)
         settings._config_directory = path.resolve().parent

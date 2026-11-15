@@ -5,6 +5,61 @@ import pytest
 from app.core.config import ConfigurationError, load_settings
 from app.core.redis_keys import redis_channel, redis_key
 
+
+@pytest.mark.parametrize(
+    "host", ["everunfold-frontend", "host.docker.internal", "172.25.0.8", "[fd00::8]"]
+)
+def test_receiver_private_http_is_explicit_and_persists_in_binding(host: str) -> None:
+    from pydantic import ValidationError
+
+    from app.core.config import FrontendConfig
+
+    binding = dict(
+        base_url="https://site.example.test",
+        settings_receiver_url=f"http://{host}:3000",
+        nextjs_to_fastapi_token_env="INBOUND_TOKEN",
+        fastapi_to_nextjs_token_env="OUTBOUND_TOKEN",
+    )
+    with pytest.raises(ValidationError):
+        FrontendConfig.model_validate(binding)
+    config = FrontendConfig.model_validate({**binding, "allow_private_http": True})
+    assert (
+        FrontendConfig.model_validate(config.model_dump()).settings_receiver_url
+        == binding["settings_receiver_url"]
+    )
+
+
+@pytest.mark.parametrize("host", ["8.8.8.8", "0.0.0.0", "169.254.1.2", "frontend.example.com"])
+def test_receiver_private_http_never_allows_public_or_unspecified_hosts(host: str) -> None:
+    from pydantic import ValidationError
+
+    from app.core.config import FrontendConfig
+
+    with pytest.raises(ValidationError):
+        FrontendConfig(
+            base_url="https://site.example.test",
+            settings_receiver_url=f"http://{host}:3000",
+            allow_private_http=True,
+            nextjs_to_fastapi_token_env="INBOUND_TOKEN",
+            fastapi_to_nextjs_token_env="OUTBOUND_TOKEN",
+        )
+
+
+def test_container_peer_grants_are_validated_and_do_not_persist(tmp_path: Path) -> None:
+    file = tmp_path / "config.toml"
+    file.write_text(VALID_CONFIG + '\n[internal_auth]\nallowed_peer_ips = ["127.0.0.1"]\n')
+    variable = "EVERUNFOLD_INTERNAL_PEER_CIDRS"
+    config = load_settings(file, environ={variable: "172.25.0.0/16,fd00::/64,172.25.0.0/16,"})
+    assert config.internal_auth.allowed_peer_ips == ["127.0.0.1", "172.25.0.0/16", "fd00::/64"]
+    assert load_settings(file, environ={}).internal_auth.allowed_peer_ips == ["127.0.0.1"]
+    for invalid in ("0.0.0.0/0", "::/0", "private-secret-invalid"):
+        with pytest.raises(
+            ConfigurationError, match="Invalid EVERUNFOLD_INTERNAL_PEER_CIDRS"
+        ) as error:
+            load_settings(file, environ={variable: invalid})
+        assert invalid not in str(error.value)
+
+
 VALID_CONFIG = """
 BACKEND_BASE_URL = "http://127.0.0.1:8000"
 [project]

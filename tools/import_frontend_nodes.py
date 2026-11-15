@@ -51,6 +51,7 @@ async def run(update_bindings: bool, binding: tuple[str, FrontendConfig] | None 
                     # Public address and enablement belong to the registry after import.
                     fields = {
                         "settings_receiver_url",
+                        "allow_private_http",
                         "nextjs_to_fastapi_token_env",
                         "fastapi_to_nextjs_token_env",
                     }
@@ -95,7 +96,14 @@ def main() -> None:
         metavar=("NODE", "RECEIVER", "INBOUND_ENV", "OUTBOUND_ENV"),
         help="Bind a receiver and credential references without configuring its public URL.",
     )
+    parser.add_argument(
+        "--allow-private-http",
+        action="store_true",
+        help="Allow --bind to use HTTP on a trusted private network.",
+    )
     args = parser.parse_args()
+    if args.allow_private_http and not args.bind:
+        parser.error("--allow-private-http requires --bind")
     binding = None
     if args.bind:
         node, receiver, inbound, outbound = args.bind
@@ -105,6 +113,7 @@ def main() -> None:
             target = FrontendConfig(
                 base_url=receiver,  # Registry membership supplies the actual public URL.
                 settings_receiver_url=receiver,
+                allow_private_http=args.allow_private_http,
                 nextjs_to_fastapi_token_env=inbound,
                 fastapi_to_nextjs_token_env=outbound,
             )
