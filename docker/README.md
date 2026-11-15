@@ -22,7 +22,7 @@ cp -n runtime.env.example runtime.env
 
 数据库和 Redis 地址必须从容器内可达。容器里的 `127.0.0.1` 指本容器。来源白名单填服务实际看到的 socket IP 或 CIDR。默认只有本机能通过宿主端口 8001 访问 API，公开流量通过 HTTPS 代理接入。
 
-## 2. 将上传文件放到持久卷
+## 2. 指定宿主数据目录
 
 在 `data/config.toml` 的现有 `[media]` 小节中修改 `uploads_path`：
 
@@ -32,6 +32,15 @@ uploads_path = "/data/uploads"
 ```
 
 Compose 挂载两个宿主目录。源码只读挂到 `/workspace`，`docker/data/` 可写挂到 `/data`，包含配置、`uploads/` 和上传临时目录。宿主数据目录可用 Compose 的 `BACKEND_DATA_DIR` 指定。Redis 缓存由既有 Redis 服务管理。后端以 UID/GID 1000 运行，媒体目录需要可写，宿主源码和实例配置需要可读。已有站点迁移时，将原 uploads 目录的内容完整复制到宿主数据目录的 `uploads/`，保留相对路径和写入权限，并恢复与之匹配的数据库。
+
+如果把数据放在仓库外，在 `docker/.env` 设置 `BACKEND_DATA_DIR=/srv/everunfold/backend-data`，并按下列结构准备目录。环境变量和密钥仍放在私有的 `docker/runtime.env`。
+
+```text
+/srv/everunfold/backend-data/
+├── config.toml
+├── frontend-nodes.toml
+└── uploads/
+```
 
 ## 3. 构建、初始化或升级数据库
 
