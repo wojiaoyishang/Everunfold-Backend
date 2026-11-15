@@ -52,6 +52,7 @@ docker compose version
 | PostgreSQL URL             | 选中后点击“分项填写”：主机、端口、数据库、用户名和密码                  |
 | 运行 Redis URL             | 容器可达的连接地址，例如 `redis://:密码@redis:6379/0`                   |
 | Celery Broker              | 留空时沿用 Redis 连接，使用 DB 1                                        |
+| 空库自动初始化             | 默认 `1` 开启；设为 `0` 时需手动初始化，仅针对空库                      |
 | 密钥、初始管理员密码       | 新站点已生成，可查看和修改                                              |
 | API 绑定、worker、宿主端口 | 通常保留默认：容器 `0.0.0.0:8001`，宿主 `127.0.0.1:8001`                |
 | HTTPS 代理来源 IP          | 使用宿主反向代理访问 `/_nodes` 时，填写后端实际看到的代理 IP            |
@@ -64,15 +65,19 @@ docker compose version
 
 ### 3. 构建、初始化与启动
 
-新站点在助手中选择 **“初始化新库”**：保存配置、构建后端镜像、确认数据库为空、执行初始化和插件登记，最后检查就绪条件。数据库有现有表时会停止，避免把已有实例当作新库。
+新站点保留“空库自动初始化”为 **`1`**，直接选择 **“构建并启动”**。助手先检查 PostgreSQL、Redis、Broker；确认数据库无用户表、视图、序列等关系对象后，自动执行核心迁移、创建初始管理员、登记插件，复检通过再创建并启动服务容器。每个阶段都输出日志，任何阶段失败都会停止。
 
-完成后：
+已经保存配置时，等价命令为：
 
 ```bash
-./setup.sh --docker start
+./setup.sh --docker deploy
 curl --fail http://127.0.0.1:8001/health/ready
 docker logs --tail=100 everunfold-backend
 ```
+
+“初始化新库”按钮或 `./setup.sh --docker init-db` 只做初始化，成功后会明确提示执行 `start`。保存过配置也可以使用该按钮；是否需要初始化由数据库实际状态决定，不再用“已有站点”选项阻止。已就绪的数据库直接跳过，不重设管理员密码。
+
+根 `config.yaml` 的 `environment.EVERUNFOLD_AUTO_INIT_EMPTY_DB` 保存此开关，值为字符串 `"1"` / `"0"`，旧配置缺少此字段时默认开启。关闭后 `start` 遇空库会停止并说明原因；手动 `init-db` 仍可初始化。`check` 和界面的“检测连接”始终只读。已有对象但缺迁移记录的库不会被当成空库；旧版本库仍要求显式 `migrate`。并发初始化由数据库会话锁阻止。
 
 默认初始管理员用户名是 `admin`，密码可在配置助手的“初始管理员密码”中查看。首次保存后再次打开会进入已有站点模式；初始密码也保存在私有根配置的 `environment` 中，修改该字段不会重设已创建账号。
 
@@ -156,15 +161,14 @@ cd Everunfold-Backend
 
 ### 2. 初始化并运行
 
-新站点可在界面直接选择“初始化新库”，或者仅保存后运行：
+新站点保留“空库自动初始化”为 `1`，选择“构建并启动”，或者仅保存后运行：
 
 ```bash
 ./setup.sh --native build
-./setup.sh --native init-db
 ./setup.sh --native start
 ```
 
-`build` 使用 `uv sync --locked --no-dev` 准备后端依赖。`start` 在前台分别运行 API、Worker、Scheduler，先检查依赖服务；Ctrl+C 统一停止。服务不自动迁移数据库。
+`build` 使用 `uv sync --locked --no-dev` 准备后端依赖。`start` 检查依赖，按开关初始化空库，复检后在前台分别运行 API、Worker、Scheduler；Ctrl+C 统一停止。原生模式与 Docker 使用同一开关。已有库升级仍显式执行；单独托管的 `api`、`worker`、`scheduler` 入口不执行初始化。
 
 另开终端检查：
 

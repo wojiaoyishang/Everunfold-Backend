@@ -116,6 +116,17 @@ def configure(native: bool = False) -> Configuration:
         hint="可点击“分项填写”，自动编码用户名和密码中的特殊字符。",
     )
     add(
+        "auto_init_empty_db",
+        "空库自动初始化",
+        env.get("EVERUNFOLD_AUTO_INIT_EMPTY_DB", "1"),
+        valid=lambda v: v in ("0", "1"),
+        group="数据库",
+        hint=(
+            "1 开启（默认）/ 0 关闭。构建并启动或 start 时，仅对确认无用户对象的空库初始化；"
+            "已有库仍需显式迁移。"
+        ),
+    )
+    add(
         "redis",
         "运行 Redis URL",
         env.get(
@@ -354,6 +365,7 @@ def configure(native: bool = False) -> Configuration:
             "API_HOST": value("host"),
             "API_PORT": value("port"),
             "DATABASE_URL": value("database"),
+            "EVERUNFOLD_AUTO_INIT_EMPTY_DB": value("auto_init_empty_db"),
             "REDIS_URL": value("redis"),
             "CELERY_BROKER_URL": broker(),
             "API_WORKERS": value("workers"),

@@ -1,5 +1,14 @@
 # 后端交接状态
 
+## 空库自动初始化与启动修复（2026-11-15）
+
+- 修复构建成功后被“数据库尚未初始化”预检阻止启动的问题。总览新增“空库自动初始化”，根 `config.yaml` 的 `environment.EVERUNFOLD_AUTO_INIT_EMPTY_DB` 默认 `"1"`（缺省也开启），`"0"` 关闭；`./setup.sh --docker deploy` / `start` 和原生模式在启动服务前完成空库初始化、管理员创建、插件登记及复检。界面检测、CLI `check` 仍只读；`build` 只构建。
+- 初始化按钮不再根据配置文件已保存推断“已有站点”并阻止操作。仅确认空库才初始化；已同步库直接跳过，不重设账号。系统目录检查可识别无权读取的已有表；非空无迁移记录、旧版本、依赖失败及并发初始化均停止。全程持有会话锁，即使迁移版本已同步，其他部署也须等待初始化结束。日志分阶段实时显示；单独初始化成功后提示启动命令。
+- 后端配置、部署决策与真实数据库测试共 63 项通过；两端各 25 项助手/编排测试，后端 23 通过 2 跳过、前端 20 通过 5 跳过。包含默认开关、手动关闭、保存后初始化、取消确认、失败不创建服务容器、重复启动保持密码和记录、旧版本保护、锁占用。真实数据库回归入口见 [ADR 0156](../decisions/0156-empty-database-bootstrap.md)。
+- 助手回归命令：`uv run --project deploy/assistant --locked python -m unittest discover -s deploy -p 'test_*.py'`。最初按根目录模块路径运行缺少 `deploy` 导入路径，改用此入口后通过；另修复备份测试误把 Docker env 备份当作普通 env 备份的断言。
+- 隔离 PostgreSQL / Redis 上真实执行根 `setup.sh --native start`：从空库自动初始化，API、Worker、Scheduler 持续运行，`/health/ready` 返回 200，database/redis/schema 全部 ok；再次启动未重新初始化。另验证缺 CREATE 权限、不可读的已有表和并发锁。未修改用户实际实例配置、数据库或服务。
+- 验证：Ruff、`mypy app`（307 个文件）、Bash 语法、锁文件一致性与双端 Sphinx 严格构建通过；新开关及帮助在 80×24 和桌面布局检查。环境无 Docker daemon，真实镜像构建及容器通信仍须部署机验收；命令桩和原生就绪检查不能替代。使用教程已更新，已有配置执行 `./setup.sh --docker deploy` 即可。
+
 ## 根配置直读与容器挂载向导（2026-11-15）
 
 - 修复外部数据目录没有 `config.toml` 时 Worker 无法启动的问题：后端业务加载器支持根 `config.yaml`，容器入口在所有子进程启动前加载根环境值。默认挂载配置 `/workspace/config.yaml`，媒体 `/data/uploads`，无需复制配置到 `/data`。保留旧 TOML 显式入口，YAML 的显式环境覆盖仍生效。新增 PyYAML 运行依赖及锁文件，需重建后端镜像。
