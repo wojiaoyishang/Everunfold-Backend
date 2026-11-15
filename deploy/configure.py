@@ -10,6 +10,7 @@ import secrets
 from pathlib import Path
 from urllib.parse import urlsplit
 
+from config_actions import export_node
 from config_context import Context
 from config_files import toml_text, update_env
 from config_model import Configuration, Field
@@ -184,7 +185,7 @@ def configure(native: bool = False) -> Configuration:
         resolve=lambda v: v.rstrip("/"),
         group="前端配对",
         empty="登记并导出节点前填写",
-        hint="后端访问前端接收器的 HTTPS 入口；本机可用 http://127.0.0.1:3001。",
+        hint="后端访问前端的内部入口，与网页共用端口；本机可用 http://127.0.0.1:3000。",
     )
     names = node_token_names(selected_node)
     for key, label, name in zip(
@@ -435,6 +436,7 @@ def configure(native: bool = False) -> Configuration:
         check=check,
         changed=changed,
         probe=probe,
+        export_node=lambda: export_node(DOCKER.parent, native),
         native=native,
         backend=True,
         location=str(ctx.root_path),

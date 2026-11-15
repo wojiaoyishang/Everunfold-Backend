@@ -195,13 +195,18 @@ def test_settings_atomic_save_restart_delivery_and_crash_replay(tmp_path: Path) 
                     "settings": {
                         "directory": str(tmp_path / "applied"),
                         "source_epoch": epoch,
-                        "receiver_port": receiver_port,
                     },
                 }
             ),
             encoding="utf-8",
         )
-        node_env = {**env, "CONFIG_FILE": str(node_config), "NODE_ENV": "test"}
+        node_env = {
+            **env,
+            "CONFIG_FILE": str(node_config),
+            "NODE_ENV": "test",
+            "TEST_RECEIVER_PORT": str(receiver_port),
+            "FRONTEND_HOST": "127.0.0.1",
+        }
         node_executable = shutil.which("node")
         assert node_executable
         node_command = [node_executable, "--import", "tsx", "tools/fixtures/settings-receiver.mts"]

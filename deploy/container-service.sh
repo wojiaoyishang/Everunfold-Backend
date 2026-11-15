@@ -10,7 +10,7 @@ export PYTHONIOENCODING=utf-8
 export PYTHONUNBUFFERED=1
 
 case "${1:-}" in
-  api|worker|scheduler|frontend|receiver)
+  api|worker|scheduler|frontend)
     set -a
     source "$backend_root/.env.container.local"
     set +a
@@ -51,17 +51,11 @@ case "${1:-}" in
     unset CONFIG_FILE
     exec npm run dev -- --port 3100
     ;;
-  receiver)
-    cd -- "$frontend_root"
-    export EVERUNFOLD_PROJECT_ROOT="$frontend_root"
-    unset CONFIG_FILE
-    exec npm run settings:receiver
-    ;;
   proxy)
     exec /usr/sbin/nginx -p "$runtime_dir/" -c "$runtime_dir/nginx.conf" -g 'daemon off;'
     ;;
   *)
-    echo 'Usage: container-service.sh query-cache|api|worker|scheduler|frontend|receiver|proxy' >&2
+    echo 'Usage: container-service.sh query-cache|api|worker|scheduler|frontend|proxy' >&2
     exit 2
     ;;
 esac

@@ -1,4 +1,4 @@
-"""Start local settings delivery helpers; API and Next.js remain separate processes."""
+"""Start local settings delivery helpers; API remains separate; Next.js and sync share one port."""
 
 import argparse
 import json
@@ -18,7 +18,7 @@ def main() -> None:
     parser.add_argument("--frontend-root", type=Path, required=True)
     args = parser.parse_args()
     frontend = args.frontend_root.resolve()
-    if not (frontend / "tools/settings-receiver.mts").is_file():
+    if not (frontend / "tools/plugins/run.mts").is_file():
         raise SystemExit("The matching frontend receiver was not found")
     settings = load_settings()
     active = [
@@ -44,10 +44,12 @@ def main() -> None:
     node_env = {**env, "EVERUNFOLD_PROJECT_ROOT": str(frontend)}
     node_env.pop("CONFIG_FILE", None)
     node = shutil.which("node")
-    if not node:
-        raise SystemExit("Node.js is unavailable")
+    npm = shutil.which("npm")
+    if not node or not npm:
+        raise SystemExit("Node.js/npm is unavailable")
+    subprocess.run([npm, "run", "prepare:host"], cwd=frontend, env=node_env, check=True)
     commands = [
-        ([node, "--import", "tsx", "tools/settings-receiver.mts"], frontend, node_env),
+        ([node, "--import", "tsx", "tools/plugins/run.mts", "dev"], frontend, node_env),
         (
             [
                 sys.executable,
@@ -72,7 +74,7 @@ def main() -> None:
         for command, cwd, environment in commands:
             processes.append(subprocess.Popen(command, cwd=cwd, env=environment))
         print(
-            "Settings receiver, Worker and Scheduler started. Ctrl+C stops these helpers.",
+            "Frontend (web + sync), Worker and Scheduler started. Ctrl+C stops these helpers.",
             flush=True,
         )
         while all(process.poll() is None for process in processes):

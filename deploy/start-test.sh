@@ -54,8 +54,8 @@ if [[ "$mode" == start ]]; then
   fi
 fi
 
-services=(api frontend proxy query-cache receiver worker scheduler)
-ports=(3000 3100 8001 3001)
+services=(api frontend proxy query-cache worker scheduler)
+ports=(3000 3100 8001)
 status=''
 listeners=''
 ready() {

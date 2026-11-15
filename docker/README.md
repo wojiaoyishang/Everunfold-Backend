@@ -33,3 +33,5 @@ curl --fail http://127.0.0.1:8001/health/ready
 ```
 
 与 Docker 使用同一份根目录 `config.yaml`，无需重新抄写密钥。依赖安装、初始化、编译、启动与长期托管见[不使用 Docker](../deploy/README.md#二不使用-docker)。
+
+“仅保存”成功后保留界面。后端登记并导出节点后也保留界面，显示文件的宿主绝对路径。
