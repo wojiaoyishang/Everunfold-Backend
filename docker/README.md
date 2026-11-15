@@ -4,6 +4,16 @@
 
 ## 1. 准备网络和配置文件
 
+先在终端运行配置向导，需 Python 3.10 或更新版本：
+
+```bash
+python3 configure.py
+```
+
+向导逐项询问公开地址、节点、PostgreSQL、Redis、主密钥、令牌和 Worker 参数。新站点可以为每项密钥、令牌和初始管理员密码输入自定义值，留空时独立生成。迁移方式要求填写原值。密码和密钥输入时隐藏，确认后写入私有的 `runtime.env`。向导跳过已存在的配置文件组。如需调整已有站点，直接编辑原文件。
+
+共用 Docker 网络需要单独创建。使用向导后，可跳过下列复制模板的命令。
+
 ```bash
 docker network inspect everunfold >/dev/null 2>&1 || docker network create everunfold
 mkdir -p data/uploads

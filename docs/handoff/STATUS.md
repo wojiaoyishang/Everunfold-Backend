@@ -1,5 +1,10 @@
 # 后端交接状态
 
+## Docker 配置向导
+
+- `docker/configure.py` 在终端引导首次部署和迁移，写入 `docker/data/` 下的实例配置以及私有 `runtime.env`。新站点逐项留空可生成密钥和初始管理员密码，迁移使用已有值。检测到已有目标文件时停止写入。
+- 移除持续失败的 GitHub Actions `Backend checks`。该工作流只执行静态检查与测试，`main` 未将它设为必需检查。文档工作流保留。
+
 ## Docker 宿主目录部署
 
 - 后端 Compose 仅挂载代码 `/workspace` 与宿主数据 `/data`。 [部署步骤](../../docker/README.md)已更新。 Compose 配置校验通过。
