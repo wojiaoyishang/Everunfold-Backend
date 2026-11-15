@@ -1,5 +1,9 @@
 # 后端交接状态
 
+## Docker 宿主目录部署
+
+- 后端 Compose 仅挂载代码 `/workspace` 与宿主数据 `/data`。 [部署步骤](../../docker/README.md)已更新。 Compose 配置校验通过。
+
 ## Docker 部署手册
 
 - [部署手册](../../docker/README.md)列出首次配置、启动验收、重启、升级及数据保留步骤。此次为文档更新。

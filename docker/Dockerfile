@@ -9,14 +9,13 @@ ENV UV_PROJECT_ENVIRONMENT=/opt/everunfold/venv \
     PATH="/opt/everunfold/venv/bin:${PATH}" \
     PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    CONFIG_FILE=/etc/everunfold/config.toml \
+    CONFIG_FILE=/data/config.toml \
     API_PORT=8001
 
 WORKDIR /opt/everunfold
 COPY pyproject.toml uv.lock ./
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --locked --no-dev \
-    && install -d -o 1000 -g 1000 /data/uploads
+    uv sync --locked --no-dev
 COPY --chmod=755 docker/entrypoint.sh /usr/local/bin/everunfold-backend
 
 WORKDIR /workspace

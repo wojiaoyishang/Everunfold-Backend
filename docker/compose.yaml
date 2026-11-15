@@ -22,18 +22,13 @@ services:
         bind:
           create_host_path: false
       - type: bind
-        source: ${BACKEND_CONFIG_DIR:-./instance}
-        target: /etc/everunfold
-        read_only: true
+        source: ${BACKEND_DATA_DIR:-./data}
+        target: /data
         bind:
           create_host_path: false
-      - media:/data/uploads
     networks:
       everunfold:
         aliases: [everunfold-backend]
-
-volumes:
-  media:
 
 networks:
   everunfold:

@@ -6,32 +6,32 @@
 
 ```bash
 docker network inspect everunfold >/dev/null 2>&1 || docker network create everunfold
-mkdir -p instance
-cp -n ../config.example.toml instance/config.toml
-cp -n ../frontend-nodes.example.toml instance/frontend-nodes.toml
+mkdir -p data/uploads
+cp -n ../config.example.toml data/config.toml
+cp -n ../frontend-nodes.example.toml data/frontend-nodes.toml
 cp -n runtime.env.example runtime.env
 ```
 
 编辑这三个文件：
 
-| 文件                           | 填写内容                                                                                                                                                                                                        |
-| ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `runtime.env`                  | 取消注释并填写实际的 `DATABASE_URL`、`REDIS_URL`、`CELERY_BROKER_URL`，以及应用主密钥、TOTP 主密钥和两个方向的节点令牌。已有站点沿用原密钥。新站点初始化时，还需填写 `EVERUNFOLD_ADMIN_PASSWORD`。              |
-| `instance/config.toml`         | 把 `BACKEND_BASE_URL` 改为浏览器访问的公开 API 地址，将公开前端地址加入 `[cors].allowed_origins`。启用根级 `frontend_nodes_file = "./frontend-nodes.toml"`，按实际连接配置 `[internal_auth].allowed_peer_ips`。 |
-| `instance/frontend-nodes.toml` | 在 `[frontends.web-main]` 下填写公开前端 `base_url`。前端接收器可用后，填写部署网络可达的受限 HTTPS `settings_receiver_url`，并将 `enabled` 设为 `true`。两项 `*_token_env` 填环境变量名。                      |
+| 文件                       | 填写内容                                                                                                                                                                                                        |
+| -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `runtime.env`              | 取消注释并填写实际的 `DATABASE_URL`、`REDIS_URL`、`CELERY_BROKER_URL`，以及应用主密钥、TOTP 主密钥和两个方向的节点令牌。已有站点沿用原密钥。新站点初始化时，还需填写 `EVERUNFOLD_ADMIN_PASSWORD`。              |
+| `data/config.toml`         | 把 `BACKEND_BASE_URL` 改为浏览器访问的公开 API 地址，将公开前端地址加入 `[cors].allowed_origins`。启用根级 `frontend_nodes_file = "./frontend-nodes.toml"`，按实际连接配置 `[internal_auth].allowed_peer_ips`。 |
+| `data/frontend-nodes.toml` | 在 `[frontends.web-main]` 下填写公开前端 `base_url`。前端接收器可用后，填写部署网络可达的受限 HTTPS `settings_receiver_url`，并将 `enabled` 设为 `true`。两项 `*_token_env` 填环境变量名。                      |
 
 数据库和 Redis 地址必须从容器内可达。容器里的 `127.0.0.1` 指本容器。来源白名单填服务实际看到的 socket IP 或 CIDR。默认只有本机能通过宿主端口 8001 访问 API，公开流量通过 HTTPS 代理接入。
 
 ## 2. 将上传文件放到持久卷
 
-在 `instance/config.toml` 的现有 `[media]` 小节中修改 `uploads_path`：
+在 `data/config.toml` 的现有 `[media]` 小节中修改 `uploads_path`：
 
 ```toml
 [media]
 uploads_path = "/data/uploads"
 ```
 
-Compose 将名为 `media` 的卷挂到 `/data/uploads`。源码挂在只读的 `/workspace`。后端以 UID/GID 1000 运行，媒体目录需要可写，宿主源码和实例配置需要可读。已有站点迁移时，将原 uploads 目录的内容完整导入此卷，保留相对路径和写入权限，并恢复与之匹配的数据库。
+Compose 挂载两个宿主目录。源码只读挂到 `/workspace`，`docker/data/` 可写挂到 `/data`，包含配置、`uploads/` 和上传临时目录。宿主数据目录可用 Compose 的 `BACKEND_DATA_DIR` 指定。Redis 缓存由既有 Redis 服务管理。后端以 UID/GID 1000 运行，媒体目录需要可写，宿主源码和实例配置需要可读。已有站点迁移时，将原 uploads 目录的内容完整复制到宿主数据目录的 `uploads/`，保留相对路径和写入权限，并恢复与之匹配的数据库。
 
 ## 3. 构建、初始化或升级数据库
 
@@ -44,7 +44,7 @@ docker compose run --rm backend alembic -c migrations/alembic.ini current
 **新站点**使用已创建的空 PostgreSQL 库，执行初始化：
 
 ```bash
-docker compose run --rm backend python init.database.py --config /etc/everunfold/config.toml --no-create-database
+docker compose run --rm backend python init.database.py --config /data/config.toml --no-create-database
 ```
 
 **已有站点**先备份数据库、媒体和密钥。迁移版本落后时，在维护窗口停止旧后端并执行：
@@ -77,12 +77,12 @@ SELECT source_epoch FROM site_settings WHERE id = 1;
 docker compose restart backend
 ```
 
-修改环境变量、挂载或节点配置后，执行 `docker compose up -d --force-recreate backend`。常规重启和重建会保留上传卷。日常停机用 `docker compose stop backend`，或用 `docker compose down` 移除容器。带 `-v` 的 `down` 会删除媒体卷。
+修改环境变量、挂载或节点配置后，执行 `docker compose up -d --force-recreate backend`。日常停机用 `docker compose stop backend`。重启、重建或移除容器后，宿主数据目录仍保留。用过旧 Compose 的站点，切换前应停写并把原 `media` 卷的内容迁入宿主 `data/uploads/`，同时将原 `instance/` 配置复制到 `data/`。
 
-备份时在同一个停写窗口备份 PostgreSQL、上传卷、实例配置和原密钥。停写后可从本目录导出上传卷，随后确认归档命令成功并检查文件：
+备份时在同一个停写窗口备份 PostgreSQL、宿主数据目录和私有 `runtime.env`。默认布局可直接在宿主归档上传文件：
 
 ```bash
-docker compose run --rm -T backend tar -C /data/uploads -czf - . > uploads.tar.gz
+tar -C data -czf uploads.tar.gz uploads
 tar -tzf uploads.tar.gz
 ```
 
@@ -105,6 +105,6 @@ tar -tzf uploads.tar.gz
 - 后端插件放在挂载源码的 `app/plugins/<目录>`。先预检，审核后执行带 `--apply` 的登记命令，再重启三个进程。插件自己的迁移按插件说明显式执行。
 
 ```bash
-docker compose run --rm backend python -m tools.register_backend_plugins --config /etc/everunfold/config.toml
-docker compose run --rm backend python -m tools.register_backend_plugins --config /etc/everunfold/config.toml --apply
+docker compose run --rm backend python -m tools.register_backend_plugins --config /data/config.toml
+docker compose run --rm backend python -m tools.register_backend_plugins --config /data/config.toml --apply
 ```
