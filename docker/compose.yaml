@@ -13,8 +13,11 @@ services:
     user: "${EVERUNFOLD_UID:-1000}:${EVERUNFOLD_GID:-1000}"
     restart: unless-stopped
     stop_grace_period: ${BACKEND_STOP_GRACE_PERIOD:-130s}
-    env_file: ${BACKEND_ENV_FILE:-./runtime.env}
+    container_name: ${BACKEND_CONTAINER_NAME:-everunfold-backend}
+    network_mode: ${EVERUNFOLD_NETWORK:-bridge}
     environment:
+      CONFIG_FILE: /workspace/config.yaml
+      EVERUNFOLD_DATA_DIR: /data
       API_PORT: "${BACKEND_API_PORT:-8001}"
     ports:
       - "${BACKEND_BIND_ADDRESS:-127.0.0.1}:${BACKEND_PUBLISH_PORT:-8001}:${BACKEND_API_PORT:-8001}"
@@ -30,11 +33,3 @@ services:
         target: /data
         bind:
           create_host_path: false
-    networks:
-      everunfold:
-        aliases: [everunfold-backend]
-
-networks:
-  everunfold:
-    external: true
-    name: ${EVERUNFOLD_NETWORK:-everunfold}

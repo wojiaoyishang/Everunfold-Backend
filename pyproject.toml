@@ -15,6 +15,7 @@ dependencies = [
     "httpx2==2.16.0",
     "pillow==13.0.0",
     "pycrdt==0.14.10",
+    "PyYAML==6.0.3",
     "redis==6.4.0",
     "sqlalchemy[asyncio]==2.1.6",
     "tinycss2==1.5.1",
@@ -50,4 +51,5 @@ dev = [
     "mypy==2.4.1",
     "pytest==9.2.0",
     "ruff==0.17.3",
+    "types-PyYAML==6.0.12.20261113",
 ]

@@ -25,6 +25,7 @@ from config_validation import (
     token,
     valid_port,
 )
+from container_fields import add_container_fields
 
 DOCKER = Path(__file__).resolve().parents[1] / "docker"
 TOKEN_NAMES = ("NEXTJS_TO_FASTAPI_WEB_MAIN_TOKEN", "FASTAPI_TO_NEXTJS_WEB_MAIN_TOKEN")
@@ -88,6 +89,8 @@ def configure(native: bool = False) -> Configuration:
             hint="已自动生成或读取原值，可直接编辑。已有站点主密钥需保留。",
             empty="请填写原值",
         )
+
+    container_mapping, container_errors, pending_network = add_container_fields(ctx, add, value)
 
     add(
         "mode",
@@ -314,12 +317,16 @@ def configure(native: bool = False) -> Configuration:
             by_key["inbound"].value, by_key["outbound"].value = incoming, outgoing
 
     def check() -> list[str]:
-        return ["两个方向的节点令牌必须不同。"] if value("inbound") == value("outbound") else []
+        return container_errors() + (
+            ["两个方向的节点令牌必须不同。"] if value("inbound") == value("outbound") else []
+        )
 
     def broker() -> str:
         return value("broker") or urlsplit(value("redis"))._replace(path="/1").geturl()
 
     async def probe():
+        if pending_network():
+            return pending_network()
         source = (DOCKER / compose.get("BACKEND_SOURCE_DIR", "..")).resolve()
         return await backend_checks(value("database"), value("redis"), broker(), source)
 
@@ -390,7 +397,7 @@ def configure(native: bool = False) -> Configuration:
         if not native:
             mapping.setdefault("EVERUNFOLD_UID", compose.get("EVERUNFOLD_UID", str(os.getuid())))
             mapping.setdefault("EVERUNFOLD_GID", compose.get("EVERUNFOLD_GID", str(os.getgid())))
-        (ctx.data / "uploads").mkdir(parents=True, exist_ok=True)
+        mapping.update(container_mapping())
         ctx.write(
             {
                 ctx.config_path: toml_text(config),

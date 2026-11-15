@@ -18,8 +18,8 @@ ENV UV_PROJECT_ENVIRONMENT=/opt/everunfold/venv \
     PATH="/opt/everunfold/venv/bin:${PATH}" \
     PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    CONFIG_FILE=/data/config.toml \
-    API_PORT=8001
+    CONFIG_FILE=/workspace/config.yaml \
+    EVERUNFOLD_DATA_DIR=/data
 
 WORKDIR /opt/everunfold
 COPY pyproject.toml uv.lock ./
@@ -31,6 +31,6 @@ WORKDIR /workspace
 USER 1000:1000
 EXPOSE 8001
 HEALTHCHECK --interval=15s --timeout=5s --start-period=30s \
-    CMD ["python", "-c", "import os, urllib.request; host = os.getenv('API_HOST', '0.0.0.0'); host = {'0.0.0.0': '127.0.0.1', '::': '::1'}.get(host, host); host = f'[{host}]' if ':' in host else host; urllib.request.urlopen(f'http://{host}:{os.environ[\"API_PORT\"]}/health/ready', timeout=4).close()"]
+    CMD ["python", "/workspace/deploy/healthcheck.py"]
 ENTRYPOINT ["/usr/local/bin/everunfold-backend"]
 CMD ["serve"]

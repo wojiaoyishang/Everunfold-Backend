@@ -1,4 +1,4 @@
-"""Explicit TOML configuration shared by independent backend processes."""
+"""Explicit root YAML or legacy TOML configuration shared by backend processes."""
 
 import ipaddress
 import os
@@ -6,7 +6,7 @@ import re
 import tomllib
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Any, Literal, Self
+from typing import Literal, Self
 from urllib.parse import urlsplit
 
 from argon2 import Type, extract_parameters
@@ -21,6 +21,8 @@ from pydantic import (
     field_validator,
     model_validator,
 )
+
+from app.core.deployment_config import DeploymentConfigError, read_deployment
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 _IDENTIFIER = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$")
@@ -493,19 +495,39 @@ def load_settings(
     """Load an explicit file then allowlisted overrides; never auto-load .env files."""
     environment = os.environ if environ is None else environ
     selected = (
-        config_file if config_file is not None else environment.get("CONFIG_FILE", "config.toml")
+        config_file
+        if config_file is not None
+        else environment.get(
+            "CONFIG_FILE",
+            "config.yaml" if (project_root / "config.yaml").is_file() else "config.toml",
+        )
     )
     if not str(selected).strip():
         raise ConfigurationError("CONFIG_FILE cannot be empty")
     path = Path(selected)
     path = path if path.is_absolute() else project_root / path
-    try:
-        with path.open("rb") as handle:
-            data: dict[str, Any] = tomllib.load(handle)
-    except FileNotFoundError as exc:
-        raise ConfigurationError(f"Configuration file not found: {path.name}") from exc
-    except (OSError, tomllib.TOMLDecodeError) as exc:
-        raise ConfigurationError("Configuration file cannot be read or parsed") from exc
+    if path.suffix.lower() in {".yaml", ".yml"}:
+        try:
+            document = read_deployment(path)
+        except DeploymentConfigError as exc:
+            raise ConfigurationError(str(exc)) from None
+        data = document["application"]
+        environment = {**document.get("environment", {}), **environment}
+        data_dir = Path(environment.get("EVERUNFOLD_DATA_DIR", str(project_root / "var/instance")))
+        media = data.setdefault("media", {})
+        if not isinstance(media, dict):
+            raise ConfigurationError("Invalid configuration fields: media")
+        uploads = media.setdefault("uploads_path", str(data_dir / "uploads"))
+        if isinstance(uploads, str) and not Path(uploads).is_absolute():
+            media["uploads_path"] = str(data_dir / uploads)
+    else:
+        try:
+            with path.open("rb") as handle:
+                data = tomllib.load(handle)
+        except FileNotFoundError:
+            raise ConfigurationError(f"Configuration file not found: {path}") from None
+        except (OSError, tomllib.TOMLDecodeError):
+            raise ConfigurationError("Configuration file cannot be read or parsed") from None
     if "frontend_nodes_file" in data:
         filename = data.pop("frontend_nodes_file")
         if not isinstance(filename, str) or not filename.strip() or "\x00" in filename:

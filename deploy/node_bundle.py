@@ -17,14 +17,19 @@ from sqlalchemy import text  # noqa: E402
 
 from app.core.config import FrontendConfig, load_settings  # noqa: E402
 from app.core.database import Database  # noqa: E402
+from app.core.deployment_config import read_deployment  # noqa: E402
 from app.modules.settings.node_registry import registry_record  # noqa: E402
 from tools.import_frontend_nodes import run as import_nodes  # noqa: E402
 
 
 async def export() -> Path:
     config_path = Path(os.environ.get("CONFIG_FILE", "config.toml")).resolve()
-    data = config_path.parent
-    meta = json.loads((data / "setup.json").read_text())
+    if config_path.suffix.lower() in {".yaml", ".yml"}:
+        meta = read_deployment(config_path)["assistant"]
+        data = Path(os.environ.get("EVERUNFOLD_DATA_DIR", str(ROOT / "var/instance")))
+    else:
+        data = config_path.parent
+        meta = json.loads((data / "setup.json").read_text())
     node, receiver = meta["node"], meta["receiver"]
     if not identifier(node) or not public_url(receiver):
         raise ValueError("请在助手中填写有效的节点 ID 和内部接收器 URL。")
