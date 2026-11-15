@@ -1,5 +1,12 @@
 # 后端交接状态
 
+## 配置总览菜单与终端编辑
+
+- 两端 `docker/configure.py` 启动先显示全部向导配置项及当前值，提供「1.按次序配置 / 2.修改某配置项 / 3.退出」。退出时可保存、放弃或返回；自动生成字段仍须逐项确认，已有实例可重新打开按项修改。新配置的「前端内部调用后端的来源 IP/CIDR」默认 `127.0.0.1, ::1`，原有列表保留，节点令牌校验不变。见 [ADR 0153](../decisions/0153-terminal-configuration-menu.md) 和 [使用教程](../../docker/README.md)。
+- PostgreSQL、Redis、Broker URL 完整回显；编辑框支持左右移动、上下调取本项会话历史、Ctrl+U 清空、中文与粘贴。使用标准库 termios 显式配置输入与回显，退出、中断和 EOF 后恢复原属性。向导要求 Python 3.11+、POSIX 终端，无额外 Python 依赖。
+- 保存保留其他 TOML 字段和环境变量，先生成权限为 0600 的原文件备份；外部并发修改会拒绝覆盖，写入失败回滚。两端各 7 项伪终端与文件测试通过，Python 3.12/3.13 已覆盖方向键、窄窗口、回显、保存/放弃、终端恢复和原配置保留；Ruff、双端 Sphinx 严格构建通过。生成文件通过后端真实 Settings 与 Compose 配置校验，默认内部来源及独立发布 URL/端口符合预期。
+- 本轮只改配置向导和文档，未修改实际实例配置或重启服务。当前无 Docker daemon，镜像构建和实际容器通信仍需部署机验证。
+
 ## 发布 URL 与监听配置澄清
 
 - 恢复 Docker 向导中的后端 `BACKEND_BASE_URL`，明确用于拼接媒体等公开资源链接；容器 API 监听和 Docker 宿主映射单独分组。多个前端的公开 URL 继续由 `/_nodes` 管理。示例、Docker README 和配置手册已同步，旧向导产物的补齐步骤见 [部署手册](../../docker/README.md)，决定见 [ADR 0152](../decisions/0152-published-urls-and-listeners.md)。
@@ -12,7 +19,7 @@
 
 ## Docker 配置向导
 
-- `docker/configure.py` 在终端引导首次部署和迁移，写入 `docker/data/` 下的实例配置以及私有 `runtime.env`。新站点逐项留空可生成密钥和初始管理员密码，迁移使用已有值。检测到已有目标文件时停止写入。
+- `docker/configure.py` 在终端引导首次部署和迁移，写入 `docker/data/` 下的实例配置以及私有 `runtime.env`。新站点逐项留空可生成密钥和初始管理员密码，迁移使用已有值。已有文件的处理已由 ADR 0153 更新为加载、按项修改和备份后保存。
 - 移除持续失败的 GitHub Actions `Backend checks`。该工作流只执行静态检查与测试，`main` 未将它设为必需检查。文档工作流保留。
 
 ## Docker 宿主目录部署
