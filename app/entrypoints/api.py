@@ -11,6 +11,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from starlette.exceptions import HTTPException
 
 from app.core.config import ConfigurationError, Settings, load_settings
+from app.core.http_errors import ErrorResponseMiddleware, http_error_response
 from app.core.i18n import LocaleMiddleware, i18n
 from app.core.modules import (
     register_auth_module,
@@ -28,6 +29,7 @@ from app.core.plugins.loader import plugin_catalog
 from app.core.plugins.route_runtime import mount_plugin_routes
 from app.core.responses import JSONResponseError, JSONResponseFail, JSONResponseSuccess
 from app.core.runtime import Runtime
+from app.core.schemas import ErrorResponse
 from app.modules.auth.middleware import AuthBoundaryMiddleware, BusinessCORSMiddleware
 from app.modules.auth.service import AuthFailure
 from app.modules.settings.browser_origins import ManagedBrowserOrigins
@@ -85,6 +87,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         version="0.2.0",
         description="公开阅读与浏览器认证 API；配置、显式迁移和数据准备与服务启动分离。",
         lifespan=lifespan,
+        docs_url=None,
+        redoc_url=None,
+        openapi_url=None,
+        responses={
+            status: {"model": ErrorResponse}
+            for status in (400, 401, 403, 404, 405, 413, 415, 422, 429, 500, 503)
+        },
     )
     application.add_middleware(
         AuthBoundaryMiddleware,
@@ -105,6 +114,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     if resolved and resolved.cors.use_frontend_registry:
         application.add_middleware(ManagedBrowserOrigins)
     application.add_middleware(LocaleMiddleware)
+    application.add_middleware(ErrorResponseMiddleware)
     register_content_module(application)
     register_auth_module(application)
     register_captcha_module(application)
@@ -126,17 +136,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @application.exception_handler(HTTPException)
     async def handle_http_error(request: Request, exc: HTTPException) -> JSONResponseFail:
-        messages = {
-            404: "资源不存在",
-            405: "请求方法不允许",
-            422: "请求参数无效",
-            503: "服务暂不可用",
-        }
-        return JSONResponseFail(
-            msg=messages.get(exc.status_code, "请求被拒绝"),
-            status_code=exc.status_code,
-            headers=exc.headers,
-        )
+        return http_error_response(exc.status_code, exc.headers)
 
     @application.exception_handler(RequestValidationError)
     async def handle_validation_error(
@@ -152,7 +152,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         headers = (
             {"Cache-Control": "private, no-store", "Pragma": "no-cache"}
             if request.url.path.startswith(
-                ("/v1/auth/", "/v1/admin/", "/v1/account/", "/v1/plugins/")
+                (
+                    "/v1/auth/",
+                    "/v1/admin/",
+                    "/v1/account/",
+                    "/v1/reader/",
+                    "/v1/plugins/",
+                    "/_nodes",
+                )
             )
             else {}
         )
@@ -165,6 +172,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def handle_storage_error(request: Request, exc: SQLAlchemyError) -> JSONResponseFail:
         logger.error("Request storage unavailable: %s", type(exc).__name__)
         return JSONResponseFail(msg="服务暂不可用", status_code=503)
+
+    @application.get("/", include_in_schema=False)
+    async def index() -> JSONResponseSuccess:
+        return JSONResponseSuccess(
+            msg="当我离去的时候，让我的思想来到你的身边，正如那夕阳的余晖，映在寂静星空的边缘。"
+        )
 
     @application.get("/health/live", tags=["health"])
     async def live() -> JSONResponseSuccess:

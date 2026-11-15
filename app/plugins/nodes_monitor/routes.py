@@ -11,9 +11,10 @@ from fastapi import APIRouter, Request
 from pydantic import ValidationError
 from sqlalchemy.exc import SQLAlchemyError
 from starlette.requests import ClientDisconnect
-from starlette.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
+from starlette.responses import HTMLResponse, RedirectResponse, Response
 
 from app.core.query_cache_schemas import QueryCacheReportRequest
+from app.core.responses import JSONResponseFail, JSONResponseSuccess
 from app.core.runtime import Runtime
 from app.modules.auth.service import AuthFailure
 from app.modules.settings.nodes_schemas import MonitorStatus, NodeChange
@@ -46,7 +47,9 @@ def monitor_router(access: MonitorAccess | None) -> APIRouter:
 
     def unavailable(request: Request) -> Response | None:
         if access is None:
-            return HTMLResponse("节点监控尚未配置会话密钥。", 503, headers)
+            return JSONResponseFail(
+                msg="节点监控尚未配置会话密钥。", status_code=503, headers=headers
+            )
         if not access.accepts_host(request):
             if (
                 request.method == "GET"
@@ -54,17 +57,13 @@ def monitor_router(access: MonitorAccess | None) -> APIRouter:
                 and request.headers.get("host", "").lower() != access.host
             ):
                 return RedirectResponse(access.origin + PREFIX, 307, headers=headers)
-            return Response(status_code=404, headers=headers)
+            return JSONResponseFail(msg="资源不存在", status_code=404, headers=headers)
         return None
 
-    def page(
-        mode: Literal["login", "dashboard"],
-        message: str = "",
-        status: int = 200,
-    ) -> HTMLResponse:
+    def page(mode: Literal["login", "dashboard"]) -> HTMLResponse:
         return HTMLResponse(
-            template.replace("{{mode}}", mode).replace("{{message}}", message),
-            status,
+            template.replace("{{mode}}", mode),
+            200,
             headers,
         )
 
@@ -88,13 +87,17 @@ def monitor_router(access: MonitorAccess | None) -> APIRouter:
             return blocked
         assert access is not None
         if not access.accepts_post(request):
-            return page("login", "请求来源无效。", 403)
+            return JSONResponseFail(msg="请求来源无效。", status_code=403, headers=headers)
         content_type = request.headers.get("content-type", "").split(";", 1)[0].strip().lower()
         if content_type != "application/x-www-form-urlencoded":
-            return page("login", "请使用页面上的密码表单。", 415)
+            return JSONResponseFail(
+                msg="请使用页面上的密码表单。", status_code=415, headers=headers
+            )
         peer = request.client.host if request.client else ""
         if not access.allow_attempt(peer):
-            throttled = page("login", "尝试次数过多，请稍后再试。", 429)
+            throttled = JSONResponseFail(
+                msg="尝试次数过多，请稍后再试。", status_code=429, headers=headers
+            )
             throttled.headers["Retry-After"] = str(LOGIN_WINDOW)
             return throttled
         body = bytearray()
@@ -102,7 +105,7 @@ def monitor_router(access: MonitorAccess | None) -> APIRouter:
             async with asyncio.timeout(5):
                 async for chunk in request.stream():
                     if len(body) + len(chunk) > 4096:
-                        return page("login", "请求过大。", 413)
+                        return JSONResponseFail(msg="请求过大。", status_code=413, headers=headers)
                     body.extend(chunk)
             values = parse_qs(
                 body.decode("ascii"),
@@ -111,11 +114,11 @@ def monitor_router(access: MonitorAccess | None) -> APIRouter:
                 errors="strict",
             ).get("password", [])
         except (UnicodeError, ValueError, TimeoutError, ClientDisconnect):
-            return page("login", "请求无效。", 400)
+            return JSONResponseFail(msg="请求无效。", status_code=400, headers=headers)
         if len(values) != 1 or not 0 < len(values[0]) <= 1024:
-            return page("login", "请输入节点监控密码。", 400)
+            return JSONResponseFail(msg="请输入节点监控密码。", status_code=400, headers=headers)
         if not await access.verify(values[0]):
-            return page("login", "密码不正确。", 401)
+            return JSONResponseFail(msg="密码不正确。", status_code=401, headers=headers)
         response = RedirectResponse(PREFIX, 303, headers=headers)
         response.set_cookie(
             COOKIE_NAME,
@@ -135,7 +138,7 @@ def monitor_router(access: MonitorAccess | None) -> APIRouter:
             return blocked
         assert access is not None
         if not access.accepts_post(request):
-            return page("login", "请求来源无效。", 403)
+            return JSONResponseFail(msg="请求来源无效。", status_code=403, headers=headers)
         response = RedirectResponse(PREFIX, 303, headers=headers)
         response.delete_cookie(
             COOKIE_NAME,
@@ -154,16 +157,16 @@ def monitor_router(access: MonitorAccess | None) -> APIRouter:
             return blocked
         assert access is not None
         if not access.authenticated(request):
-            return JSONResponse({"error": "monitor_login_required"}, 401, headers)
+            return JSONResponseFail(msg="请重新登录", status_code=401, headers=headers)
         runtime: Runtime | None = getattr(request.app.state, "runtime", None)
         if runtime is None:
-            return JSONResponse({"error": "monitor_unavailable"}, 503, headers)
+            return JSONResponseFail(msg="节点监控暂不可用", status_code=503, headers=headers)
         async with refresh_lock:
             clock = asyncio.get_running_loop()
             if cached is None or clock.time() - cached[0] >= 5:
                 value = await read_status(runtime)
                 cached = (clock.time(), value)
-        return JSONResponse(cached[1].model_dump(mode="json"), headers=headers)
+        return JSONResponseSuccess(data=cached[1], headers=headers)
 
     @router.get("/query-cache")
     async def query_cache(request: Request) -> Response:
@@ -172,18 +175,18 @@ def monitor_router(access: MonitorAccess | None) -> APIRouter:
             return blocked
         assert access is not None
         if not access.authenticated(request):
-            return JSONResponse({"error": "monitor_login_required"}, 401, headers)
+            return JSONResponseFail(msg="请重新登录", status_code=401, headers=headers)
         runtime: Runtime | None = getattr(request.app.state, "runtime", None)
         if runtime is None:
-            return JSONResponse({"error": "monitor_unavailable"}, 503, headers)
+            return JSONResponseFail(msg="节点监控暂不可用", status_code=503, headers=headers)
         try:
             query = QueryCacheReportRequest.model_validate(dict(request.query_params))
         except ValidationError:
-            return JSONResponse({"error": "invalid_query_cache_range"}, 422, headers)
+            return JSONResponseFail(msg="请求参数无效", status_code=422, headers=headers)
         report = await runtime.query_cache_metrics.report(
             query.hours, await runtime.query_cache.status()
         )
-        return JSONResponse(report.model_dump(mode="json"), headers=headers)
+        return JSONResponseSuccess(data=report, headers=headers)
 
     @router.post("/manage")
     async def manage(request: Request) -> Response:
@@ -193,33 +196,47 @@ def monitor_router(access: MonitorAccess | None) -> APIRouter:
             return blocked
         assert access is not None
         if not access.authenticated(request):
-            return JSONResponse({"error": "请重新登录"}, 401, headers)
+            return JSONResponseFail(msg="请重新登录", status_code=401, headers=headers)
         if not access.accepts_post(request):
-            return JSONResponse({"error": "请求来源无效"}, 403, headers)
+            return JSONResponseFail(msg="请求来源无效", status_code=403, headers=headers)
         if request.headers.get("content-type", "").split(";", 1)[0] != "application/json":
-            return JSONResponse({"error": "请提交 JSON"}, 415, headers)
+            return JSONResponseFail(msg="请提交 JSON", status_code=415, headers=headers)
         runtime: Runtime | None = getattr(request.app.state, "runtime", None)
         if runtime is None:
-            return JSONResponse({"error": "节点管理暂不可用"}, 503, headers)
+            return JSONResponseFail(msg="节点管理暂不可用", status_code=503, headers=headers)
         body = bytearray()
         try:
             async with asyncio.timeout(5):
                 async for chunk in request.stream():
                     if len(body) + len(chunk) > 4096:
-                        return JSONResponse({"error": "请求过大"}, 413, headers)
+                        return JSONResponseFail(msg="请求过大", status_code=413, headers=headers)
                     body.extend(chunk)
             command = NodeChange.model_validate_json(body)
             async with runtime.database.session_factory() as session:
                 result = await manage_node(session, runtime.settings, command)
         except (ValidationError, ClientDisconnect, TimeoutError):
-            return JSONResponse({"error": "节点 ID、公开地址或请求无效"}, 422, headers)
+            return JSONResponseFail(
+                msg="节点 ID、公开地址或请求无效", status_code=422, headers=headers
+            )
         except AuthFailure as exc:
-            return JSONResponse({"error": exc.message}, exc.status, headers)
+            return JSONResponseFail(
+                msg=exc.message,
+                status_code=exc.status,
+                code=exc.code,
+                headers={
+                    **headers,
+                    **(
+                        {"Retry-After": str(exc.retry_after)} if exc.retry_after is not None else {}
+                    ),
+                },
+            )
         except (SQLAlchemyError, OSError):
-            return JSONResponse({"error": "节点清单或同步记录暂不可用"}, 503, headers)
+            return JSONResponseFail(
+                msg="节点清单或同步记录暂不可用", status_code=503, headers=headers
+            )
         async with refresh_lock:
             cached = None
-        return JSONResponse(result.model_dump(mode="json"), headers=headers)
+        return JSONResponseSuccess(data=result, headers=headers)
 
     return router
 

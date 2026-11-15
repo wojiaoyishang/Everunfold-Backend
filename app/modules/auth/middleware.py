@@ -4,11 +4,29 @@ from collections.abc import Iterable
 
 from starlette.datastructures import Headers, MutableHeaders
 from starlette.middleware.cors import CORSMiddleware
+from starlette.responses import Response
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
-from app.core.responses import JSONResponseFail
+from app.core.responses import JSONResponseFail, JSONResponseSuccess
 from app.modules.maintenance.schemas import MAX_BUNDLE_BYTES
 from app.modules.settings.browser_origins import managed_origin
+
+
+class JSONCORSMiddleware(CORSMiddleware):
+    """Keep Starlette's access policy and headers, with the project's JSON body."""
+
+    def preflight_response(self, request_headers: Headers) -> Response:
+        result = super().preflight_response(request_headers)
+        headers = {
+            key: value
+            for key, value in result.headers.items()
+            if key not in {"content-type", "content-length"}
+        }
+        if result.status_code >= 400:
+            return JSONResponseFail(
+                status_code=result.status_code, msg="请求来源不被允许", headers=headers
+            )
+        return JSONResponseSuccess(status_code=result.status_code, headers=headers)
 
 
 class BusinessCORSMiddleware:
@@ -16,7 +34,7 @@ class BusinessCORSMiddleware:
 
     def __init__(self, app: ASGIApp, allowed_origins: list[str]) -> None:
         self.app = app
-        self.plugins = CORSMiddleware(
+        self.plugins = JSONCORSMiddleware(
             app,
             allow_origins=allowed_origins,
             allow_credentials=True,
@@ -24,7 +42,7 @@ class BusinessCORSMiddleware:
             allow_headers=["*"],
             expose_headers=["Retry-After"],
         )
-        self.private = CORSMiddleware(
+        self.private = JSONCORSMiddleware(
             app,
             allow_origins=allowed_origins,
             allow_credentials=True,
@@ -41,7 +59,7 @@ class BusinessCORSMiddleware:
             ],
             expose_headers=["Retry-After"],
         )
-        self.public = CORSMiddleware(
+        self.public = JSONCORSMiddleware(
             app,
             allow_origins=allowed_origins,
             allow_credentials=False,
@@ -70,7 +88,7 @@ class BusinessCORSMiddleware:
         )
         if origin := managed_origin(scope):
             # Use the standard preflight and response handling for this exact origin.
-            target = CORSMiddleware(
+            target = JSONCORSMiddleware(
                 self.app,
                 allow_origins=[origin],
                 allow_credentials=target.allow_credentials,

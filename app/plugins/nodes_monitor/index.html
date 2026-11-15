@@ -99,14 +99,14 @@
       <div class="dashboard actions">
         <button id="refresh" type="button">刷新状态</button>
         <button id="add" class="primary" type="button" hidden>新增节点</button>
-        <form action="/_nodes/logout" method="post"><button type="submit">退出</button></form>
+        <form id="logout-form" action="/_nodes/logout" method="post"><button type="submit">退出</button></form>
       </div>
     </header>
     <section class="login panel" aria-label="节点监控登录">
-      <form action="/_nodes/login" method="post">
+      <form id="login-form" action="/_nodes/login" method="post">
         <label for="password">节点监控密码</label>
         <input id="password" name="password" type="password" autocomplete="current-password" required maxlength="1024">
-        <p id="message" role="alert">{{message}}</p>
+        <p id="message" role="alert"></p>
         <button class="primary" type="submit">登录</button>
       </form>
     </section>
@@ -153,6 +153,28 @@
     </dialog>
   </main>
   <script>
+    for (const id of ["login-form", "logout-form"]) {
+      const form = document.getElementById(id);
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const message = document.getElementById(id === "login-form" ? "message" : "operation");
+        const button = form.querySelector("button");
+        button.disabled = true;
+        message.textContent = "";
+        try {
+          const response = await fetch(form.action, {
+            method: "POST", body: new URLSearchParams(new FormData(form)), cache: "no-store",
+          });
+          if (response.ok && response.redirected) { location.replace(response.url); return; }
+          const result = await response.json();
+          message.textContent = result.msg || "操作未完成，请重试。";
+        } catch {
+          message.textContent = "连接失败，请重试。";
+        } finally {
+          button.disabled = false;
+        }
+      });
+    }
     if (document.body.dataset.mode === "dashboard") {
       const byId = (id) => document.getElementById(id);
       const editor = byId("editor");
@@ -273,7 +295,9 @@
           const response = await fetch("/_nodes/query-cache?hours=" + encodeURIComponent(byId("query-hours").value), {cache: "no-store", signal: request.signal});
           if (response.status === 401) { location.replace("/_nodes"); return; }
           if (!response.ok) throw new Error("query metrics unavailable");
-          const report = await response.json();
+          const envelope = await response.json();
+          if (!envelope.success) throw new Error("query metrics unavailable");
+          const report = envelope.data;
           if (request.signal.aborted) return;
           const status = "查询缓存" + (queryStates[report.cache_status] ?? "状态未知");
           const available = report.metrics_status === "ready";
@@ -425,8 +449,9 @@
             body: JSON.stringify(payload),
           });
           if (response.status === 401) { location.replace("/_nodes"); return; }
-          const result = await response.json();
-          if (!response.ok) { byId("action-error").textContent = result.error; return; }
+          const envelope = await response.json();
+          if (!response.ok || !envelope.success) { byId("action-error").textContent = envelope.msg; return; }
+          const result = envelope.data;
           byId("operation").textContent = result.queued ? "已安排同步，等待接收器确认。" :
             operation === "delete" ? "节点已删除。" : "节点已保存。";
           editor.close();
@@ -447,7 +472,9 @@
           const response = await fetch("/_nodes/status", { cache: "no-store" });
           if (response.status === 401) { location.replace("/_nodes"); return; }
           if (!response.ok) throw new Error("status unavailable");
-          const value = await response.json();
+          const envelope = await response.json();
+          if (!envelope.success) throw new Error("status unavailable");
+          const value = envelope.data;
           if (editor.open) return;
           const focused = document.activeElement?.dataset;
           revision = value.registry_revision ?? null;

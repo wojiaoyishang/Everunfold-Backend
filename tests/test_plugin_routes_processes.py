@@ -160,7 +160,10 @@ def test_plugin_routes_two_api_replicas_permissions_activation_and_deployment(
         assert a.get(path + "/hello").status_code == 503
         asyncio.run(change_digest(False))
         assert b.get(path + "/hello").status_code == 200
-        schema = a.get("/openapi.json").json()
+        assert a.get("/openapi.json").status_code == 404
+        from app.entrypoints.api import create_app
+
+        schema = create_app(ctx.settings).openapi()
         assert schema["paths"][path + "/inspect"]["post"]["x-everunfold-access"] == "permission"
         ids = [
             operation["operationId"]

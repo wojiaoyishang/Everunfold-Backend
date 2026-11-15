@@ -12,6 +12,7 @@ from app.core.runtime import Runtime
 from app.modules.auth.security import hash_password
 from app.plugins.nodes_monitor.plugin import mount_nodes_monitor
 from app.plugins.nodes_monitor.security import COOKIE_NAME
+from tests.test_http_envelopes import assert_envelope
 
 ORIGIN = "http://127.0.0.1:8001"
 PASSWORD = "isolated monitor password"
@@ -54,8 +55,10 @@ def test_monitor_requires_separate_credentials_and_loads_without_storage(
                 ).status_code
                 == 401
             )
-            assert client.get("/_nodes/query-cache?hours=1").status_code == 401
-            assert client.post("/_nodes/login", data={"password": PASSWORD}).status_code == 403
+            assert_envelope(client.get("/_nodes/query-cache?hours=1"), 401)
+            assert_envelope(client.get("/_nodes/status"), 401)
+            assert_envelope(client.post("/_nodes/manage", json={}), 401)
+            assert_envelope(client.post("/_nodes/login", data={"password": PASSWORD}), 403)
             assert (
                 client.post(
                     "/_nodes/login", data={"password": "wrong"}, headers={"Origin": ORIGIN}
@@ -72,7 +75,7 @@ def test_monitor_requires_separate_credentials_and_loads_without_storage(
             assert "HttpOnly" in success.headers["Set-Cookie"]
             assert "Path=/_nodes" in success.headers["Set-Cookie"]
             assert 'data-mode="dashboard"' in client.get("/_nodes").text
-            value = client.get("/_nodes/status").json()
+            value = client.get("/_nodes/status").json()["data"]
             assert value["api"] == "online"
             assert value["database"] == value["redis"] == "unavailable"
             assert not value["history_available"]
@@ -82,10 +85,14 @@ def test_monitor_requires_separate_credentials_and_loads_without_storage(
             response = client.get("/_nodes/query-cache?hours=1")
             assert response.status_code == 200
             assert "no-store" in response.headers["Cache-Control"]
-            report = response.json()
+            report = response.json()["data"]
             assert report["hours"] == 1
             assert report["metrics_status"] == "unavailable"
-            assert client.get("/_nodes/query-cache?hours=48").status_code == 422
+            assert_envelope(client.get("/_nodes/query-cache?hours=48"), 422)
+            assert_envelope(
+                client.post("/_nodes/manage", headers={"Origin": ORIGIN}, content="wrong"), 415
+            )
+            assert_envelope(client.post("/_nodes/manage", headers={"Origin": ORIGIN}, json={}), 422)
             assert client.post("/_nodes/logout", headers={"Origin": ORIGIN}).status_code == 200
             assert COOKIE_NAME not in client.cookies
             assert client.get("/_nodes/status").status_code == 401
