@@ -716,6 +716,17 @@
             }
           ],
           "title": "Free Bytes"
+        },
+        "sync_check": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SyncCheck"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
@@ -5165,6 +5176,17 @@
           },
           "title": "Replicas",
           "type": "object"
+        },
+        "sync_check": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SyncCheck"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
@@ -5223,6 +5245,17 @@
             }
           ],
           "title": "Public Content"
+        },
+        "sync_check": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SyncCheck"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
@@ -6474,6 +6507,60 @@
       "title": "SitePreferences",
       "type": "object"
     },
+    "SyncCheck": {
+      "additionalProperties": false,
+      "properties": {
+        "interval_seconds": {
+          "maximum": 86400,
+          "minimum": 1,
+          "title": "Interval Seconds",
+          "type": "integer"
+        },
+        "last_checked_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Last Checked At"
+        },
+        "next_check_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Next Check At"
+        },
+        "state": {
+          "enum": [
+            "idle",
+            "ready",
+            "queued",
+            "waiting",
+            "error"
+          ],
+          "title": "State",
+          "type": "string"
+        }
+      },
+      "required": [
+        "interval_seconds",
+        "last_checked_at",
+        "next_check_at",
+        "state"
+      ],
+      "title": "SyncCheck",
+      "type": "object"
+    },
     "TaskProgress": {
       "additionalProperties": false,
       "properties": {
@@ -7501,7 +7588,7 @@
   "title": "SettingsContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "1.47.0",
+  "x-everunfold-contract-version": "1.48.0",
   "x-everunfold-language-regions": {
     "zh": "CN",
     "en": "GB",

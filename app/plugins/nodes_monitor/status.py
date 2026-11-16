@@ -115,6 +115,7 @@ async def probe_receiver(
     return ReceiverProbe(
         state="reachable",
         checked_at=checked,
+        sync_check=report.sync_check,
         replicas={
             "public-settings": report.public_settings,
             "cache-policy": report.cache_policy,

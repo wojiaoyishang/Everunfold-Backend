@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import Annotated, Literal
 
-from pydantic import ConfigDict, Field, model_validator
+from pydantic import AwareDatetime, ConfigDict, Field, model_validator
 
 from app.core.schemas import PublicModel
 from app.modules.settings.node_registry import NodeId, NodeRegistration
@@ -28,6 +28,13 @@ class UnavailableReplica(ReceiverModel):
 ReceiverReplica = ReadyReplica | UnavailableReplica
 
 
+class SyncCheck(ReceiverModel):
+    interval_seconds: int = Field(ge=1, le=86400)
+    last_checked_at: AwareDatetime | None
+    next_check_at: AwareDatetime | None
+    state: Literal["idle", "ready", "queued", "waiting", "error"]
+
+
 class ReceiverStatus(ReceiverModel):
     protocol: Literal["node-status-1"]
     node_id: str = Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$")
@@ -35,6 +42,7 @@ class ReceiverStatus(ReceiverModel):
     public_settings: ReceiverReplica
     cache_policy: ReceiverReplica
     public_content: ReceiverReplica
+    sync_check: SyncCheck | None = None
 
 
 class DeliverySummary(PublicModel):
@@ -66,6 +74,7 @@ class ReceiverProbe(PublicModel):
     ]
     checked_at: datetime | None = None
     replicas: dict[Resource, ReceiverReplica] = Field(default_factory=dict)
+    sync_check: SyncCheck | None = None
 
 
 class NodeStatus(PublicModel):

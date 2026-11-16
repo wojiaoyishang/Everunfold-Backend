@@ -241,12 +241,35 @@ async def delete_cache(
         if exc.state == "unsupported":
             raise AuthFailure(409, 40925, "此节点接收器尚未支持缓存清理") from exc
         raise AuthFailure(502, 50225, "未能确认清理结果，请重新读取节点状态") from exc
-    audit.changes = {
+    changes = {
         "action": operation,
         "status": "completed",
         "removed_files": receipt.removed_files,
         "removed_bytes": receipt.removed_bytes,
     }
+    if operation == "clear":
+        # The disk side effect is verified at this point. Requeue current revisions
+        # after rechecking the binding; DB locks must never span the receiver call.
+        await lock_references(service.session)
+        await service.session.refresh(site, with_for_update=True)
+        current_target = (await read_directory(service.session, service.config)).targets.get(
+            node_id
+        )
+        same_receiver = bool(
+            site.source_epoch == epoch
+            and target
+            and current_target
+            and current_target.enabled
+            and current_target.settings_receiver_url == target.settings_receiver_url
+            and current_target.fastapi_to_nextjs_token_env == target.fastapi_to_nextjs_token_env
+        )
+        if same_receiver:
+            await ContentPublication(service.session, service.config).stage_retry(
+                actor, node_id=node_id
+            )
+            await service.stage_retry(node_id, actor)
+        changes["sync_queued"] = same_receiver
+    audit.changes = changes
     await service.session.commit()
     return JSONResponseSuccess(data=receipt)
 

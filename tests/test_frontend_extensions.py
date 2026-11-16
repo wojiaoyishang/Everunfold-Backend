@@ -222,8 +222,9 @@ def test_internal_registration_requires_real_peer_and_token(
         install.assert_not_called()
 
 
-def test_manual_sync_requires_current_node_credentials(
-    test_settings: Settings, monkeypatch: pytest.MonkeyPatch
+@pytest.mark.parametrize("operation", ["sync", "recover"])
+def test_sync_requires_current_node_credentials(
+    test_settings: Settings, monkeypatch: pytest.MonkeyPatch, operation: str
 ) -> None:
     from app.modules.settings import extensions_router
 
@@ -231,6 +232,7 @@ def test_manual_sync_requires_current_node_credentials(
     monkeypatch.setenv("EXTENSION_OTHER_NODE_TOKEN", "other-test-node-token")
     test_target = FrontendConfig(
         base_url="http://127.0.0.1:3000",
+        settings_receiver_url="http://127.0.0.1:3000",
         enabled=True,
         nextjs_to_fastapi_token_env="EXTENSION_TEST_NODE_TOKEN",
         fastapi_to_nextjs_token_env="EXTENSION_TEST_REVERSE_TOKEN",
@@ -254,10 +256,12 @@ def test_manual_sync_requires_current_node_credentials(
         yield session
 
     stage = AsyncMock()
+    recover = AsyncMock(return_value=False)
     targets = AsyncMock(return_value=configured.frontends)
     monkeypatch.setattr(extensions_router, "read_targets", targets)
     monkeypatch.setattr(extensions_router, "lock_references", AsyncMock())
     monkeypatch.setattr(extensions_router, "stage_node_sync", stage)
+    monkeypatch.setattr(extensions_router, "stage_node_recovery", recover)
     monkeypatch.setattr(
         extensions_router,
         "auth_runtime",
@@ -266,7 +270,7 @@ def test_manual_sync_requires_current_node_credentials(
         ),
     )
     app = create_app(configured)
-    route = "/internal/frontend-nodes/{}/sync"
+    route = f"/internal/frontend-nodes/{{}}/{operation}"
     bearer = {"Authorization": "Bearer local-test-node-token"}
     with TestClient(app, client=("198.51.100.7", 4000)) as client:
         assert (
@@ -282,11 +286,17 @@ def test_manual_sync_requires_current_node_credentials(
         targets.side_effect = (configured.frontends, {})
         assert client.post(route.format("test"), headers=bearer).status_code == 403
         stage.assert_not_awaited()
+        recover.assert_not_awaited()
         session.commit.assert_not_awaited()
 
         targets.side_effect = None
         response = client.post(route.format("test"), headers=bearer)
         assert response.status_code == 200
-        assert response.json()["data"] == {"node_id": "test", "queued": True}
-        stage.assert_awaited_once_with(session, configured, "test", actor="frontend_node")
+        assert response.json()["data"] == {"node_id": "test", "queued": operation == "sync"}
+        if operation == "sync":
+            stage.assert_awaited_once_with(session, configured, "test", actor="frontend_node")
+            recover.assert_not_awaited()
+        else:
+            recover.assert_awaited_once_with(session, configured, "test")
+            stage.assert_not_awaited()
         session.commit.assert_awaited_once()

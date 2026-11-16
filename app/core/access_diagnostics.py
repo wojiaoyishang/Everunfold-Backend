@@ -13,7 +13,9 @@ from fastapi import Request
 
 # Inherit the ASGI server's stderr handler and INFO level, including with access logs off.
 logger = logging.getLogger("uvicorn.error.everunfold.access")
-AccessBoundary = Literal["nodes_monitor", "internal_extensions", "internal_node_sync"]
+AccessBoundary = Literal[
+    "nodes_monitor", "internal_extensions", "internal_node_sync", "internal_node_recovery"
+]
 _recent: OrderedDict[str, float] = OrderedDict()
 _reasons = {
     "monitor_configured": "节点控制台配置已加载",

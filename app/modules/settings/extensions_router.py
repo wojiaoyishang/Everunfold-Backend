@@ -24,8 +24,8 @@ from app.modules.settings.extensions_schemas import (
     ExtensionUsageQuery,
 )
 from app.modules.settings.extensions_service import catalog, install_inventory
-from app.modules.settings.manual_sync import stage_node_sync
-from app.modules.settings.node_registry import NodeRegistration, read_targets
+from app.modules.settings.manual_sync import stage_node_recovery, stage_node_sync
+from app.modules.settings.node_registry import NodeId, NodeRegistration, read_targets
 from app.modules.settings.router import Authorized
 
 router = APIRouter(
@@ -112,17 +112,33 @@ async def authorize_node(
 
 
 @router.post("/internal/frontend-nodes/{node_id}/sync", include_in_schema=False)
-async def request_node_sync(node_id: str, request: Request) -> JSONResponseSuccess:
+async def request_node_sync(node_id: NodeId, request: Request) -> JSONResponseSuccess:
+    return await queue_node_sync(node_id, request, recovery=False)
+
+
+@router.post("/internal/frontend-nodes/{node_id}/recover", include_in_schema=False)
+async def request_node_recovery(node_id: NodeId, request: Request) -> JSONResponseSuccess:
+    return await queue_node_sync(node_id, request, recovery=True)
+
+
+async def queue_node_sync(node_id: str, request: Request, *, recovery: bool) -> JSONResponseSuccess:
     runtime = auth_runtime(request)
     config = runtime.settings
+    boundary: AccessBoundary = "internal_node_recovery" if recovery else "internal_node_sync"
     async with runtime.database.session_factory() as session:
-        await authorize_node(node_id, request, session, config, "internal_node_sync")
+        await authorize_node(node_id, request, session, config, boundary)
         await lock_references(session)
         # Node registration and pairing can change before we acquire the lock.
-        await authorize_node(node_id, request, session, config, "internal_node_sync")
-        await stage_node_sync(session, config, node_id, actor="frontend_node")
+        target = await authorize_node(node_id, request, session, config, boundary)
+        if not target.settings_receiver_url:
+            raise AuthFailure(409, 40925, "请先启用节点并绑定同步接收器")
+        if recovery:
+            queued = await stage_node_recovery(session, config, node_id)
+        else:
+            await stage_node_sync(session, config, node_id, actor="frontend_node")
+            queued = True
         await session.commit()
-    return JSONResponseSuccess(data={"node_id": node_id, "queued": True})
+    return JSONResponseSuccess(data={"node_id": node_id, "queued": queued})
 
 
 @router.post("/internal/extensions/{node_id}")

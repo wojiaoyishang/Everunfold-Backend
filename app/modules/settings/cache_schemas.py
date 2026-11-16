@@ -8,7 +8,7 @@ from pydantic import Field, model_validator
 from app.core.schemas import PublicModel
 from app.modules.settings.cache_event_schema import CacheResource
 from app.modules.settings.node_registry import NodeId
-from app.modules.settings.nodes_schemas import DeliverySummary, ReceiverModel
+from app.modules.settings.nodes_schemas import DeliverySummary, ReceiverModel, SyncCheck
 
 ByteCount = Annotated[int, Field(ge=0, le=9007199254740991)]
 Revision = Annotated[int, Field(ge=1, le=9007199254740991)]
@@ -46,6 +46,7 @@ class CacheReceiverStatus(ReceiverModel):
     source_epoch: str
     resources: list[CacheDiskResource] = Field(min_length=3, max_length=3)
     free_bytes: ByteCount | None
+    sync_check: SyncCheck | None = None
 
     @model_validator(mode="after")
     def unique_resources(self) -> "CacheReceiverStatus":
