@@ -412,7 +412,11 @@ async def locked_article(
                 await session.execute(
                     delete(Taxonomy).where(Taxonomy.id.in_([t.id for t in terms]))
                 )
-                keys = [f"content-access:{suffix}", f"content-access:{suffix}:{article.id}"]
+                keys = [
+                    f"content-access:{suffix}",
+                    f"content-access:{suffix}:{article.id}",
+                    f"article-views:{suffix}",
+                ]
                 await session.execute(
                     delete(AuthRateLimit).where(
                         AuthRateLimit.key_hash.in_(
@@ -447,6 +451,18 @@ async def test_locked_article_cover_and_unlocked_taxonomies(
         assert locked["access"] == "password" and locked["cover_url"] == article.cover_url
         assert not locked["content"] and not locked["media_urls"] and not locked["excerpt"]
         assert not locked["categories"] and not locked["tags"]
+        params = {"ids": [str(article.id), str(uuid.uuid4())]}
+        visit = {"content_id": str(article.id)}
+        initial = await client.get("/v1/reader/metrics", params=params)
+        assert initial.status_code == 200 and "no-store" in initial.headers["cache-control"]
+        assert initial.json()["data"]["items"] == [{**visit, "views": 0}]
+        untrusted = await client.post(
+            "/v1/reader/views", json=visit, headers={"Origin": "https://untrusted.example"}
+        )
+        assert untrusted.status_code == 403
+        first_visit = await client.post("/v1/reader/views", json=visit)
+        assert first_visit.status_code == 200, first_visit.text
+        assert first_visit.json()["data"] == {**visit, "views": 1}
         denied = await client.post("/v1/reader/access", json={"id": str(article.id)})
         assert denied.status_code == 403, denied.text
         unlocked = await client.post(
@@ -461,6 +477,12 @@ async def test_locked_article_cover_and_unlocked_taxonomies(
             (terms[0].slug, 0)
         ]
         assert [(term["slug"], term["count"]) for term in detail["tags"]] == [(terms[1].slug, 0)]
+        assert (await client.get("/v1/reader/metrics", params=params)).json()["data"]["items"] == [
+            {**visit, "views": 1}
+        ]
+        second_visit = await client.post("/v1/reader/views", json=visit)
+        assert second_visit.status_code == 200, second_visit.text
+        assert second_visit.json()["data"] == {**visit, "views": 2}
         taxonomies = await client.get("/v1/taxonomies")
         assert taxonomies.status_code == 200, taxonomies.text
         assert not {term.slug for term in terms} & {
