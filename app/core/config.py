@@ -5,6 +5,7 @@ import os
 import re
 import tomllib
 from collections.abc import Mapping
+from contextlib import suppress
 from pathlib import Path
 from typing import Literal, Self
 from urllib.parse import urlsplit
@@ -213,6 +214,47 @@ class FrontendConfig(ConfigModel):
         return value
 
 
+def setup_frontend_binding(
+    metadata: object, environment: Mapping[str, str]
+) -> tuple[str, FrontendConfig] | None:
+    """Read the binding saved by setup, leaving publication and enablement to the console."""
+    if not isinstance(metadata, dict) or metadata.get("receiver", "") == "":
+        return None
+    node = metadata.get("node")
+    receiver = metadata.get("receiver")
+    inbound_name, outbound_name = metadata.get("inbound_env"), metadata.get("outbound_env")
+    if (
+        not isinstance(node, str)
+        or not _IDENTIFIER.fullmatch(node)
+        or not isinstance(receiver, str)
+        or re.search(r"[\s\x00-\x1f\x7f\\?#*]", receiver)
+    ):
+        raise ConfigurationError("请在助手中填写有效的节点 ID 和内部接收器 URL。")
+    if not isinstance(inbound_name, str) or not isinstance(outbound_name, str):
+        raise ConfigurationError("前端配对的令牌引用无效。")
+    try:
+        receiver = validate_http_base(receiver)
+        address = urlsplit(receiver)
+        if address.port == 0 or address.hostname in {"0.0.0.0", "::"}:
+            raise ValueError
+        binding = FrontendConfig(
+            base_url=receiver,
+            settings_receiver_url=receiver,
+            allow_private_http=metadata.get("allow_private_http", False),
+            nextjs_to_fastapi_token_env=inbound_name,
+            fastapi_to_nextjs_token_env=outbound_name,
+        )
+    except ValueError:
+        raise ConfigurationError("前端配对的内部接收器 URL 或令牌引用无效。") from None
+    inbound = environment.get(inbound_name, "")
+    outbound = environment.get(outbound_name, "")
+    if inbound == outbound or not all(
+        re.fullmatch(r"[!-~]{32,4096}", v) for v in (inbound, outbound)
+    ):
+        raise ConfigurationError("节点令牌缺失或无效。")
+    return node, binding
+
+
 class NodesMonitorConfig(ConfigModel):
     enabled: bool = False
     origin: str | None = None
@@ -386,6 +428,11 @@ class Settings(ConfigModel):
     auth: AuthConfig = Field(default_factory=AuthConfig)
     media: MediaConfig = Field(default_factory=MediaConfig)
     _config_directory: Path = PrivateAttr(default=PROJECT_ROOT)
+    _setup_frontend: tuple[str, FrontendConfig] | None = PrivateAttr(default=None)
+
+    @property
+    def setup_frontend(self) -> tuple[str, FrontendConfig] | None:
+        return self._setup_frontend
 
     @property
     def uploads_directory(self) -> Path:
@@ -532,12 +579,14 @@ def load_settings(
     """Load an explicit file then allowlisted overrides; never auto-load .env files."""
     environment = os.environ if environ is None else environ
     path = configuration_path(config_file, environ=environment, project_root=project_root)
+    assistant = None
     if path.suffix.lower() in {".yaml", ".yml"}:
         try:
             document = read_deployment(path)
         except DeploymentConfigError as exc:
             raise ConfigurationError(str(exc)) from None
         data = document["application"]
+        assistant = document.get("assistant")
         environment = {**document.get("environment", {}), **environment}
         data_dir = Path(environment.get("EVERUNFOLD_DATA_DIR", str(project_root / "var/instance")))
         media = data.setdefault("media", {})
@@ -619,9 +668,12 @@ def load_settings(
             raise ConfigurationError("Invalid EVERUNFOLD_NODES_TLS_PROXY_IPS") from None
     try:
         settings = Settings.model_validate(data)
-        settings._config_directory = path.resolve().parent
-        return settings
     except ValidationError as exc:
         # Pydantic's full error rendering includes input values, including credentials.
         locations = sorted({".".join(str(part) for part in error["loc"]) for error in exc.errors()})
         raise ConfigurationError("Invalid configuration fields: " + ", ".join(locations)) from None
+    settings._config_directory = path.resolve().parent
+    # An incomplete optional pairing must not prevent existing nodes from running.
+    with suppress(ConfigurationError):
+        settings._setup_frontend = setup_frontend_binding(assistant, environment)
+    return settings

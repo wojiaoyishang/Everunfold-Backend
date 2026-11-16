@@ -75,6 +75,15 @@ def registry_directory(record: FrontendNodeRegistry) -> NodeDirectory:
     )
 
 
+def registration_bindings(directory: NodeDirectory, config: Settings) -> dict[str, FrontendConfig]:
+    """Offer the saved setup pairing during explicit console registration."""
+    pairing = config.setup_frontend
+    if pairing is None:
+        return directory.bindings
+    node_id, binding = pairing
+    return {node_id: binding, **directory.bindings}
+
+
 async def registry_record(
     session: AsyncSession, *, lock: bool = False
 ) -> FrontendNodeRegistry | None:

@@ -360,6 +360,19 @@
         if (history?.next_retry_at) card.append(el("p", "下次重试 " + stamp(history.next_retry_at), "detail"));
         return card;
       }
+      let pendingPairings = new Set();
+      function pairingCard(id) {
+        const card = el("article", undefined, "panel node");
+        const heading = el("div", undefined, "node-heading");
+        const button = el("button", "设置公开地址", "primary");
+        button.type = "button";
+        button.dataset.node = id;
+        button.dataset.action = "pair";
+        button.addEventListener("click", () => openEditor("add", { id }, button));
+        heading.append(el("h2", id), button);
+        card.append(heading, el("p", "已保存配对，待填写前端公开地址。", "muted"));
+        return card;
+      }
       function nodeCard(node) {
         const card = el("article", undefined, "panel node");
         const heading = el("div", undefined, "node-heading");
@@ -372,7 +385,8 @@
           button.addEventListener("click", () => openEditor(operation, node, button));
           return button;
         };
-        actions.append(el("span", node.enabled ? "已启用" : node.bound ? "已停用" : "待登记连接", "muted"));
+        const paired = node.bound || pendingPairings.has(node.id);
+        actions.append(el("span", node.enabled ? "已启用" : paired ? "已停用" : "待登记连接", "muted"));
         if (node.enabled && node.receiver_configured && revision !== null) {
           actions.append(operationButton("重新同步", "sync"));
         }
@@ -400,29 +414,31 @@
         action = { operation, revision, id: node?.id };
         returnFocus = trigger;
         const editable = operation === "add" || operation === "edit";
+        const paired = Boolean(node && pendingPairings.has(node.id));
         byId("editor-title").textContent = {
-          add: "新增节点", edit: "配置节点", delete: "删除节点", sync: "重新同步",
+          add: paired ? "设置公开地址" : "新增节点", edit: "配置节点",
+          delete: "删除节点", sync: "重新同步",
         }[operation];
         byId("fields").hidden = !editable;
         byId("fields").disabled = !editable;
         const id = byId("node-id");
         const url = byId("node-url");
         id.required = url.required = editable;
-        id.readOnly = operation !== "add";
+        id.readOnly = !editable || operation === "edit" || paired;
         id.value = node?.id ?? "";
         url.value = node?.base_url ?? "";
         byId("node-enabled").checked = node?.enabled ?? false;
-        byId("node-enabled").disabled = operation === "edit" && !node.bound;
+        byId("node-enabled").disabled = operation === "edit" && !node.bound && !paired;
         byId("action-description").textContent = {
-          add: "未登记连接的节点可先保存为停用。",
-          edit: "接收器地址和凭据在后端服务器登记。",
+          add: paired ? "将沿用已保存的内部接收器和令牌。" : "未配对的节点可先保存为停用。",
+          edit: paired ? "将沿用已保存的内部接收器和令牌。" : "接收器地址和凭据在后端服务器登记。",
           delete: "删除 " + node?.id + " 后会停止向它投递，并拒绝后续上报。保留历史记录与前端副本。",
           sync: "向 " + node?.id + " 重发当前站点设置、缓存策略和公开内容。",
         }[operation];
         byId("action-error").textContent = "";
         byId("submit").textContent = operation === "delete" ? "删除" : operation === "sync" ? "重新同步" : "保存";
         editor.showModal();
-        (operation === "add" ? id : operation === "edit" ? url : byId("cancel")).focus();
+        (editable ? id.readOnly ? url : id : byId("cancel")).focus();
       }
       byId("add").addEventListener("click", () => openEditor("add", null, byId("add")));
       byId("cancel").addEventListener("click", () => editor.close());
@@ -478,6 +494,7 @@
           if (editor.open) return;
           const focused = document.activeElement?.dataset;
           revision = value.registry_revision ?? null;
+          pendingPairings = new Set(value.pending_pairings ?? []);
           byId("add").hidden = !(revision > 0);
           byId("sample").textContent = "更新时间 " + stamp(value.sampled_at);
           byId("notice").textContent = revision === null ?
@@ -490,15 +507,24 @@
             item.append(el("dt", label), el("dd", show(status), stateClass(status)));
             return item;
           }));
-          byId("nodes").replaceChildren(...(value.nodes.length
-            ? value.nodes.map(nodeCard) : [el("p", "尚未配置前端节点。", "muted")]));
+          const registered = new Set(value.nodes.map((node) => node.id));
+          const cards = [
+            ...value.nodes.map(nodeCard),
+            ...Array.from(pendingPairings).filter((id) => !registered.has(id)).map(pairingCard),
+          ];
+          byId("nodes").replaceChildren(...(cards.length ? cards : [el("p", "尚未配置前端节点。", "muted")]));
           if (focused?.node && focused?.action) {
-            const target = Array.from(byId("nodes").querySelectorAll("button")).find(
-              (item) => item.dataset.node === focused.node && item.dataset.action === focused.action,
-            );
-            (target ?? byId("add")).focus();
+            const buttons = Array.from(byId("nodes").querySelectorAll("button"));
+            const target = buttons.find(
+              (item) => item.dataset.node === focused.node && item.dataset.action === focused.action
+            ) ?? buttons.find((item) => item.dataset.node === focused.node && item.dataset.action === "edit");
+            (target ?? (byId("add").hidden ? byId("refresh") : byId("add"))).focus();
           }
-          if (revision === 0) byId("notice").textContent = "当前使用部署文件。导入节点清单后可在此增删和配置。";
+          if (revision === 0 && !pendingPairings.size) {
+            byId("notice").textContent = value.nodes.length
+              ? "当前使用部署文件。导入节点清单后可在此增删和配置。"
+              : "在 setup 保存前端配对并重启后端。";
+          }
         } catch {
           byId("notice").textContent = "状态更新失败。页面保留上次读取的数据。";
         } finally {

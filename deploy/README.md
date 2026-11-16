@@ -172,7 +172,7 @@ setup 的“节点控制台”分组提供**启用开关（1/0）、密码和会
 
 终端直接输出节点连接 Base64，只包含该节点 ID、后端发布 URL、来源 UUID 和双向令牌，不包含数据库、Redis 或站点主密钥。前端在 setup 或 `/admin/_nodes` 粘贴导入，无需跨容器访问文件。不同前端分别选择不同节点 ID 导出，原节点令牌保留。新增令牌后执行 `./setup.sh --docker start`，让运行中的后端重新加载环境。
 
-前端上线后，在 `/_nodes` 添加该节点的前端公开 URL 并启用；内部接收器地址和令牌绑定已经由助手登记。已有启用节点如需更换内部绑定，先在控制台停用，再执行登记。应用后台“设置 → 节点状态与维护”负责首次公开内容同步。
+保存后重启后端，`/_nodes` 会显示已经保存的配对，例如 `web-main`。点击“设置公开地址”，填前端发布 URL 并按需启用。节点 ID、内部接收器、私有 HTTP 设置和双向令牌引用直接沿用 setup。已有登记可通过“配置”修改公开地址与启停。已有启用节点如需更换内部绑定，先在控制台停用，再执行登记。应用后台“设置 → 节点状态与维护”负责首次公开内容同步。
 
 ### 5. 文件、挂载与日常操作
 
@@ -282,7 +282,7 @@ API worker 数量、Celery 池及并发数从 YAML 的 `environment` 读取，�
 - `monitor_host_mismatch`：请求 Host 与发布 URL 不符；`monitor_https_required`：缺少正确的 HTTPS 协议。
 - `monitor_proxy_untrusted`：实际直连 TLS 代理 IP 未获信任。核对“宿主机反代所在的 Docker 网络”推导的网关，或填写日志中的实际代理 IP。
 - `peer_not_allowed`、`token_missing`、`token_mismatch`：内部上报的真实来源或令牌未通过。日志含来源 IP、节点 ID及有效允许列表，不含密码、令牌、正文或查询参数。
-- `node_not_registered` / `node_disabled`：节点未加入运行清单或未启用。**导出连接 Base64 只登记内部绑定**，还须在后端 `/_nodes` 新增/启用相同节点 ID；仅令牌正确仍会被拒绝。
+- `node_not_registered` / `node_disabled`：节点未加入运行清单或未启用。在后端 `/_nodes` 选择相应的配对，补前端公开地址并启用；令牌也须匹配。
 
 内部调用使用所选网络的实际 CIDR 与手填来源，保留 IP **且** Token 校验。HTTPS 节点控制台用所选宿主网桥的网关或手填代理 IP 校验直连代理。
 

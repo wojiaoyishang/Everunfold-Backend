@@ -12,7 +12,12 @@ from pydantic import ValidationError
 from app.core.config import FrontendConfig
 from app.core.jobs.schemas import RuntimeInstance
 from app.core.runtime import Runtime
-from app.modules.settings.node_registry import NodeDirectory, deployment_directory, read_directory
+from app.modules.settings.node_registry import (
+    NodeDirectory,
+    deployment_directory,
+    read_directory,
+    registration_bindings,
+)
 from app.modules.settings.nodes_schemas import (
     MonitorStatus,
     NodeStatus,
@@ -20,6 +25,10 @@ from app.modules.settings.nodes_schemas import (
     ReceiverStatus,
 )
 from app.modules.settings.sync_status import read_history
+
+
+class DeploymentMonitorStatus(MonitorStatus):
+    pending_pairings: list[str]
 
 
 async def read_processes(runtime: Runtime) -> tuple[str, str]:
@@ -110,7 +119,7 @@ async def probe_receiver(
     )
 
 
-async def read_status(runtime: Runtime) -> MonitorStatus:
+async def read_status(runtime: Runtime, *, include_pairings: bool = False) -> MonitorStatus:
     sampled = datetime.now(UTC)
     timeout = runtime.settings.runtime.health_check_timeout_seconds
     revision = None
@@ -195,7 +204,7 @@ async def read_status(runtime: Runtime) -> MonitorStatus:
                 node.receiver = ReceiverProbe(state="unreachable", checked_at=datetime.now(UTC))
 
         await asyncio.gather(*(check(node) for node in nodes))
-    return MonitorStatus(
+    status = MonitorStatus(
         sampled_at=sampled,
         database="online" if database else "unavailable",
         redis="online" if redis else "unavailable",
@@ -205,3 +214,11 @@ async def read_status(runtime: Runtime) -> MonitorStatus:
         registry_revision=revision,
         nodes=nodes,
     )
+    if not include_pairings:
+        return status
+    pending = (
+        sorted(registration_bindings(directory, runtime.settings).keys() - targets.keys())
+        if revision is not None and (revision > 0 or not directory.entries)
+        else []
+    )
+    return DeploymentMonitorStatus(**status.model_dump(), pending_pairings=pending)

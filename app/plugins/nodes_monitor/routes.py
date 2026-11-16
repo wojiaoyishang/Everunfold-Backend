@@ -173,7 +173,7 @@ def monitor_router(access: MonitorAccess | None) -> APIRouter:
         async with refresh_lock:
             clock = asyncio.get_running_loop()
             if cached is None or clock.time() - cached[0] >= 5:
-                value = await read_status(runtime)
+                value = await read_status(runtime, include_pairings=True)
                 cached = (clock.time(), value)
         return JSONResponseSuccess(data=cached[1], headers=headers)
 

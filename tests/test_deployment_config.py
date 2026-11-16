@@ -8,6 +8,7 @@ import yaml
 
 from app.core.config import ConfigurationError, load_settings
 from app.core.deployment_config import DeploymentConfigError, read_deployment
+from app.modules.settings.node_registry import deployment_directory, registration_bindings
 from deploy import container_entry
 
 
@@ -64,6 +65,34 @@ def test_relative_upload_directory_is_under_data(tmp_path: Path) -> None:
     path.write_text(yaml.safe_dump(document))
     settings = load_settings(path, environ={"EVERUNFOLD_DATA_DIR": "/data"})
     assert settings.media.uploads_path == "/data/media"
+
+
+def test_setup_pairing_can_be_reused_only_by_explicit_console_registration(tmp_path: Path) -> None:
+    path = write_root(tmp_path)
+    document = read_deployment(path)
+    document["assistant"] = {
+        "node": "web-main",
+        "receiver": "http://everunfold-frontend:3000",
+        "allow_private_http": True,
+        "inbound_env": "TEST_FRONTEND_INBOUND",
+        "outbound_env": "TEST_FRONTEND_OUTBOUND",
+    }
+    document["environment"].update(TEST_FRONTEND_INBOUND="i" * 43, TEST_FRONTEND_OUTBOUND="o" * 43)
+    path.write_text(yaml.safe_dump(document))
+    settings = load_settings(path, environ={})
+    directory = deployment_directory(settings)
+    binding = registration_bindings(directory, settings)["web-main"]
+    assert binding.settings_receiver_url == "http://everunfold-frontend:3000"
+    assert binding.nextjs_to_fastapi_token_env == "TEST_FRONTEND_INBOUND"
+    assert binding.fastapi_to_nextjs_token_env == "TEST_FRONTEND_OUTBOUND"
+    assert not directory.entries and not directory.targets
+    assert "TEST_FRONTEND_INBOUND" not in settings.model_dump_json()
+    # An existing registered binding remains authoritative.
+    existing = binding.model_copy(update={"settings_receiver_url": "https://existing.example.test"})
+    directory.bindings["web-main"] = existing
+    assert registration_bindings(directory, settings)["web-main"] == existing
+    incomplete = load_settings(path, environ={"TEST_FRONTEND_OUTBOUND": ""})
+    assert incomplete.setup_frontend is None
 
 
 def test_docker_gateway_grant_is_an_exact_proxy_address_and_not_an_internal_grant(

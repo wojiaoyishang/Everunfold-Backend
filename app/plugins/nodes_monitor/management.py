@@ -10,10 +10,11 @@ from app.modules.auth.models import AuthAuditEvent
 from app.modules.auth.service import AuthFailure
 from app.modules.content.publication import ContentPublication
 from app.modules.media.locking import lock_references
-from app.modules.settings.models import SettingsDeliveryEvent
+from app.modules.settings.models import FrontendNodeRegistry, SettingsDeliveryEvent
 from app.modules.settings.node_registry import (
     MAX_NODES,
     deployment_directory,
+    registration_bindings,
     registry_directory,
     registry_record,
 )
@@ -49,6 +50,12 @@ async def manage_node(
         raise AuthFailure(409, 40927, "节点 ID 已存在")
     if action != "add" and previous is None:
         raise AuthFailure(404, 40420, "节点不存在")
+    binding = registration_bindings(directory, settings).get(node_id)
+    create_registry = (
+        record is None and action == "add" and not directory.entries and binding is not None
+    )
+    if create_registry:
+        record = FrontendNodeRegistry(id=1, revision=0, nodes={}, bindings={})
     if action != "sync" and record is None:
         raise AuthFailure(409, 40928, "请先在后端服务器导入节点清单，启用在线管理")
 
@@ -57,7 +64,7 @@ async def manage_node(
         entries = dict(record.nodes)
         if action == "delete":
             entries.pop(node_id)
-            # A future node with the same ID must be explicitly bound again.
+            # Reusing this ID requires an explicit registration or deployment import.
             record.bindings = {
                 key: value for key, value in record.bindings.items() if key != node_id
             }
@@ -67,9 +74,10 @@ async def manage_node(
             assert value is not None
             if action == "add" and len(entries) >= MAX_NODES:
                 raise AuthFailure(422, 42226, "节点数量已达上限")
-            binding = directory.bindings.get(node_id)
             if value.enabled and binding is None:
                 raise AuthFailure(409, 40929, "请先在后端服务器登记该节点的连接")
+            if binding is not None and node_id not in directory.bindings:
+                record.bindings = record.bindings | {node_id: binding.model_dump()}
             entries[node_id] = value.model_dump()
             if not value.enabled:
                 await revoke_leases(session, node_id)
@@ -81,6 +89,8 @@ async def manage_node(
             )
         record.nodes = entries
         record.revision += 1
+        if create_registry:
+            session.add(record)
         await session.flush()
 
     if queued:

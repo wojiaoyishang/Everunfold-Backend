@@ -31,9 +31,7 @@ _reasons = {
         "前端真实来源 IP 未获允许；核对内部连接 URL、所选 Docker 网络和 internal_auth 来源列表"
     ),
     "token_missing": "缺少 Bearer 令牌；检查前端到后端令牌及反向代理 Authorization",
-    "node_not_registered": (
-        "节点 ID 尚未登记为可用节点；导出 Base64 只登记内部绑定，须在 /_nodes 添加并启用节点"
-    ),
+    "node_not_registered": ("节点尚未登记；请在 /_nodes 选择已保存的配对，填写前端公开地址并启用"),
     "node_disabled": "节点已登记但未启用；请在 /_nodes 启用该节点",
     "token_unconfigured": "后端进程未加载该节点的前端到后端令牌；保存后重新创建容器",
     "token_mismatch": "前端到后端令牌不匹配；核对同一节点、同一方向的令牌并重新导入 Base64",
