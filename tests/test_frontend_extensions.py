@@ -1,5 +1,7 @@
 """Deployment catalogs never grant browser code-install privileges."""
 
+from contextlib import asynccontextmanager
+from types import SimpleNamespace
 from typing import Any
 from unittest.mock import AsyncMock
 
@@ -218,3 +220,73 @@ def test_internal_registration_requires_real_peer_and_token(
             == 403
         )
         install.assert_not_called()
+
+
+def test_manual_sync_requires_current_node_credentials(
+    test_settings: Settings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from app.modules.settings import extensions_router
+
+    monkeypatch.setenv("EXTENSION_TEST_NODE_TOKEN", "local-test-node-token")
+    monkeypatch.setenv("EXTENSION_OTHER_NODE_TOKEN", "other-test-node-token")
+    test_target = FrontendConfig(
+        base_url="http://127.0.0.1:3000",
+        enabled=True,
+        nextjs_to_fastapi_token_env="EXTENSION_TEST_NODE_TOKEN",
+        fastapi_to_nextjs_token_env="EXTENSION_TEST_REVERSE_TOKEN",
+    )
+    configured = test_settings.model_copy(
+        update={
+            "internal_auth": InternalAuthConfig(allowed_peer_ips=["127.0.0.1"]),
+            "frontends": {
+                "test": test_target,
+                "disabled": test_target.model_copy(update={"enabled": False}),
+                "other": test_target.model_copy(
+                    update={"nextjs_to_fastapi_token_env": "EXTENSION_OTHER_NODE_TOKEN"}
+                ),
+            },
+        }
+    )
+    session = SimpleNamespace(commit=AsyncMock())
+
+    @asynccontextmanager
+    async def sessions():  # type: ignore[no-untyped-def]
+        yield session
+
+    stage = AsyncMock()
+    targets = AsyncMock(return_value=configured.frontends)
+    monkeypatch.setattr(extensions_router, "read_targets", targets)
+    monkeypatch.setattr(extensions_router, "lock_references", AsyncMock())
+    monkeypatch.setattr(extensions_router, "stage_node_sync", stage)
+    monkeypatch.setattr(
+        extensions_router,
+        "auth_runtime",
+        lambda request: SimpleNamespace(
+            settings=configured, database=SimpleNamespace(session_factory=sessions)
+        ),
+    )
+    app = create_app(configured)
+    route = "/internal/frontend-nodes/{}/sync"
+    bearer = {"Authorization": "Bearer local-test-node-token"}
+    with TestClient(app, client=("198.51.100.7", 4000)) as client:
+        assert (
+            client.post(
+                route.format("test"), headers={**bearer, "X-Forwarded-For": "127.0.0.1"}
+            ).status_code
+            == 403
+        )
+    with TestClient(app, client=("127.0.0.1", 4000)) as client:
+        assert client.post(route.format("test")).status_code == 403
+        for node_id in ("unregistered", "other", "disabled"):
+            assert client.post(route.format(node_id), headers=bearer).status_code == 403
+        targets.side_effect = (configured.frontends, {})
+        assert client.post(route.format("test"), headers=bearer).status_code == 403
+        stage.assert_not_awaited()
+        session.commit.assert_not_awaited()
+
+        targets.side_effect = None
+        response = client.post(route.format("test"), headers=bearer)
+        assert response.status_code == 200
+        assert response.json()["data"] == {"node_id": "test", "queued": True}
+        stage.assert_awaited_once_with(session, configured, "test", actor="frontend_node")
+        session.commit.assert_awaited_once()

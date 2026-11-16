@@ -29,7 +29,9 @@ def validate_names(catalog: PluginCatalog, inventory: ExtensionInventory) -> Non
             names.add(name)
 
 
-async def install_backend_plugins(session: AsyncSession, config: Settings) -> bool:
+async def install_backend_plugins(
+    session: AsyncSession, config: Settings, *, commit: bool = True
+) -> bool:
     catalog = plugin_catalog()
     await lock_references(session)
     service = SettingsService(session, config)
@@ -67,5 +69,6 @@ async def install_backend_plugins(session: AsyncSession, config: Settings) -> bo
             await service.enqueue(
                 node, site.source_epoch, "public-settings", site.generation, value
             )
-    await session.commit()
+    if commit:
+        await session.commit()
     return True

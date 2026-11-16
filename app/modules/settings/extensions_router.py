@@ -6,14 +6,16 @@ import os
 from urllib.parse import urlsplit
 
 from fastapi import APIRouter, HTTPException, Request, Response
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.access_diagnostics import log_access
-from app.core.config import is_loopback_host
+from app.core.access_diagnostics import AccessBoundary, log_access
+from app.core.config import FrontendConfig, Settings, is_loopback_host
 from app.core.plugins.loader import plugin_catalog
 from app.core.responses import JSONResponseSuccess
 from app.core.schemas import ErrorResponse, PublicResponse
 from app.modules.auth.router import auth_runtime
 from app.modules.auth.service import AuthFailure
+from app.modules.media.locking import lock_references
 from app.modules.settings.extension_usage import installed_plugins, scan_usage
 from app.modules.settings.extensions_schemas import (
     ExtensionCatalog,
@@ -22,6 +24,7 @@ from app.modules.settings.extensions_schemas import (
     ExtensionUsageQuery,
 )
 from app.modules.settings.extensions_service import catalog, install_inventory
+from app.modules.settings.manual_sync import stage_node_sync
 from app.modules.settings.node_registry import NodeRegistration, read_targets
 from app.modules.settings.router import Authorized
 
@@ -65,14 +68,16 @@ async def check_extension_usage(
     )
 
 
-@router.post("/internal/extensions/{node_id}")
-async def report_extensions(node_id: str, request: Request) -> JSONResponseSuccess:
-    runtime = auth_runtime(request)
-    config = runtime.settings
-
+async def authorize_node(
+    node_id: str,
+    request: Request,
+    session: AsyncSession,
+    config: Settings,
+    boundary: AccessBoundary,
+) -> FrontendConfig:
     def denied(code: str) -> AuthFailure:
         log_access(
-            "internal_extensions",
+            boundary,
             code,
             request=request,
             node_id=node_id,
@@ -93,8 +98,7 @@ async def report_extensions(node_id: str, request: Request) -> JSONResponseSucce
         raise denied("peer_not_allowed")
     if not supplied.startswith("Bearer "):
         raise denied("token_missing")
-    async with runtime.database.session_factory() as session:
-        node = (await read_targets(session, config)).get(node_id)
+    node = (await read_targets(session, config)).get(node_id)
     if not node:
         raise denied("node_not_registered")
     if not node.enabled:
@@ -104,6 +108,29 @@ async def report_extensions(node_id: str, request: Request) -> JSONResponseSucce
         raise denied("token_unconfigured")
     if not hmac.compare_digest(supplied.encode(), ("Bearer " + token).encode()):
         raise denied("token_mismatch")
+    return node
+
+
+@router.post("/internal/frontend-nodes/{node_id}/sync", include_in_schema=False)
+async def request_node_sync(node_id: str, request: Request) -> JSONResponseSuccess:
+    runtime = auth_runtime(request)
+    config = runtime.settings
+    async with runtime.database.session_factory() as session:
+        await authorize_node(node_id, request, session, config, "internal_node_sync")
+        await lock_references(session)
+        # Node registration and pairing can change before we acquire the lock.
+        await authorize_node(node_id, request, session, config, "internal_node_sync")
+        await stage_node_sync(session, config, node_id, actor="frontend_node")
+        await session.commit()
+    return JSONResponseSuccess(data={"node_id": node_id, "queued": True})
+
+
+@router.post("/internal/extensions/{node_id}")
+async def report_extensions(node_id: str, request: Request) -> JSONResponseSuccess:
+    runtime = auth_runtime(request)
+    config = runtime.settings
+    async with runtime.database.session_factory() as session:
+        node = await authorize_node(node_id, request, session, config, "internal_extensions")
     data = bytearray()
     async for chunk in request.stream():
         data.extend(chunk)

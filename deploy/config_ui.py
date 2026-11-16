@@ -33,6 +33,7 @@ ACTIONS = {
     "init-db": 30,
     "migrate": 31,
     "export-node": 32,
+    "sync": 33,
 }
 
 
@@ -286,6 +287,7 @@ class SetupApp(App[int]):
             with Horizontal(classes="buttons"):
                 yield Button("查看 / 复制选中项", id="copy_value")
                 yield Button("查看 / 复制结果", id="copy_results")
+                yield Button("触发同步", id="sync")
             if self.config.backend:
                 with Horizontal(classes="buttons"):
                     yield Button("初始化数据库并构建启动", id="init-deploy", variant="success")
@@ -452,7 +454,7 @@ class SetupApp(App[int]):
             for error in errors:
                 log.write(Text(error, style="red"))
             return
-        if action in ("init-db", "init-deploy", "migrate", "export-node"):
+        if action in ("init-db", "init-deploy", "migrate", "export-node", "sync"):
             description = {
                 "init-db": (
                     "保存配置并检查数据库；仅空库会初始化和创建管理员，已初始化则跳过。继续？"
@@ -463,6 +465,7 @@ class SetupApp(App[int]):
                 ),
                 "migrate": "保存配置，并执行数据库迁移？请先完成数据库备份。",
                 "export-node": "保存配置，登记所选节点的内部连接并输出连接 Base64？",
+                "sync": "保存配置并触发当前节点同步？已用完的投递重试次数将重新计算。",
             }[action]
             if not await self.push_screen_wait(Confirm(description)):
                 return
@@ -508,7 +511,9 @@ class SetupApp(App[int]):
                 self.import_command = frontend_base64_import_command(self.config.native)
                 log.write("在前端项目根目录执行：\n" + self.import_command)
                 log.write("按提示粘贴编码；也可在前端节点页导入。编码包含节点令牌，请按密钥保管。")
-                log.write("配对已保存，还需在后端 /_nodes 登记并启用。前端发布 URL 由前端自行上报。")
+                log.write(
+                    "配对已保存，还需在后端 /_nodes 登记并启用。前端发布 URL 由前端自行上报。"
+                )
                 self.notify("节点连接 Base64 已生成，可直接复制。", title="导出成功")
             finally:
                 self.exporting = False

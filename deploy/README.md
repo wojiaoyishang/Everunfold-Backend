@@ -199,12 +199,20 @@ docker/
 ./setup.sh --docker init-deploy     # 构建、显式初始化空库并启动
 ./setup.sh --docker build           # 只构建
 ./setup.sh --docker start           # 检查后启动或重新创建
+./setup.sh --docker sync            # 重新投递当前节点的同步快照
 docker restart everunfold-backend
 docker stop everunfold-backend
 ```
 
 挂载点在向导中编辑，保存到根 YAML 的 `docker` 小节；相对路径以 `docker/` 为基准。选择另一个代码目录也只读取 `CONFIG_FILE` 指定的原文件，不复制第二份配置。更换数据目录只改变挂载，不搬运原有媒体；请选择原数据目录或自行迁移。容器名称相同时会重新创建属于当前部署的容器，保留宿主数据；遇到无关的同名容器会停止并提示更名。上方日志、停止和重启命令需使用你选定的容器名称。启动统一使用根 `setup.sh`，Compose 用于构建，不要用 `compose up` 绕过额外网络接入。导入旧配置后，根 YAML 中其他应用字段和环境变量会保留，保存前创建 `*.bak` 备份；原 TOML 注释保留在备份里。备份时一并保存根目录 `config.yaml`、数据和数据库。
 
+### 手动触发同步
+
+修正连接问题后，在 setup 选择“触发同步”，或执行 `./setup.sh --docker sync`（原生用 `./setup.sh --native sync`）。后端使用部署数据库权限应用当前代码的后端插件清单，并将所选前端节点的公开设置、缓存策略和内容重新排队，已耗尽的重试次数会重置。节点须在 `/_nodes` 已启用且绑定内部接收器。排队成功后，通过节点状态和部署日志确认 Worker 投递结果。
+
+Docker 模式在本项目运行中的后端容器执行。原生模式由部署账号运行项目工具。多节点部署可由部署账号在运行环境中执行 `python -m tools.trigger_frontend_sync --node-id web-main` 显式选定节点。
+
+前端部署助手的同步请求使用前端到后端的节点令牌，且真实来源 IP 必须在后端允许列表内。该请求只能将自身节点的同步重新排队。
 
 ### 已有部署升级到根配置
 

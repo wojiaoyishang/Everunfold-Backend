@@ -32,6 +32,7 @@ def main() -> None:
             30: "init-db",
             31: "migrate",
             32: "export-node",
+            33: "sync",
         }.get(result, "failed")
         if action in ("saved", "cancelled"):
             print("配置已保存。" if action == "saved" else "已退出，未保存本次修改。")
@@ -111,6 +112,13 @@ def main() -> None:
             print("构建完成。运行 ./setup.sh --native start 启动。")
             return
         action = "start"
+    if action == "sync":
+        if not BACKEND:
+            raise SystemExit("此操作请在后端仓库执行。")
+        if not Path(python).exists():
+            raise SystemExit("后端依赖尚未构建。请先启动后端再触发同步。")
+        execute([python, "-m", "tools.trigger_frontend_sync"])
+        return
     if action in ("init-db", "migrate", "export-node"):
         if not BACKEND:
             raise SystemExit("此操作请在后端仓库执行。")
@@ -169,6 +177,7 @@ def main() -> None:
                     "--initialize" if initialize_then_start else "--prepare",
                 ]
             )
+            execute([python, "-m", "tools.register_backend_plugins", "--apply"])
         else:
             check()
     if BACKEND:

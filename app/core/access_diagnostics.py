@@ -13,6 +13,7 @@ from fastapi import Request
 
 # Inherit the ASGI server's stderr handler and INFO level, including with access logs off.
 logger = logging.getLogger("uvicorn.error.everunfold.access")
+AccessBoundary = Literal["nodes_monitor", "internal_extensions", "internal_node_sync"]
 _recent: OrderedDict[str, float] = OrderedDict()
 _reasons = {
     "monitor_configured": "节点控制台配置已加载",
@@ -46,7 +47,7 @@ def peer_ip(request: Request) -> str:
 
 
 def log_access(
-    boundary: Literal["nodes_monitor", "internal_extensions"],
+    boundary: AccessBoundary,
     code: str,
     *,
     request: Request | None = None,

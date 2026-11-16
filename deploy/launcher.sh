@@ -18,8 +18,8 @@ if [[ "${1:-}" == --native ]]; then native=true; shift; fi
 action=configure
 if [[ $# -gt 0 && "$1" != --connection-file && "$1" != --connection-base64 ]]; then action=$1; shift; fi
 case "$action" in
-  configure|build|deploy|init-deploy|start|check|init-db|migrate|export-node|api|worker|scheduler|web|render) ;;
-  *) echo "用法：./setup.sh [--docker|--native] [configure|build|deploy|init-deploy|start|check|init-db|migrate|export-node|render] [--connection-base64 | --connection-file 文件路径]"; exit 2 ;;
+  configure|build|deploy|init-deploy|start|check|init-db|migrate|export-node|sync|api|worker|scheduler|web|render) ;;
+  *) echo "用法：./setup.sh [--docker|--native] [configure|build|deploy|init-deploy|start|check|init-db|migrate|export-node|sync|render] [--connection-base64 | --connection-file 文件路径]"; exit 2 ;;
 esac
 connection_file=
 if (( $# )); then
@@ -195,7 +195,7 @@ run_tool() {
   run_temporary no "${base[@]}" "${mount_args[@]}" "$setup_image" python "$deploy_dir/bootstrap.py" "$@"
 }
 refresh_layout
-ensure_networks
+if [[ "$action" != sync ]]; then ensure_networks; fi
 if [[ "$action" == configure ]]; then
   [[ -t 0 && -t 1 ]] || { echo "配置界面需要交互终端。" >&2; exit 1; }
   ui_args=()
@@ -230,10 +230,25 @@ if [[ "$action" == configure ]]; then
     0) action=render ;;
     10) echo "已退出，未保存本次修改。"; exit 0 ;;
     20) action=build ;; 21) action=deploy ;; 22) action=init-deploy ;; 30) action=init-db ;;
-    31) action=migrate ;; 32) action=export-node ;; *) exit "$result" ;;
+    31) action=migrate ;; 32) action=export-node ;; 33) action=sync ;; *) exit "$result" ;;
   esac
   refresh_layout
-  ensure_networks
+  if [[ "$action" != sync ]]; then ensure_networks; fi
+fi
+if [[ "$action" == sync ]]; then
+  [[ "$role" == backend ]] || { echo "此操作请在后端仓库执行。" >&2; exit 2; }
+  runtime_id="$(docker container inspect --format '{{if .State.Running}}{{.Id}}{{end}}' "$container_name" 2>/dev/null)" || runtime_id=
+  [[ -n "$runtime_id" ]] || { echo "找不到运行中的后端容器，请先启动后端。" >&2; exit 1; }
+  owner="$(docker container inspect --format '{{index .Config.Labels "org.everunfold.project"}}' "$runtime_id")"
+  component="$(docker container inspect --format '{{index .Config.Labels "org.everunfold.component"}}' "$runtime_id")"
+  [[ "$owner" == "$project_root" && "$component" == backend ]] || { echo "同名容器不属于此后端部署，请核对容器名称。" >&2; exit 1; }
+  config_mount="$(docker container inspect --format '{{range .Mounts}}{{if eq .Destination "/config"}}{{.Source}}{{end}}{{end}}' "$runtime_id")"
+  active_config="$(docker container inspect --format '{{range .Config.Env}}{{if eq (index (split . "=") 0) "CONFIG_FILE"}}{{.}}{{end}}{{end}}' "$runtime_id")"
+  if [[ "$config_mount" != "$(dirname -- "$runtime_config")" || "$active_config" != "CONFIG_FILE=/config/$(basename -- "$runtime_config")" ]]; then
+    echo "运行中的后端容器使用另一份配置。请核对 CONFIG_FILE 或使用保存的配置重新启动后端。" >&2
+    exit 1
+  fi
+  exec docker exec --workdir /workspace "$runtime_id" python -m tools.trigger_frontend_sync
 fi
 [[ -d "$source_dir" ]] || { echo "代码目录不存在：$source_dir" >&2; exit 1; }
 run_tool render
@@ -355,6 +370,9 @@ case "$action" in
     fi
     printf '创建容器 %s：%s → /workspace，%s → /data，%s:%s → %s\n' "$container_name" "$workspace_dir" "$data_dir" "$bind_host" "$publish_port" "$listen_port"
     remove_previous
+    if [[ "$role" == backend ]]; then
+      run_runtime python -m tools.register_backend_plugins --apply
+    fi
     ports=(-p "$bind_host:$publish_port:$listen_port")
     aliases=()
     if [[ "$network" != bridge && -n "$network_alias" ]]; then
