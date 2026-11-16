@@ -1,4 +1,4 @@
-"""Admin access to a node's real disk state and bounded maintenance operations."""
+"""Admin access to a node's real disk state and cache maintenance."""
 
 import asyncio
 import os
@@ -19,6 +19,8 @@ from app.modules.auth.service import AuthFailure
 from app.modules.content.publication import ContentPublication
 from app.modules.media.locking import lock_references
 from app.modules.settings.cache_schemas import (
+    CacheClearReceipt,
+    CacheDeletionReceipt,
     CacheNodeState,
     CachePruneReceipt,
     CacheRebuild,
@@ -61,7 +63,7 @@ async def receiver_request[Result: PublicModel](
     identity: CacheReceiverTarget,
     response_type: type[Result],
     *,
-    prune: bool = False,
+    operation: Literal["status", "prune", "clear"] = "status",
 ) -> Result:
     if target is None or not target.settings_receiver_url:
         raise ReceiverFailure("not_configured")
@@ -70,20 +72,20 @@ async def receiver_request[Result: PublicModel](
     secret = os.environ.get(target.fastapi_to_nextjs_token_env, "")
     if len(secret) < 32:
         raise ReceiverFailure("credential_missing")
-    operation = "prune" if prune else "status"
     url = target.settings_receiver_url + f"/internal/cache/v1/{operation}"
-    timeout = runtime.settings.runtime.health_check_timeout_seconds
+    timeout = {"clear": 30, "prune": 8}.get(
+        operation, runtime.settings.runtime.health_check_timeout_seconds
+    )
+    write = operation != "status"
     try:
         async with (
-            asyncio.timeout(8 if prune else timeout),
-            httpx.AsyncClient(
-                trust_env=False, follow_redirects=False, timeout=timeout + (6 if prune else 0)
-            ) as client,
+            asyncio.timeout(timeout),
+            httpx.AsyncClient(trust_env=False, follow_redirects=False, timeout=timeout) as client,
             client.stream(
-                "POST" if prune else "GET",
+                "POST" if write else "GET",
                 url,
                 headers={"Authorization": "Bearer " + secret, "Accept-Encoding": "identity"},
-                json=identity.model_dump(mode="json") if prune else None,
+                json=identity.model_dump(mode="json") if write else None,
             ) as response,
         ):
             if response.status_code in {401, 403}:
@@ -203,8 +205,13 @@ async def rebuild_cache(
     return JSONResponseSuccess(data=CacheRebuildResult(queued=True))
 
 
-@router.post("/{node_id}/cache/prune", response_model=PublicResponse[CachePruneReceipt])
-async def prune_cache(node_id: NodeId, request: Request, ctx: Authorized) -> JSONResponseSuccess:
+async def delete_cache(
+    node_id: NodeId,
+    request: Request,
+    ctx: Authorized,
+    operation: Literal["prune", "clear"],
+    response_type: type[CacheDeletionReceipt],
+) -> JSONResponseSuccess:
     service = ctx.service
     site = await service.site()
     node, target = await cache_node(node_id, ctx)
@@ -216,7 +223,7 @@ async def prune_cache(node_id: NodeId, request: Request, ctx: Authorized) -> JSO
         user_id=actor,
         resource=f"cache:{node_id}",
         revision=revision,
-        changes={"action": "prune", "status": "requested"},
+        changes={"action": operation, "status": "requested"},
     )
     service.session.add(audit)
     await service.session.commit()
@@ -225,20 +232,30 @@ async def prune_cache(node_id: NodeId, request: Request, ctx: Authorized) -> JSO
             auth_runtime(request),
             target,
             CacheReceiverTarget(node_id=node_id, source_epoch=str(epoch)),
-            CachePruneReceipt,
-            prune=True,
+            response_type,
+            operation=operation,
         )
     except ReceiverFailure as exc:
-        audit.changes = {"action": "prune", "status": "unconfirmed", "receiver": exc.state}
+        audit.changes = {"action": operation, "status": "unconfirmed", "receiver": exc.state}
         await service.session.commit()
         if exc.state == "unsupported":
             raise AuthFailure(409, 40925, "此节点接收器尚未支持缓存清理") from exc
         raise AuthFailure(502, 50225, "未能确认清理结果，请重新读取节点状态") from exc
     audit.changes = {
-        "action": "prune",
+        "action": operation,
         "status": "completed",
         "removed_files": receipt.removed_files,
         "removed_bytes": receipt.removed_bytes,
     }
     await service.session.commit()
     return JSONResponseSuccess(data=receipt)
+
+
+@router.post("/{node_id}/cache/prune", response_model=PublicResponse[CachePruneReceipt])
+async def prune_cache(node_id: NodeId, request: Request, ctx: Authorized) -> JSONResponseSuccess:
+    return await delete_cache(node_id, request, ctx, "prune", CachePruneReceipt)
+
+
+@router.post("/{node_id}/cache/clear", response_model=PublicResponse[CacheClearReceipt])
+async def clear_cache(node_id: NodeId, request: Request, ctx: Authorized) -> JSONResponseSuccess:
+    return await delete_cache(node_id, request, ctx, "clear", CacheClearReceipt)

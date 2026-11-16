@@ -27,6 +27,8 @@ from app.modules.content.models import (
     SiteSettings,
     Taxonomy,
 )
+from app.modules.content.publication import ContentPublication
+from app.modules.content.publication_models import ContentRelease
 from app.modules.content.repository import ContentRepository
 from app.modules.content.router import get_session
 from app.modules.content.service import PublicContentService
@@ -317,6 +319,51 @@ async def test_snapshot_contains_only_public_projection_and_consistent_stats(
     assert snapshot.source_epoch
     # This read transaction must not persist fixtures, create schemas, or write Redis state.
     assert await database_session.scalar(text("SELECT current_database()")) == "everunfold_test"
+
+
+@pytest.mark.parametrize("trigger", ["worker", "retry"])
+async def test_legacy_locked_cover_repairs_create_one_immutable_release(
+    database_session: AsyncSession, isolated_settings: Settings, trigger: str
+) -> None:
+    seeded = await seed_public_case(database_session)
+    with_cover, without_cover = seeded["contents"][:2]
+    for article in (with_cover, without_cover):
+        article.visibility = "password"
+        article.access_password_hash = "test-hash"
+        article.opens_at = datetime.now(UTC) + timedelta(days=1)
+    with_cover.cover_url = "/media/cover.webp"
+    await database_session.flush()
+
+    site = await database_session.get(SiteSettings, 1)
+    assert site is not None
+    epoch, revision = site.source_epoch, site.content_generation
+    data = (await PublicContentService(ContentRepository(database_session)).snapshot()).model_dump(
+        mode="json"
+    )
+    old_card = next(item for item in data["contents"] if item["id"] == str(with_cover.id))
+    old_card["cover_url"] = None
+    old = ContentRelease(source_epoch=epoch, revision=revision, snapshot=data)
+    database_session.add(old)
+    await database_session.flush()
+
+    publication = ContentPublication(database_session, isolated_settings)
+    if trigger == "worker":
+        assert await publication.stage_legacy_cover_repair()
+    else:
+        await publication.stage_retry(None)
+    await database_session.flush()
+    latest = await database_session.get(ContentRelease, (epoch, revision + 1))
+    assert latest is not None
+    cards = {item["id"]: item for item in latest.snapshot["contents"]}
+    assert cards[str(with_cover.id)]["cover_url"] == with_cover.cover_url
+    assert cards[str(without_cover.id)]["cover_url"] is None
+    assert cards[str(with_cover.id)]["access"] == "scheduled"
+    assert cards[str(with_cover.id)]["content"] == []
+    assert cards[str(with_cover.id)]["media_urls"] == {}
+    assert old_card["cover_url"] is None
+    assert not await publication.stage_legacy_cover_repair()
+    await publication.stage_retry(None)
+    assert site.content_generation == revision + 1
 
 
 @pytest.fixture

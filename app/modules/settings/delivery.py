@@ -23,10 +23,13 @@ async def deliver_batch(config: Settings) -> int:
     database = Database(config.database.url.get_secret_value())
     completed = 0
     try:
+        from app.modules.content.publication import ContentPublication
         from app.modules.content.timed_projection import refresh_opened_content
 
         async with database.session_factory() as session:
-            await refresh_opened_content(session, config)
+            opened = await refresh_opened_content(session, config)
+            if not opened and await ContentPublication(session, config).stage_legacy_cover_repair():
+                await session.commit()
         for _ in range(config.outbox.batch_size):
             now = datetime.now(UTC)
             lease = uuid.uuid4()

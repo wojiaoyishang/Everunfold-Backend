@@ -283,6 +283,45 @@
       "title": "BackendPluginInfo",
       "type": "object"
     },
+    "CacheClearReceipt": {
+      "additionalProperties": false,
+      "properties": {
+        "node_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$",
+          "title": "Node Id",
+          "type": "string"
+        },
+        "source_epoch": {
+          "title": "Source Epoch",
+          "type": "string"
+        },
+        "removed_files": {
+          "minimum": 0,
+          "title": "Removed Files",
+          "type": "integer"
+        },
+        "removed_bytes": {
+          "maximum": 9007199254740991,
+          "minimum": 0,
+          "title": "Removed Bytes",
+          "type": "integer"
+        },
+        "protocol": {
+          "const": "cache-clear-1",
+          "title": "Protocol",
+          "type": "string"
+        }
+      },
+      "required": [
+        "node_id",
+        "source_epoch",
+        "removed_files",
+        "removed_bytes",
+        "protocol"
+      ],
+      "title": "CacheClearReceipt",
+      "type": "object"
+    },
     "CacheDiskResource": {
       "additionalProperties": false,
       "properties": {
@@ -578,11 +617,6 @@
           "title": "Source Epoch",
           "type": "string"
         },
-        "protocol": {
-          "const": "cache-prune-1",
-          "title": "Protocol",
-          "type": "string"
-        },
         "removed_files": {
           "minimum": 0,
           "title": "Removed Files",
@@ -593,14 +627,19 @@
           "minimum": 0,
           "title": "Removed Bytes",
           "type": "integer"
+        },
+        "protocol": {
+          "const": "cache-prune-1",
+          "title": "Protocol",
+          "type": "string"
         }
       },
       "required": [
         "node_id",
         "source_epoch",
-        "protocol",
         "removed_files",
-        "removed_bytes"
+        "removed_bytes",
+        "protocol"
       ],
       "title": "CachePruneReceipt",
       "type": "object"
@@ -3639,6 +3678,34 @@
         "value"
       ],
       "title": "PreviewShortcode",
+      "type": "object"
+    },
+    "PublicResponse_CacheClearReceipt_": {
+      "additionalProperties": false,
+      "properties": {
+        "success": {
+          "default": true,
+          "title": "Success",
+          "type": "boolean"
+        },
+        "code": {
+          "default": 200,
+          "title": "Code",
+          "type": "integer"
+        },
+        "msg": {
+          "default": "请求成功",
+          "title": "Msg",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/CacheClearReceipt"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "title": "PublicResponse[CacheClearReceipt]",
       "type": "object"
     },
     "PublicResponse_CacheNodeState_": {
@@ -7358,6 +7425,9 @@
     },
     "cache_prune_result": {
       "$ref": "#/$defs/PublicResponse_CachePruneReceipt_"
+    },
+    "cache_clear_result": {
+      "$ref": "#/$defs/PublicResponse_CacheClearReceipt_"
     }
   },
   "required": [
@@ -7425,12 +7495,13 @@
     "query_cache_report_request",
     "cache_rebuild",
     "cache_rebuild_result",
-    "cache_prune_result"
+    "cache_prune_result",
+    "cache_clear_result"
   ],
   "title": "SettingsContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "1.46.0",
+  "x-everunfold-contract-version": "1.47.0",
   "x-everunfold-language-regions": {
     "zh": "CN",
     "en": "GB",
@@ -7491,6 +7562,12 @@
       "path": "/v1/admin/frontend-nodes/{node_id}/cache/prune",
       "method": "POST",
       "response": "cache_prune_result"
+    },
+    {
+      "name": "clearNodeCache",
+      "path": "/v1/admin/frontend-nodes/{node_id}/cache/clear",
+      "method": "POST",
+      "response": "cache_clear_result"
     },
     {
       "name": "readNodesMonitor",

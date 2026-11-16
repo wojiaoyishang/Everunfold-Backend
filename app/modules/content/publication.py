@@ -1,6 +1,7 @@
 """Publish a complete public projection and its delivery intent in the caller's transaction."""
 
 import json
+from collections import deque
 from datetime import UTC, datetime
 from uuid import UUID
 
@@ -14,18 +15,21 @@ from app.modules.content.component_document import ComponentDocument
 from app.modules.content.draft_models import ContentDraft
 from app.modules.content.editor_schema import EditorSettings
 from app.modules.content.editor_service import editor_media, publish_taxonomies
-from app.modules.content.models import Content, SearchDocument
+from app.modules.content.models import Content, SearchDocument, SiteSettings
 from app.modules.content.publication_models import ContentRelease
 from app.modules.content.publication_schemas import ContentDelivery, ContentSyncState
-from app.modules.content.repository import ContentRepository
+from app.modules.content.repository import ContentRepository, presentation_conditions
 from app.modules.content.schemas import PublicSnapshot
 from app.modules.content.service import PublicContentService
 from app.modules.content.text_preview import content_preview
+from app.modules.media.locking import lock_references
 from app.modules.settings.cache_event_schema import CacheChange
 from app.modules.settings.cache_events import stage_cache_events
 from app.modules.settings.models import SettingsAudit, SettingsDeliveryEvent
 from app.modules.settings.node_registry import read_directory
 from app.modules.settings.service import SettingsService
+
+_checked_cover_releases: deque[tuple[UUID, int]] = deque(maxlen=16)
 
 
 def cache_path(item: Content | None) -> str | None:
@@ -295,16 +299,61 @@ class ContentPublication:
         await self.session.commit()
         return await self.state()
 
-    async def stage_retry(self, actor_id: UUID | None, *, node_id: str | None = None) -> None:
-        from app.modules.media.locking import lock_references
+    async def _omits_locked_article_covers(self, release: ContentRelease) -> bool:
+        identities = [
+            UUID(item["id"])
+            for item in release.snapshot["contents"]
+            if item.get("kind") == "article"
+            and item.get("access") in {"password", "scheduled", "captcha"}
+            and not item.get("cover_url")
+        ]
+        if not identities:
+            return False
+        return (
+            await self.session.scalar(
+                select(Content.id)
+                .where(
+                    *presentation_conditions(), Content.id.in_(identities), Content.cover_url != ""
+                )
+                .limit(1)
+            )
+            is not None
+        )
 
+    async def stage_legacy_cover_repair(self) -> bool:
+        head = (
+            await self.session.execute(
+                select(SiteSettings.source_epoch, SiteSettings.content_generation).where(
+                    SiteSettings.id == 1
+                )
+            )
+        ).one_or_none()
+        if head is None:
+            return False
+        epoch, revision = head
+        current = (epoch, revision)
+        if current in _checked_cover_releases:
+            return False
+        release = await self.session.get(ContentRelease, current)
+        if release is None or not await self._omits_locked_article_covers(release):
+            # The same release is immutable. Avoid reading the snapshot on each delivery tick.
+            _checked_cover_releases.append(current)
+            return False
+        await lock_references(self.session)
+        site = await SettingsService(self.session, self.config).site(locked=True)
+        if current != (site.source_epoch, site.content_generation):
+            return False
+        await self.stage()
+        return True
+
+    async def stage_retry(self, actor_id: UUID | None, *, node_id: str | None = None) -> None:
         await lock_references(self.session)
         site = await SettingsService(self.session, self.config).site(locked=True)
         release = await self.session.get(
             ContentRelease, (site.source_epoch, site.content_generation)
         )
-        if release is None:
-            # The first release advances the site-wide version and must reach all receivers.
+        if release is None or await self._omits_locked_article_covers(release):
+            # A new projection advances the site-wide version and reaches all receivers.
             release = await self.stage()
         else:
             await self.enqueue(release, node_id=node_id)

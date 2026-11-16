@@ -85,7 +85,14 @@ class CacheReceiverTarget(ReceiverModel):
     source_epoch: str
 
 
-class CachePruneReceipt(CacheReceiverTarget):
-    protocol: Literal["cache-prune-1"]
+class CacheDeletionReceipt(CacheReceiverTarget):
     removed_files: int = Field(ge=0)
     removed_bytes: ByteCount
+
+
+class CachePruneReceipt(CacheDeletionReceipt):
+    protocol: Literal["cache-prune-1"]
+
+
+class CacheClearReceipt(CacheDeletionReceipt):
+    protocol: Literal["cache-clear-1"]

@@ -34,6 +34,7 @@ from app.modules.media.schemas import (
 )
 from app.modules.settings.cache_event_schema import CacheEvent
 from app.modules.settings.cache_schemas import (
+    CacheClearReceipt,
     CacheNodeState,
     CachePruneReceipt,
     CacheRebuild,
@@ -583,3 +584,4 @@ class SettingsContract(PublicModel):
     cache_rebuild: CacheRebuild
     cache_rebuild_result: PublicResponse[CacheRebuildResult]
     cache_prune_result: PublicResponse[CachePruneReceipt]
+    cache_clear_result: PublicResponse[CacheClearReceipt]
