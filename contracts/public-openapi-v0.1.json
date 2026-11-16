@@ -23833,6 +23833,169 @@
         }
       }
     },
+    "/v1/admin/frontend-nodes/{node_id}/cache/clear": {
+      "post": {
+        "tags": [
+          "cache"
+        ],
+        "summary": "Clear Cache",
+        "operationId": "clear_cache_v1_admin_frontend_nodes__node_id__cache_clear_post",
+        "parameters": [
+          {
+            "name": "node_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$",
+              "title": "Node Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicResponse_CacheClearReceipt_"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "405": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Method Not Allowed"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Request Entity Too Large"
+          },
+          "415": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unsupported Media Type"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Gateway"
+          }
+        }
+      }
+    },
     "/v1/admin/extensions": {
       "get": {
         "tags": [
@@ -34289,6 +34452,149 @@
         },
         "x-everunfold-plugin": "everunfold.glossary",
         "x-everunfold-access": "public"
+      },
+      "post": {
+        "tags": [
+          "plugin:everunfold.glossary"
+        ],
+        "summary": "Everunfold.Glossary:Unlocked Matches",
+        "operationId": "everunfold.glossary.unlocked_matches_post_86b5c0aaa203",
+        "parameters": [
+          {
+            "name": "content_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Content Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicResponse_ContentGlossaryMatches_"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "405": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Method Not Allowed"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Request Entity Too Large"
+          },
+          "415": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unsupported Media Type"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "x-everunfold-plugin": "everunfold.glossary",
+        "x-everunfold-access": "public"
       }
     },
     "/v1/plugins/everunfold.glossary/hooks/for-target": {
@@ -39090,6 +39396,45 @@
         ],
         "title": "BranchUpload"
       },
+      "CacheClearReceipt": {
+        "properties": {
+          "node_id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$",
+            "title": "Node Id"
+          },
+          "source_epoch": {
+            "type": "string",
+            "title": "Source Epoch"
+          },
+          "removed_files": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Removed Files"
+          },
+          "removed_bytes": {
+            "type": "integer",
+            "maximum": 9007199254740991.0,
+            "minimum": 0.0,
+            "title": "Removed Bytes"
+          },
+          "protocol": {
+            "type": "string",
+            "const": "cache-clear-1",
+            "title": "Protocol"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "node_id",
+          "source_epoch",
+          "removed_files",
+          "removed_bytes",
+          "protocol"
+        ],
+        "title": "CacheClearReceipt"
+      },
       "CacheDiskResource": {
         "properties": {
           "resource": {
@@ -39285,11 +39630,6 @@
             "type": "string",
             "title": "Source Epoch"
           },
-          "protocol": {
-            "type": "string",
-            "const": "cache-prune-1",
-            "title": "Protocol"
-          },
           "removed_files": {
             "type": "integer",
             "minimum": 0.0,
@@ -39300,6 +39640,11 @@
             "maximum": 9007199254740991.0,
             "minimum": 0.0,
             "title": "Removed Bytes"
+          },
+          "protocol": {
+            "type": "string",
+            "const": "cache-prune-1",
+            "title": "Protocol"
           }
         },
         "additionalProperties": false,
@@ -39307,9 +39652,9 @@
         "required": [
           "node_id",
           "source_epoch",
-          "protocol",
           "removed_files",
-          "removed_bytes"
+          "removed_bytes",
+          "protocol"
         ],
         "title": "CachePruneReceipt"
       },
@@ -40171,6 +40516,12 @@
             "maxProperties": 64,
             "title": "Props"
           },
+          "css": {
+            "type": "string",
+            "maxLength": 4096,
+            "title": "Css",
+            "default": ""
+          },
           "children": {
             "items": {
               "$ref": "#/components/schemas/ComponentNode-Input"
@@ -40217,6 +40568,12 @@
             "type": "object",
             "maxProperties": 64,
             "title": "Props"
+          },
+          "css": {
+            "type": "string",
+            "maxLength": 4096,
+            "title": "Css",
+            "default": ""
           },
           "children": {
             "items": {
@@ -40602,6 +40959,11 @@
             "type": "string",
             "title": "Excerpt"
           },
+          "show_encrypted_excerpt": {
+            "type": "boolean",
+            "title": "Show Encrypted Excerpt",
+            "default": false
+          },
           "language": {
             "type": "string",
             "title": "Language"
@@ -40726,6 +41088,12 @@
             },
             "type": "object",
             "title": "Media Urls"
+          },
+          "extra_css": {
+            "type": "string",
+            "maxLength": 16000,
+            "title": "Extra Css",
+            "default": ""
           }
         },
         "additionalProperties": false,
@@ -41047,6 +41415,11 @@
           "excerpt": {
             "type": "string",
             "title": "Excerpt"
+          },
+          "show_encrypted_excerpt": {
+            "type": "boolean",
+            "title": "Show Encrypted Excerpt",
+            "default": false
           },
           "language": {
             "type": "string",
@@ -42941,6 +43314,17 @@
               }
             ],
             "title": "Share Image Media Id"
+          },
+          "extra_css": {
+            "type": "string",
+            "maxLength": 16000,
+            "title": "Extra Css",
+            "default": ""
+          },
+          "show_encrypted_excerpt": {
+            "type": "boolean",
+            "title": "Show Encrypted Excerpt",
+            "default": false
           },
           "path": {
             "type": "string",
@@ -49927,6 +50311,12 @@
             "title": "Css",
             "default": ""
           },
+          "component_css": {
+            "type": "string",
+            "maxLength": 16000,
+            "title": "Component Css",
+            "default": ""
+          },
           "javascript": {
             "type": "string",
             "maxLength": 100000,
@@ -49968,6 +50358,12 @@
             "type": "string",
             "maxLength": 500,
             "title": "Description",
+            "default": ""
+          },
+          "component_css_override": {
+            "type": "string",
+            "maxLength": 16000,
+            "title": "Component Css Override",
             "default": ""
           },
           "component_parameters": {
@@ -50724,6 +51120,12 @@
             "title": "Css",
             "default": ""
           },
+          "component_css": {
+            "type": "string",
+            "maxLength": 16000,
+            "title": "Component Css",
+            "default": ""
+          },
           "javascript": {
             "type": "string",
             "maxLength": 100000,
@@ -50765,6 +51167,12 @@
             "type": "string",
             "maxLength": 500,
             "title": "Description",
+            "default": ""
+          },
+          "component_css_override": {
+            "type": "string",
+            "maxLength": 16000,
+            "title": "Component Css Override",
             "default": ""
           },
           "component_parameters": {
@@ -52322,6 +52730,34 @@
           "data"
         ],
         "title": "PublicResponse[BranchDetail]"
+      },
+      "PublicResponse_CacheClearReceipt_": {
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "title": "Success",
+            "default": true
+          },
+          "code": {
+            "type": "integer",
+            "title": "Code",
+            "default": 200
+          },
+          "msg": {
+            "type": "string",
+            "title": "Msg",
+            "default": "请求成功"
+          },
+          "data": {
+            "$ref": "#/components/schemas/CacheClearReceipt"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "title": "PublicResponse[CacheClearReceipt]"
       },
       "PublicResponse_CacheNodeState_": {
         "properties": {
@@ -60262,6 +60698,12 @@
             "title": "Css",
             "default": ""
           },
+          "component_css": {
+            "type": "string",
+            "maxLength": 16000,
+            "title": "Component Css",
+            "default": ""
+          },
           "javascript": {
             "type": "string",
             "maxLength": 100000,
@@ -60344,6 +60786,12 @@
             "type": "string",
             "maxLength": 100000,
             "title": "Css",
+            "default": ""
+          },
+          "component_css": {
+            "type": "string",
+            "maxLength": 16000,
+            "title": "Component Css",
             "default": ""
           },
           "javascript": {
@@ -61278,6 +61726,12 @@
             "title": "Css",
             "default": ""
           },
+          "component_css": {
+            "type": "string",
+            "maxLength": 16000,
+            "title": "Component Css",
+            "default": ""
+          },
           "javascript": {
             "type": "string",
             "maxLength": 100000,
@@ -61319,6 +61773,12 @@
             "type": "string",
             "maxLength": 500,
             "title": "Description",
+            "default": ""
+          },
+          "component_css_override": {
+            "type": "string",
+            "maxLength": 16000,
+            "title": "Component Css Override",
             "default": ""
           },
           "component_parameters": {
@@ -62386,5 +62846,5 @@
       }
     }
   },
-  "x-everunfold-contract-version": "0.1.1"
+  "x-everunfold-contract-version": "0.1.2"
 }

@@ -550,6 +550,12 @@
           "title": "Props",
           "type": "object"
         },
+        "css": {
+          "default": "",
+          "maxLength": 4096,
+          "title": "Css",
+          "type": "string"
+        },
         "children": {
           "items": {
             "$ref": "#/$defs/ComponentNode"
@@ -1152,6 +1158,17 @@
           ],
           "default": null,
           "title": "Share Image Media Id"
+        },
+        "extra_css": {
+          "default": "",
+          "maxLength": 16000,
+          "title": "Extra Css",
+          "type": "string"
+        },
+        "show_encrypted_excerpt": {
+          "default": false,
+          "title": "Show Encrypted Excerpt",
+          "type": "boolean"
         },
         "path": {
           "default": "",
@@ -2900,7 +2917,7 @@
   "title": "CollaborationContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "2.10.0",
+  "x-everunfold-contract-version": "2.11.0",
   "x-everunfold-operations": [
     {
       "name": "acquireHtmlSource",

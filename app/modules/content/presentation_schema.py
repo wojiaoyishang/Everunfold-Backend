@@ -27,6 +27,7 @@ class ContentPresentation(ArticleOverrides, SeoFields):
     title: str
     path: str = Field(pattern="^/")
     excerpt: str
+    show_encrypted_excerpt: bool = Field(default=False, exclude_if=lambda value: not value)
     language: str
     translation_group_id: str | None = None
     translations: list[ContentTranslation] = Field(default_factory=list)
@@ -46,6 +47,7 @@ class ContentPresentation(ArticleOverrides, SeoFields):
         default=None, exclude_if=lambda v: v is None
     )
     media_urls: dict[str, MediaURL]
+    extra_css: str = Field(default="", max_length=16000, exclude_if=lambda value: not value)
     comments_open: bool
     show_image_viewer: bool = True
     show_glossary_tooltips: bool = True
@@ -61,9 +63,17 @@ class ContentPresentation(ArticleOverrides, SeoFields):
         if self.type != "shuoshuo" and not self.title.strip():
             raise ValueError("Only shuoshuo may omit its display title")
         if self.access != "public" and (
-            self.content or self.media_urls or self.excerpt or self.component_document is not None
+            self.content
+            or self.media_urls
+            or self.extra_css
+            or (self.excerpt and not self.show_encrypted_excerpt)
+            or self.component_document is not None
         ):
-            raise ValueError("Locked projections must not contain body, media or excerpts")
+            raise ValueError("Locked projections must not contain private reader content")
+        if self.show_encrypted_excerpt and (
+            self.type != "article" or self.access not in {"password", "scheduled"}
+        ):
+            raise ValueError("Only an encrypted article can expose an excerpt")
         if self.access == "scheduled" and self.opens_at is None:
             raise ValueError("Scheduled projections require an opening time")
         return self

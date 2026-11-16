@@ -25,6 +25,7 @@ class ComponentNode(PublicModel):
     id: str = Field(pattern=IDENTIFIER)
     type: str = Field(pattern=r"^[a-z][a-z0-9_-]*\.[a-z][a-z0-9_.-]{0,63}$", max_length=100)
     props: dict[str, JsonValue] = Field(max_length=64)
+    css: str = Field(default="", max_length=4096, exclude_if=lambda value: not value)
     children: list["ComponentNode"] = Field(
         default_factory=list, max_length=300, exclude_if=lambda v: not v
     )

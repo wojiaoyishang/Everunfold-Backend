@@ -25,6 +25,7 @@ from app.modules.content.schemas import (
     TaxonomyDTO,
     TaxonomyKind,
 )
+from app.modules.content.text_preview import content_preview
 
 
 class PublicContentService:
@@ -99,18 +100,28 @@ class PublicContentService:
                 # The taxonomy directory counts publicly readable articles only.
                 related.append(PublicContentService._taxonomy(taxonomy, 0))
         related.sort(key=lambda value: (value.name, value.id))
-        readable = authorized or publicly_readable(item)
+        locked = not password_readable(item)
+        readable = authorized or (not locked and not item.captcha_read_required)
+        editor_settings = item.editor_settings or {}
+        encrypted_excerpt = (
+            content_preview([{"content": item.excerpt}], 1000)
+            if not readable
+            and locked
+            and item.kind == "article"
+            and editor_settings.get("show_encrypted_excerpt") is True
+            else ""
+        )
         public_settings = PublicEditorSettings.model_validate(
             {
                 key: value
                 for key, value in (
-                    (item.editor_settings or {}) if readable else {"comments_open": False}
+                    editor_settings if readable else {"comments_open": False}
                 ).items()
                 if key in PublicEditorSettings.model_fields
             }
         ).model_dump()
         if readable:
-            share_id = (item.editor_settings or {}).get("share_image_media_id")
+            share_id = editor_settings.get("share_image_media_id")
             if share_id:
                 public_settings["share_image_url"] = (
                     (item.media_urls or {}).get(str(share_id), {}).get("original")
@@ -119,18 +130,19 @@ class PublicContentService:
             access="public"
             if readable
             else "captcha"
-            if password_readable(item)
+            if not locked
             else "scheduled"
             if item.opens_at
             else "password",
             captcha_required=bool(item.captcha_read_required),
-            password_required=not password_readable(item),
+            password_required=locked,
             opens_at=item.opens_at,
             id=str(item.id),
             kind=cast(ContentKind, item.kind),
             title=item.title,
             path=item.path,
-            excerpt=item.excerpt if readable else "",
+            excerpt=item.excerpt if readable else encrypted_excerpt,
+            show_encrypted_excerpt=bool(encrypted_excerpt),
             language=item.language,
             translation_group_id=str(item.translation_group_id or item.id),
             published_at=item.published_at,
@@ -180,6 +192,7 @@ class PublicContentService:
                 else "blocks",
                 "component_document": item.component_document if readable else None,
                 "media_urls": item.media_urls if readable else {},
+                "extra_css": (item.editor_settings or {}).get("extra_css", "") if readable else "",
             }
         )
 

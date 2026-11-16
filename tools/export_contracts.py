@@ -7,7 +7,7 @@ from pathlib import Path
 from app.entrypoints.api import create_app
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-CONTRACT_VERSION = "0.1.1"
+CONTRACT_VERSION = "0.1.2"
 
 
 def export_openapi(output: Path) -> None:

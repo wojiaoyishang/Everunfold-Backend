@@ -105,6 +105,7 @@ class PageCode(PublicModel):
     )
     html: str = Field(default="", max_length=200000)
     css: str = Field(default="", max_length=100000)
+    component_css: str = Field(default="", max_length=16000, exclude_if=lambda value: not value)
     javascript: str = Field(default="", max_length=100000)
     javascript_enabled: bool = False
     javascript_position: Literal["head", "body_end"] = "body_end"
@@ -124,6 +125,9 @@ class TitledPageCode(PageCode):
 
 
 class PageSettings(TitledPageCode, SeoFields):
+    component_css_override: str = Field(
+        default="", max_length=16000, exclude_if=lambda value: not value
+    )
     component_parameters: dict[str, JsonValue] = Field(
         default_factory=dict, exclude_if=lambda v: not v
     )

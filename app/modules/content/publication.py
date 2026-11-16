@@ -138,6 +138,10 @@ class ContentPublication:
             if excerpt != draft.excerpt
             else excerpt
         )
+        published_settings = settings.model_dump(mode="json")
+        # An excerpt synthesized from the body is never eligible for public opt-in.
+        if draft.type_id != "article" or not excerpt.strip():
+            published_settings.pop("show_encrypted_excerpt", None)
         excerpt = excerpt or content_preview(preview_blocks)
         await regions.store()
         from app.modules.captcha.service import current_config, required
@@ -164,7 +168,7 @@ class ContentPublication:
             if settings.cover_media_id
             else None,
             pinned=settings.pinned,
-            editor_settings=settings.model_dump(mode="json"),
+            editor_settings=published_settings,
             captcha_read_required=captcha_required,
             publication_status="published",
             visibility=settings.visibility,

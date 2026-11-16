@@ -46,6 +46,12 @@
           "title": "Props",
           "type": "object"
         },
+        "css": {
+          "default": "",
+          "maxLength": 4096,
+          "title": "Css",
+          "type": "string"
+        },
         "children": {
           "items": {
             "$ref": "#/$defs/ComponentNode"
@@ -424,6 +430,11 @@
           "title": "Excerpt",
           "type": "string"
         },
+        "show_encrypted_excerpt": {
+          "default": false,
+          "title": "Show Encrypted Excerpt",
+          "type": "boolean"
+        },
         "language": {
           "title": "Language",
           "type": "string"
@@ -550,6 +561,12 @@
           },
           "title": "Media Urls",
           "type": "object"
+        },
+        "extra_css": {
+          "default": "",
+          "maxLength": 16000,
+          "title": "Extra Css",
+          "type": "string"
         }
       },
       "required": [
@@ -2080,6 +2097,17 @@
           "default": null,
           "title": "Share Image Media Id"
         },
+        "extra_css": {
+          "default": "",
+          "maxLength": 16000,
+          "title": "Extra Css",
+          "type": "string"
+        },
+        "show_encrypted_excerpt": {
+          "default": false,
+          "title": "Show Encrypted Excerpt",
+          "type": "boolean"
+        },
         "path": {
           "default": "",
           "maxLength": 500,
@@ -2771,6 +2799,12 @@
           "title": "Css",
           "type": "string"
         },
+        "component_css": {
+          "default": "",
+          "maxLength": 16000,
+          "title": "Component Css",
+          "type": "string"
+        },
         "javascript": {
           "default": "",
           "maxLength": 100000,
@@ -2812,6 +2846,12 @@
           "default": "",
           "maxLength": 500,
           "title": "Description",
+          "type": "string"
+        },
+        "component_css_override": {
+          "default": "",
+          "maxLength": 16000,
+          "title": "Component Css Override",
           "type": "string"
         },
         "component_parameters": {
@@ -4431,7 +4471,7 @@
   "title": "ContentAdminContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "1.25.0",
+  "x-everunfold-contract-version": "1.26.0",
   "x-everunfold-content-types": [
     {
       "id": "article",

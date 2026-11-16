@@ -556,6 +556,11 @@
           "title": "Excerpt",
           "type": "string"
         },
+        "show_encrypted_excerpt": {
+          "default": false,
+          "title": "Show Encrypted Excerpt",
+          "type": "boolean"
+        },
         "language": {
           "title": "Language",
           "type": "string"
@@ -682,6 +687,12 @@
           },
           "title": "Media Urls",
           "type": "object"
+        },
+        "extra_css": {
+          "default": "",
+          "maxLength": 16000,
+          "title": "Extra Css",
+          "type": "string"
         }
       },
       "required": [
@@ -993,6 +1004,12 @@
           "title": "Css",
           "type": "string"
         },
+        "component_css": {
+          "default": "",
+          "maxLength": 16000,
+          "title": "Component Css",
+          "type": "string"
+        },
         "javascript": {
           "default": "",
           "maxLength": 100000,
@@ -1034,6 +1051,12 @@
           "default": "",
           "maxLength": 500,
           "title": "Description",
+          "type": "string"
+        },
+        "component_css_override": {
+          "default": "",
+          "maxLength": 16000,
+          "title": "Component Css Override",
           "type": "string"
         },
         "component_parameters": {
@@ -1478,6 +1501,12 @@
           "title": "Props",
           "type": "object"
         },
+        "css": {
+          "default": "",
+          "maxLength": 4096,
+          "title": "Css",
+          "type": "string"
+        },
         "children": {
           "items": {
             "$ref": "#/definitions/ComponentNode"
@@ -1531,5 +1560,5 @@
       "type": "object"
     }
   },
-  "x-everunfold-contract-version": "0.19.0"
+  "x-everunfold-contract-version": "0.20.0"
 }

@@ -29,7 +29,9 @@ def page_document(value: PageCode) -> ComponentDocument:
 def public_page_value(value: PageValue, *, linked: bool = False) -> PageValue:
     clean = value.model_copy(update={"component_parameters": {}})
     if value.edit_mode == "source":
-        return clean.model_copy(update={"component_document": None})
+        return clean.model_copy(
+            update={"component_document": None, "component_css": "", "component_css_override": ""}
+        )
     document = page_document(value).public_document(value.component_parameters if linked else None)
     try:
         ComponentDocument.model_validate(document.model_dump())

@@ -190,7 +190,7 @@ class RegionPublication:
             props = node.props
             if node.type in {"core.html", "core.markdown", "core.shortcode"}:
                 props = {key: value for key, value in props.items() if key != "source"}
-            require_no_regions(props)
+            require_no_regions((props, node.css))
         return redacted
 
     async def store(self) -> None:

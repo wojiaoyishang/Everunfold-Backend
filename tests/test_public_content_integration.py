@@ -19,6 +19,7 @@ from app.entrypoints.api import create_app
 from app.modules.auth.models import AuthRateLimit
 from app.modules.auth.security import hash_password
 from app.modules.content.comment_likes import CommentLikeService
+from app.modules.content.draft_models import ContentDraft
 from app.modules.content.models import (
     Comment,
     Content,
@@ -465,6 +466,58 @@ async def test_locked_article_cover_and_unlocked_taxonomies(
         assert not {term.slug for term in terms} & {
             term["slug"] for term in taxonomies.json()["data"]["items"]
         }
+
+
+async def test_locked_excerpt_only_publishes_manually_written_opt_in_text(
+    database_session: AsyncSession, isolated_settings: Settings
+) -> None:
+    identity = uuid.uuid4()
+    preset = "这是一篇加密的文章，需要输入密码才能阅读。"
+    css = ":scope { color: rebeccapurple }"
+    draft = ContentDraft(
+        id=identity,
+        type_id="article",
+        language="zh-CN",
+        title="加密摘要测试",
+        author="测试作者",
+        excerpt="手写摘要",
+        body=[{"id": str(uuid.uuid4()), "type": "markdown", "content": "不可公开的正文"}],
+        edit_mode="blocks",
+        editor_settings={"visibility": "password", "extra_css": css},
+        access_password_hash=hash_password("fixture-password"),
+        revision=1,
+    )
+    publisher = ContentPublication(database_session, isolated_settings)
+    service = PublicContentService(ContentRepository(database_session))
+    await publisher.publish(draft)
+    path = draft.public_path
+    assert path is not None
+    assert not (await service.resolve(path)).excerpt
+
+    draft.excerpt = ""
+    draft.editor_settings = {**draft.editor_settings, "show_encrypted_excerpt": True}
+    await publisher.publish(draft)
+    assert not (await service.resolve(path)).excerpt
+
+    draft.excerpt = preset
+    draft.editor_settings = {
+        **draft.editor_settings,
+        "opens_at": (datetime.now(UTC) + timedelta(days=1)).isoformat(),
+    }
+    await publisher.publish(draft)
+    item = next(entry for entry in (await service.snapshot()).contents if entry.id == str(identity))
+    assert item.access == "scheduled" and item.excerpt == preset and item.show_encrypted_excerpt
+    assert not item.content and not item.media_urls and not item.extra_css
+    assert "不可公开的正文" not in item.model_dump_json()
+
+    unlocked = await service.repository.resolve(path)
+    assert unlocked is not None
+    payload = service._detail(unlocked, {}, {}, authorized=True)
+    assert payload.content and payload.extra_css == css
+
+    draft.editor_settings = {**draft.editor_settings, "show_encrypted_excerpt": False}
+    await publisher.publish(draft)
+    assert not (await service.resolve(path)).excerpt
 
 
 async def test_reader_preview_filters_visibility_without_writing(

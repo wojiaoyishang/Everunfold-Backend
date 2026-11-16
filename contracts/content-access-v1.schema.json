@@ -74,6 +74,12 @@
           "title": "Props",
           "type": "object"
         },
+        "css": {
+          "default": "",
+          "maxLength": 4096,
+          "title": "Css",
+          "type": "string"
+        },
         "children": {
           "items": {
             "$ref": "#/$defs/ComponentNode"
@@ -423,6 +429,11 @@
           "title": "Excerpt",
           "type": "string"
         },
+        "show_encrypted_excerpt": {
+          "default": false,
+          "title": "Show Encrypted Excerpt",
+          "type": "boolean"
+        },
         "language": {
           "title": "Language",
           "type": "string"
@@ -549,6 +560,12 @@
           },
           "title": "Media Urls",
           "type": "object"
+        },
+        "extra_css": {
+          "default": "",
+          "maxLength": 16000,
+          "title": "Extra Css",
+          "type": "string"
         }
       },
       "required": [
@@ -854,7 +871,7 @@
   "title": "ContentAccessContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "1.9.0",
+  "x-everunfold-contract-version": "1.10.0",
   "x-everunfold-reader-authorization": {
     "optional_api_key": true,
     "audience": "everunfold",

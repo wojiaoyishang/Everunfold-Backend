@@ -82,6 +82,7 @@ class ContentSummary(PublicEditorSettings):
     title: str
     path: str = Field(pattern="^/")
     excerpt: str
+    show_encrypted_excerpt: bool = Field(default=False, exclude_if=lambda value: not value)
     language: str
     translation_group_id: str | None = None
     translations: list[ContentTranslation] = Field(default_factory=list)
@@ -95,6 +96,16 @@ class ContentSummary(PublicEditorSettings):
     tags: list[TaxonomyDTO]
     comment_count: int = Field(ge=0)
     pinned: bool
+
+    @model_validator(mode="after")
+    def validate_encrypted_excerpt(self) -> Self:
+        if self.access != "public" and self.excerpt and not self.show_encrypted_excerpt:
+            raise ValueError("An encrypted excerpt must be explicitly public")
+        if self.show_encrypted_excerpt and (
+            self.kind != "article" or self.access not in {"password", "scheduled"}
+        ):
+            raise ValueError("Only an encrypted article can expose an excerpt")
+        return self
 
 
 class ContentBlock(PublicModel):
@@ -112,6 +123,7 @@ class ContentDetail(ContentSummary):
     unlocked_comments: list[PublicComment] = Field(default_factory=list)
     content: list[ContentBlock]
     media_urls: dict[str, MediaURL]
+    extra_css: str = Field(default="", max_length=16000, exclude_if=lambda value: not value)
 
     @model_validator(mode="after")
     def no_restricted_payload(self) -> Self:
@@ -119,7 +131,7 @@ class ContentDetail(ContentSummary):
             self.content
             or self.component_document is not None
             or self.media_urls
-            or self.excerpt
+            or self.extra_css
             or (self.cover_url and self.kind != "article")
             or self.share_image_url
             or any(key != "allow_indexing" for key in self.seo_overrides())

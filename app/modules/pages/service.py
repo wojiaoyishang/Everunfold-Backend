@@ -290,6 +290,8 @@ class PagesService:
                 or value.component_parameters
                 or value.html
                 or value.css
+                or value.component_css
+                or value.component_css_override
                 or value.javascript
                 or value.javascript_enabled
                 or value.javascript_position != "body_end"
@@ -604,6 +606,8 @@ async def public_pages(
                 page.clear_seo()
                 page.share_image_url = None
                 page.html, page.css, page.javascript = "", "", ""
+                page.component_css = ""
+                page.component_css_override = ""
                 page.javascript_enabled = False
                 page.options = {}
                 page.media_urls = {}
