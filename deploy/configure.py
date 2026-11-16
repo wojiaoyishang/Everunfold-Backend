@@ -221,17 +221,7 @@ def configure(native: bool = False) -> Configuration:
         hint="逗号分隔，默认本机回环。容器设置可自动追加所选网络 CIDR；仍须正确令牌。",
     )
 
-    monitor = config.get("nodes_monitor", {})
     save_console = add_node_console_fields(ctx, add, value)
-    add(
-        "tls_peers",
-        "HTTPS 反向代理的直接来源 IP",
-        ", ".join(monitor.get("trusted_tls_proxy_ips", [])),
-        group="节点控制台",
-        valid=lambda v: all(ip_address(p.strip()) for p in v.split(",")) if v else True,
-        empty="无 TLS 反向代理",
-        hint="用于 /_nodes 校验 TLS 终止代理。仅填写实际直连 IP，不接受 CIDR。",
-    )
 
     add(
         "host",
@@ -381,9 +371,6 @@ def configure(native: bool = False) -> Configuration:
         if value("EVERUNFOLD_ADMIN_PASSWORD"):
             environment["EVERUNFOLD_ADMIN_PASSWORD"] = value("EVERUNFOLD_ADMIN_PASSWORD")
         save_console(environment)
-        config["nodes_monitor"]["trusted_tls_proxy_ips"] = [
-            p.strip() for p in value("tls_peers").split(",") if p.strip()
-        ]
         host = value("publish_host")
         mapping = (
             {}

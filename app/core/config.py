@@ -603,6 +603,20 @@ def load_settings(
             auth["allowed_peer_ips"] = list(dict.fromkeys([*peers, *extra_peers]))
         except (ValueError, TypeError, AttributeError):
             raise ConfigurationError("Invalid EVERUNFOLD_INTERNAL_PEER_CIDRS") from None
+    if proxy_ips := environment.get("EVERUNFOLD_NODES_TLS_PROXY_IPS"):
+        try:
+            gateways = [
+                str(ipaddress.ip_address(value.strip()))
+                for value in proxy_ips.split(",")
+                if value.strip()
+            ]
+            monitor = data.setdefault("nodes_monitor", {})
+            manual = monitor.get("trusted_tls_proxy_ips", [])
+            if not isinstance(manual, list):
+                raise ValueError
+            monitor["trusted_tls_proxy_ips"] = list(dict.fromkeys([*manual, *gateways]))
+        except (ValueError, TypeError, AttributeError):
+            raise ConfigurationError("Invalid EVERUNFOLD_NODES_TLS_PROXY_IPS") from None
     try:
         settings = Settings.model_validate(data)
         settings._config_directory = path.resolve().parent

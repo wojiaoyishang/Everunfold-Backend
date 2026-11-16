@@ -66,6 +66,27 @@ def test_relative_upload_directory_is_under_data(tmp_path: Path) -> None:
     assert settings.media.uploads_path == "/data/media"
 
 
+def test_docker_gateway_grant_is_an_exact_proxy_address_and_not_an_internal_grant(
+    tmp_path: Path,
+) -> None:
+    path = write_root(tmp_path)
+    document = read_deployment(path)
+    document["application"]["nodes_monitor"] = {"trusted_tls_proxy_ips": ["192.0.2.10"]}
+    document["application"]["internal_auth"] = {"allowed_peer_ips": ["127.0.0.1"]}
+    path.write_text(yaml.safe_dump(document))
+    settings = load_settings(
+        path,
+        environ={
+            "EVERUNFOLD_NODES_TLS_PROXY_IPS": "172.18.0.1,192.0.2.10,fd00::1,",
+            "EVERUNFOLD_INTERNAL_PEER_CIDRS": "172.19.0.0/16,",
+        },
+    )
+    assert settings.nodes_monitor.trusted_tls_proxy_ips == ["192.0.2.10", "172.18.0.1", "fd00::1"]
+    assert settings.internal_auth.allowed_peer_ips == ["127.0.0.1", "172.19.0.0/16"]
+    with pytest.raises(ConfigurationError, match="EVERUNFOLD_NODES_TLS_PROXY_IPS"):
+        load_settings(path, environ={"EVERUNFOLD_NODES_TLS_PROXY_IPS": "172.18.0.0/16"})
+
+
 @pytest.mark.parametrize(
     "invalid",
     [

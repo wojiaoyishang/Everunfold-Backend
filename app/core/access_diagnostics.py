@@ -23,7 +23,7 @@ _reasons = {
     "monitor_peer_invalid": "无法识别直连来源 IP",
     "monitor_proxy_untrusted": (
         "直连代理 IP 不在节点控制台的 HTTPS 代理白名单中；"
-        "在 setup 的 HTTPS 反向代理直接来源 IP 填写 peer_ip，内部调用白名单不替代此项"
+        "请核对 setup 的宿主机反代网络或 HTTPS 反向代理来源 IP 与 peer_ip 是否一致"
     ),
     "monitor_https_required": "未收到可信 HTTPS 请求；检查反向代理 X-Forwarded-Proto",
     "monitor_loopback_required": "HTTP 控制台仅允许本机回环访问；公网请配置 HTTPS 发布 URL",
