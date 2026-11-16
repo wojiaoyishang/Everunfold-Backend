@@ -2127,7 +2127,7 @@
   "title": "GlossaryContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "3.8.0",
+  "x-everunfold-contract-version": "3.9.0",
   "x-everunfold-operations": [
     {
       "name": "readGlossaryIndex",
@@ -2152,6 +2152,18 @@
       "response": "content_matches",
       "csrf": false,
       "credentials": "omit"
+    },
+    {
+      "name": "readProtectedGlossaryMatches",
+      "path": "/v1/plugins/everunfold.glossary/for-content/{content_id}",
+      "method": "POST",
+      "response": "content_matches",
+      "csrf": false,
+      "credentials": "omit",
+      "headers": [
+        "X-Everunfold-Read-Receipt",
+        "X-Everunfold-Read-Target"
+      ]
     },
     {
       "name": "queryGlossary",

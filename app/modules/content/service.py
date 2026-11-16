@@ -10,7 +10,7 @@ from sqlalchemy import or_, select
 from app.modules.content.access_policy import password_readable, publicly_readable
 from app.modules.content.draft_models import TranslationGroup
 from app.modules.content.editor_schema import PublicEditorSettings
-from app.modules.content.models import Comment, Content
+from app.modules.content.models import Comment, Content, Taxonomy
 from app.modules.content.repository import ContentQuery, ContentRepository, presentation_conditions
 from app.modules.content.schemas import (
     ContentDetail,
@@ -31,16 +31,19 @@ class PublicContentService:
     def __init__(self, repository: ContentRepository) -> None:
         self.repository = repository
 
+    @staticmethod
+    def _taxonomy(taxonomy: Taxonomy, count: int) -> TaxonomyDTO:
+        return TaxonomyDTO(
+            id=str(taxonomy.id),
+            slug=taxonomy.slug,
+            name=taxonomy.name,
+            kind=cast(TaxonomyKind, taxonomy.kind),
+            count=count,
+        )
+
     async def taxonomies(self, kind: TaxonomyKind | None = None) -> list[TaxonomyDTO]:
         return [
-            TaxonomyDTO(
-                id=str(taxonomy.id),
-                slug=taxonomy.slug,
-                name=taxonomy.name,
-                kind=cast(TaxonomyKind, taxonomy.kind),
-                count=count,
-            )
-            for taxonomy, count in await self.repository.taxonomies(kind)
+            self._taxonomy(term, count) for term, count in await self.repository.taxonomies(kind)
         ]
 
     async def site(self) -> SiteDTO:
@@ -87,10 +90,15 @@ class PublicContentService:
         *,
         authorized: bool = False,
     ) -> ContentSummary:
-        related = sorted(
-            (taxonomy_map[str(t.id)] for t in item.taxonomies if str(t.id) in taxonomy_map),
-            key=lambda value: (value.name, value.id),
-        )
+        related = []
+        for taxonomy in item.taxonomies:
+            term = taxonomy_map.get(str(taxonomy.id))
+            if term is not None:
+                related.append(term)
+            elif authorized and not taxonomy.retired:
+                # The taxonomy directory counts publicly readable articles only.
+                related.append(PublicContentService._taxonomy(taxonomy, 0))
+        related.sort(key=lambda value: (value.name, value.id))
         readable = authorized or publicly_readable(item)
         public_settings = PublicEditorSettings.model_validate(
             {
@@ -128,7 +136,7 @@ class PublicContentService:
             published_at=item.published_at,
             updated_at=item.updated_at,
             author=item.author,
-            cover_url=item.cover_url if readable else None,
+            cover_url=item.cover_url if readable or item.kind == "article" else None,
             reading_minutes=item.reading_minutes if readable else 1,
             word_count=item.word_count if readable else 0,
             categories=[t for t in related if t.kind == "category"],

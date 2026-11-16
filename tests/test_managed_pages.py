@@ -13,6 +13,7 @@ from app.modules.auth.bootstrap import seed_admin
 from app.modules.auth.models import User
 from app.modules.content.repository import ContentRepository
 from app.modules.content.service import PublicContentService
+from app.modules.media.models import MediaAsset
 from app.modules.pages.models import (
     FrontendPageRegistration,
     ManagedPage,
@@ -100,6 +101,68 @@ def body(ctx: AccountsTest, **value: Any) -> dict[str, Any]:
             **value,
         },
     }
+
+
+def test_page_catalog_excludes_component_media_resolved_for_detail(pages: AccountsTest) -> None:
+    media_id = uuid4()
+    object_key = f"images/{media_id}.svg"
+    payload = body(
+        pages,
+        html="",
+        edit_mode="components",
+        component_document={
+            "version": 1,
+            "nodes": [
+                {
+                    "id": "media",
+                    "type": "core.markdown",
+                    "props": {"source": f"![Cover](site://media/{media_id})"},
+                }
+            ],
+        },
+    )
+
+    async def check() -> None:
+        db = Database(pages.settings.database.url.get_secret_value())
+        try:
+            async with db.session_factory() as session:
+                session.add(
+                    MediaAsset(
+                        id=media_id,
+                        uploader_id=uuid4(),
+                        purpose="library",
+                        filename="cover.svg",
+                        mime="image/svg+xml",
+                        size=1,
+                        sha256=media_id.hex * 2,
+                        object_key=object_key,
+                        status="ready",
+                    )
+                )
+                await session.commit()
+                try:
+                    saved = pages.root.post(
+                        "/v1/admin/pages/save", json=payload, headers=headers(pages.root)
+                    )
+                    assert saved.status_code == 200, saved.text
+                    detail = pages.root.get(f"/v1/admin/pages/{payload['id']}")
+                    assert detail.status_code == 200, detail.text
+                    assert detail.json()["data"]["media_urls"][str(media_id)]["original"] == (
+                        f"{pages.settings.media_base_url}/{object_key}"
+                    )
+                    catalog = pages.root.get("/v1/admin/pages")
+                    assert catalog.status_code == 200, catalog.text
+                    item = next(
+                        row for row in catalog.json()["data"]["items"] if row["id"] == payload["id"]
+                    )
+                    assert "media_urls" not in item and item["path"] == payload["value"]["path"]
+                finally:
+                    await session.execute(delete(MediaAsset).where(MediaAsset.id == media_id))
+                    await session.commit()
+        finally:
+            await db.close()
+
+    asyncio.run(check())
 
 
 def published(ctx: AccountsTest) -> list[dict[str, Any]]:

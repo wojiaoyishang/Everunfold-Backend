@@ -22,7 +22,7 @@ from app.modules.captcha.schemas import (
     StoredProvider,
 )
 from app.modules.captcha.service import required, settings_state
-from app.modules.content.models import Content
+from app.modules.content.models import Content, Taxonomy
 from app.modules.content.service import PublicContentService
 
 
@@ -94,8 +94,13 @@ def test_secret_is_write_only_and_hostname_has_no_wildcard_or_url() -> None:
             )
 
 
-def test_captcha_body_excerpt_and_media_are_not_public() -> None:
+@pytest.mark.parametrize("access", ["captcha", "password"])
+def test_protected_article_shows_cover_but_requires_unlock_for_body_and_terms(access: str) -> None:
     now = datetime.now(UTC)
+    category = Taxonomy(
+        id=uuid4(), slug="private-category", name="Private category", kind="category"
+    )
+    tag = Taxonomy(id=uuid4(), slug="private-tag", name="Private tag", kind="tag")
     item = Content(
         id=uuid4(),
         kind="article",
@@ -104,6 +109,7 @@ def test_captcha_body_excerpt_and_media_are_not_public() -> None:
         author="a",
         excerpt="secret excerpt",
         content=[{"id": "one", "type": "markdown", "content": "secret body"}],
+        cover_url="/media/cover.webp",
         media_urls={"x": {"original": "secret media"}},
         language="en",
         published_at=now,
@@ -111,19 +117,25 @@ def test_captcha_body_excerpt_and_media_are_not_public() -> None:
         word_count=11,
         reading_minutes=1,
         publication_status="published",
-        visibility="public",
-        captcha_read_required=True,
+        visibility="password" if access == "password" else "public",
+        access_password_hash="private hash" if access == "password" else None,
+        captcha_read_required=access == "captcha",
         editor_settings={},
         pinned=False,
-        taxonomies=[],
+        taxonomies=[category, tag],
     )
     projection = PublicContentService._detail(item, {}, {})
-    assert projection.access == "captcha" and projection.captcha_required
-    assert not projection.password_required
+    assert projection.access == access
+    assert projection.captcha_required == (access == "captcha")
+    assert projection.password_required == (access == "password")
+    assert projection.cover_url == item.cover_url
+    assert not projection.categories and not projection.tags
     assert projection.content == [] and not projection.media_urls and projection.excerpt == ""
     assert "secret" not in projection.model_dump_json()
     unlocked = PublicContentService._detail(item, {}, {}, authorized=True)
     assert unlocked.content and unlocked.access == "public"
+    assert [(term.slug, term.count) for term in unlocked.categories] == [(category.slug, 0)]
+    assert [(term.slug, term.count) for term in unlocked.tags] == [(tag.slug, 0)]
 
 
 def test_google_and_turnstile_verify_success_requires_exact_hostname(

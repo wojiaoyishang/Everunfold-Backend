@@ -16,15 +16,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import Settings
 from app.modules.auth.permissions import Actor
 from app.modules.auth.service import AuthFailure
+from app.modules.content.component_document import ComponentDocument
 from app.modules.content.editor_schema import EditorSettings
 from app.modules.content.editor_service import editor_media
 from app.modules.content.models import Content
 from app.modules.content.publication import ContentPublication
+from app.modules.content.repository import presentation_conditions, public_conditions
 from app.modules.content.schemas import MediaURL
 from app.modules.content.seo import GlossaryDiscoveryEntry, SeoFields
 from app.modules.media.locking import lock_references
 from app.modules.pages.models import ManagedPage
 from app.modules.settings.cache_event_schema import CacheChange
+from app.modules.shortcodes.regions import without_region_markers
 
 from .matching import MatchRule, evaluate_rules
 from .models import (
@@ -623,7 +626,7 @@ def searchable_source(blocks: list[dict[str, object]]) -> str:
     """Only visible prose participates; code, markup and authored links are excluded."""
     pieces: list[str] = []
     for block in blocks:
-        source = str(block.get("content", ""))
+        source = without_region_markers(str(block.get("content", "")))
         source = CODE_FENCE.sub(" ", source)
         source = INLINE_CODE.sub(" ", source)
         source = HTML_COMMENT.sub(" ", source)
@@ -663,15 +666,36 @@ async def content_matches(
     content_id: UUID,
     config: Settings | None = None,
 ) -> ContentGlossaryMatches:
-    content = await session.get(Content, content_id)
-    if (
-        content is None
-        or content.kind not in {"article", "shuoshuo"}
-        or content.publication_status != "published"
-        or content.visibility != "public"
-    ):
+    content = await session.scalar(
+        select(Content).where(Content.id == content_id, *public_conditions())
+    )
+    if content is None or content.kind not in {"article", "shuoshuo"}:
         return ContentGlossaryMatches(content_id=content_id, revision="empty", terms=[])
-    source = searchable_source(content.content)
+    return await article_matches(session, content, config)
+
+
+async def restricted_content_matches(
+    session: AsyncSession,
+    content_id: UUID,
+    config: Settings | None = None,
+) -> ContentGlossaryMatches:
+    """Match only after the caller has fenced and verified the current read grant."""
+    content = await session.scalar(
+        select(Content).where(Content.id == content_id, *presentation_conditions())
+    )
+    if content is None or content.kind not in {"article", "shuoshuo"}:
+        return ContentGlossaryMatches(content_id=content_id, revision="empty", terms=[])
+    return await article_matches(session, content, config)
+
+
+async def article_matches(
+    session: AsyncSession, content: Content, config: Settings | None
+) -> ContentGlossaryMatches:
+    blocks = content.content
+    if content.component_document is not None:
+        document = ComponentDocument.model_validate(content.component_document)
+        blocks = [{"content": document.text()}]
+    source = searchable_source(blocks)
     rows = (
         await session.scalars(
             select(GlossaryTerm).where(
@@ -728,7 +752,7 @@ async def content_matches(
         )
         latest = max(latest, row.updated_at)
     return ContentGlossaryMatches(
-        content_id=content_id,
+        content_id=content.id,
         revision=latest.isoformat(),
         terms=matches,
     )

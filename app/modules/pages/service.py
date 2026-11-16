@@ -101,7 +101,7 @@ class PagesService:
                 EditorSettings(),
                 strict=False,
             )
-            if value.component_document is not None
+            if types is None and value.component_document is not None
             else {}
         )
         return ManagedPageItem(
@@ -150,9 +150,7 @@ class PagesService:
                 continue
             items.append(
                 ManagedPageSummary(
-                    **item.model_dump(
-                        exclude={"value", "registration", "template", "share_image_url"}
-                    ),
+                    **item.model_dump(include=set(ManagedPageSummary.model_fields)),
                     title=item.value.title,
                     path=item.value.path,
                     description=item.value.description,

@@ -3,8 +3,10 @@
 from typing import Annotated, Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, Request
 
+from app.modules.auth.service import AuthFailure
+from app.modules.captcha.read_grants import read_grant_target
 from app.plugin_sdk import JSONResponseSuccess, PluginRequest, PublicResponse
 
 from .schemas import (
@@ -39,6 +41,7 @@ from .service import (
     public_index,
     public_term,
     read_term,
+    restricted_content_matches,
     update_hook,
     update_term,
 )
@@ -71,6 +74,17 @@ async def term(
 async def matches(content_id: UUID, ctx: PluginRequest) -> JSONResponseSuccess:
     return JSONResponseSuccess(
         data=await content_matches(ctx.session, content_id, ctx.runtime.settings)
+    )
+
+
+@public.post("/for-content/{content_id}", response_model=PublicResponse[ContentGlossaryMatches])
+async def unlocked_matches(
+    content_id: UUID, request: Request, ctx: PluginRequest
+) -> JSONResponseSuccess:
+    if await read_grant_target(request, ctx.session) != content_id:
+        raise AuthFailure(403, 40388, "请先解锁正文再查看术语")
+    return JSONResponseSuccess(
+        data=await restricted_content_matches(ctx.session, content_id, ctx.runtime.settings)
     )
 
 

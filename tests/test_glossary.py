@@ -7,6 +7,7 @@ from uuid import uuid4
 import pytest
 
 from app.core.database import Database
+from app.modules.auth.security import hash_password
 from app.modules.content.editor_schema import EditorSettings
 from app.modules.content.models import Content
 from app.modules.pages.schemas import PageValue
@@ -28,7 +29,7 @@ from app.plugins.glossary.service import (
     searchable_source,
     target_in_source,
 )
-from tests.test_accounts import AccountsTest, headers
+from tests.test_accounts import ORIGIN, AccountsTest, headers
 from tests.test_page_comments import comments as glossary_database  # noqa: F401
 
 
@@ -188,12 +189,13 @@ def test_cross_page_hook_selectors_and_targets_are_bounded() -> None:
     assert not hook_targets_surface(hook, "code", target, None)
 
 
+@pytest.mark.parametrize("component_article", [False, True], ids=["blocks", "components"])
 def test_glossary_admin_and_article_scoped_public_matching(
-    request: pytest.FixtureRequest,
+    request: pytest.FixtureRequest, component_article: bool
 ) -> None:
     ctx: AccountsTest = request.getfixturevalue("glossary_database")
 
-    async def deploy() -> tuple[str, str]:
+    async def deploy() -> tuple[str, str, str, str]:
         database = Database(ctx.settings.database.url.get_secret_value())
         try:
             async with database.session_factory() as session:
@@ -235,13 +237,57 @@ def test_glossary_admin_and_article_scoped_public_matching(
                     visibility="public",
                     content=[{"id": "body", "type": "markdown", "content": "今天只有风和树叶。"}],
                 )
-                session.add_all([matched, unmatched])
+                protected = Content(
+                    id=uuid4(),
+                    source="test",
+                    kind="article",
+                    title="受限文章",
+                    path="/glossary-password",
+                    excerpt="",
+                    language="zh-CN",
+                    published_at=now,
+                    updated_at=now,
+                    author="Test",
+                    publication_status="published",
+                    visibility="password",
+                    access_password_hash=hash_password("glossary-test-password"),
+                    content=[] if component_article else matched.content,
+                    component_document={
+                        "version": 1,
+                        "nodes": [
+                            {
+                                "id": "prose",
+                                "type": "core.markdown",
+                                "props": {"source": "在术语组件中出现金灵同学。"},
+                            },
+                        ],
+                    }
+                    if component_article
+                    else None,
+                )
+                captcha_only = Content(
+                    id=uuid4(),
+                    source="test",
+                    kind="article",
+                    title="需验证的文章",
+                    path="/glossary-captcha",
+                    excerpt="",
+                    language="zh-CN",
+                    published_at=now,
+                    updated_at=now,
+                    author="Test",
+                    publication_status="published",
+                    visibility="public",
+                    captcha_read_required=True,
+                    content=matched.content,
+                )
+                session.add_all([matched, unmatched, protected, captcha_only])
                 await session.commit()
-                return str(matched.id), str(unmatched.id)
+                return str(matched.id), str(unmatched.id), str(protected.id), str(captcha_only.id)
         finally:
             await database.close()
 
-    matched, unmatched = asyncio.run(deploy())
+    matched, unmatched, protected, captcha_only = asyncio.run(deploy())
     base = "/v1/plugins/everunfold.glossary"
     uploaded = ctx.root.post(
         "/v1/admin/media/upload",
@@ -329,6 +375,35 @@ def test_glossary_admin_and_article_scoped_public_matching(
     miss = public.get(base + f"/for-content/{unmatched}")
     assert hit.status_code == 200, hit.text
     assert [item["title"] for item in hit.json()["data"]["terms"]] == ["金灵"]
+    protected_path = base + f"/for-content/{protected}"
+    for path in [protected_path, base + f"/for-content/{captcha_only}"]:
+        assert public.get(path).json()["data"]["terms"] == []
+    missing = public.post(protected_path)
+    assert missing.status_code == 403
+    assert missing.headers["Cache-Control"] == "private, no-store"
+    unlocked = public.post(
+        "/v1/reader/access",
+        json={"id": protected, "password": "glossary-test-password"},
+        headers={"Origin": ORIGIN},
+    )
+    assert unlocked.status_code == 200, unlocked.text
+    grant = {
+        "X-Everunfold-Read-Receipt": unlocked.json()["data"]["read_receipt"],
+        "X-Everunfold-Read-Target": protected,
+    }
+    private_matches = public.post(protected_path, headers=grant)
+    assert private_matches.status_code == 200, private_matches.text
+    assert private_matches.headers["Cache-Control"] == "private, no-store"
+    assert [item["title"] for item in private_matches.json()["data"]["terms"]] == ["金灵"]
+    assert public.get(protected_path, headers=grant).json()["data"]["terms"] == []
+    assert public.post(base + f"/for-content/{captcha_only}", headers=grant).status_code == 403
+    assert (
+        public.post(
+            base + f"/for-content/{captcha_only}",
+            headers={**grant, "X-Everunfold-Read-Target": captcha_only},
+        ).status_code
+        == 403
+    )
     assert hit.json()["data"]["terms"][0]["feature_image"]["original"] == feature["url"]
     assert hit.json()["data"]["terms"][0]["body"][0]["content"] == "她出现在**旧日校园回忆**中。"
     assert [block["type"] for block in hit.json()["data"]["terms"][0]["body"]] == [

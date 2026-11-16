@@ -4,6 +4,7 @@ import os
 import uuid
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime, timedelta
+from hashlib import sha256
 from typing import Any
 
 import pytest
@@ -12,9 +13,11 @@ from sqlalchemy import delete, select, text
 from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import ReaderPreviewConfig, load_settings
+from app.core.config import CORSConfig, ReaderPreviewConfig, Settings, load_settings
 from app.core.database import Database
 from app.entrypoints.api import create_app
+from app.modules.auth.models import AuthRateLimit
+from app.modules.auth.security import hash_password
 from app.modules.content.comment_likes import CommentLikeService
 from app.modules.content.models import (
     Comment,
@@ -43,12 +46,17 @@ def anyio_backend() -> str:
 
 
 @pytest.fixture
-async def database_session() -> AsyncIterator[AsyncSession]:
+def isolated_settings() -> Settings:
     settings = load_settings(os.environ.get("TEST_CONFIG_FILE", "config.test.local.toml"))
     url = make_url(settings.database.url.get_secret_value())
     if url.database != "everunfold_test" or not settings.redis.namespace_scope.startswith("test"):
         pytest.fail("Integration tests refuse non-test database or namespace configuration")
-    database = Database(settings.database.url.get_secret_value())
+    return settings
+
+
+@pytest.fixture
+async def database_session(isolated_settings: Settings) -> AsyncIterator[AsyncSession]:
+    database = Database(isolated_settings.database.url.get_secret_value())
     try:
         async with database.engine.connect() as connection:
             transaction = await connection.begin()
@@ -309,6 +317,107 @@ async def test_snapshot_contains_only_public_projection_and_consistent_stats(
     assert snapshot.source_epoch
     # This read transaction must not persist fixtures, create schemas, or write Redis state.
     assert await database_session.scalar(text("SELECT current_database()")) == "everunfold_test"
+
+
+@pytest.fixture
+async def locked_article(
+    isolated_settings: Settings,
+) -> AsyncIterator[tuple[Content, list[Taxonomy], str, str]]:
+    now = datetime.now(UTC)
+    suffix = uuid.uuid4().hex
+    password = "Local article password"
+    article = Content(
+        id=uuid.uuid4(),
+        source="test",
+        kind="article",
+        title="Visible title",
+        path=f"/protected-{suffix}.html",
+        excerpt="private excerpt",
+        published_at=now,
+        updated_at=now,
+        author="Public author",
+        publication_status="published",
+        visibility="password",
+        access_password_hash=hash_password(password),
+        cover_url="/media/cover.webp",
+        content=[{"id": "one", "type": "markdown", "content": "private body"}],
+        media_urls={"inner": {"original": "/media/private.webp"}},
+    )
+    terms = [
+        Taxonomy(id=uuid.uuid4(), kind=kind, name=f"Private {kind}", slug=f"{kind}-{suffix}")
+        for kind in ("category", "tag")
+    ]
+    # The reader policy performs its preliminary checks using a separate database session.
+    database = Database(isolated_settings.database.url.get_secret_value())
+    try:
+        async with database.session_factory.begin() as session:
+            session.add_all([article, *terms])
+            await session.flush()
+            session.add_all(
+                [ContentTaxonomy(content_id=article.id, taxonomy_id=term.id) for term in terms]
+            )
+        try:
+            yield article, terms, password, suffix
+        finally:
+            async with database.session_factory.begin() as session:
+                await session.execute(delete(Content).where(Content.id == article.id))
+                await session.execute(
+                    delete(Taxonomy).where(Taxonomy.id.in_([t.id for t in terms]))
+                )
+                keys = [f"content-access:{suffix}", f"content-access:{suffix}:{article.id}"]
+                await session.execute(
+                    delete(AuthRateLimit).where(
+                        AuthRateLimit.key_hash.in_(
+                            [sha256(key.encode()).hexdigest() for key in keys]
+                        )
+                    )
+                )
+    finally:
+        await database.close()
+
+
+async def test_locked_article_cover_and_unlocked_taxonomies(
+    locked_article: tuple[Content, list[Taxonomy], str, str],
+    isolated_settings: Settings,
+) -> None:
+    article, terms, password, suffix = locked_article
+    origin = "http://127.0.0.1:3000"
+    app = create_app(
+        isolated_settings.model_copy(update={"cors": CORSConfig(allowed_origins=[origin])})
+    )
+    async with (
+        app.router.lifespan_context(app),
+        AsyncClient(
+            transport=ASGITransport(app=app, client=(suffix, 50000)),
+            base_url="http://testserver",
+            headers={"Origin": origin},
+        ) as client,
+    ):
+        listing = await client.get("/v1/contents/resolve", params={"path": article.path})
+        assert listing.status_code == 200, listing.text
+        locked = listing.json()["data"]
+        assert locked["access"] == "password" and locked["cover_url"] == article.cover_url
+        assert not locked["content"] and not locked["media_urls"] and not locked["excerpt"]
+        assert not locked["categories"] and not locked["tags"]
+        denied = await client.post("/v1/reader/access", json={"id": str(article.id)})
+        assert denied.status_code == 403, denied.text
+        unlocked = await client.post(
+            "/v1/reader/access", json={"id": str(article.id), "password": password}
+        )
+        assert unlocked.status_code == 200, unlocked.text
+        assert "no-store" in unlocked.headers["cache-control"]
+        detail = unlocked.json()["data"]
+        assert detail["content"] == article.content
+        assert detail["media_urls"]["inner"]["original"] == "/media/private.webp"
+        assert [(term["slug"], term["count"]) for term in detail["categories"]] == [
+            (terms[0].slug, 0)
+        ]
+        assert [(term["slug"], term["count"]) for term in detail["tags"]] == [(terms[1].slug, 0)]
+        taxonomies = await client.get("/v1/taxonomies")
+        assert taxonomies.status_code == 200, taxonomies.text
+        assert not {term.slug for term in terms} & {
+            term["slug"] for term in taxonomies.json()["data"]["items"]
+        }
 
 
 async def test_reader_preview_filters_visibility_without_writing(

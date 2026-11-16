@@ -120,7 +120,7 @@ class ContentDetail(ContentSummary):
             or self.component_document is not None
             or self.media_urls
             or self.excerpt
-            or self.cover_url
+            or (self.cover_url and self.kind != "article")
             or self.share_image_url
             or any(key != "allow_indexing" for key in self.seo_overrides())
             or self.word_count
