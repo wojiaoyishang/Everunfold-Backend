@@ -26,9 +26,13 @@ from app.modules.settings.nodes_schemas import (
 )
 from app.modules.settings.sync_status import read_history
 
+from .deployment_schemas import PairingStatus
+
 
 class DeploymentMonitorStatus(MonitorStatus):
     pending_pairings: list[str]
+    pairings: dict[str, PairingStatus]
+    allowed_peer_ips: list[str]
 
 
 async def read_processes(runtime: Runtime) -> tuple[str, str]:
@@ -221,4 +225,18 @@ async def read_status(runtime: Runtime, *, include_pairings: bool = False) -> Mo
         if revision is not None and (revision > 0 or not directory.entries)
         else []
     )
-    return DeploymentMonitorStatus(**status.model_dump(), pending_pairings=pending)
+    pairings = {
+        node: PairingStatus(
+            settings_receiver_url=binding.settings_receiver_url,
+            allow_private_http=binding.allow_private_http,
+            inbound_configured=bool(os.environ.get(binding.nextjs_to_fastapi_token_env)),
+            outbound_configured=bool(os.environ.get(binding.fastapi_to_nextjs_token_env)),
+        )
+        for node, binding in registration_bindings(directory, runtime.settings).items()
+    }
+    return DeploymentMonitorStatus(
+        **status.model_dump(),
+        pending_pairings=pending,
+        pairings=pairings,
+        allowed_peer_ips=runtime.settings.internal_auth.allowed_peer_ips,
+    )

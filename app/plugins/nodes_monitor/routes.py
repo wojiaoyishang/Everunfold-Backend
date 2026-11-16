@@ -18,8 +18,9 @@ from app.core.query_cache_schemas import QueryCacheReportRequest
 from app.core.responses import JSONResponseFail, JSONResponseSuccess
 from app.core.runtime import Runtime
 from app.modules.auth.service import AuthFailure
-from app.modules.settings.nodes_schemas import MonitorStatus, NodeChange
+from app.modules.settings.nodes_schemas import MonitorStatus
 
+from .deployment_schemas import DeploymentNodeChange
 from .management import manage_node
 from .security import COOKIE_NAME, LOGIN_WINDOW, MonitorAccess
 from .status import read_status
@@ -220,12 +221,12 @@ def monitor_router(access: MonitorAccess | None) -> APIRouter:
                     if len(body) + len(chunk) > 4096:
                         return JSONResponseFail(msg="请求过大", status_code=413, headers=headers)
                     body.extend(chunk)
-            command = NodeChange.model_validate_json(body)
+            command = DeploymentNodeChange.model_validate_json(body)
             async with runtime.database.session_factory() as session:
                 result = await manage_node(session, runtime.settings, command)
         except (ValidationError, ClientDisconnect, TimeoutError):
             return JSONResponseFail(
-                msg="节点 ID、公开地址或请求无效", status_code=422, headers=headers
+                msg="节点 ID、内部接收器 URL 或请求无效", status_code=422, headers=headers
             )
         except AuthFailure as exc:
             return JSONResponseFail(

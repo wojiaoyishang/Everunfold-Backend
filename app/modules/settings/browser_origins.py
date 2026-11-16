@@ -36,7 +36,7 @@ async def is_managed_origin(runtime: Runtime, origin: str) -> bool:
             if record is None:
                 return False
             return any(
-                node.enabled and canonical_origin(node.base_url) == origin
+                node.enabled and bool(node.base_url) and canonical_origin(node.base_url) == origin
                 for node in registry_directory(record).targets.values()
             )
     except (SQLAlchemyError, OSError, ValueError):

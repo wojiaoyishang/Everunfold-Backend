@@ -111,7 +111,6 @@ def main() -> None:
         try:
             node_id = TypeAdapter(NodeId).validate_python(node)
             target = FrontendConfig(
-                base_url=receiver,  # Registry membership supplies the actual public URL.
                 settings_receiver_url=receiver,
                 allow_private_http=args.allow_private_http,
                 nextjs_to_fastapi_token_env=inbound,

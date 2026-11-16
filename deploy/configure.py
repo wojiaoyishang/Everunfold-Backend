@@ -177,7 +177,7 @@ def configure(native: bool = False) -> Configuration:
         selected_node,
         valid=identifier,
         group="前端配对",
-        hint="每个前端使用独立节点 ID 和令牌。保存后可在 /_nodes 沿用该配对，补公开地址。",
+        hint="每个前端使用独立节点 ID 和令牌。保存后可在 /_nodes 沿用该配对并启用。",
     )
     add(
         "receiver",

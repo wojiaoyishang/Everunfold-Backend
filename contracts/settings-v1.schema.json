@@ -3250,8 +3250,8 @@
       "additionalProperties": false,
       "properties": {
         "base_url": {
+          "default": "",
           "maxLength": 512,
-          "minLength": 1,
           "title": "Base Url",
           "type": "string"
         },
@@ -3261,7 +3261,6 @@
         }
       },
       "required": [
-        "base_url",
         "enabled"
       ],
       "title": "NodeRegistration",
@@ -7431,7 +7430,7 @@
   "title": "SettingsContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "1.45.0",
+  "x-everunfold-contract-version": "1.46.0",
   "x-everunfold-language-regions": {
     "zh": "CN",
     "en": "GB",

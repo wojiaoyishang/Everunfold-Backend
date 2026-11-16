@@ -10,6 +10,9 @@ from unittest.mock import AsyncMock, Mock
 
 import pytest
 
+from app.core.config import FrontendConfig
+from app.modules.settings.models import FrontendNodeRegistry
+
 
 def test_export_returns_portable_credentials_without_writing_connection_file(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
@@ -48,7 +51,20 @@ def test_export_returns_portable_credentials_without_writing_connection_file(
     database = SimpleNamespace(session=database_session, close=AsyncMock())
     database_factory = Mock(return_value=database)
     monkeypatch.setattr(exporter, "Database", database_factory)
-    monkeypatch.setattr(exporter, "registry_record", AsyncMock(return_value={"version": 1}))
+    existing = FrontendConfig(
+        settings_receiver_url="https://edited-receiver.example.test",
+        nextjs_to_fastapi_token_env="TEST_NODE_IN",
+        fastapi_to_nextjs_token_env="TEST_NODE_OUT",
+    )
+    monkeypatch.setattr(
+        exporter,
+        "registry_record",
+        AsyncMock(
+            return_value=FrontendNodeRegistry(
+                id=1, revision=1, nodes={}, bindings={"web-main": existing.model_dump()}
+            )
+        ),
+    )
     register = AsyncMock()
     monkeypatch.setattr(exporter, "import_nodes", register)
     encoded = asyncio.run(exporter.export())
@@ -60,6 +76,7 @@ def test_export_returns_portable_credentials_without_writing_connection_file(
     assert set(decoded) == {"format", "node_id", "tokens", "source_epoch", "backend_public_url"}
     register.assert_awaited_once()
     assert register.await_args and register.await_args.args[0] is True
+    assert register.await_args.args[1][1] == existing
     database.close.assert_awaited_once()
     assert list(tmp_path.iterdir()) == [path]
     # Invalid credentials are rejected before contacting the database.

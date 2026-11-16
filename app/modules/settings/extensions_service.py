@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import FrontendConfig, Settings
 from app.core.plugins.loader import plugin_catalog
 from app.core.plugins.state import CATALOG_KEY, installed_info
+from app.modules.auth.models import AuthAuditEvent
 from app.modules.auth.service import AuthFailure
 from app.modules.content.models import SiteSettings
 from app.modules.media.locking import lock_references
@@ -19,7 +20,7 @@ from app.modules.settings.extensions_schemas import (
     NodeExtensionInventory,
 )
 from app.modules.settings.models import FrontendExtensionInventory
-from app.modules.settings.node_registry import read_targets
+from app.modules.settings.node_registry import read_targets, registry_record
 from app.modules.settings.service import SettingsService
 
 
@@ -56,6 +57,7 @@ async def install_inventory(
     value: ExtensionInventory,
     *,
     authorized_target: FrontendConfig | None = None,
+    public_url: str | None = None,
 ) -> None:
     await lock_references(session)
     await SettingsService(session, config).site(locked=True)
@@ -77,6 +79,26 @@ async def install_inventory(
         )
     else:
         record.data, record.reported_at = encoded, datetime.now(UTC)
+    if public_url is not None and authorized_target is not None:
+        registry = await registry_record(session, lock=True)
+        if registry is not None and target.base_url != public_url:
+            registry.nodes = registry.nodes | {
+                node: {**registry.nodes[node], "base_url": public_url}
+            }
+            registry.revision += 1
+            session.add(
+                AuthAuditEvent(
+                    action="frontend_node_public_url",
+                    created_at=datetime.now(UTC),
+                    details={
+                        "node_id": node,
+                        "before": target.base_url,
+                        "after": public_url,
+                        "revision": registry.revision,
+                        "actor": "authenticated_frontend",
+                    },
+                )
+            )
     await session.commit()
 
 

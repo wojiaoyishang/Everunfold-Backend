@@ -75,6 +75,8 @@ def test_monitor_requires_separate_credentials_and_loads_without_storage(
             assert "HttpOnly" in success.headers["Set-Cookie"]
             assert "Path=/_nodes" in success.headers["Set-Cookie"]
             assert 'data-mode="dashboard"' in client.get("/_nodes").text
+            assert "前端公开地址" not in client.get("/_nodes").text
+            assert "此节点的内部接收器 URL" in client.get("/_nodes").text
             value = client.get("/_nodes/status").json()["data"]
             assert value["api"] == "online"
             assert value["database"] == value["redis"] == "unavailable"
@@ -189,3 +191,31 @@ def test_published_url_overrides_a_console_origin_saved_by_old_setup(
     mount_nodes_monitor(disabled, settings)
     with TestClient(disabled) as client:
         assert client.get("/_nodes").status_code == 404
+
+
+def test_private_pairing_form_needs_no_public_url_and_validates_transport() -> None:
+    from app.plugins.nodes_monitor.deployment_schemas import DeploymentNodeChange
+
+    body = {
+        "action": "add",
+        "node_id": "web-main",
+        "expected_revision": 0,
+        "registration": {"enabled": True},
+        "connection": {
+            "settings_receiver_url": "http://everunfold-frontend:3000",
+            "allow_private_http": True,
+        },
+    }
+    command = DeploymentNodeChange.model_validate(body)
+    assert command.registration is not None
+    assert command.registration.base_url == ""
+    assert "base_url" not in command.registration.model_fields_set
+    for connection in [
+        {"settings_receiver_url": "http://everunfold-frontend:3000"},
+        {"settings_receiver_url": "http://public.example.test", "allow_private_http": True},
+        {"settings_receiver_url": "https://name:secret@receiver.example.test"},
+        {"settings_receiver_url": "https://receiver.example.test/api"},
+        {"settings_receiver_url": "https://receiver.example.test\n"},
+    ]:
+        with pytest.raises(ValidationError):
+            DeploymentNodeChange.model_validate({**body, "connection": connection})

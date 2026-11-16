@@ -175,7 +175,7 @@ class InternalAuthConfig(ConfigModel):
 class FrontendConfig(ConfigModel):
     settings_receiver_url: str | None = None
     allow_private_http: bool = False
-    base_url: str
+    base_url: str = ""
     enabled: bool = False
     nextjs_to_fastapi_token_env: str
     fastapi_to_nextjs_token_env: str
@@ -204,7 +204,10 @@ class FrontendConfig(ConfigModel):
                 raise ValueError("internal credentials require HTTPS outside loopback")
         return self
 
-    _base_url = field_validator("base_url")(validate_http_base)
+    @field_validator("base_url")
+    @classmethod
+    def valid_base_url(cls, value: str) -> str:
+        return validate_http_base(value) if value else ""
 
     @field_validator("nextjs_to_fastapi_token_env", "fastapi_to_nextjs_token_env")
     @classmethod
@@ -217,7 +220,7 @@ class FrontendConfig(ConfigModel):
 def setup_frontend_binding(
     metadata: object, environment: Mapping[str, str]
 ) -> tuple[str, FrontendConfig] | None:
-    """Read the binding saved by setup, leaving publication and enablement to the console."""
+    """Read setup's private pairing; the frontend reports its own publication URL."""
     if not isinstance(metadata, dict) or metadata.get("receiver", "") == "":
         return None
     node = metadata.get("node")
@@ -238,7 +241,6 @@ def setup_frontend_binding(
         if address.port == 0 or address.hostname in {"0.0.0.0", "::"}:
             raise ValueError
         binding = FrontendConfig(
-            base_url=receiver,
             settings_receiver_url=receiver,
             allow_private_http=metadata.get("allow_private_http", False),
             nextjs_to_fastapi_token_env=inbound_name,

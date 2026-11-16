@@ -17,7 +17,7 @@ from sqlalchemy import text  # noqa: E402
 from app.core.config import configuration_path, load_settings, setup_frontend_binding  # noqa: E402
 from app.core.database import Database  # noqa: E402
 from app.core.deployment_config import read_deployment  # noqa: E402
-from app.modules.settings.node_registry import registry_record  # noqa: E402
+from app.modules.settings.node_registry import registry_directory, registry_record  # noqa: E402
 from tools.import_frontend_nodes import run as import_nodes  # noqa: E402
 
 
@@ -46,7 +46,15 @@ async def export() -> str:
                 text("SELECT source_epoch FROM site_settings WHERE id = 1")
             )
             epoch = str(UUID(str(epoch)))
-            needs_seed = await registry_record(session) is None
+            record = await registry_record(session)
+            needs_seed = record is None
+            existing = registry_directory(record).bindings.get(node) if record is not None else None
+            if existing is not None and (
+                existing.nextjs_to_fastapi_token_env == inbound_name
+                and existing.fastapi_to_nextjs_token_env == outbound_name
+            ):
+                # Re-exporting credentials must not undo a receiver edited in /_nodes.
+                target = existing
         if needs_seed:
             await import_nodes(False)
         await import_nodes(True, (node, target))
@@ -69,6 +77,6 @@ if __name__ == "__main__":
     try:
         result = asyncio.run(export())
         print(MARKER + result)
-        print("请在 /_nodes 添加或启用该节点的公开地址。")
+        print("请在 /_nodes 登记并启用已保存的前端配对。前端发布 URL 由前端自行上报。")
     except Exception:
         raise SystemExit("无法导出节点连接 Base64，请检查配置、数据库迁移和节点状态。") from None

@@ -18,7 +18,7 @@ NodeId = Annotated[str, Field(pattern=NODE_ID)]
 
 
 class NodeRegistration(PublicModel):
-    base_url: str = Field(min_length=1, max_length=512)
+    base_url: str = Field(default="", max_length=512)
     enabled: bool
 
     @field_validator("base_url")
@@ -26,7 +26,7 @@ class NodeRegistration(PublicModel):
     def valid_public_url(cls, value: str) -> str:
         if re.search(r"[\\\s\x00-\x1f\x7f]", value):
             raise ValueError("invalid URL characters")
-        return validate_http_base(value)
+        return validate_http_base(value) if value else ""
 
 
 _registrations = TypeAdapter(dict[str, NodeRegistration])

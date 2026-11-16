@@ -169,3 +169,52 @@ def test_internal_registration_requires_real_peer_and_token(
             ).status_code
             == 413
         )
+        install = AsyncMock()
+        monkeypatch.setattr(extensions_router, "install_inventory", install)
+        for public_url in (
+            "https://frontend.example.test",
+            "http://127.0.0.1:3000",
+            "",
+            None,
+        ):
+            headers = {"Authorization": "Bearer local-test-node-token"}
+            if public_url is not None:
+                headers["X-Everunfold-Public-Url"] = public_url
+            assert (
+                client.post(
+                    "/internal/extensions/test", json=manifest(), headers=headers
+                ).status_code
+                == 200
+            )
+            assert install.call_args.kwargs["public_url"] == public_url
+        install.reset_mock()
+        for invalid in (
+            "http://untrusted.example.test",
+            "https://secret@frontend.example.test",
+            "https://frontend.example.test/path",
+            "https://frontend.example.test?token=secret",
+            "https://frontend.example.test/#fragment",
+            "https://frontend.example.test:0",
+        ):
+            assert (
+                client.post(
+                    "/internal/extensions/test",
+                    json=manifest(),
+                    headers={
+                        "Authorization": "Bearer local-test-node-token",
+                        "X-Everunfold-Public-Url": invalid,
+                    },
+                ).status_code
+                == 422
+            )
+        assert (
+            client.post(
+                "/internal/extensions/test",
+                json=manifest(),
+                headers={
+                    "X-Everunfold-Public-Url": "https://frontend.example.test",
+                },
+            ).status_code
+            == 403
+        )
+        install.assert_not_called()

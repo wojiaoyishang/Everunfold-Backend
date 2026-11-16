@@ -3,11 +3,12 @@
 import hmac
 import ipaddress
 import os
+from urllib.parse import urlsplit
 
 from fastapi import APIRouter, HTTPException, Request, Response
-from pydantic import ValidationError
 
 from app.core.access_diagnostics import log_access
+from app.core.config import is_loopback_host
 from app.core.plugins.loader import plugin_catalog
 from app.core.responses import JSONResponseSuccess
 from app.core.schemas import ErrorResponse, PublicResponse
@@ -21,7 +22,7 @@ from app.modules.settings.extensions_schemas import (
     ExtensionUsageQuery,
 )
 from app.modules.settings.extensions_service import catalog, install_inventory
-from app.modules.settings.node_registry import read_targets
+from app.modules.settings.node_registry import NodeRegistration, read_targets
 from app.modules.settings.router import Authorized
 
 router = APIRouter(
@@ -110,8 +111,19 @@ async def report_extensions(node_id: str, request: Request) -> JSONResponseSucce
             raise AuthFailure(413, 41320, "扩展清单过大")
     try:
         value = ExtensionInventory.model_validate_json(data)
-    except ValidationError as exc:
-        raise AuthFailure(422, 42298, "扩展清单无效") from exc
+        public_url = request.headers.get("x-everunfold-public-url")
+        if public_url is not None:
+            public_url = NodeRegistration(base_url=public_url, enabled=True).base_url
+            parsed = urlsplit(public_url)
+            if public_url and (
+                parsed.port == 0
+                or (parsed.scheme != "https" and not is_loopback_host(parsed.hostname or ""))
+            ):
+                raise ValueError("invalid published origin")
+    except ValueError as exc:
+        raise AuthFailure(422, 42298, "扩展清单或前端发布 URL 无效") from exc
     async with runtime.database.session_factory() as session:
-        await install_inventory(session, config, node_id, value, authorized_target=node)
+        await install_inventory(
+            session, config, node_id, value, authorized_target=node, public_url=public_url
+        )
     return JSONResponseSuccess(data={"node_id": node_id, "registered": True})

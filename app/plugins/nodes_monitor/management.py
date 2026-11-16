@@ -21,6 +21,8 @@ from app.modules.settings.node_registry import (
 from app.modules.settings.nodes_schemas import NodeChange, NodeChangeResult
 from app.modules.settings.service import SettingsService
 
+from .deployment_schemas import DeploymentNodeChange
+
 
 async def revoke_leases(session: AsyncSession, node_id: str) -> None:
     await session.execute(
@@ -51,6 +53,14 @@ async def manage_node(
     if action != "add" and previous is None:
         raise AuthFailure(404, 40420, "节点不存在")
     binding = registration_bindings(directory, settings).get(node_id)
+    connection = command.connection if isinstance(command, DeploymentNodeChange) else None
+    if connection is not None:
+        if binding is None:
+            raise AuthFailure(409, 40929, "请先在 setup 保存该节点的双向令牌配对")
+        updated = binding.model_copy(update=connection.model_dump())
+        if updated != binding and previous is not None and previous.enabled:
+            raise AuthFailure(409, 40929, "请先停用节点，再修改内部接收器")
+        binding = updated
     create_registry = (
         record is None and action == "add" and not directory.entries and binding is not None
     )
@@ -72,11 +82,15 @@ async def manage_node(
         else:
             value = command.registration
             assert value is not None
+            # Publication belongs to the frontend. Preserve its last authenticated report
+            # when the deployment form changes only internal pairing or enablement.
+            if "base_url" not in value.model_fields_set and previous is not None:
+                value = value.model_copy(update={"base_url": previous.base_url})
             if action == "add" and len(entries) >= MAX_NODES:
                 raise AuthFailure(422, 42226, "节点数量已达上限")
             if value.enabled and binding is None:
                 raise AuthFailure(409, 40929, "请先在后端服务器登记该节点的连接")
-            if binding is not None and node_id not in directory.bindings:
+            if binding is not None and binding != directory.bindings.get(node_id):
                 record.bindings = record.bindings | {node_id: binding.model_dump()}
             entries[node_id] = value.model_dump()
             if not value.enabled:
@@ -106,7 +120,9 @@ async def manage_node(
                 "revision": revision,
                 "actor": "deployment_console",
                 "before": previous.model_dump() if previous else None,
-                "after": command.registration.model_dump() if command.registration else None,
+                "after": record.nodes.get(node_id) if record and action != "sync" else None,
+                "connection_changed": connection is not None
+                and binding != directory.bindings.get(node_id),
                 "queued": queued,
             },
         )
