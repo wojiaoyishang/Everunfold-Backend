@@ -1170,6 +1170,11 @@
           "title": "Show Encrypted Excerpt",
           "type": "boolean"
         },
+        "hide_card_excerpt": {
+          "default": false,
+          "title": "Hide Card Excerpt",
+          "type": "boolean"
+        },
         "path": {
           "default": "",
           "maxLength": 500,
@@ -2917,7 +2922,7 @@
   "title": "CollaborationContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "2.11.0",
+  "x-everunfold-contract-version": "2.12.0",
   "x-everunfold-operations": [
     {
       "name": "acquireHtmlSource",

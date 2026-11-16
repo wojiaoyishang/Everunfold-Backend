@@ -435,6 +435,11 @@
           "title": "Show Encrypted Excerpt",
           "type": "boolean"
         },
+        "hide_card_excerpt": {
+          "default": false,
+          "title": "Hide Card Excerpt",
+          "type": "boolean"
+        },
         "language": {
           "title": "Language",
           "type": "string"
@@ -2106,6 +2111,11 @@
         "show_encrypted_excerpt": {
           "default": false,
           "title": "Show Encrypted Excerpt",
+          "type": "boolean"
+        },
+        "hide_card_excerpt": {
+          "default": false,
+          "title": "Hide Card Excerpt",
           "type": "boolean"
         },
         "path": {
@@ -4471,7 +4481,7 @@
   "title": "ContentAdminContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "1.26.0",
+  "x-everunfold-contract-version": "1.27.0",
   "x-everunfold-content-types": [
     {
       "id": "article",

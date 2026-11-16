@@ -472,7 +472,7 @@ async def test_locked_excerpt_only_publishes_manually_written_opt_in_text(
     database_session: AsyncSession, isolated_settings: Settings
 ) -> None:
     identity = uuid.uuid4()
-    preset = "这是一篇加密的文章，需要输入密码才能阅读。"
+    excerpt = "作者允许公开的手写摘要"
     css = ":scope { color: rebeccapurple }"
     draft = ContentDraft(
         id=identity,
@@ -492,28 +492,40 @@ async def test_locked_excerpt_only_publishes_manually_written_opt_in_text(
     await publisher.publish(draft)
     path = draft.public_path
     assert path is not None
-    assert not (await service.resolve(path)).excerpt
+    locked = await service.resolve(path)
+    assert not locked.excerpt and not locked.hide_card_excerpt
 
     draft.excerpt = ""
     draft.editor_settings = {**draft.editor_settings, "show_encrypted_excerpt": True}
     await publisher.publish(draft)
     assert not (await service.resolve(path)).excerpt
 
-    draft.excerpt = preset
+    draft.excerpt = excerpt
     draft.editor_settings = {
         **draft.editor_settings,
         "opens_at": (datetime.now(UTC) + timedelta(days=1)).isoformat(),
     }
     await publisher.publish(draft)
     item = next(entry for entry in (await service.snapshot()).contents if entry.id == str(identity))
-    assert item.access == "scheduled" and item.excerpt == preset and item.show_encrypted_excerpt
+    assert item.access == "scheduled" and item.excerpt == excerpt and item.show_encrypted_excerpt
     assert not item.content and not item.media_urls and not item.extra_css
     assert "不可公开的正文" not in item.model_dump_json()
+
+    draft.editor_settings = {**draft.editor_settings, "hide_card_excerpt": True}
+    await publisher.publish(draft)
+    item = next(entry for entry in (await service.snapshot()).contents if entry.id == str(identity))
+    assert item.model_dump()["hide_card_excerpt"] is True
+    assert draft.excerpt == item.excerpt == excerpt
 
     unlocked = await service.repository.resolve(path)
     assert unlocked is not None
     payload = service._detail(unlocked, {}, {}, authorized=True)
     assert payload.content and payload.extra_css == css
+
+    draft.editor_settings = {**draft.editor_settings, "hide_card_excerpt": False}
+    await publisher.publish(draft)
+    restored = await service.resolve(path)
+    assert not restored.hide_card_excerpt and restored.excerpt == excerpt
 
     draft.editor_settings = {**draft.editor_settings, "show_encrypted_excerpt": False}
     await publisher.publish(draft)

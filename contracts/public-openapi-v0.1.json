@@ -40964,6 +40964,11 @@
             "title": "Show Encrypted Excerpt",
             "default": false
           },
+          "hide_card_excerpt": {
+            "type": "boolean",
+            "title": "Hide Card Excerpt",
+            "default": false
+          },
           "language": {
             "type": "string",
             "title": "Language"
@@ -41419,6 +41424,11 @@
           "show_encrypted_excerpt": {
             "type": "boolean",
             "title": "Show Encrypted Excerpt",
+            "default": false
+          },
+          "hide_card_excerpt": {
+            "type": "boolean",
+            "title": "Hide Card Excerpt",
             "default": false
           },
           "language": {
@@ -43324,6 +43334,11 @@
           "show_encrypted_excerpt": {
             "type": "boolean",
             "title": "Show Encrypted Excerpt",
+            "default": false
+          },
+          "hide_card_excerpt": {
+            "type": "boolean",
+            "title": "Hide Card Excerpt",
             "default": false
           },
           "path": {
@@ -62846,5 +62861,5 @@
       }
     }
   },
-  "x-everunfold-contract-version": "0.1.2"
+  "x-everunfold-contract-version": "0.1.3"
 }

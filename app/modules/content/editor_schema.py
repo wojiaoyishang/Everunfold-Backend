@@ -74,6 +74,7 @@ class EditorSettings(ArticleOverrides, SeoFields):
     share_image_media_id: UUID | None = None
     extra_css: str = Field(default="", max_length=16000, exclude_if=lambda value: not value)
     show_encrypted_excerpt: bool = Field(default=False, exclude_if=lambda value: not value)
+    hide_card_excerpt: bool = Field(default=False, exclude_if=lambda value: not value)
 
     @field_validator("byline")
     @classmethod

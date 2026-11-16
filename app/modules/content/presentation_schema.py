@@ -28,6 +28,7 @@ class ContentPresentation(ArticleOverrides, SeoFields):
     path: str = Field(pattern="^/")
     excerpt: str
     show_encrypted_excerpt: bool = Field(default=False, exclude_if=lambda value: not value)
+    hide_card_excerpt: bool = Field(default=False, exclude_if=lambda value: not value)
     language: str
     translation_group_id: str | None = None
     translations: list[ContentTranslation] = Field(default_factory=list)

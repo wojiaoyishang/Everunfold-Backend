@@ -561,6 +561,11 @@
           "title": "Show Encrypted Excerpt",
           "type": "boolean"
         },
+        "hide_card_excerpt": {
+          "default": false,
+          "title": "Hide Card Excerpt",
+          "type": "boolean"
+        },
         "language": {
           "title": "Language",
           "type": "string"
@@ -1560,5 +1565,5 @@
       "type": "object"
     }
   },
-  "x-everunfold-contract-version": "0.20.0"
+  "x-everunfold-contract-version": "0.21.0"
 }

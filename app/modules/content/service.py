@@ -143,6 +143,9 @@ class PublicContentService:
             path=item.path,
             excerpt=item.excerpt if readable else encrypted_excerpt,
             show_encrypted_excerpt=bool(encrypted_excerpt),
+            hide_card_excerpt=(
+                item.kind == "article" and editor_settings.get("hide_card_excerpt") is True
+            ),
             language=item.language,
             translation_group_id=str(item.translation_group_id or item.id),
             published_at=item.published_at,
