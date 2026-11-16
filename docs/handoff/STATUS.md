@@ -1,5 +1,12 @@
 # 后端交接状态
 
+## 同步前端 npm 缓存与独立插件构建交接（2026-11-16）
+
+- 共用 `deploy/config_context.py`、`deploy/native.py` 及助手测试同步前端：仅 Docker 前端创建数据目录下的 `npm-cache/`，原生前端安装优先复用 npm 下载缓存。后端仍使用 uv，业务运行与数据库逻辑不变。
+- 前端修复独立编译容器缺少生成契约的问题：插件入口先准备锁定契约，builder 持久化 npm 下载缓存。共享操作手册、索引及 [ADR 0160](../decisions/0160-plugin-build-preparation-and-npm-cache.md) 已同步；前端需更新后执行根 `build`、成功后 `start`，无需为本轮修改重启后端。
+- 本端助手 44 项中 40 通过/4 按组件跳过，前端 34 通过/10 跳过；共用文件一致性、Ruff/格式、差异检查和双端 Sphinx 严格构建通过。前端 414 项测试、TypeScript、ESLint、格式与 Compose 渲染通过；实际六插件冷缓存和第二个工作区 npm 离线缓存构建均成功、产物哈希相同。
+- 当前无 Docker daemon，实际编译入口通过宿主工具验证，真实镜像和容器挂载仍待部署机验收；未启动服务、未重复后端业务测试或前端主体生产构建，未修改用户运行配置与数据。
+
 ## 同步 npm 安装日志参数（2026-11-15）
 
 - 共用 `deploy/native.py` 同步前端安装日志参数 `--loglevel=verbose --timing`；仅作用于前端原生构建分支，后端依赖仍通过 uv 安装。
