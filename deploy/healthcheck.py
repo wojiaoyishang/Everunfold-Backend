@@ -7,12 +7,13 @@ from urllib.request import urlopen
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from app.core.config import configuration_path  # noqa: E402
 from app.core.deployment_config import read_deployment  # noqa: E402
 
 
 def main() -> None:
     environment = dict(os.environ)
-    path = Path(environment.get("CONFIG_FILE", "/workspace/config.yaml"))
+    path = configuration_path()
     if path.suffix.lower() in {".yaml", ".yml"}:
         environment = {**read_deployment(path).get("environment", {}), **environment}
     host = environment.get("API_HOST", "0.0.0.0")

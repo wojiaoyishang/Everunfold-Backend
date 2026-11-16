@@ -2,6 +2,7 @@
 
 import asyncio
 import contextlib
+import logging
 import multiprocessing
 import os
 import signal
@@ -18,7 +19,10 @@ from app.core.jobs.execution import resident_entry
 from app.core.jobs.models import TaskRun
 from app.core.jobs.service import now, reconcile
 from app.core.jobs.telemetry import Reporter
+from app.core.process_logging import configure_process_logging
 from app.core.task_queue import celery_app, settings
+
+logger = logging.getLogger(__name__)
 
 
 async def run() -> None:
@@ -35,10 +39,12 @@ async def run() -> None:
     for sig in (signal.SIGINT, signal.SIGTERM):
         loop.add_signal_handler(sig, stopping.set)
     acquired = False
+    last_error: str | None = None
     try:
         acquired = bool(await asyncio.to_thread(client.set, key, token, nx=True, px=30000))
         if not acquired:
             raise RuntimeError("A scheduler already owns this namespace")
+        logger.info("Scheduler started")
         while not stopping.is_set():
             renewed = await asyncio.to_thread(
                 client.eval,
@@ -121,8 +127,16 @@ async def run() -> None:
                     residents=len(children),
                     pending=len(pending),
                 )
+                error = "broker_unavailable" if broker_failed else None
             except Exception as exc:
-                reporter.pulse(state="degraded", error=type(exc).__name__)
+                error = type(exc).__name__
+                reporter.pulse(state="degraded", error=error)
+            if error != last_error:
+                if error:
+                    logger.warning("Scheduler degraded: %s", error)
+                else:
+                    logger.info("Scheduler recovered")
+                last_error = error
             with contextlib.suppress(TimeoutError):
                 await asyncio.wait_for(stopping.wait(), timeout=1)
     finally:
@@ -150,9 +164,11 @@ async def run() -> None:
         finally:
             client.close()
             await db.close()
+        logger.info("Scheduler stopped")
 
 
 def main() -> None:
+    configure_process_logging("Scheduler", "SCHEDULER_LOG_LEVEL")
     asyncio.run(run())
 
 

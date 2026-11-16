@@ -4,6 +4,8 @@ FastAPI 直接提供 `/_nodes`。页面按稳定节点 ID 显示前端上报、�
 
 ## 配置
 
+推荐使用根 `./setup.sh`。`CONFIG_FILE` 默认项目根 `config.yaml`；下列 TOML 示例仅供显式指定旧配置的实例参考。TLS 代理、拒绝日志和日志等级见[部署教程](../../deploy/README.md#控制台访问与拒绝原因)。
+
 1. 从 `frontend-nodes.example.toml` 创建独立节点清单，移入原来的 `[frontends.<节点 ID>]`。主 `config.toml` 根级填写 `frontend_nodes_file = "./frontend-nodes.toml"`，相对路径以主配置所在目录为准。保留节点 ID 和 Token 环境变量引用。旧版内联节点配置仍可单独使用。
 2. 运行 `uv run --locked python -m tools.nodes_monitor_password`，将输出的 `password_hash` 放入主配置的 `[nodes_monitor]`。设置 `enabled = true`。独立签名密钥通过 `session_secret_env` 指定的环境变量注入，默认名称为 `EVERUNFOLD_NODES_SESSION_SECRET`。用 `python -c 'import secrets; print(secrets.token_urlsafe(32))'` 生成随机值，所有 API 副本使用同一个值。
 3. `origin` 留空时取 `BACKEND_BASE_URL`。生产使用 HTTPS。若终止 TLS 的代理与后端分离，限制后端端口只接受受信代理的流量，并配置 ASGI 仅从受信代理识别 HTTPS；不要信任任意转发头。当前容器 HTTP 配置仅接受回环，入口为 `http://127.0.0.1:3000/_nodes`。现有独立接收器端口和 `/internal/*` 继续对外关闭。
@@ -20,7 +22,7 @@ FastAPI 直接提供 `/_nodes`。页面按稳定节点 ID 显示前端上报、�
 
 多设备部署时，从前端验证 FastAPI 地址，从实际发起投递的 Worker 验证前端接收器地址。内部服务使用 HTTPS 和真实连接 IP 白名单，两个方向分别配置 Token。接收器及上报接口通过私网或受限入口部署。
 
-前端的 `/admin/_nodes` 使用前端本机的连接文件。在线时该页通过站点管理员会话读取全站状态，并只配置本机预先登记的后端。前端的诊断密码和后端 `/_nodes` 密码分别配置。
+前端的 `/admin/_nodes` 使用前端本机的连接文件。在线时该页通过站点管理员会话读取全站状态；本机密码可在后端不可用时新增或编辑连接。前端的诊断密码和后端 `/_nodes` 密码分别配置。
 
 ## 更换密码
 
@@ -34,3 +36,5 @@ FastAPI 直接提供 `/_nodes`。页面按稳定节点 ID 显示前端上报、�
 - 「最后确认」来自后端已核对的投递回执。「接收器副本」来自这次独立探测。同步接收器连接正常时仍可能存在缺失副本、版本落后或已经耗尽重试。
 - 页面每 15 秒更新，也可手动刷新。数据库或 Redis 故障时，独立登录继续可用，相关状态显示无法读取。接收器地址、密钥和任务内容由服务端保管。
 - 管理清单不可用时，页面显示部署清单中的参考节点，并停止探测这些可能过时的地址。
+
+节点配对导出默认返回标准 Base64（UTF-8 JSON，`everunfold-node-connection/v1`），不生成跨容器连接文件。它只包含当前节点的发布 URL、来源 UUID 和双向令牌。前端 setup 与浏览器支持粘贴导入；后端仍须在 `/_nodes` 中添加/启用节点成员，登记绑定不会绕过启停检查。

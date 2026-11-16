@@ -14,14 +14,12 @@ sys.path.insert(0, str(ROOT))
 from config_probes import backend_checks, database_is_empty, failure  # noqa: E402
 from database_setup import initialization_idle, initialize_empty  # noqa: E402
 
-from app.core.config import load_settings  # noqa: E402
+from app.core.config import configuration_path, load_settings  # noqa: E402
 from app.core.deployment_config import read_deployment  # noqa: E402
 
 
 def deployment_environment() -> tuple[Path, dict[str, str]]:
-    default = ROOT / ("config.yaml" if (ROOT / "config.yaml").exists() else "config.toml")
-    selected = Path(os.environ.get("CONFIG_FILE", str(default)))
-    config = selected if selected.is_absolute() else ROOT / selected
+    config = configuration_path(project_root=ROOT)
     environment = dict(os.environ)
     if config.suffix.lower() in {".yaml", ".yml"}:
         environment = {**read_deployment(config).get("environment", {}), **environment}

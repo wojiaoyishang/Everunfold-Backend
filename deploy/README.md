@@ -6,22 +6,38 @@
 
 前后端统一在**各自项目根目录**运行 `./setup.sh`，选择 Docker 或原生部署；也可使用下方显式参数。配置助手代码在 `deploy/`，`docker/` 只保存镜像及容器相关文件。
 
-**根目录 `config.yaml` 是唯一需要维护的部署配置**。首次保存自动生成，权限为 `0600`，已加入 Git 忽略。配置、密钥及部署参数均从这里读取；运行所需的 TOML、环境文件由助手自动生成。手动修改 YAML 后，下一次 `build`、`start` 或 `check` 会应用修改。不要再修改生成的 `config.runtime.toml`、`.env`、`runtime.env`。后端直接读取根 YAML；前端使用助手从根 YAML 生成的根目录 `config.runtime.toml`。
+**根目录 `config.yaml` 是唯一需要维护的部署配置**。首次保存自动生成，权限为 `0600`，已加入 Git 忽略。配置、密钥及部署参数均从这里读取；兼容 TOML、环境文件和 Compose 参数由助手自动生成。手动修改 YAML 后，下一次 `build`、`start` 或 `check` 会应用修改。不要再修改生成的 `config.runtime.toml`、`.env`、`runtime.env`。两端直接读取所选 YAML；`config.runtime.toml` 仅为兼容派生文件。
+
+### 配置文件路径
+
+配置文件路径由**外部环境变量 `CONFIG_FILE`** 指定；未设置时，只读取当前项目根目录的 `config.yaml`，与启动时的工作目录无关。相对路径也相对于项目根目录。指定的文件缺失或无效会报错，不再自动寻找另一份 TOML。setup 和应用使用同一份 YAML，页面及启动日志会显示最终路径。
+
+```bash
+# 默认：项目根目录 config.yaml
+./setup.sh --docker
+# 自定义：之后的配置、构建、启动保持这个环境变量
+export CONFIG_FILE=/opt/everunfold/config/frontend/config.yaml
+./setup.sh --docker
+./setup.sh --docker deploy
+# 不用 Docker：同样设置 CONFIG_FILE，再运行 ./setup.sh --native
+```
+
+上例是**宿主路径**。Docker 助手将其所在目录挂到 `/config`，向应用明确传入 `CONFIG_FILE=/config/config.yaml`（自定义文件名会保留）。前端配置目录可写，后端只读；前端产物仍挂 `/workspace`，数据仍挂 `/data`。直接 `docker run` 时，`-e CONFIG_FILE=...` 必须填写**容器内路径**；镜像默认 `/workspace/config.yaml`。若代码或产物目录只读，可把配置放入另一个可写目录后挂载该目录；不要把文件单独 bind mount，否则原子保存会失败。自定义路径里的凭据文件也不得提交 Git。
 
 已有旧向导配置会在首次保存时导入：Docker 使用原 `docker/data/config.toml` 与 `docker/runtime.env`；原生使用 `var/instance/`。没有点击保存就退出，不会写入配置。使用其他位置的旧实例配置时，应先迁入所选实例目录并保留原密钥。
 
-“仅保存”（或 Ctrl+S）成功后保留配置界面并显示成功提示，可以继续修改、再次保存。选择“退出”才离开；未保存的修改会单独询问是否放弃。后端“登记并导出节点”同样保留界面，成功后直接显示导出文件的**宿主绝对路径**，失败可留在界面修正后重试。
+“仅保存”（或 Ctrl+S）成功后保留配置界面并显示成功提示，可以继续修改、再次保存。选择“退出”才离开；未保存的修改会单独询问是否放弃。后端“登记并导出 Base64”同样保留界面，成功后直接显示可复制的 **Base64 编码**，失败可留在界面修正后重试。
 
 
-选中配置项可点 **“查看 / 复制选中项”** 或按 Ctrl+C；编辑框支持 Shift+←/→ 选择后 Ctrl+C。**F4 / “查看 / 复制结果”** 展示完整执行结果，支持复制全部及单独复制导入命令。复制按钮使用终端剪贴板能力（OSC 52）；若 SSH、1Panel 网页终端或本机终端未允许剪贴板，点击 **“终端复制”**，程序临时恢复普通终端，输出完整文字供鼠标选择，按回车返回。Ctrl+Q 或“退出”关闭助手。
+选中配置项可点 **“查看 / 复制选中项”** 或按 Ctrl+C；编辑框支持 Shift+←/→ 选择后 Ctrl+C。**F4 / “查看 / 复制结果”** 展示完整执行结果，支持复制全部；导出结果可单独复制 Base64 或导入命令。复制按钮使用终端剪贴板能力（OSC 52）；若 SSH、1Panel 网页终端或本机终端未允许剪贴板，点击 **“终端复制”**，程序临时恢复普通终端，输出完整文字供鼠标选择，按回车返回。Ctrl+Q 或“退出”关闭助手。
 
-后端导出成功后自动展开完整结果，显示文件的宿主绝对路径，以及在**前端仓库根目录**执行的命令，例如：
+后端导出成功后自动展开完整结果，显示节点连接 Base64，以及在**前端仓库根目录**执行的命令，例如：
 
 ```bash
-./setup.sh --docker --connection-file /opt/everunfold/Everunfold-Data/backend/connections/web-main.json
+./setup.sh --docker --connection-base64
 ```
 
-原生导出生成 `--native` 命令；前端若采用另一部署方式，可修改该参数。带空格、引号的路径会自动加安全引号。跨主机部署先私下传输连接文件，再将命令路径换成前端宿主上的绝对路径；命令本身不包含令牌。
+执行后按提示粘贴完整编码，输入不回显；也可在前端 setup 的“粘贴后端连接 Base64”或浏览器 `/admin/_nodes` 中导入。原生部署改用 `--native`。命令本身不包含令牌，编码无需共享目录或文件挂载。Base64 不是加密，其中包含节点令牌，请按密钥保管。
 
 ## 一、Docker 从零构建与部署
 
@@ -29,7 +45,7 @@
 
 需要 Linux / WSL、Bash 4+、Git、Docker Engine 和 Compose v2。按 [Docker 官方安装指南](https://docs.docker.com/engine/install/)安装，并确保当前账号可以运行 `docker info` 和 `docker compose version`。宿主无需安装 Python、Node.js 或项目依赖。
 
-准备一个专用 PostgreSQL 空库及有权限访问它的账号，以及可用的 Redis。可以使用现有服务；数据库和 Redis 不包含在两个应用镜像中。如果它们也是容器，在助手的“主网络”或“额外网络”填入这些服务所在的自定义网络，例如 `1panel-network`，再使用容器名访问。默认 `bridge` 不提供容器名解析。数据库由数据库服务自行持久化，后端 `/data` 保存媒体、缓存及节点连接文件，应用配置位于 `/workspace/config.yaml`。
+准备一个专用 PostgreSQL 空库及有权限访问它的账号，以及可用的 Redis。可以使用现有服务；数据库和 Redis 不包含在两个应用镜像中。如果它们也是容器，在助手的“主网络”或“额外网络”填入这些服务所在的自定义网络，例如 `1panel-network`，再使用容器名访问。默认 `bridge` 不提供容器名解析。数据库由数据库服务自行持久化，后端 `/data` 保存媒体与缓存；运行配置由 `CONFIG_FILE` 指向挂载的 `/config/文件名`。
 
 ```bash
 git clone https://github.com/wojiaoyishang/Everunfold-Backend.git
@@ -144,13 +160,13 @@ docker logs --tail=100 everunfold-backend
 
 setup 的“节点控制台”分组提供**启用开关（1/0）、密码和会话密钥**。新配置自动生成随机密码，没有固定默认密码；选中即可查看、复制、修改或重新生成。已有启用状态保留，只有密码哈希的旧实例留空保留密码；修改密码或会话密钥使旧登录失效。密码与管理员密码独立。HTTPS 反代需保留公开 Host、发送 `X-Forwarded-Proto: https`，并在“HTTPS 反向代理的直接来源 IP”填写后端实际看到的代理 IP。
 
-在助手中填写待配对的“前端节点 ID”和“此节点的内部接收器 URL”，例如 `web-main`、`https://receiver.example.com`，选择“登记并导出节点”，或者保存后运行：
+在助手中填写待配对的“前端节点 ID”和“此节点的内部接收器 URL”，例如 `web-main`、`https://receiver.example.com`，选择“登记并导出 Base64”，或者保存后运行：
 
 ```bash
 ./setup.sh --docker export-node
 ```
 
-得到所选数据目录下的 `connections/web-main.json`（默认 `docker/data/connections/web-main.json`），权限为 `0600`。它只包含该节点的 ID、后端发布 URL、来源 UUID 和双向令牌。把它私下复制到对应前端，按前端教程导入。不同前端分别选择不同节点 ID 导出，原节点令牌保留。新增令牌后执行 `./setup.sh --docker start`，让运行中的后端重新加载环境。
+终端直接输出节点连接 Base64，只包含该节点 ID、后端发布 URL、来源 UUID 和双向令牌，不包含数据库、Redis 或站点主密钥。前端在 setup 或 `/admin/_nodes` 粘贴导入，无需跨容器访问文件。不同前端分别选择不同节点 ID 导出，原节点令牌保留。新增令牌后执行 `./setup.sh --docker start`，让运行中的后端重新加载环境。
 
 前端上线后，在 `/_nodes` 添加该节点的前端公开 URL 并启用；内部接收器地址和令牌绑定已经由助手登记。已有启用节点如需更换内部绑定，先在控制台停用，再执行登记。应用后台“设置 → 节点状态与维护”负责首次公开内容同步。
 
@@ -167,10 +183,9 @@ docker/
   data/
     setup.json             当前待配对节点的信息
     uploads/               持久化媒体
-    connections/           私有节点连接文件
 ```
 
-后端代码目录只读挂到 `/workspace`，所选数据目录可写挂到 `/data`。根 `config.yaml` 随源码挂载到 `/workspace/config.yaml`，API、Worker、Scheduler 启动前统一加载其中的环境值；不需要 `/data/config.toml`，也无需手工传 `--env-file`。新配置将容器 UID/GID 与执行助手的宿主账号对齐；已有 `EVERUNFOLD_UID/GID` 保留。重新构建镜像、删除应用容器都不会删除宿主数据。
+后端代码目录只读挂到 `/workspace`，所选数据目录可写挂到 `/data`。所选配置目录另挂 `/config`，使用显式 `CONFIG_FILE`，API、Worker、Scheduler 启动前统一加载其中的环境值；不需要 `/data/config.toml`，也无需手工传 `--env-file`。新配置将容器 UID/GID 与执行助手的宿主账号对齐；已有 `EVERUNFOLD_UID/GID` 保留。重新构建镜像、删除应用容器都不会删除宿主数据。
 
 镜像默认 `everunfold-backend:python312`，包含 Everunfold 项目标签、构建来源和时间；构建阶段及启动日志也显示组件名。镜像中的依赖按 `uv.lock` 安装，源码仍从挂载读取。依赖锁变化后必须重建镜像。
 
@@ -184,7 +199,7 @@ docker restart everunfold-backend
 docker stop everunfold-backend
 ```
 
-挂载点在向导中编辑，保存到根 YAML 的 `docker` 小节；相对路径以 `docker/` 为基准。若选择另一个代码目录，助手会把根 YAML 同步到该代码目录的根部并备份已有文件。更换数据目录只改变挂载，不搬运原有媒体；请选择原数据目录或自行迁移。容器名称相同时会重新创建属于当前部署的容器，保留宿主数据；遇到无关的同名容器会停止并提示更名。上方日志、停止和重启命令需使用你选定的容器名称。启动统一使用根 `setup.sh`，Compose 用于构建，不要用 `compose up` 绕过额外网络接入。导入旧配置后，根 YAML 中其他应用字段和环境变量会保留，保存前创建 `*.bak` 备份；原 TOML 注释保留在备份里。备份时一并保存根目录 `config.yaml`、数据和数据库。
+挂载点在向导中编辑，保存到根 YAML 的 `docker` 小节；相对路径以 `docker/` 为基准。选择另一个代码目录也只读取 `CONFIG_FILE` 指定的原文件，不复制第二份配置。更换数据目录只改变挂载，不搬运原有媒体；请选择原数据目录或自行迁移。容器名称相同时会重新创建属于当前部署的容器，保留宿主数据；遇到无关的同名容器会停止并提示更名。上方日志、停止和重启命令需使用你选定的容器名称。启动统一使用根 `setup.sh`，Compose 用于构建，不要用 `compose up` 绕过额外网络接入。导入旧配置后，根 YAML 中其他应用字段和环境变量会保留，保存前创建 `*.bak` 备份；原 TOML 注释保留在备份里。备份时一并保存根目录 `config.yaml`、数据和数据库。
 
 
 ### 已有部署升级到根配置
@@ -231,15 +246,15 @@ curl --fail http://127.0.0.1:8001/health/ready
 
 ### 3. 配对前端和长期运行
 
-回到助手填写节点 ID 和接收器地址。两端都在本机直接运行时，接收器可以填写 `http://127.0.0.1:3000`。选择“登记并导出节点”，界面内显示成功和完整绝对路径；也可运行：
+回到助手填写节点 ID 和接收器地址。两端都在本机直接运行时，接收器可以填写 `http://127.0.0.1:3000`。选择“登记并导出 Base64”，界面内显示成功和完整 Base64；也可运行：
 
 ```bash
 ./setup.sh --native export-node
 ```
 
-前端直接导入 `var/instance/connections/web-main.json`。新增节点令牌后，重启运行中的后端进程以载入新环境。后台节点公开 URL 可以是本机 `http://127.0.0.1:3000`；从其他机器访问时，应改为实际 HTTPS 地址并配置反向代理。
+前端运行 `./setup.sh --native --connection-base64`，按提示粘贴编码。新增节点令牌后，重启运行中的后端进程以载入新环境。后台节点公开 URL 可以是本机 `http://127.0.0.1:3000`；从其他机器访问时，应改为实际 HTTPS 地址并配置反向代理。
 
-原生部署同样直接读取根 `config.yaml`；派生兼容 TOML 位于根 `config.runtime.toml`。数据默认使用 `var/instance/`：`runtime.env`、`deploy.env`、`setup.json`、`uploads/` 和 `connections/` 均在这里，与 Docker 数据分开。程序会自动加载根配置的环境值，无需手工 `source` 或逐条 `export`。用 `EVERUNFOLD_INSTANCE_DIR=/绝对路径` 可以选择其他实例目录，每次启动保持一致。
+原生部署同样直接读取根 `config.yaml`；派生兼容 TOML 位于根 `config.runtime.toml`。数据默认使用 `var/instance/`：`runtime.env`、`deploy.env`、`setup.json`、`uploads/` 均在这里，与 Docker 数据分开。程序会自动加载根配置的环境值，无需手工 `source` 或逐条 `export`。用 `EVERUNFOLD_INSTANCE_DIR=/绝对路径` 可以选择其他实例目录，每次启动保持一致。
 
 长期托管可让 systemd / Supervisor 分别运行以下命令，使用同一个服务账号和实例目录；每个实例只启动一个 Scheduler：
 
@@ -249,8 +264,22 @@ curl --fail http://127.0.0.1:8001/health/ready
 ./setup.sh --native scheduler
 ```
 
-API worker 数量、Celery 池及并发数继续从助手生成的 `runtime.env` 读取。配置更新后重新启动对应进程。备份根目录 `config.yaml`、`var/instance` 和数据库。
+API worker 数量、Celery 池及并发数从 YAML 的 `environment` 读取，外部环境变量可覆盖。配置更新后重新启动对应进程。备份根目录 `config.yaml`、`var/instance` 和数据库。
 
 ### 旧开发联调入口
 
 原 Supervisor / Nginx 开发模板继续保留，命令与端口约定见[开发容器部署指南](../docs/development/container-deployment.md)。该模板与本文的根目录部署助手分开使用。
+
+### 控制台访问与拒绝原因
+
+“构建并启动”会保存配置、重建镜像并重新创建应用容器。控制台仍无法访问时，查看启动日志中的实际 `CONFIG_FILE` 和 `[Everunfold access]`：
+
+- `monitor_disabled`：该实例未启用控制台，路由返回 404。
+- `monitor_host_mismatch`：请求 Host 与发布 URL 不符；`monitor_https_required`：缺少正确的 HTTPS 协议。
+- `monitor_proxy_untrusted`：实际直连 TLS 代理 IP 不在 `nodes_monitor.trusted_tls_proxy_ips`。此列表用于控制台 HTTPS 转发，与内部调用白名单不同。
+- `peer_not_allowed`、`token_missing`、`token_mismatch`：内部上报的真实来源或令牌未通过。日志含来源 IP、节点 ID及有效允许列表，不含密码、令牌、正文或查询参数。
+- `node_not_registered` / `node_disabled`：节点未加入运行清单或未启用。**导出连接 Base64 只登记内部绑定**，还须在后端 `/_nodes` 新增/启用相同节点 ID；仅令牌正确仍会被拒绝。
+
+自动允许 Docker 网络会将所选网络的实际 CIDR 追加到 `internal_auth.allowed_peer_ips`，保留 IP **且** Token 校验。该开关不自动信任 HTTPS 反代。不要通过扩大 TLS 代理列表解决内部上报权限问题。
+
+setup 的“日志”分组提供 `API_LOG_LEVEL`、`WORKER_LOG_LEVEL`、`SCHEDULER_LOG_LEVEL`，支持 `DEBUG`、`INFO`、`WARNING`、`ERROR`、`CRITICAL`。新配置默认分别为 `INFO`、`WARNING`、`INFO`；已有值保留，原 Worker 为 `INFO` 时请手动改为 `WARNING`。保存并启动后生效。Scheduler 只记录状态转变，不逐次输出心跳；相同访问拒绝日志节流 30 秒。降低 API 日志等级会相应隐藏诊断信息。

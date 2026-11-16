@@ -133,7 +133,9 @@ def main() -> int:
     parser = argparse.ArgumentParser(
         description="显式初始化 Everunfold 数据库及默认管理员；不会清库或重置已有账号"
     )
-    parser.add_argument("--config", type=Path, help="配置文件；默认遵循 CONFIG_FILE/config.toml")
+    parser.add_argument(
+        "--config", type=Path, help="配置文件；默认遵循 CONFIG_FILE/项目根目录 config.yaml"
+    )
     parser.add_argument(
         "--admin-username", default=os.environ.get("EVERUNFOLD_ADMIN_USERNAME", "admin")
     )

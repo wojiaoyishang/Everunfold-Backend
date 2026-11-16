@@ -26,7 +26,9 @@ async def apply(config: str) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--config", default="config.toml")
+    parser.add_argument(
+        "--config", default=None, help="默认读取 CONFIG_FILE，未设置时使用项目根目录 config.yaml"
+    )
     parser.add_argument(
         "--apply", action="store_true", help="Persist declarations and enqueue public settings"
     )

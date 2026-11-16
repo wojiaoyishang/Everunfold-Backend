@@ -27,6 +27,7 @@ from app.core.modules import (
 from app.core.plugins.definition import PluginRuntime
 from app.core.plugins.loader import plugin_catalog
 from app.core.plugins.route_runtime import mount_plugin_routes
+from app.core.process_logging import configure_process_logging
 from app.core.responses import JSONResponseError, JSONResponseFail, JSONResponseSuccess
 from app.core.runtime import Runtime
 from app.core.schemas import ErrorResponse
@@ -228,4 +229,5 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     return application
 
 
+configure_process_logging("API", "API_LOG_LEVEL")
 app = create_app()

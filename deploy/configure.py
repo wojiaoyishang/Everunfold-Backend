@@ -263,6 +263,24 @@ def configure(native: bool = False) -> Configuration:
         active=lambda: value("pool") == "prefork",
         group="进程",
     )
+    log_levels = {
+        "API_LOG_LEVEL": ("API 日志等级", "INFO"),
+        "WORKER_LOG_LEVEL": ("Celery Worker 日志等级", "WARNING"),
+        "SCHEDULER_LOG_LEVEL": ("Scheduler 日志等级", "INFO"),
+    }
+    for key, (label, default) in log_levels.items():
+        add(
+            key,
+            label,
+            env.get(key, default).upper(),
+            resolve=lambda v: v.upper(),
+            valid=lambda v: v in {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"},
+            group="日志",
+            hint=(
+                "DEBUG / INFO / WARNING / ERROR / CRITICAL。WARNING 隐藏常规任务日志；"
+                "API 使用 INFO 可查看配置加载，WARNING 保留访问拒绝原因。保存并启动后生效。"
+            ),
+        )
     add(
         "publish_host",
         "宿主映射 IP",
@@ -357,6 +375,7 @@ def configure(native: bool = False) -> Configuration:
             node_names[0]: value("inbound"),
             node_names[1]: value("outbound"),
         }
+        environment.update({key: value(key) for key in log_levels})
         if "BACKEND_BASE_URL" in env:
             environment["BACKEND_BASE_URL"] = value("api")
         if value("EVERUNFOLD_ADMIN_PASSWORD"):

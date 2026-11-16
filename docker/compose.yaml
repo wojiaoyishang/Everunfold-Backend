@@ -16,12 +16,18 @@ services:
     container_name: ${BACKEND_CONTAINER_NAME:-everunfold-backend}
     network_mode: ${EVERUNFOLD_NETWORK:-bridge}
     environment:
-      CONFIG_FILE: /workspace/config.yaml
+      CONFIG_FILE: /config/${EVERUNFOLD_CONFIG_NAME:-config.yaml}
       EVERUNFOLD_DATA_DIR: /data
       API_PORT: "${BACKEND_API_PORT:-8001}"
     ports:
       - "${BACKEND_BIND_ADDRESS:-127.0.0.1}:${BACKEND_PUBLISH_PORT:-8001}:${BACKEND_API_PORT:-8001}"
     volumes:
+      - type: bind
+        source: ${EVERUNFOLD_CONFIG_DIR:-..}
+        target: /config
+        read_only: true
+        bind:
+          create_host_path: false
       - type: bind
         source: ${BACKEND_SOURCE_DIR:-..}
         target: /workspace

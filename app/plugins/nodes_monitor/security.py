@@ -47,29 +47,31 @@ class MonitorAccess:
         self.attempts: deque[tuple[float, str]] = deque()
         self.limiter = CapacityLimiter(2)
 
-    def accepts_host(self, request: Request) -> bool:
+    def rejection_reason(self, request: Request) -> str | None:
         if request.headers.get("host", "").lower() != self.host:
-            return False
+            return "monitor_host_mismatch"
         if self.secure and request.url.scheme == "https":
-            return True
+            return None
         peer = request.client.host if request.client else ""
         try:
             address = ipaddress.ip_address(peer)
         except ValueError:
-            return False
+            return "monitor_peer_invalid"
         if isinstance(address, ipaddress.IPv6Address) and address.ipv4_mapped:
             address = address.ipv4_mapped
         if self.secure:
-            return (
-                request.url.scheme == "http"
-                and str(address) in self.trusted_tls_proxy_ips
-                and request.headers.get("x-forwarded-proto") == "https"
-            )
-        return (
+            if str(address) not in self.trusted_tls_proxy_ips:
+                return "monitor_proxy_untrusted"
+            if request.url.scheme != "http" or request.headers.get("x-forwarded-proto") != "https":
+                return "monitor_https_required"
+            return None
+        if (
             request.url.scheme == "http"
             and address.is_loopback
             and is_loopback_host(urlsplit(self.origin).hostname or "")
-        )
+        ):
+            return None
+        return "monitor_loopback_required"
 
     def accepts_post(self, request: Request) -> bool:
         return request.headers.get("origin") == self.origin

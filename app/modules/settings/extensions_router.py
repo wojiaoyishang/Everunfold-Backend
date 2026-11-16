@@ -7,6 +7,7 @@ import os
 from fastapi import APIRouter, HTTPException, Request, Response
 from pydantic import ValidationError
 
+from app.core.access_diagnostics import log_access
 from app.core.plugins.loader import plugin_catalog
 from app.core.responses import JSONResponseSuccess
 from app.core.schemas import ErrorResponse, PublicResponse
@@ -67,6 +68,17 @@ async def check_extension_usage(
 async def report_extensions(node_id: str, request: Request) -> JSONResponseSuccess:
     runtime = auth_runtime(request)
     config = runtime.settings
+
+    def denied(code: str) -> AuthFailure:
+        log_access(
+            "internal_extensions",
+            code,
+            request=request,
+            node_id=node_id,
+            allowed_peer_ips=config.internal_auth.allowed_peer_ips,
+        )
+        return AuthFailure(403, 40320, "内部请求未通过验证")
+
     try:
         address = ipaddress.ip_address(request.client.host if request.client else "")
         allowed = any(
@@ -76,18 +88,21 @@ async def report_extensions(node_id: str, request: Request) -> JSONResponseSucce
     except ValueError:
         allowed = False
     supplied = request.headers.get("authorization", "")
-    if not allowed or not supplied.startswith("Bearer "):
-        raise AuthFailure(403, 40320, "内部请求未通过验证")
+    if not allowed:
+        raise denied("peer_not_allowed")
+    if not supplied.startswith("Bearer "):
+        raise denied("token_missing")
     async with runtime.database.session_factory() as session:
         node = (await read_targets(session, config)).get(node_id)
-    token = os.environ.get(node.nextjs_to_fastapi_token_env, "") if node else ""
-    if (
-        not node
-        or not node.enabled
-        or not token
-        or not hmac.compare_digest(supplied.encode(), ("Bearer " + token).encode())
-    ):
-        raise AuthFailure(403, 40320, "内部请求未通过验证")
+    if not node:
+        raise denied("node_not_registered")
+    if not node.enabled:
+        raise denied("node_disabled")
+    token = os.environ.get(node.nextjs_to_fastapi_token_env, "")
+    if not token:
+        raise denied("token_unconfigured")
+    if not hmac.compare_digest(supplied.encode(), ("Bearer " + token).encode()):
+        raise denied("token_mismatch")
     data = bytearray()
     async for chunk in request.stream():
         data.extend(chunk)

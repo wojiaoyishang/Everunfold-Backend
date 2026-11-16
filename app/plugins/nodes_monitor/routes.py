@@ -13,6 +13,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from starlette.requests import ClientDisconnect
 from starlette.responses import HTMLResponse, RedirectResponse, Response
 
+from app.core.access_diagnostics import log_access
 from app.core.query_cache_schemas import QueryCacheReportRequest
 from app.core.responses import JSONResponseFail, JSONResponseSuccess
 from app.core.runtime import Runtime
@@ -47,10 +48,18 @@ def monitor_router(access: MonitorAccess | None) -> APIRouter:
 
     def unavailable(request: Request) -> Response | None:
         if access is None:
+            log_access("nodes_monitor", "monitor_secret_invalid", request=request)
             return JSONResponseFail(
                 msg="节点监控尚未配置会话密钥。", status_code=503, headers=headers
             )
-        if not access.accepts_host(request):
+        if reason := access.rejection_reason(request):
+            log_access(
+                "nodes_monitor",
+                reason,
+                request=request,
+                origin=access.origin,
+                trusted_tls_proxy_ips=sorted(access.trusted_tls_proxy_ips),
+            )
             if (
                 request.method == "GET"
                 and request.url.path in {PREFIX, PREFIX + "/"}

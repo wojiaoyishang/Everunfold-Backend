@@ -77,7 +77,7 @@ def test_config_root_is_independent_of_cwd(tmp_path: Path, monkeypatch: pytest.M
     unrelated = tmp_path / "elsewhere"
     unrelated.mkdir()
     monkeypatch.chdir(unrelated)
-    settings = load_settings(project_root=tmp_path, environ={})
+    settings = load_settings("config.toml", project_root=tmp_path, environ={})
     assert settings.project.key == "lovepikachu"
     assert settings.redis_prefix == "lovepikachu:test-config:"
     assert "private-password" not in repr(settings)
@@ -126,7 +126,7 @@ fastapi_to_nextjs_token_env = "OUTBOUND_TOKEN"
 def test_empty_overrides_never_fall_back(tmp_path: Path, variable: str) -> None:
     (tmp_path / "config.toml").write_text(VALID_CONFIG, encoding="utf-8")
     with pytest.raises(ConfigurationError, match="cannot be empty"):
-        load_settings(project_root=tmp_path, environ={variable: ""})
+        load_settings(project_root=tmp_path, environ={"CONFIG_FILE": "config.toml", variable: ""})
 
 
 def test_query_cache_defaults_and_requires_a_separate_listening_endpoint(tmp_path: Path) -> None:
@@ -173,13 +173,13 @@ def test_invalid_settings_are_rejected_without_secret_values(
     assert callable(mutation)
     (tmp_path / "config.toml").write_text(mutation(VALID_CONFIG), encoding="utf-8")
     with pytest.raises(ConfigurationError) as error:
-        load_settings(project_root=tmp_path, environ={})
+        load_settings("config.toml", project_root=tmp_path, environ={})
     assert "private-password" not in str(error.value)
 
 
 def test_shared_key_generation_has_environment_scope(tmp_path: Path) -> None:
     (tmp_path / "config.toml").write_text(VALID_CONFIG, encoding="utf-8")
-    settings = load_settings(project_root=tmp_path, environ={})
+    settings = load_settings("config.toml", project_root=tmp_path, environ={})
     assert redis_key(settings, "task", "123", "progress") == (
         "lovepikachu:test-config:task:123:progress"
     )

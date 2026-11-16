@@ -506,6 +506,23 @@ _OVERRIDES: dict[str, tuple[str, ...]] = {
 }
 
 
+def configuration_path(
+    config_file: str | Path | None = None,
+    *,
+    environ: Mapping[str, str] | None = None,
+    project_root: Path = PROJECT_ROOT,
+) -> Path:
+    """One explicit path; never fall back to a different configuration file."""
+    environment = os.environ if environ is None else environ
+    selected = (
+        config_file if config_file is not None else environment.get("CONFIG_FILE", "config.yaml")
+    )
+    if not str(selected).strip():
+        raise ConfigurationError("CONFIG_FILE cannot be empty")
+    path = Path(selected)
+    return (project_root / path).resolve()
+
+
 def load_settings(
     config_file: str | Path | None = None,
     *,
@@ -514,18 +531,7 @@ def load_settings(
 ) -> Settings:
     """Load an explicit file then allowlisted overrides; never auto-load .env files."""
     environment = os.environ if environ is None else environ
-    selected = (
-        config_file
-        if config_file is not None
-        else environment.get(
-            "CONFIG_FILE",
-            "config.yaml" if (project_root / "config.yaml").is_file() else "config.toml",
-        )
-    )
-    if not str(selected).strip():
-        raise ConfigurationError("CONFIG_FILE cannot be empty")
-    path = Path(selected)
-    path = path if path.is_absolute() else project_root / path
+    path = configuration_path(config_file, environ=environment, project_root=project_root)
     if path.suffix.lower() in {".yaml", ".yml"}:
         try:
             document = read_deployment(path)

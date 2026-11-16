@@ -7,12 +7,13 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from app.core.config import load_settings  # noqa: E402
+from app.core.config import configuration_path, load_settings  # noqa: E402
 from app.core.deployment_config import read_deployment  # noqa: E402
 
 
 def main() -> None:
-    selected = Path(os.environ.get("CONFIG_FILE", str(ROOT / "config.yaml")))
+    selected = configuration_path(project_root=ROOT)
+    print(f"Everunfold Backend · CONFIG_FILE={selected}", flush=True)
     if not selected.is_file():
         raise ValueError(
             f"找不到项目配置 {selected}；请先在项目根目录运行 ./setup.sh --docker 并保存。"

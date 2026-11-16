@@ -28,7 +28,9 @@ async def install(config: str, node: str, manifest: Path) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--config", default="config.toml")
+    parser.add_argument(
+        "--config", default=None, help="默认读取 CONFIG_FILE，未设置时使用项目根目录 config.yaml"
+    )
     parser.add_argument("--node-id", required=True)
     parser.add_argument(
         "--manifest", required=True, type=Path, help="Reviewed JSON file, or - for stdin"

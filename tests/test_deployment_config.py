@@ -114,3 +114,21 @@ def test_missing_root_fails_before_starting_processes(
     with pytest.raises(ValueError, match="setup.sh --docker") as caught:
         container_entry.main()
     assert str(path) in str(caught.value)
+
+
+def test_missing_default_never_falls_back_to_toml(tmp_path: Path) -> None:
+    from app.core.config import configuration_path
+
+    (tmp_path / "config.toml").write_text("legacy = true")
+    assert configuration_path(project_root=tmp_path, environ={}) == tmp_path / "config.yaml"
+    with pytest.raises(ConfigurationError, match="config.yaml"):
+        load_settings(project_root=tmp_path, environ={})
+    for selected in ("", " "):
+        with pytest.raises(ConfigurationError, match="cannot be empty"):
+            configuration_path(project_root=tmp_path, environ={"CONFIG_FILE": selected})
+    custom = tmp_path / "private" / "selected.yml"
+    custom.parent.mkdir()
+    original = write_root(tmp_path)
+    custom.write_bytes(original.read_bytes())
+    settings = load_settings(project_root=tmp_path, environ={"CONFIG_FILE": "private/selected.yml"})
+    assert settings.project.key == "test-root"

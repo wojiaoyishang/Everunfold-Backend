@@ -16,16 +16,17 @@ fi
 printf 'Everunfold Backend | runtime image %s | source /workspace | data /data\n' "${EVERUNFOLD_IMAGE_REVISION:-unknown}"
 
 start_api() {
+  local level=${API_LOG_LEVEL:-INFO}
   exec python -m uvicorn app.entrypoints.api:app \
     --host "${API_HOST:-0.0.0.0}" --port "${API_PORT:-8001}" \
-    --workers "${API_WORKERS:-1}" --no-proxy-headers --no-access-log \
+    --workers "${API_WORKERS:-1}" --log-level "${level,,}" --no-proxy-headers --no-access-log \
     --timeout-graceful-shutdown "${API_SHUTDOWN_TIMEOUT:-30}"
 }
 
 start_worker() {
   exec celery -A app.entrypoints.worker:celery_app worker \
     --pool "$worker_pool" --concurrency "$worker_concurrency" \
-    --prefetch-multiplier "$worker_prefetch" --loglevel "${WORKER_LOG_LEVEL:-INFO}" \
+    --prefetch-multiplier "$worker_prefetch" --loglevel "${WORKER_LOG_LEVEL:-WARNING}" \
     --without-mingle --without-gossip
 }
 
