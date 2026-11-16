@@ -6,7 +6,16 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import (
+    BigInteger,
+    Boolean,
+    CheckConstraint,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+)
 from sqlalchemy import UniqueConstraint as Unique
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -44,6 +53,7 @@ class Content(Base):
     cover_url: Mapped[str | None] = mapped_column(Text)
     reading_minutes: Mapped[int] = mapped_column(Integer, default=1)
     word_count: Mapped[int] = mapped_column(Integer, default=0)
+    view_count: Mapped[int] = mapped_column(BigInteger, server_default="0")
     pinned: Mapped[bool] = mapped_column(Boolean, default=False)
     publication_status: Mapped[str] = mapped_column(String(16), default="published", index=True)
     visibility: Mapped[str] = mapped_column(String(16), default="public", index=True)

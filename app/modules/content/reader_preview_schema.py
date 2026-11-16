@@ -37,8 +37,24 @@ class ReaderMetrics(PublicModel):
     items: list[ReaderMetric]
 
 
+class ArticleViewInput(PublicModel):
+    content_id: UUID
+
+
+class ArticleViewMetric(PublicModel):
+    content_id: UUID
+    views: int = Field(ge=0, le=(1 << 53) - 1)
+
+
+class ArticleMetrics(PublicModel):
+    items: list[ArticleViewMetric]
+
+
 class ReaderPreviewContract(PublicModel):
     identity_query: ReaderIdentityQuery
     metrics_query: ReaderMetricsQuery
     identity: PublicResponse[ReaderIdentity]
     metrics: PublicResponse[ReaderMetrics]
+    article_metrics: PublicResponse[ArticleMetrics]
+    article_view_input: ArticleViewInput
+    article_view: PublicResponse[ArticleViewMetric]

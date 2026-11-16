@@ -9,10 +9,8 @@ from app.modules.content.reader_preview_schema import ReaderPreviewContract
 def main() -> None:
     schema = ReaderPreviewContract.model_json_schema()
     schema["$schema"] = "http://json-schema.org/draft-07/schema#"
-    schema["x-everunfold-contract-version"] = "0.1.0-preview.1"
-    schema["description"] = (
-        "Opt-in synthetic data only. No authentication, authorization or writes."
-    )
+    schema["x-everunfold-contract-version"] = "0.2.0"
+    schema["description"] = "Reader preview and aggregate views for addressable articles."
     schema["x-everunfold-operations"] = [
         {
             "name": "readPreviewIdentity",
@@ -25,6 +23,19 @@ def main() -> None:
             "path": "/v1/reader-preview/metrics",
             "query": "metrics_query",
             "response": "metrics",
+        },
+        {
+            "name": "readArticleMetrics",
+            "path": "/v1/reader/metrics",
+            "query": "metrics_query",
+            "response": "article_metrics",
+        },
+        {
+            "name": "recordArticleView",
+            "path": "/v1/reader/views",
+            "method": "POST",
+            "input": "article_view_input",
+            "response": "article_view",
         },
     ]
     target = Path(__file__).resolve().parents[1] / "contracts" / "reader-preview-v0.1.schema.json"

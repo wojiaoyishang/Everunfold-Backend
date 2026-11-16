@@ -1,5 +1,115 @@
 {
   "$defs": {
+    "ArticleMetrics": {
+      "additionalProperties": false,
+      "properties": {
+        "items": {
+          "items": {
+            "$ref": "#/$defs/ArticleViewMetric"
+          },
+          "title": "Items",
+          "type": "array"
+        }
+      },
+      "required": [
+        "items"
+      ],
+      "title": "ArticleMetrics",
+      "type": "object"
+    },
+    "ArticleViewInput": {
+      "additionalProperties": false,
+      "properties": {
+        "content_id": {
+          "format": "uuid",
+          "title": "Content Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "content_id"
+      ],
+      "title": "ArticleViewInput",
+      "type": "object"
+    },
+    "ArticleViewMetric": {
+      "additionalProperties": false,
+      "properties": {
+        "content_id": {
+          "format": "uuid",
+          "title": "Content Id",
+          "type": "string"
+        },
+        "views": {
+          "maximum": 9007199254740991,
+          "minimum": 0,
+          "title": "Views",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "content_id",
+        "views"
+      ],
+      "title": "ArticleViewMetric",
+      "type": "object"
+    },
+    "PublicResponse_ArticleMetrics_": {
+      "additionalProperties": false,
+      "properties": {
+        "success": {
+          "default": true,
+          "title": "Success",
+          "type": "boolean"
+        },
+        "code": {
+          "default": 200,
+          "title": "Code",
+          "type": "integer"
+        },
+        "msg": {
+          "default": "请求成功",
+          "title": "Msg",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/ArticleMetrics"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "title": "PublicResponse[ArticleMetrics]",
+      "type": "object"
+    },
+    "PublicResponse_ArticleViewMetric_": {
+      "additionalProperties": false,
+      "properties": {
+        "success": {
+          "default": true,
+          "title": "Success",
+          "type": "boolean"
+        },
+        "code": {
+          "default": 200,
+          "title": "Code",
+          "type": "integer"
+        },
+        "msg": {
+          "default": "请求成功",
+          "title": "Msg",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/ArticleViewMetric"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "title": "PublicResponse[ArticleViewMetric]",
+      "type": "object"
+    },
     "PublicResponse_ReaderIdentity_": {
       "additionalProperties": false,
       "properties": {
@@ -192,19 +302,31 @@
     },
     "metrics": {
       "$ref": "#/$defs/PublicResponse_ReaderMetrics_"
+    },
+    "article_metrics": {
+      "$ref": "#/$defs/PublicResponse_ArticleMetrics_"
+    },
+    "article_view_input": {
+      "$ref": "#/$defs/ArticleViewInput"
+    },
+    "article_view": {
+      "$ref": "#/$defs/PublicResponse_ArticleViewMetric_"
     }
   },
   "required": [
     "identity_query",
     "metrics_query",
     "identity",
-    "metrics"
+    "metrics",
+    "article_metrics",
+    "article_view_input",
+    "article_view"
   ],
   "title": "ReaderPreviewContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "0.1.0-preview.1",
-  "description": "Opt-in synthetic data only. No authentication, authorization or writes.",
+  "x-everunfold-contract-version": "0.2.0",
+  "description": "Reader preview and aggregate views for addressable articles.",
   "x-everunfold-operations": [
     {
       "name": "readPreviewIdentity",
@@ -217,6 +339,19 @@
       "path": "/v1/reader-preview/metrics",
       "query": "metrics_query",
       "response": "metrics"
+    },
+    {
+      "name": "readArticleMetrics",
+      "path": "/v1/reader/metrics",
+      "query": "metrics_query",
+      "response": "article_metrics"
+    },
+    {
+      "name": "recordArticleView",
+      "path": "/v1/reader/views",
+      "method": "POST",
+      "input": "article_view_input",
+      "response": "article_view"
     }
   ]
 }
