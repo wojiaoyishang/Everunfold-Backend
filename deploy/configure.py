@@ -28,6 +28,7 @@ from config_validation import (
     valid_port,
 )
 from container_fields import add_container_fields
+from node_console_fields import add_node_console_fields
 
 DOCKER = Path(__file__).resolve().parents[1] / "docker"
 TOKEN_NAMES = ("NEXTJS_TO_FASTAPI_WEB_MAIN_TOKEN", "FASTAPI_TO_NEXTJS_WEB_MAIN_TOKEN")
@@ -221,41 +222,7 @@ def configure(native: bool = False) -> Configuration:
     )
 
     monitor = config.get("nodes_monitor", {})
-    monitor_hash = monitor.get("password_hash")
-    monitor_key = monitor.get("session_secret_env", "EVERUNFOLD_NODES_SESSION_SECRET")
-    monitor_password = env.get("EVERUNFOLD_SETUP_NODES_PASSWORD", "")
-    if not monitor_password and not monitor_hash:
-        monitor_password = secrets.token_urlsafe(24)
-    add(
-        "monitor_password",
-        "节点控制台密码",
-        monitor_password,
-        group="节点控制台",
-        secret=True,
-        valid=lambda v: 12 <= len(v) <= 1024 or (not v and bool(monitor_hash)),
-        generate=lambda: secrets.token_urlsafe(24),
-        resolve=lambda v: v or ("" if monitor_hash else secrets.token_urlsafe(24)),
-        empty="保留原密码哈希",
-        hint="/_nodes 独立登录密码。已有密码只有哈希时，留空保持不变。",
-    )
-    add(
-        "monitor_secret",
-        "节点控制台会话密钥",
-        env.get(monitor_key) or secrets.token_urlsafe(32),
-        secret=True,
-        valid=token,
-        group="节点控制台",
-        generate=lambda: secrets.token_urlsafe(32),
-        resolve=lambda v: v or secrets.token_urlsafe(32),
-    )
-    add(
-        "monitor_origin",
-        "节点控制台公开根 URL",
-        monitor.get("origin") or "",
-        valid=lambda v: not v or public_url(v),
-        group="节点控制台",
-        empty="沿用后端发布 URL",
-    )
+    save_console = add_node_console_fields(ctx, add, value)
     add(
         "tls_peers",
         "HTTPS 反向代理的直接来源 IP",
@@ -358,8 +325,6 @@ def configure(native: bool = False) -> Configuration:
         return await backend_checks(value("database"), value("redis"), broker(), source)
 
     def save() -> None:
-        from argon2 import PasswordHasher
-
         config["BACKEND_BASE_URL"] = value("api")
         config.setdefault("project", {})["key"] = value("project")
         config.setdefault("database", {})
@@ -391,26 +356,15 @@ def configure(native: bool = False) -> Configuration:
             totp: value(totp),
             node_names[0]: value("inbound"),
             node_names[1]: value("outbound"),
-            monitor_key: value("monitor_secret"),
         }
         if "BACKEND_BASE_URL" in env:
             environment["BACKEND_BASE_URL"] = value("api")
         if value("EVERUNFOLD_ADMIN_PASSWORD"):
             environment["EVERUNFOLD_ADMIN_PASSWORD"] = value("EVERUNFOLD_ADMIN_PASSWORD")
-        monitor_config = config.setdefault("nodes_monitor", {})
-        monitor_config.setdefault("enabled", True)
-        monitor_config["origin"] = value("monitor_origin") or value("api")
-        monitor_config["session_secret_env"] = monitor_key
-        monitor_config["trusted_tls_proxy_ips"] = [
+        save_console(environment)
+        config["nodes_monitor"]["trusted_tls_proxy_ips"] = [
             p.strip() for p in value("tls_peers").split(",") if p.strip()
         ]
-        if value("monitor_password"):
-            if (
-                value("monitor_password") != env.get("EVERUNFOLD_SETUP_NODES_PASSWORD")
-                or not monitor_hash
-            ):
-                monitor_config["password_hash"] = PasswordHasher().hash(value("monitor_password"))
-            environment["EVERUNFOLD_SETUP_NODES_PASSWORD"] = value("monitor_password")
         host = value("publish_host")
         mapping = (
             {}

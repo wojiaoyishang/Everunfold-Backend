@@ -140,7 +140,9 @@ docker logs --tail=100 everunfold-backend
 
 准备 API 的 HTTPS 反向代理，将 `https://api.example.com` 转发到宿主 `127.0.0.1:8001`。代理保留公开 Host，覆盖 `X-Forwarded-Proto: https`；把代理直接连接后端时的 IP 填入助手的“HTTPS 反向代理的直接来源 IP”。Docker 中宿主代理的来源通常是网桥网关，应按实际网络核对。
 
-节点控制台在后端公开入口的 `/_nodes`。新站点的独立控制台密码和会话密钥已生成，控制台密码可以从助手查看。已有实例保持原有启用状态及密码哈希。
+节点控制台在**后端发布 URL** 的 `/_nodes`，例如 `https://api.example.com/_nodes`，与容器绑定地址无关。发布 URL 优先于旧配置残留的 `nodes_monitor.origin`，不会再被旧 `127.0.0.1:8001` 覆盖。助手保存时清除这个重复地址。
+
+setup 的“节点控制台”分组提供**启用开关（1/0）、密码和会话密钥**。新配置自动生成随机密码，没有固定默认密码；选中即可查看、复制、修改或重新生成。已有启用状态保留，只有密码哈希的旧实例留空保留密码；修改密码或会话密钥使旧登录失效。密码与管理员密码独立。HTTPS 反代需保留公开 Host、发送 `X-Forwarded-Proto: https`，并在“HTTPS 反向代理的直接来源 IP”填写后端实际看到的代理 IP。
 
 在助手中填写待配对的“前端节点 ID”和“此节点的内部接收器 URL”，例如 `web-main`、`https://receiver.example.com`，选择“登记并导出节点”，或者保存后运行：
 

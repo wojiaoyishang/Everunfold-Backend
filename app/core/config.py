@@ -475,7 +475,7 @@ class Settings(ConfigModel):
     @model_validator(mode="after")
     def valid_monitor(self) -> Self:
         if self.nodes_monitor.enabled:
-            origin = self.nodes_monitor.origin or self.BACKEND_BASE_URL
+            origin = self.nodes_monitor_origin
             if origin is None:
                 raise ValueError("nodes_monitor.origin is required without BACKEND_BASE_URL")
             url = urlsplit(origin)
@@ -484,6 +484,11 @@ class Settings(ConfigModel):
             if self.nodes_monitor.password_hash is None:
                 raise ValueError("nodes_monitor requires a password hash")
         return self
+
+    @property
+    def nodes_monitor_origin(self) -> str | None:
+        """Published API URL wins over a console URL saved by older setup versions."""
+        return self.BACKEND_BASE_URL or self.nodes_monitor.origin
 
     @property
     def redis_prefix(self) -> str:

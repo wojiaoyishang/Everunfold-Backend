@@ -18,7 +18,7 @@ def mount_nodes_monitor(application: FastAPI, settings: Settings | None) -> None
     from .security import MonitorAccess
 
     config = settings.nodes_monitor
-    origin = config.origin or settings.BACKEND_BASE_URL
+    origin = settings.nodes_monitor_origin
     assert origin is not None  # Enforced by Settings when the console is enabled.
     secret = os.environ.get(config.session_secret_env, "")
     access = None

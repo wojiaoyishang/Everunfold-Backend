@@ -18,7 +18,8 @@ BACKEND_BASE_URL = "http://127.0.0.1:8001"
 
 [nodes_monitor]
 enabled = false
-# 公网经 HTTPS。省略 BACKEND_BASE_URL 时启用控制台须显式填写 origin。
+# 控制台优先使用 BACKEND_BASE_URL；setup 可配置启用开关、密码和会话密钥。
+# 公网经 HTTPS。只有省略 BACKEND_BASE_URL 的旧配置才使用 origin。
 # origin = "https://ops.example.com"
 # 可选：只在可信反代终止 TLS 时填写它直接连接后端的实际 IP。
 # trusted_tls_proxy_ips = ["172.28.0.10"]

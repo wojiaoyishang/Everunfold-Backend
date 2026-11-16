@@ -1,5 +1,14 @@
 # 后端交接状态
 
+## 发布域名控制台与同步诊断配置（2026-11-16）
+
+- 修复旧 setup 保存的 `nodes_monitor.origin` 抢占发布地址：`/_nodes` 优先使用 `BACKEND_BASE_URL`，不会再跳到残留的本地监听地址；仅没有发布 URL 的旧配置兼容 origin。HTTPS、可信 TLS 代理 IP、独立密码和会话边界保持，未开放文档或改变 JSON 外壳。
+- 两端 setup 共用控制台字段，增加启用开关，密码/会话密钥自动生成且可编辑、复制、重新生成；已有启停与哈希保留，旧哈希留空不重置，重复保存不无故轮换密码。前端 scrypt 密码仅用于离线本机诊断，在线仍验证后端管理员；保存时清除重复 origin，控制台地址随两端发布 URL。
+- 前端 Node.js 增加 `[Everunfold sync]`，覆盖扩展上报、健康探测、设置/内容接收和副本读取；记录 HTTP/网络/凭据/节点/来源 UUID/契约/存储原因，不输出秘密或正文，重试失败节流且恢复有提示。共享手册、示例、部署教程与 [ADR 0161](../decisions/0161-sync-diagnostics-and-console-setup.md) 已同步。
+- 后端默认 pytest 363 通过/85 外部服务测试跳过，改动运行模块 Mypy、Ruff/格式通过；两端助手各 46 项（后端 42 通过/4 按组件跳过，前端 36 通过/10 跳过），双端 Sphinx 严格构建、共享一致性及差异检查通过。前端 418 项测试、TypeScript、ESLint、Prettier、隔离生产构建与六插件编译通过。
+- 独立 Uvicorn 进程通过真实 HTTP 验证发布 Host、可信 TLS 代理登录和跳转；独立 Node 进程验证错误令牌/来源 UUID 日志与合法同步落盘。另验证 Python setup 到 Node.js scrypt 登录/会话失效，内置浏览器检查两端桌面/窄终端导出图，交互由 Textual 测试覆盖；SVG 中文字距限制保留。
+- 未访问用户服务器或修改实际配置、数据库、媒体；无 Docker daemon，未验证真实容器。线上失败原因需部署后查看新日志。两端根 setup 可调整控制台启停/密码，后端保存后 `start`；前端更新须 `build` 后 `start`。独立控制台域名已让位于发布域名，TLS 反代仍需配置实际来源 IP。
+
 ## 同步前端 npm 缓存与独立插件构建交接（2026-11-16）
 
 - 共用 `deploy/config_context.py`、`deploy/native.py` 及助手测试同步前端：仅 Docker 前端创建数据目录下的 `npm-cache/`，原生前端安装优先复用 npm 下载缓存。后端仍使用 uv，业务运行与数据库逻辑不变。

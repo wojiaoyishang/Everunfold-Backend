@@ -107,7 +107,6 @@ def test_monitor_config_rejects_plaintext_and_disallows_nonloopback_http() -> No
     with pytest.raises(ValidationError, match="requires HTTPS or loopback HTTP"):
         Settings.model_validate(
             {
-                "BACKEND_BASE_URL": ORIGIN,
                 "database": {"url": "postgresql+asyncpg://test@127.0.0.1/test"},
                 "redis": {"url": "redis://127.0.0.1"},
                 "nodes_monitor": {
@@ -150,3 +149,43 @@ def test_monitor_behind_tls_proxy_uses_only_its_configured_socket_peer(
         response = proxy.post("/_nodes/login", data={"password": PASSWORD}, headers=headers)
         assert response.history[0].status_code == 303
         assert "Secure" in response.history[0].headers["Set-Cookie"]
+
+
+def test_published_url_overrides_a_console_origin_saved_by_old_setup(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    published = "https://api.example.test"
+    monkeypatch.setenv("EVERUNFOLD_NODES_SESSION_SECRET", token_urlsafe(32))
+    settings = Settings.model_validate(
+        {
+            "BACKEND_BASE_URL": published,
+            "database": {"url": "postgresql+asyncpg://test@127.0.0.1/test"},
+            "redis": {"url": "redis://127.0.0.1"},
+            "nodes_monitor": {
+                "enabled": True,
+                "origin": ORIGIN,
+                "password_hash": hash_password(PASSWORD),
+                "trusted_tls_proxy_ips": ["192.0.2.10"],
+            },
+        }
+    )
+    app = FastAPI()
+    mount_nodes_monitor(app, settings)
+    with TestClient(app, base_url="http://api.example.test", client=("192.0.2.10", 5000)) as client:
+        headers = {"X-Forwarded-Proto": "https", "Origin": published}
+        page = client.get("/_nodes", headers=headers, follow_redirects=False)
+        assert page.status_code == 200
+        assert "location" not in page.headers
+        login = client.post(
+            "/_nodes/login", data={"password": PASSWORD}, headers=headers, follow_redirects=False
+        )
+        assert login.status_code == 303
+        assert login.headers["location"] == "/_nodes"
+        assert "Secure" in login.headers["set-cookie"]
+        redirect = client.get("/_nodes", headers={"Host": "127.0.0.1:8001"}, follow_redirects=False)
+        assert redirect.headers["location"] == published + "/_nodes"
+    settings.nodes_monitor.enabled = False
+    disabled = FastAPI()
+    mount_nodes_monitor(disabled, settings)
+    with TestClient(disabled) as client:
+        assert client.get("/_nodes").status_code == 404
