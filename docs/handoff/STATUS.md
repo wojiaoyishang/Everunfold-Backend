@@ -1,5 +1,14 @@
 # 后端交接状态
 
+## 工作台布局与文章统计
+
+- operations 1.3.0 新增账号布局和工作台统计接口，契约来源提交为 `578971b`。布局仅允许登录会话保存，强制 CSRF、revision 并发检查和 48 卡片上限；null 默认、空数组主动清空。数据不写入公开快照。
+- 迁移 `0067_workspace_cards` 新建布局、文章日浏览计数和统计起点；就绪检查版本一同更新。接受浏览后总计数与 UTC 日计数在同事务原子增加，保留已有流量；不会从累计量推算历史分布。
+- 统计区间为 7/30/90 天，按 content:read own/all 过滤，撤回文章不进入排行。安全与设置审计分别检查 users:manage、settings:read；仅提供操作、操作者及时间，不返回详情/IP/凭据。
+- Ruff、`mypy app`（317 文件）通过。常规 pytest 384 passed、94 skipped；新增真实 PostgreSQL 权限集成测试通过。完整真实多进程设置 P0 通过（148.53s），包括两 API 同 revision 一成一冲突、匿名/缺 CSRF 拒绝、空布局/默认恢复、密码文章 12 次并发计数不丢失、撤回后不计数，以及原有 API/Worker/接收器链路。
+- P0 初测暴露迁移头常量未更新，已修正并重跑完整 P0 通过；未修改部署实例或迁移用户数据。此前 `c19fb7f`、`a0cccf1`、`e7d2f77`、`76c0cd1` 纳入本次已授权推送。
+- 升级时显式运行数据库迁移，更新 API/Worker 后重建前端主程序与插件。时段统计从升级时开始，操作时间按浏览器时区显示。参见 [ADR 0178](../decisions/0178-workspace-cards-and-shared-loading.md)及[扩展指南](../development/workspace-cards.md)。
+
 ## 阅读字体、页脚与媒体选择器
 
 - 设置契约 1.51.0 发布 `site.footer.html` 和每主题 `font_scale_percent`。媒体查询接受 `pinned_ids`，在分页前按传入顺序排列符合筛选条件的文件。设置沿用现有 JSON 字段。

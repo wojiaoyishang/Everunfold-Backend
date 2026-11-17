@@ -66,14 +66,15 @@ async def analytics(session: AsyncSession, actor: Actor, days: int) -> Workspace
                 )
             ).all()
         )
+        tracked_start = max(start.date(), epoch.started_at.date()) if epoch else now.date()
         result.daily = [
             WorkspaceViewPoint(
-                day=(start.date() + timedelta(days=i)).isoformat(),
-                views=int(series.get(start.date() + timedelta(days=i), 0)),
+                day=(tracked_start + timedelta(days=i)).isoformat(),
+                views=int(series.get(tracked_start + timedelta(days=i), 0)),
             )
-            for i in range(days)
+            for i in range(max(0, (now.date() - tracked_start).days + 1))
         ]
-        result.period_views = sum(point.views for point in result.daily)
+        result.period_views = sum(int(count) for count in series.values())
         total = func.sum(ArticleViewDay.views)
         ranked = await session.execute(
             select(Content.id, Content.title, total)

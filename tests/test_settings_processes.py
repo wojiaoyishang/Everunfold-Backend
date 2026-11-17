@@ -33,6 +33,7 @@ from tests.scheduled_publication_process_checks import check_scheduled_publicati
 from tests.shortcodes_process_checks import check_shortcodes
 from tests.test_auth_http_processes import free_port, uvicorn_process
 from tests.translation_process_checks import check_translations
+from tests.workspace_process_checks import check_workspace
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -663,6 +664,7 @@ def test_settings_atomic_save_restart_delivery_and_crash_replay(tmp_path: Path) 
             assert plan.status_code == 409
 
             check_media_management(client, csrf, cookies, api_a, api_b, sql)
+            check_workspace(client, csrf, cookies, api_a, api_b, sql)
             check_media_library(client, csrf, cookies, api_a, api_b, sql, tmp_path / "uploads")
             check_content_drafts(client, csrf, cookies, api_a, api_b, sql)
             check_scheduled_publication(

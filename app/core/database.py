@@ -6,7 +6,7 @@ from sqlalchemy.orm import DeclarativeBase
 
 from app.core.query_cache_metrics import count_cursor_execute
 
-SCHEMA_REVISION = "0066_article_view_count"
+SCHEMA_REVISION = "0067_workspace_cards"
 
 
 class Base(DeclarativeBase):
