@@ -1,5 +1,11 @@
 # 后端交接状态
 
+## 阅读字体、页脚与媒体选择器
+
+- 设置契约 1.51.0 发布 `site.footer.html` 和每主题 `font_scale_percent`。媒体查询接受 `pinned_ids`，在分页前按传入顺序排列符合筛选条件的文件。设置沿用现有 JSON 字段。
+- 默认检查 384 项通过，94 项按环境跳过。隔离 PostgreSQL、Redis、API、Worker 和前端接收器的 P0 检查通过，验证 61 条媒体跨页置顶和去重。改动模块通过 Ruff 与 Mypy。
+- 与前端同步 [ADR 0177](../decisions/0177-public-typography-footer-and-media-picker.md)。先更新 API，再构建前端。
+
 ## 术语短代码与可配置嵌套层数
 
 - 站点写作设置保存 1 至 64 层，默认 32，经公开设置及管理短代码目录交给前端解析器。正式术语短代码由前端主体注册。词条仍使用原公开详情接口。

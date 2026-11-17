@@ -150,17 +150,15 @@ class MediaService:
             await self.session.scalar(select(func.count()).select_from(MediaAsset).where(*where))
             or 0
         )
-        order = [MediaAsset.created_at.desc(), MediaAsset.id.desc()]
+        statement = select(MediaAsset).where(*where)
         pinned = {
             uuid.UUID(reference.removeprefix("media:")): index
             for index, reference in enumerate(dict.fromkeys(query.pinned_ids))
         }
         if pinned:
-            order.insert(0, case(pinned, value=MediaAsset.id, else_=len(pinned)).asc())
+            statement = statement.order_by(case(pinned, value=MediaAsset.id, else_=len(pinned)))
         assets = await self.session.scalars(
-            select(MediaAsset)
-            .where(*where)
-            .order_by(*order)
+            statement.order_by(MediaAsset.created_at.desc(), MediaAsset.id.desc())
             .offset((query.page - 1) * 60)
             .limit(60)
         )
