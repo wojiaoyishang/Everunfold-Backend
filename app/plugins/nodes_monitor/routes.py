@@ -9,6 +9,7 @@ from urllib.parse import parse_qs
 
 from fastapi import APIRouter, Request
 from pydantic import ValidationError
+from redis.exceptions import RedisError
 from sqlalchemy.exc import SQLAlchemyError
 from starlette.requests import ClientDisconnect
 from starlette.responses import HTMLResponse, RedirectResponse, Response
@@ -19,6 +20,7 @@ from app.core.responses import JSONResponseFail, JSONResponseSuccess
 from app.core.runtime import Runtime
 from app.modules.auth.service import AuthFailure
 from app.modules.settings.nodes_schemas import MonitorStatus
+from app.modules.settings.sync_access import SYNC_WINDOWS, read_sync_access
 
 from .deployment_schemas import DeploymentNodeChange
 from .management import manage_node
@@ -196,6 +198,25 @@ def monitor_router(access: MonitorAccess | None) -> APIRouter:
         report = await runtime.query_cache_metrics.report(
             query.hours, await runtime.query_cache.status()
         )
+        return JSONResponseSuccess(data=report, headers=headers)
+
+    @router.get("/sync-access")
+    async def sync_access(request: Request, minutes: str = "60") -> Response:
+        blocked = unavailable(request)
+        if blocked is not None:
+            return blocked
+        assert access is not None
+        if not access.authenticated(request):
+            return JSONResponseFail(msg="请重新登录", status_code=401, headers=headers)
+        if minutes not in SYNC_WINDOWS:
+            return JSONResponseFail(msg="请选择有效的统计时段", status_code=422, headers=headers)
+        runtime: Runtime | None = getattr(request.app.state, "runtime", None)
+        if runtime is None:
+            return JSONResponseFail(msg="同步来访记录暂不可用", status_code=503, headers=headers)
+        try:
+            report = await read_sync_access(runtime, int(minutes))
+        except (RedisError, TimeoutError):
+            return JSONResponseFail(msg="同步来访记录暂不可用", status_code=503, headers=headers)
         return JSONResponseSuccess(data=report, headers=headers)
 
     @router.post("/manage")

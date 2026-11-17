@@ -8,7 +8,7 @@ from urllib.parse import urlsplit
 from fastapi import APIRouter, HTTPException, Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.access_diagnostics import AccessBoundary, log_access
+from app.core.access_diagnostics import SyncBoundary, log_access
 from app.core.config import FrontendConfig, Settings, is_loopback_host
 from app.core.plugins.loader import plugin_catalog
 from app.core.responses import JSONResponseSuccess
@@ -27,6 +27,7 @@ from app.modules.settings.extensions_service import catalog, install_inventory
 from app.modules.settings.manual_sync import stage_node_recovery, stage_node_sync
 from app.modules.settings.node_registry import NodeId, NodeRegistration, read_targets
 from app.modules.settings.router import Authorized
+from app.modules.settings.sync_access import SyncVisit, observe_sync, token_check
 
 router = APIRouter(
     tags=["extensions"],
@@ -73,11 +74,12 @@ async def authorize_node(
     request: Request,
     session: AsyncSession,
     config: Settings,
-    boundary: AccessBoundary,
+    visit: SyncVisit,
 ) -> FrontendConfig:
     def denied(code: str) -> AuthFailure:
+        visit.reason_code = code
         log_access(
-            boundary,
+            visit.operation,
             code,
             request=request,
             node_id=node_id,
@@ -94,9 +96,10 @@ async def authorize_node(
     except ValueError:
         allowed = False
     supplied = request.headers.get("authorization", "")
+    visit.token_check = token_check(supplied)
     if not allowed:
         raise denied("peer_not_allowed")
-    if not supplied.startswith("Bearer "):
+    if visit.token_check != "unchecked":
         raise denied("token_missing")
     node = (await read_targets(session, config)).get(node_id)
     if not node:
@@ -107,7 +110,9 @@ async def authorize_node(
     if not token:
         raise denied("token_unconfigured")
     if not hmac.compare_digest(supplied.encode(), ("Bearer " + token).encode()):
+        visit.token_check = "mismatch"
         raise denied("token_mismatch")
+    visit.token_check = "matched"
     return node
 
 
@@ -124,20 +129,22 @@ async def request_node_recovery(node_id: NodeId, request: Request) -> JSONRespon
 async def queue_node_sync(node_id: str, request: Request, *, recovery: bool) -> JSONResponseSuccess:
     runtime = auth_runtime(request)
     config = runtime.settings
-    boundary: AccessBoundary = "internal_node_recovery" if recovery else "internal_node_sync"
-    async with runtime.database.session_factory() as session:
-        await authorize_node(node_id, request, session, config, boundary)
-        await lock_references(session)
-        # Node registration and pairing can change before we acquire the lock.
-        target = await authorize_node(node_id, request, session, config, boundary)
-        if not target.settings_receiver_url:
-            raise AuthFailure(409, 40925, "请先启用节点并绑定同步接收器")
-        if recovery:
-            queued = await stage_node_recovery(session, config, node_id)
-        else:
-            await stage_node_sync(session, config, node_id, actor="frontend_node")
-            queued = True
-        await session.commit()
+    operation: SyncBoundary = "internal_node_recovery" if recovery else "internal_node_sync"
+    async with observe_sync(runtime, request, node_id, operation) as visit:
+        async with runtime.database.session_factory() as session:
+            await authorize_node(node_id, request, session, config, visit)
+            await lock_references(session)
+            # Node registration and pairing can change before we acquire the lock.
+            target = await authorize_node(node_id, request, session, config, visit)
+            if not target.settings_receiver_url:
+                raise AuthFailure(409, 40925, "请先启用节点并绑定同步接收器")
+            if recovery:
+                queued = await stage_node_recovery(session, config, node_id)
+            else:
+                await stage_node_sync(session, config, node_id, actor="frontend_node")
+                queued = True
+            await session.commit()
+        visit.reason_code = "sync_queued" if queued else "recovery_pending"
     return JSONResponseSuccess(data={"node_id": node_id, "queued": queued})
 
 
@@ -145,28 +152,30 @@ async def queue_node_sync(node_id: str, request: Request, *, recovery: bool) -> 
 async def report_extensions(node_id: str, request: Request) -> JSONResponseSuccess:
     runtime = auth_runtime(request)
     config = runtime.settings
-    async with runtime.database.session_factory() as session:
-        node = await authorize_node(node_id, request, session, config, "internal_extensions")
-    data = bytearray()
-    async for chunk in request.stream():
-        data.extend(chunk)
-        if len(data) > 512 * 1024:
-            raise AuthFailure(413, 41320, "扩展清单过大")
-    try:
-        value = ExtensionInventory.model_validate_json(data)
-        public_url = request.headers.get("x-everunfold-public-url")
-        if public_url is not None:
-            public_url = NodeRegistration(base_url=public_url, enabled=True).base_url
-            parsed = urlsplit(public_url)
-            if public_url and (
-                parsed.port == 0
-                or (parsed.scheme != "https" and not is_loopback_host(parsed.hostname or ""))
-            ):
-                raise ValueError("invalid published origin")
-    except ValueError as exc:
-        raise AuthFailure(422, 42298, "扩展清单或前端发布 URL 无效") from exc
-    async with runtime.database.session_factory() as session:
-        await install_inventory(
-            session, config, node_id, value, authorized_target=node, public_url=public_url
-        )
+    async with observe_sync(runtime, request, node_id, "internal_extensions") as visit:
+        async with runtime.database.session_factory() as session:
+            node = await authorize_node(node_id, request, session, config, visit)
+        data = bytearray()
+        async for chunk in request.stream():
+            data.extend(chunk)
+            if len(data) > 512 * 1024:
+                raise AuthFailure(413, 41320, "扩展清单过大")
+        try:
+            value = ExtensionInventory.model_validate_json(data)
+            public_url = request.headers.get("x-everunfold-public-url")
+            if public_url is not None:
+                public_url = NodeRegistration(base_url=public_url, enabled=True).base_url
+                parsed = urlsplit(public_url)
+                if public_url and (
+                    parsed.port == 0
+                    or (parsed.scheme != "https" and not is_loopback_host(parsed.hostname or ""))
+                ):
+                    raise ValueError("invalid published origin")
+        except ValueError as exc:
+            raise AuthFailure(422, 42298, "扩展清单或前端发布 URL 无效") from exc
+        async with runtime.database.session_factory() as session:
+            await install_inventory(
+                session, config, node_id, value, authorized_target=node, public_url=public_url
+            )
+        visit.reason_code = "inventory_registered"
     return JSONResponseSuccess(data={"node_id": node_id, "registered": True})

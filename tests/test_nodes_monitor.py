@@ -56,6 +56,7 @@ def test_monitor_requires_separate_credentials_and_loads_without_storage(
                 == 401
             )
             assert_envelope(client.get("/_nodes/query-cache?hours=1"), 401)
+            assert_envelope(client.get("/_nodes/sync-access?minutes=invalid"), 401)
             assert_envelope(client.get("/_nodes/status"), 401)
             assert_envelope(client.post("/_nodes/manage", json={}), 401)
             assert_envelope(client.post("/_nodes/login", data={"password": PASSWORD}), 403)
@@ -91,6 +92,10 @@ def test_monitor_requires_separate_credentials_and_loads_without_storage(
             assert report["hours"] == 1
             assert report["metrics_status"] == "unavailable"
             assert_envelope(client.get("/_nodes/query-cache?hours=48"), 422)
+            assert_envelope(client.get("/_nodes/sync-access?minutes=invalid"), 422)
+            unavailable = client.get("/_nodes/sync-access?minutes=15")
+            assert_envelope(unavailable, 503)
+            assert "no-store" in unavailable.headers["Cache-Control"]
             assert_envelope(
                 client.post("/_nodes/manage", headers={"Origin": ORIGIN}, content="wrong"), 415
             )

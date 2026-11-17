@@ -13,9 +13,8 @@ from fastapi import Request
 
 # Inherit the ASGI server's stderr handler and INFO level, including with access logs off.
 logger = logging.getLogger("uvicorn.error.everunfold.access")
-AccessBoundary = Literal[
-    "nodes_monitor", "internal_extensions", "internal_node_sync", "internal_node_recovery"
-]
+SyncBoundary = Literal["internal_extensions", "internal_node_sync", "internal_node_recovery"]
+AccessBoundary = Literal["nodes_monitor", SyncBoundary]
 _recent: OrderedDict[str, float] = OrderedDict()
 _reasons = {
     "monitor_configured": "节点控制台配置已加载",
@@ -48,6 +47,14 @@ def peer_ip(request: Request) -> str:
         return "unknown"
 
 
+def safe_node_id(value: str) -> str:
+    return value if re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]{0,63}", value) else "invalid"
+
+
+def access_reason(code: str) -> str | None:
+    return _reasons.get(code)
+
+
 def log_access(
     boundary: AccessBoundary,
     code: str,
@@ -68,9 +75,7 @@ def log_access(
         if items is not None:
             value[name] = list(items)
     if node_id is not None:
-        value["node_id"] = (
-            node_id if re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]{0,63}", node_id) else "invalid"
-        )
+        value["node_id"] = safe_node_id(node_id)
     if request is not None:
         value["peer_ip"] = peer_ip(request)
         if boundary == "nodes_monitor":

@@ -34,12 +34,19 @@ def test_export_returns_portable_credentials_without_writing_connection_file(
     }
     monkeypatch.setattr(exporter, "configuration_path", lambda: path)
     monkeypatch.setattr(exporter, "read_deployment", lambda _: document)
+    remote = FrontendConfig(
+        settings_receiver_url="https://remote.example.test",
+        nextjs_to_fastapi_token_env="TEST_REMOTE_IN",
+        fastapi_to_nextjs_token_env="TEST_REMOTE_OUT",
+    )
+    environment.update(TEST_REMOTE_IN="a" * 43, TEST_REMOTE_OUT="b" * 43)
     monkeypatch.setattr(
         exporter,
         "load_settings",
         lambda: SimpleNamespace(
             BACKEND_BASE_URL="https://api.example.test",
             database=SimpleNamespace(url=SimpleNamespace(get_secret_value=lambda: "db-url")),
+            frontends={"web-remote": remote},
         ),
     )
     session = SimpleNamespace(scalar=AsyncMock(return_value="12345678-1234-4234-8234-123456789abc"))
@@ -79,6 +86,13 @@ def test_export_returns_portable_credentials_without_writing_connection_file(
     assert register.await_args.args[1][1] == existing
     database.close.assert_awaited_once()
     assert list(tmp_path.iterdir()) == [path]
+    register.reset_mock()
+    remote_bundle = codec.decode_bundle(asyncio.run(exporter.export("web-remote")))
+    assert remote_bundle["node_id"] == "web-remote"
+    assert remote_bundle["tokens"]["inbound"]["value"] == environment["TEST_REMOTE_IN"]
+    assert remote_bundle["tokens"]["outbound"]["value"] == environment["TEST_REMOTE_OUT"]
+    register.assert_awaited_once_with(True, ("web-remote", remote))
+    assert document["assistant"]["node"] == "web-main"
     # Invalid credentials are rejected before contacting the database.
     document["environment"]["TEST_NODE_OUT"] = environment["TEST_NODE_IN"]
     database_factory.reset_mock()

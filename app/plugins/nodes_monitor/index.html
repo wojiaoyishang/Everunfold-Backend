@@ -115,6 +115,29 @@
       <p id="notice" role="status"></p>
       <p id="operation" role="status"></p>
       <dl id="health" class="health"></dl>
+      <section class="panel query-panel" aria-labelledby="sync-access-heading">
+        <header class="node-heading">
+          <h2 id="sync-access-heading">同步来访记录</h2>
+          <select id="sync-access-minutes" aria-label="同步来访时间范围">
+            <option value="15">最近 15 分钟</option>
+            <option value="60" selected>最近 1 小时</option>
+            <option value="360">最近 6 小时</option>
+            <option value="1440">最近 24 小时</option>
+          </select>
+        </header>
+        <p class="query-caption muted">来源为后端看到的直连 IP。同步受理后的投递结果见节点同步状态。</p>
+        <p id="sync-access-status" class="query-caption muted" role="status">正在读取来访记录…</p>
+        <div id="sync-access-results" class="query-overflow" tabindex="0" role="region" aria-label="同步来访明细" hidden>
+          <table class="query-table">
+            <thead><tr>
+              <th scope="col">来源 IP</th><th scope="col">节点</th><th scope="col">请求</th>
+              <th scope="col">令牌校验</th><th scope="col">处理结果</th><th scope="col">原因</th>
+              <th scope="col">次数</th><th scope="col">最近来访</th>
+            </tr></thead>
+            <tbody id="sync-access-rows"></tbody>
+          </table>
+        </div>
+      </section>
       <section class="panel query-panel" aria-labelledby="query-heading">
         <header class="node-heading">
           <h2 id="query-heading">Redis 查询缓存</h2>
@@ -188,6 +211,7 @@
       let action = null;
       let returnFocus = null;
       let mutating = false;
+      let accessRequest = null;
       const labels = new Map(Object.entries({
         online: "正常", unavailable: "无法读取", degraded: "异常", stale: "上报超时",
         never: "暂无上报", recent: "近期收到上报", disabled: "已停用", not_configured: "未配置接收器",
@@ -222,6 +246,60 @@
         ? "good"
         : ["failed", "unreachable", "wrong_node", "wrong_source", "invalid", "rejected"].includes(state)
           ? "bad" : "muted";
+      const accessOperations = new Map([
+        ["internal_node_sync", "请求同步"], ["internal_node_recovery", "按需恢复"],
+        ["internal_extensions", "上报扩展清单"],
+      ]);
+      const tokenChecks = new Map([
+        ["missing", "未提供"], ["malformed", "格式错误"], ["unchecked", "已提供，未校验"],
+        ["matched", "正确"], ["mismatch", "错误"],
+      ]);
+      async function refreshSyncAccess() {
+        accessRequest?.abort();
+        const current = new AbortController();
+        accessRequest = current;
+        const status = byId("sync-access-status");
+        const table = byId("sync-access-results");
+        try {
+          const minutes = byId("sync-access-minutes").value;
+          const response = await fetch("/_nodes/sync-access?minutes=" + encodeURIComponent(minutes), {
+            cache: "no-store", signal: current.signal,
+          });
+          if (response.status === 401) { location.replace("/_nodes"); return; }
+          if (!response.ok) throw new Error("access history unavailable");
+          const { success, data } = await response.json();
+          if (!success) throw new Error("access history unavailable");
+          if (current.signal.aborted) return;
+          const {request_count: total, accepted_count: accepted, source_count: sources, groups} = data;
+          const summary = total ? `${total} 次来访 · ${sources} 个来源 · ${accepted} 次受理 · ${total - accepted} 次失败`
+            : "此时间范围内暂无同步来访。";
+          status.textContent = summary
+            + (data.retention_limit_reached ? `。已达到 ${data.retention_limit} 条保留上限，可能还有更早记录` : "")
+            + (data.group_count > groups.length ? `。明细显示最近 ${groups.length} 组` : "");
+          table.hidden = !groups.length;
+          byId("sync-access-rows").replaceChildren(...groups.map((group) => {
+            const row = el("tr");
+            const accepted = group.status >= 200 && group.status < 300;
+            row.append(
+              el("td", group.peer_ip === "unknown" ? "未知" : group.peer_ip),
+              el("td", group.node_id),
+              el("td", accessOperations.get(group.operation) ?? "未知"),
+              el("td", tokenChecks.get(group.token_check) ?? "未知", group.token_check === "mismatch" ? "bad" : ""),
+              el("td", (accepted ? "受理 " : "失败 ") + group.status, accepted ? "good" : "bad"),
+              el("td", group.reason + (group.error_code ? " · " + group.error_code : "")),
+              el("td", group.count), el("td", stamp(group.latest_at)),
+            );
+            return row;
+          }));
+        } catch {
+          if (!current.signal.aborted) {
+            table.hidden = true;
+            status.textContent = "同步来访记录暂时无法读取，请检查运行 Redis 后刷新。";
+          }
+        } finally {
+          if (accessRequest === current) accessRequest = null;
+        }
+      }
       const querySeries = [["hits", "命中"], ["misses", "未命中"], ["bypasses", "跳过"], ["errors", "错误"]];
       const queryBusinesses = {site: "站点信息", taxonomies: "分类与标签", content_list: "内容列表"};
       const queryStates = {ready: "已连接", unavailable: "连接异常", disabled: "已停用", unconfigured: "未配置"};
@@ -502,6 +580,7 @@
       async function refresh() {
         const button = byId("refresh");
         if (button.disabled || editor.open || mutating) return;
+        if (!accessRequest) void refreshSyncAccess();
         if (!queryRequest) void refreshQueryCache();
         button.disabled = true;
         try {
@@ -554,6 +633,7 @@
         }
       }
       byId("refresh").addEventListener("click", refresh);
+      byId("sync-access-minutes").addEventListener("change", refreshSyncAccess);
       byId("query-hours").addEventListener("change", refreshQueryCache);
       document.addEventListener("visibilitychange", () => { if (!document.hidden) void refresh(); });
       setInterval(() => { if (!document.hidden) void refresh(); }, 15000);

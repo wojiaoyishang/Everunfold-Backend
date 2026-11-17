@@ -1,5 +1,6 @@
 # Everunfold 文档入口
 
+[外部前端接入与同步来访诊断](decisions/0181-external-frontends-and-sync-visits.md)涵盖节点绑定、鉴权和来访统计。
 [可配置的滚轮惯性](decisions/0179-configurable-wheel-momentum.md)涵盖主题默认值、前台浏览器偏好与减少动态。
 
 [工作台卡片与统计](decisions/0178-workspace-cards-and-shared-loading.md)及[插件和共享加载指南](development/workspace-cards.md)说明自由布局、鉴权统计、统一动画和排序。

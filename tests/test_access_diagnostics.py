@@ -13,7 +13,7 @@ from app.core import access_diagnostics
 from app.core.config import FrontendConfig, InternalAuthConfig, Settings
 from app.entrypoints.api import create_app
 from app.modules.auth.security import hash_password
-from app.modules.settings import extensions_router
+from app.modules.settings import extensions_router, sync_access
 from app.plugins.nodes_monitor.plugin import mount_nodes_monitor
 
 
@@ -103,6 +103,8 @@ def test_inventory_rejections_distinguish_node_state_ip_and_tokens(
         update={"internal_auth": InternalAuthConfig(allowed_peer_ips=["127.0.0.1/32"])}
     )
     monkeypatch.setenv("DIAGNOSTIC_TEST_TOKEN", token)
+    record = AsyncMock()
+    monkeypatch.setattr(sync_access, "record", record)
     monkeypatch.setattr(
         extensions_router,
         "read_targets",
@@ -121,5 +123,18 @@ def test_inventory_rejections_distinguish_node_state_ip_and_tokens(
     assert diagnostic["code"] == code
     assert diagnostic["peer_ip"] == peer
     assert diagnostic["node_id"] == "web"
+    record.assert_awaited_once()
+    assert record.await_args is not None
+    visit: sync_access.SyncVisit = record.await_args.args[1]
+    assert (visit.peer_ip, visit.reason_code, visit.status, visit.error_code) == (
+        peer,
+        code,
+        403,
+        40320,
+    )
+    assert visit.token_check == {"token_missing": "missing", "token_mismatch": "mismatch"}.get(
+        code, "unchecked"
+    )
     for private in ("private-query", "private-token", "wrong-token", "private-body"):
         assert private not in caplog.text
+        assert private not in visit.model_dump_json()
