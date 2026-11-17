@@ -25,6 +25,7 @@ from app.modules.content.text_preview import content_preview
 from app.modules.media.locking import lock_references
 from app.modules.settings.cache_event_schema import CacheChange
 from app.modules.settings.cache_events import stage_cache_events
+from app.modules.settings.defaults import public_settings
 from app.modules.settings.models import SettingsAudit, SettingsDeliveryEvent
 from app.modules.settings.node_registry import read_directory
 from app.modules.settings.service import SettingsService
@@ -139,10 +140,17 @@ class ContentPublication:
             else excerpt
         )
         published_settings = settings.model_dump(mode="json")
-        # An excerpt synthesized from the body is never eligible for public opt-in.
+        # Only an excerpt written for this article can be marked public while locked.
         if draft.type_id != "article" or not excerpt.strip():
             published_settings.pop("show_encrypted_excerpt", None)
-        excerpt = excerpt or content_preview(preview_blocks)
+        if draft.type_id == "article" and not excerpt.strip():
+            site = await self.session.get(SiteSettings, 1)
+            writing = public_settings(site.data if site else {}).site.writing
+            excerpt = writing.default_excerpt or content_preview(
+                preview_blocks, writing.excerpt_length
+            )
+        else:
+            excerpt = excerpt or content_preview(preview_blocks)
         await regions.store()
         from app.modules.captcha.service import current_config, required
 

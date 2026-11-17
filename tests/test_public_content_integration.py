@@ -625,6 +625,54 @@ async def test_locked_excerpt_only_publishes_manually_written_opt_in_text(
     assert not (await service.resolve(path)).excerpt
 
 
+async def test_publishing_applies_article_excerpt_defaults_to_empty_drafts(
+    database_session: AsyncSession, isolated_settings: Settings
+) -> None:
+    site = await database_session.get(SiteSettings, 1)
+    if site is None:
+        site = SiteSettings(id=1, data={})
+        database_session.add(site)
+    site.data = {**site.data, "writing": {"excerpt_length": 5}}
+    draft = ContentDraft(
+        id=uuid.uuid4(),
+        type_id="article",
+        language="zh-CN",
+        title="默认摘要验收",
+        author="测试作者",
+        excerpt="",
+        body=[{"id": str(uuid.uuid4()), "type": "html", "content": "<p>这是正文的第一段</p>"}],
+        edit_mode="blocks",
+        editor_settings={},
+        revision=1,
+    )
+    publisher = ContentPublication(database_session, isolated_settings)
+    service = PublicContentService(ContentRepository(database_session))
+    await publisher.publish(draft)
+    path = draft.public_path
+    assert path is not None
+    assert (await service.resolve(path)).excerpt == "这是正文的"
+
+    fixed = "本站指定的摘要，不受自动摘要字数限制。"
+    site.data = {**site.data, "writing": {"excerpt_length": 5, "default_excerpt": fixed}}
+    assert (await service.resolve(path)).excerpt == "这是正文的"
+    await publisher.publish(draft)
+    assert (await service.resolve(path)).excerpt == fixed
+    assert draft.excerpt == ""
+
+    draft.excerpt = "作者自己填写的摘要"
+    await publisher.publish(draft)
+    assert (await service.resolve(path)).excerpt == draft.excerpt
+
+    draft.excerpt = ""
+    draft.editor_settings = {"visibility": "password", "show_encrypted_excerpt": True}
+    draft.access_password_hash = hash_password("fixture-password")
+    await publisher.publish(draft)
+    assert not (await service.resolve(path)).excerpt
+    item = await service.repository.resolve(path)
+    assert item is not None
+    assert service._detail(item, {}, {}, authorized=True).excerpt == fixed
+
+
 async def test_reader_preview_filters_visibility_without_writing(
     database_session: AsyncSession,
 ) -> None:

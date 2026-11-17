@@ -4,8 +4,10 @@ import re
 from html import unescape
 from typing import Any
 
+DEFAULT_EXCERPT_LENGTH = 180
 
-def content_preview(blocks: list[dict[str, Any]], length: int = 180) -> str:
+
+def content_preview(blocks: list[dict[str, Any]], length: int = DEFAULT_EXCERPT_LENGTH) -> str:
     text = "\n".join(str(block.get("content", "")) for block in blocks)
     text = re.sub(r"<(script|style)\b[^>]*>[\s\S]*?</\1>", "", text, flags=re.I)
     text = re.sub(r"<[^>]*>", " ", text)

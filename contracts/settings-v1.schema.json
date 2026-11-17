@@ -7310,6 +7310,19 @@
           "minLength": 3,
           "title": "Permalink",
           "type": "string"
+        },
+        "excerpt_length": {
+          "default": 180,
+          "maximum": 1000,
+          "minimum": 1,
+          "title": "Excerpt Length",
+          "type": "integer"
+        },
+        "default_excerpt": {
+          "default": "",
+          "maxLength": 1000,
+          "title": "Default Excerpt",
+          "type": "string"
         }
       },
       "title": "WritingPreferences",
@@ -7588,7 +7601,7 @@
   "title": "SettingsContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "1.48.0",
+  "x-everunfold-contract-version": "1.49.0",
   "x-everunfold-language-regions": {
     "zh": "CN",
     "en": "GB",
