@@ -165,6 +165,16 @@ def check_pages(
     applied = next(r.json()["data"] for r in results if r.status_code == 200)
     wait_for(delivered)
     assert next(p for p in snapshot()["pages"] if p["id"] == identity)["html"] == value["html"]
+    cache_target = {"id": identity, "kind": "page"}
+    response = client.get("/v1/admin/content/cache", params=cache_target)
+    assert response.status_code == 200, response.text
+    assert response.json()["data"]["nodes"][0]["state"] == "applied"
+    response = client.post(
+        "/v1/admin/content/cache", json={**cache_target, "action": "clear"}, headers=csrf
+    )
+    assert response.status_code == 200, response.text
+    wait_for(delivered)
+    assert next(p for p in snapshot()["pages"] if p["id"] == identity)["html"] == value["html"]
 
     private = {
         **payload,

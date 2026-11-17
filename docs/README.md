@@ -1,5 +1,7 @@
 # Everunfold 文档入口
 
+[内容编辑器的缓存维护](decisions/0184-content-cache-maintenance.md)说明按内容比较节点回执、重建缓存和重发公开副本的方式。
+
 [页面代码与菜单项样式](decisions/0182-page-code-and-menu-styles.md)记录规则权限、同步与导航样式。
 
 [外部前端接入与同步来访诊断](decisions/0181-external-frontends-and-sync-visits.md)涵盖节点绑定、鉴权和来访统计。

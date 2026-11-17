@@ -6,6 +6,12 @@ from fastapi import APIRouter
 
 from app.core.responses import JSONResponseSuccess
 from app.core.schemas import ErrorResponse, PublicResponse
+from app.modules.content.cache_schemas import (
+    ContentCacheCommand,
+    ContentCacheState,
+    ContentCacheTarget,
+)
+from app.modules.content.cache_service import ContentCache
 from app.modules.content.draft_repository import DraftRepository
 from app.modules.content.draft_schemas import (
     ContentActions,
@@ -24,6 +30,7 @@ from app.modules.content.editor_schema import EditorCatalog, EditorTermCreate
 from app.modules.content.editor_service import create_category, editor_catalog
 from app.modules.content.publication import ContentPublication
 from app.modules.content.publication_schemas import ContentSyncState
+from app.modules.content.schemas import ContentKind
 from app.modules.content.type_registry import content_types
 from app.modules.settings.languages import LanguageCatalog, language_catalog
 from app.modules.settings.router import Authorized
@@ -165,6 +172,20 @@ async def sync(ctx: Authorized) -> JSONResponseSuccess:
     return JSONResponseSuccess(
         data=await ContentPublication(ctx.service.session, ctx.service.config).retry(ctx.actor.id)
     )
+
+
+@router.get("/cache", response_model=PublicResponse[ContentCacheState])
+async def read_content_cache(id: UUID, kind: ContentKind, ctx: Authorized) -> JSONResponseSuccess:
+    result = await ContentCache(ctx.service, ContentCacheTarget(id=id, kind=kind)).state()
+    return JSONResponseSuccess(data=result, headers={"Cache-Control": "private, no-store"})
+
+
+@router.post("/cache", response_model=PublicResponse[ContentCacheState])
+async def maintain_content_cache(
+    payload: ContentCacheCommand, ctx: Authorized
+) -> JSONResponseSuccess:
+    result = await ContentCache(ctx.service, payload).run(payload, ctx.actor.id)
+    return JSONResponseSuccess(data=result, headers={"Cache-Control": "private, no-store"})
 
 
 @router.post(

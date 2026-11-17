@@ -95,7 +95,8 @@ def test_settings_atomic_save_restart_delivery_and_crash_replay(tmp_path: Path) 
     )
     if not (frontend / "tools/fixtures/settings-receiver.mts").exists():
         pytest.skip("Set EVERUNFOLD_TEST_FRONTEND to the matching frontend checkout")
-    original = load_settings(ROOT / "config.test.local.toml")
+    fixture_config = Path(os.environ.get("TEST_CONFIG_FILE", ROOT / "config.test.local.toml"))
+    original = load_settings(fixture_config)
     original_url = make_url(original.database.url.get_secret_value())
     assert original_url.database == "everunfold_test"
     database_name = "everunfold_settings_test_" + uuid4().hex[:12]
@@ -105,7 +106,7 @@ def test_settings_atomic_save_restart_delivery_and_crash_replay(tmp_path: Path) 
     port_a, port_b, receiver_port = free_port(), free_port(), free_port()
     api_a, api_b = f"http://127.0.0.1:{port_a}", f"http://127.0.0.1:{port_b}"
     token = uuid4().hex + uuid4().hex
-    raw = tomllib.loads((ROOT / "config.test.local.toml").read_text(encoding="utf-8"))
+    raw = tomllib.loads(fixture_config.read_text(encoding="utf-8"))
     raw["database"]["url"] = url.render_as_string(hide_password=False)
     # The opt-in preview withdrawal CLI intentionally accepts loopback databases only.
     # A container service name needs a test-only tunnel; never weaken that CLI guard.

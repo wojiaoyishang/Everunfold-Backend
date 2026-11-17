@@ -46,6 +46,15 @@ def check_content_publication(
     draft = post(
         "create", {"type_id": "article", "operation_id": str(uuid4()), "fields": fields}
     ).json()["data"]
+    cache_target = {"id": draft["id"], "kind": "article"}
+
+    def cache_state() -> Any:
+        result = client.get(prefix + "cache", params=cache_target)
+        assert result.status_code == 200, result.text
+        return result.json()["data"]
+
+    assert not cache_state()["manageable"]
+    assert post("cache", {**cache_target, "action": "resync"}).status_code == 409
     payload = {
         "id": draft["id"],
         "expected_revision": draft["revision"],
@@ -93,9 +102,10 @@ def check_content_publication(
         return client.get(prefix + "publication").json()["data"]
 
     wait_for(lambda: state()["delivery"][0]["status"] == "failed")
+    assert cache_state()["nodes"][0]["state"] == "failed"
     assert state()["revision"] == before + 1
     restart()
-    assert post("sync").status_code == 200
+    assert post("cache", {**cache_target, "action": "resync"}).status_code == 200
     # Node startup plus outbox backoff can exceed the default wait on a loaded CI host.
     wait_for(lambda: state()["delivery"][0]["status"] == "applied", timeout=60)
 
@@ -126,6 +136,15 @@ def check_content_publication(
         },
     ).json()["data"]
     assert state()["revision"] == before + 1
+    assert "Private unfinished" not in json.dumps(snapshot())
+    assert cache_state()["nodes"][0]["state"] == "applied"
+    assert (
+        client.post(prefix + "cache", json={**cache_target, "action": "clear"}).status_code == 403
+    )
+    cleared = post("cache", {**cache_target, "action": "clear"})
+    assert cleared.status_code == 200, cleared.text
+    wait_for(lambda: cache_state()["nodes"][0]["state"] == "applied", timeout=35)
+    assert state()["revision"] == before + 2
     assert "Private unfinished" not in json.dumps(snapshot())
     assert post("publish", {**payload, "operation_id": str(uuid4())}).status_code == 409
     old_event = asyncio.run(
@@ -177,6 +196,8 @@ def check_content_publication(
         next(item for item in snapshot()["contents"] if item["id"] == moment["id"])["kind"]
         == "shuoshuo"
     )
+    moment_cache = client.get(prefix + "cache", params={"id": moment["id"], "kind": "shuoshuo"})
+    assert moment_cache.json()["data"]["nodes"][0]["state"] == "applied"
     trashed = post(
         "trash",
         {"id": moment["id"], "operation_id": str(uuid4()), "expected_revision": moment["revision"]},

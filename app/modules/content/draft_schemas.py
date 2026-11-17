@@ -8,6 +8,11 @@ from uuid import UUID
 from pydantic import AwareDatetime, Field, model_validator
 
 from app.core.schemas import PublicModel, PublicResponse
+from app.modules.content.cache_schemas import (
+    ContentCacheCommand,
+    ContentCacheState,
+    ContentCacheTarget,
+)
 from app.modules.content.component_document import ComponentDocument, ContentEditMode
 from app.modules.content.editor_schema import EditorCatalog, EditorSettings, EditorTermCreate
 from app.modules.content.management_schemas import (
@@ -245,6 +250,9 @@ class ContentAdminContract(PublicModel):
     detail: PublicResponse[DraftDetail]
     types: PublicResponse[ContentTypeCatalog]
     sync_state: PublicResponse[ContentSyncState]
+    cache_target: ContentCacheTarget
+    cache_command: ContentCacheCommand
+    cache_state: PublicResponse[ContentCacheState]
     delivery: ContentDelivery
     translation_catalog: PublicResponse[TranslationCatalog]
     translation_create: TranslationCreate

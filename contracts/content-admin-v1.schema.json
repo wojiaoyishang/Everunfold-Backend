@@ -151,6 +151,160 @@
       "title": "ContentBlock",
       "type": "object"
     },
+    "ContentCacheCommand": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "article",
+            "shuoshuo",
+            "page"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "action": {
+          "enum": [
+            "clear",
+            "resync"
+          ],
+          "title": "Action",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "action"
+      ],
+      "title": "ContentCacheCommand",
+      "type": "object"
+    },
+    "ContentCacheNode": {
+      "additionalProperties": false,
+      "properties": {
+        "node_id": {
+          "title": "Node Id",
+          "type": "string"
+        },
+        "state": {
+          "$ref": "#/$defs/ContentCacheStatus"
+        },
+        "acknowledged_revision": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Acknowledged Revision"
+        },
+        "acknowledged_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Acknowledged At"
+        },
+        "error": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Error"
+        }
+      },
+      "required": [
+        "node_id",
+        "state"
+      ],
+      "title": "ContentCacheNode",
+      "type": "object"
+    },
+    "ContentCacheState": {
+      "additionalProperties": false,
+      "properties": {
+        "published": {
+          "title": "Published",
+          "type": "boolean"
+        },
+        "manageable": {
+          "title": "Manageable",
+          "type": "boolean"
+        },
+        "nodes": {
+          "items": {
+            "$ref": "#/$defs/ContentCacheNode"
+          },
+          "title": "Nodes",
+          "type": "array"
+        }
+      },
+      "required": [
+        "published",
+        "manageable",
+        "nodes"
+      ],
+      "title": "ContentCacheState",
+      "type": "object"
+    },
+    "ContentCacheStatus": {
+      "enum": [
+        "disabled",
+        "not_configured",
+        "not_published",
+        "unqueued",
+        "pending",
+        "retrying",
+        "failed",
+        "applied"
+      ],
+      "type": "string"
+    },
+    "ContentCacheTarget": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "article",
+            "shuoshuo",
+            "page"
+          ],
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "kind"
+      ],
+      "title": "ContentCacheTarget",
+      "type": "object"
+    },
     "ContentDelivery": {
       "additionalProperties": false,
       "properties": {
@@ -3079,6 +3233,34 @@
       "title": "PublicResponse[ContentActions]",
       "type": "object"
     },
+    "PublicResponse_ContentCacheState_": {
+      "additionalProperties": false,
+      "properties": {
+        "success": {
+          "default": true,
+          "title": "Success",
+          "type": "boolean"
+        },
+        "code": {
+          "default": 200,
+          "title": "Code",
+          "type": "integer"
+        },
+        "msg": {
+          "default": "请求成功",
+          "title": "Msg",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/ContentCacheState"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "title": "PublicResponse[ContentCacheState]",
+      "type": "object"
+    },
     "PublicResponse_ContentSyncState_": {
       "additionalProperties": false,
       "properties": {
@@ -4430,6 +4612,15 @@
     "sync_state": {
       "$ref": "#/$defs/PublicResponse_ContentSyncState_"
     },
+    "cache_target": {
+      "$ref": "#/$defs/ContentCacheTarget"
+    },
+    "cache_command": {
+      "$ref": "#/$defs/ContentCacheCommand"
+    },
+    "cache_state": {
+      "$ref": "#/$defs/PublicResponse_ContentCacheState_"
+    },
     "delivery": {
       "$ref": "#/$defs/ContentDelivery"
     },
@@ -4471,6 +4662,9 @@
     "detail",
     "types",
     "sync_state",
+    "cache_target",
+    "cache_command",
+    "cache_state",
     "delivery",
     "translation_catalog",
     "translation_create",
@@ -4481,7 +4675,7 @@
   "title": "ContentAdminContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "1.27.0",
+  "x-everunfold-contract-version": "1.28.0",
   "x-everunfold-content-types": [
     {
       "id": "article",
@@ -4564,6 +4758,20 @@
       "path": "/v1/admin/content/sync",
       "method": "POST",
       "response": "sync_state"
+    },
+    {
+      "name": "readContentCache",
+      "path": "/v1/admin/content/cache",
+      "method": "GET",
+      "input": "cache_target",
+      "response": "cache_state"
+    },
+    {
+      "name": "maintainContentCache",
+      "path": "/v1/admin/content/cache",
+      "method": "POST",
+      "input": "cache_command",
+      "response": "cache_state"
     },
     {
       "name": "mutateDraftBatch",

@@ -155,6 +155,7 @@ def route_permission(path: str, method: str, body: dict[str, object]) -> tuple[s
     if path == "/v1/admin/settings/page-injections":
         return ("settings:read", True) if method == "GET" else ("settings:write", False)
     if path in {
+        "/v1/admin/content/cache",
         "/v1/admin/settings/discussion",
         "/v1/admin/captcha",
         "/v1/admin/settings",
