@@ -27,6 +27,7 @@ from app.modules.content.seo import GlossaryDiscoveryEntry, SeoFields
 from app.modules.media.locking import lock_references
 from app.modules.pages.models import ManagedPage
 from app.modules.settings.cache_event_schema import CacheChange
+from app.modules.shortcodes.prose import without_glossary_popups
 from app.modules.shortcodes.regions import without_region_markers
 
 from .matching import MatchRule, evaluate_rules
@@ -632,6 +633,7 @@ def searchable_source(blocks: list[dict[str, object]]) -> str:
         source = HTML_COMMENT.sub(" ", source)
         source = HTML_LINK.sub(" ", source)
         source = MARKDOWN_LINK.sub(" ", source)
+        source = without_glossary_popups(source)
         source = HTML_TAG.sub(" ", source)
         pieces.append(html.unescape(source))
     return unicodedata.normalize("NFKC", "\n".join(pieces))

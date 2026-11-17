@@ -3,12 +3,47 @@
 import uuid
 
 import pytest
+from pydantic import ValidationError
 
+from app.modules.content.text_preview import content_preview
+from app.modules.settings.publishing_preferences import WritingPreferences
 from app.modules.shortcodes.compiler import compile_shortcode
 from app.modules.shortcodes.registry import builtin_catalog
-from app.modules.shortcodes.schemas import ShortcodeParameter, ShortcodeSource
+from app.modules.shortcodes.schemas import ShortcodeCatalog, ShortcodeParameter, ShortcodeSource
+from app.plugins.glossary.service import searchable_source
 
 IDENTITY = str(uuid.uuid4())
+
+
+def test_glossary_explanations_do_not_appear_in_excerpts_or_automatic_matches() -> None:
+    body = [
+        {
+            "content": (
+                '前文 {{< glossary title="备注 >}}" >}}可见文字'
+                '{{< glossary-popup format="html" >}}<p>隐藏说明</p>'
+                "{{< glossary >}}隐藏触发{{< glossary-popup >}}嵌套说明"
+                "{{< /glossary-popup >}}{{< /glossary >}}"
+                "{{< /glossary-popup >}}{{< /glossary >}} 后文"
+            )
+        }
+    ]
+    assert content_preview(body) == "前文 可见文字 后文"
+    assert searchable_source(body) == "前文 可见文字 后文"
+
+
+def test_shortcode_depth_defaults_and_serializes_custom_limits() -> None:
+    assert WritingPreferences().shortcode_max_depth == 32
+    assert "shortcode_max_depth" not in WritingPreferences().model_dump()
+    assert ShortcodeCatalog(items=[], settings_revision=1).shortcode_max_depth == 32
+    assert (
+        ShortcodeCatalog(items=[], settings_revision=1, shortcode_max_depth=64).model_dump()[
+            "shortcode_max_depth"
+        ]
+        == 64
+    )
+    for invalid in (0, 65, 2.5):
+        with pytest.raises(ValidationError):
+            WritingPreferences.model_validate({"shortcode_max_depth": invalid})
 
 
 def source(**values: object) -> ShortcodeSource:

@@ -69,10 +69,8 @@ class ShortcodeService:
 
     async def catalog(self) -> ShortcodeCatalog:
         site = await self.settings.site()
-        compiled = {
-            item.id: item
-            for item in (await self.settings.resolve(public_settings(site.data))).shortcodes
-        }
+        settings = await self.settings.resolve(public_settings(site.data))
+        compiled = {item.id: item for item in settings.shortcodes}
         backend = [
             item.model_copy(update={"compiled": compiled[item.id]})
             for item in shortcode_items(site.data)
@@ -86,6 +84,7 @@ class ShortcodeService:
             items=backend + [await self.item(row) for row in rows],
             applied=list(compiled.values()),
             settings_revision=site.generation,
+            shortcode_max_depth=settings.site.writing.shortcode_max_depth,
         )
 
     async def locked(self, identity: str, revision: int) -> ShortcodeDefinition:

@@ -6,6 +6,7 @@ from pydantic import ConfigDict, Field, model_validator
 
 from app.core.schemas import PublicModel
 from app.modules.content.schemas import MediaURL
+from app.modules.settings.publishing_preferences import DEFAULT_SHORTCODE_DEPTH, MAX_SHORTCODE_DEPTH
 
 
 class ShortcodeModel(PublicModel):
@@ -95,6 +96,12 @@ class ShortcodeCatalog(ShortcodeModel):
     items: list[ShortcodeItem]
     applied: list[PublicShortcode] = Field(default_factory=list)
     settings_revision: int
+    shortcode_max_depth: int = Field(
+        default=DEFAULT_SHORTCODE_DEPTH,
+        ge=1,
+        le=MAX_SHORTCODE_DEPTH,
+        exclude_if=lambda value: value == DEFAULT_SHORTCODE_DEPTH,
+    )
 
 
 class SaveShortcode(ShortcodeModel):

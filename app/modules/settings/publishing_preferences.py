@@ -11,6 +11,8 @@ from app.core.schemas import PublicModel
 from app.modules.content.text_preview import DEFAULT_EXCERPT_LENGTH
 
 DEFAULT_PERMALINK = "/%postname%.html"
+DEFAULT_SHORTCODE_DEPTH = 32
+MAX_SHORTCODE_DEPTH = 64
 PERMALINK_SAMPLE = {
     "%postname%": "sample-article",
     "%post_id%": "00000000-0000-0000-0000-000000000001",
@@ -53,6 +55,12 @@ class WritingPreferences(PublicModel):
         exclude_if=lambda value: value == DEFAULT_EXCERPT_LENGTH,
     )
     default_excerpt: str = Field(default="", max_length=1000, exclude_if=lambda value: not value)
+    shortcode_max_depth: int = Field(
+        default=DEFAULT_SHORTCODE_DEPTH,
+        ge=1,
+        le=MAX_SHORTCODE_DEPTH,
+        exclude_if=lambda value: value == DEFAULT_SHORTCODE_DEPTH,
+    )
 
     @field_validator("default_excerpt", mode="before")
     @classmethod
