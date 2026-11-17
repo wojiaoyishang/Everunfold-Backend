@@ -3,7 +3,26 @@
 from typing import Any
 
 from app.core.plugins.state import public_shortcodes
+from app.modules.settings.extensions_schemas import ExtensionPreferences
+from app.modules.settings.page_injection_schemas import (
+    PLUGIN_ID,
+    STORE_KEY,
+    PageInjection,
+    PageInjectionState,
+)
 from app.modules.settings.schemas import PublicSettings, SitePreferences, ThemePreferences
+
+
+def public_page_injections(
+    data: dict[str, Any], extensions: ExtensionPreferences
+) -> list[PageInjection]:
+    if not extensions.enables(PLUGIN_ID):
+        return []
+    return [
+        rule
+        for rule in PageInjectionState.model_validate(data.get(STORE_KEY, {})).rules
+        if rule.enabled and rule.can_target("public")
+    ]
 
 
 def public_settings(data: dict[str, Any]) -> PublicSettings:
@@ -27,8 +46,8 @@ def public_settings(data: dict[str, Any]) -> PublicSettings:
         "hero_subtitle": data.get("hero_subtitle", ""),
         "background_url": data.get("hero_url") or "",
     }
-    extensions = data.get("extensions", {})
-    active_theme = extensions.get("theme") or "argon"
+    extensions = ExtensionPreferences.model_validate(data.get("extensions", {}))
+    active_theme = extensions.theme or "argon"
     profiles = {
         key: ThemePreferences.model_validate(value)
         for key, value in data.get("theme_options", {}).items()
@@ -41,6 +60,7 @@ def public_settings(data: dict[str, Any]) -> PublicSettings:
         theme_options=profiles,
         shortcodes=[*public_shortcodes(data), *data.get("shortcodes", [])],
         extensions=extensions,
+        page_injections=public_page_injections(data, extensions),
     )
 
 

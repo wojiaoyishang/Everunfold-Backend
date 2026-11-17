@@ -64,6 +64,12 @@ from app.modules.settings.nodes_schemas import (
     NodeProofRequest,
     ReceiverStatus,
 )
+from app.modules.settings.page_injection_schemas import (
+    PageInjection,
+    PageInjectionRules,
+    PageInjectionState,
+    SavePageInjections,
+)
 from app.modules.settings.publishing_preferences import ReadingPreferences, WritingPreferences
 from app.modules.settings.translation_schemas import (
     SaveTranslations,
@@ -144,6 +150,18 @@ class MenuLink(SettingsModel):
 
 class MenuItem(MenuLink):
     children: list["MenuItem"] = Field(default_factory=list)
+    extra_class: str = Field(default="", max_length=240, exclude_if=lambda value: not value)
+    extra_css: str = Field(default="", max_length=4096, exclude_if=lambda value: not value)
+
+    @field_validator("extra_class")
+    @classmethod
+    def class_tokens(cls, value: str) -> str:
+        classes = value.split()
+        if len(classes) > 8 or any(
+            not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_-]{0,63}", token) for token in classes
+        ):
+            raise ValueError("use up to eight valid CSS class names")
+        return " ".join(dict.fromkeys(classes))
 
 
 MediaReference = r"^(?:|media:[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})$"
@@ -443,6 +461,9 @@ class PublicSettings(SettingsModel):
     icon_urls: dict[str, str] = Field(default_factory=dict)
     shortcodes: list[PublicShortcode] = Field(default_factory=list, max_length=100)
     translations: TranslationOverrides = Field(default_factory=TranslationOverrides)
+    page_injections: list[PageInjection] = Field(
+        default_factory=list, max_length=32, exclude_if=lambda value: not value
+    )
 
     @model_validator(mode="after")
     def active_theme_projection(self) -> Self:
@@ -574,6 +595,9 @@ class SettingsContract(PublicModel):
     icon: PublicResponse[IconAsset]
     settings: PublicResponse[SettingsState]
     save_settings: SaveSettings
+    page_injection_state: PublicResponse[PageInjectionState]
+    page_injection_rules: PublicResponse[PageInjectionRules]
+    save_page_injections: SavePageInjections
     discussion_settings: PublicResponse[DiscussionSettings]
     save_discussion_settings: DiscussionSettings
     policy: PublicResponse[PolicyState]

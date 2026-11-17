@@ -2904,6 +2904,18 @@
           },
           "title": "Children",
           "type": "array"
+        },
+        "extra_class": {
+          "default": "",
+          "maxLength": 240,
+          "title": "Extra Class",
+          "type": "string"
+        },
+        "extra_css": {
+          "default": "",
+          "maxLength": 4096,
+          "title": "Extra Css",
+          "type": "string"
         }
       },
       "required": [
@@ -3421,6 +3433,122 @@
         "receiver"
       ],
       "title": "NodeStatus",
+      "type": "object"
+    },
+    "PageInjection": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "name": {
+          "maxLength": 120,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "enabled": {
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "scope": {
+          "enum": [
+            "all",
+            "public",
+            "admin",
+            "account",
+            "top-menu"
+          ],
+          "title": "Scope",
+          "type": "string"
+        },
+        "page_type": {
+          "default": "",
+          "enum": [
+            "",
+            "home",
+            "article",
+            "moment",
+            "page",
+            "archive",
+            "search",
+            "glossary",
+            "admin",
+            "account"
+          ],
+          "title": "Page Type",
+          "type": "string"
+        },
+        "path": {
+          "default": "",
+          "maxLength": 512,
+          "title": "Path",
+          "type": "string"
+        },
+        "html": {
+          "default": "",
+          "maxLength": 16000,
+          "title": "Html",
+          "type": "string"
+        },
+        "css": {
+          "default": "",
+          "maxLength": 16000,
+          "title": "Css",
+          "type": "string"
+        },
+        "javascript": {
+          "default": "",
+          "maxLength": 16000,
+          "title": "Javascript",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "enabled",
+        "scope"
+      ],
+      "title": "PageInjection",
+      "type": "object"
+    },
+    "PageInjectionRules": {
+      "additionalProperties": false,
+      "properties": {
+        "rules": {
+          "items": {
+            "$ref": "#/$defs/PageInjection"
+          },
+          "maxItems": 32,
+          "title": "Rules",
+          "type": "array"
+        }
+      },
+      "title": "PageInjectionRules",
+      "type": "object"
+    },
+    "PageInjectionState": {
+      "additionalProperties": false,
+      "properties": {
+        "rules": {
+          "items": {
+            "$ref": "#/$defs/PageInjection"
+          },
+          "maxItems": 32,
+          "title": "Rules",
+          "type": "array"
+        },
+        "revision": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Revision",
+          "type": "integer"
+        }
+      },
+      "title": "PageInjectionState",
       "type": "object"
     },
     "PageManifest": {
@@ -4338,6 +4466,62 @@
       "title": "PublicResponse[NodeProof]",
       "type": "object"
     },
+    "PublicResponse_PageInjectionRules_": {
+      "additionalProperties": false,
+      "properties": {
+        "success": {
+          "default": true,
+          "title": "Success",
+          "type": "boolean"
+        },
+        "code": {
+          "default": 200,
+          "title": "Code",
+          "type": "integer"
+        },
+        "msg": {
+          "default": "请求成功",
+          "title": "Msg",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/PageInjectionRules"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "title": "PublicResponse[PageInjectionRules]",
+      "type": "object"
+    },
+    "PublicResponse_PageInjectionState_": {
+      "additionalProperties": false,
+      "properties": {
+        "success": {
+          "default": true,
+          "title": "Success",
+          "type": "boolean"
+        },
+        "code": {
+          "default": 200,
+          "title": "Code",
+          "type": "integer"
+        },
+        "msg": {
+          "default": "请求成功",
+          "title": "Msg",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/PageInjectionState"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "title": "PublicResponse[PageInjectionState]",
+      "type": "object"
+    },
     "PublicResponse_PolicyState_": {
       "additionalProperties": false,
       "properties": {
@@ -4655,6 +4839,14 @@
         },
         "translations": {
           "$ref": "#/$defs/TranslationOverrides"
+        },
+        "page_injections": {
+          "items": {
+            "$ref": "#/$defs/PageInjection"
+          },
+          "maxItems": 32,
+          "title": "Page Injections",
+          "type": "array"
         }
       },
       "required": [
@@ -5700,6 +5892,29 @@
         "profiles"
       ],
       "title": "SaveMailSettings",
+      "type": "object"
+    },
+    "SavePageInjections": {
+      "additionalProperties": false,
+      "properties": {
+        "rules": {
+          "items": {
+            "$ref": "#/$defs/PageInjection"
+          },
+          "maxItems": 32,
+          "title": "Rules",
+          "type": "array"
+        },
+        "expected_revision": {
+          "minimum": 0,
+          "title": "Expected Revision",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "expected_revision"
+      ],
+      "title": "SavePageInjections",
       "type": "object"
     },
     "SavePolicy": {
@@ -7542,6 +7757,15 @@
     "save_settings": {
       "$ref": "#/$defs/SaveSettings"
     },
+    "page_injection_state": {
+      "$ref": "#/$defs/PublicResponse_PageInjectionState_"
+    },
+    "page_injection_rules": {
+      "$ref": "#/$defs/PublicResponse_PageInjectionRules_"
+    },
+    "save_page_injections": {
+      "$ref": "#/$defs/SavePageInjections"
+    },
     "discussion_settings": {
       "$ref": "#/$defs/PublicResponse_DiscussionSettings_"
     },
@@ -7662,6 +7886,9 @@
     "icon",
     "settings",
     "save_settings",
+    "page_injection_state",
+    "page_injection_rules",
+    "save_page_injections",
     "discussion_settings",
     "save_discussion_settings",
     "policy",
@@ -7692,7 +7919,7 @@
   "title": "SettingsContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "1.53.0",
+  "x-everunfold-contract-version": "1.54.0",
   "x-everunfold-language-regions": {
     "zh": "CN",
     "en": "GB",
@@ -7728,6 +7955,31 @@
     "sw": "TZ"
   },
   "x-everunfold-operations": [
+    {
+      "name": "readPageInjectionSettings",
+      "path": "/v1/admin/settings/page-injections",
+      "method": "GET",
+      "response": "page_injection_state"
+    },
+    {
+      "name": "savePageInjectionSettings",
+      "path": "/v1/admin/settings/page-injections",
+      "method": "PATCH",
+      "input": "save_page_injections",
+      "response": "page_injection_state"
+    },
+    {
+      "name": "readAdminPageInjections",
+      "path": "/v1/admin/page-injections",
+      "method": "GET",
+      "response": "page_injection_rules"
+    },
+    {
+      "name": "readAccountPageInjections",
+      "path": "/v1/admin/page-injections/account",
+      "method": "GET",
+      "response": "page_injection_rules"
+    },
     {
       "name": "readQueryCacheReport",
       "path": "/v1/admin/frontend-nodes/query-cache",

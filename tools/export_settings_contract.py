@@ -11,9 +11,34 @@ from app.modules.settings.schemas import SettingsContract
 def build_schema() -> dict[str, Any]:
     schema = SettingsContract.model_json_schema()
     schema["$schema"] = "http://json-schema.org/draft-07/schema#"
-    schema["x-everunfold-contract-version"] = "1.53.0"
+    schema["x-everunfold-contract-version"] = "1.54.0"
     schema["x-everunfold-language-regions"] = LANGUAGE_REGIONS
     schema["x-everunfold-operations"] = [
+        {
+            "name": "readPageInjectionSettings",
+            "path": "/v1/admin/settings/page-injections",
+            "method": "GET",
+            "response": "page_injection_state",
+        },
+        {
+            "name": "savePageInjectionSettings",
+            "path": "/v1/admin/settings/page-injections",
+            "method": "PATCH",
+            "input": "save_page_injections",
+            "response": "page_injection_state",
+        },
+        {
+            "name": "readAdminPageInjections",
+            "path": "/v1/admin/page-injections",
+            "method": "GET",
+            "response": "page_injection_rules",
+        },
+        {
+            "name": "readAccountPageInjections",
+            "path": "/v1/admin/page-injections/account",
+            "method": "GET",
+            "response": "page_injection_rules",
+        },
         {
             "name": "readQueryCacheReport",
             "path": "/v1/admin/frontend-nodes/query-cache",

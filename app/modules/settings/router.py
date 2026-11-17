@@ -10,10 +10,22 @@ from app.core.responses import JSONResponseSuccess
 from app.core.schemas import ErrorResponse, PublicResponse
 from app.modules.auth.business_auth import authorize_business
 from app.modules.auth.permissions import Actor
-from app.modules.auth.router import auth_runtime
+from app.modules.auth.router import auth_runtime, cookie
+from app.modules.auth.service import AuthService
 from app.modules.comments.discussion import save_discussion_settings, settings_from_data
 from app.modules.comments.discussion_schema import DiscussionSettings
 from app.modules.settings.navigation import navigation_resources
+from app.modules.settings.page_injection_schemas import (
+    PageInjectionRules,
+    PageInjectionState,
+    SavePageInjections,
+)
+from app.modules.settings.page_injections import (
+    configured_rules,
+    effective_rules,
+    require_code_admin,
+    save_rules,
+)
 from app.modules.settings.schemas import (
     NavigationCatalog,
     NavigationQuery,
@@ -50,6 +62,48 @@ async def access(request: Request) -> AsyncIterator[Access]:
 
 
 Authorized = Annotated[Access, Depends(access, scope="function")]
+PRIVATE_RULES = {"Cache-Control": "private, no-store"}
+
+
+@router.get("/settings/page-injections", response_model=PublicResponse[PageInjectionState])
+async def get_page_injections(ctx: Authorized) -> JSONResponseSuccess:
+    require_code_admin(ctx.actor)
+    return JSONResponseSuccess(
+        data=configured_rules((await ctx.service.site()).data), headers=PRIVATE_RULES
+    )
+
+
+@router.patch("/settings/page-injections", response_model=PublicResponse[PageInjectionState])
+async def update_page_injections(
+    payload: SavePageInjections, ctx: Authorized
+) -> JSONResponseSuccess:
+    return JSONResponseSuccess(
+        data=await save_rules(ctx.service, ctx.actor, payload), headers=PRIVATE_RULES
+    )
+
+
+@router.get("/page-injections", response_model=PublicResponse[PageInjectionRules])
+async def admin_page_injections(ctx: Authorized) -> JSONResponseSuccess:
+    return JSONResponseSuccess(
+        data=effective_rules((await ctx.service.site()).data, "admin"), headers=PRIVATE_RULES
+    )
+
+
+@router.get("/page-injections/account", response_model=PublicResponse[PageInjectionRules])
+async def account_page_injections(request: Request) -> JSONResponseSuccess:
+    runtime = auth_runtime(request)
+    async with runtime.database.session_factory() as session:
+        user = await AuthService(
+            session, runtime.settings.auth, runtime.password_limiter
+        ).require_user(cookie(request), None, write=False)
+        rules = (
+            PageInjectionRules()
+            if user.must_change_password
+            else effective_rules(
+                (await SettingsService(session, runtime.settings).site()).data, "account"
+            )
+        )
+        return JSONResponseSuccess(data=rules, headers=PRIVATE_RULES)
 
 
 @router.get("/settings", response_model=PublicResponse[SettingsState])

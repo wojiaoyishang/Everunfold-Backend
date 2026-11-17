@@ -19,7 +19,7 @@ from app.modules.media.service import MediaService
 from app.modules.pages.models import ManagedPage
 from app.modules.settings.cache_event_schema import CacheChange
 from app.modules.settings.cache_events import stage_cache_events
-from app.modules.settings.defaults import public_settings, stored_settings
+from app.modules.settings.defaults import public_page_injections, public_settings, stored_settings
 from app.modules.settings.languages import language_route_pattern
 from app.modules.settings.models import NodePolicy, SettingsAudit, SettingsDeliveryEvent
 from app.modules.settings.node_registry import read_directory, read_targets
@@ -263,6 +263,10 @@ class SettingsService:
         if record.generation != payload.expected_revision:
             raise AuthFailure(409, 40920, "设置已被修改，请重新读取后合并你的更改")
         before = await self.resolve(public_settings(record.data))
+        # Executable code can only be updated through the administrator rule API.
+        payload.value.page_injections = public_page_injections(
+            record.data, payload.value.extensions
+        )
         payload.value = await self.resolve(payload.value)
         from app.core.plugins.state import public_shortcodes
 
