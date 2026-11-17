@@ -424,6 +424,62 @@
       "title": "PublicResponse[ModerationCatalog]",
       "type": "object"
     },
+    "PublicResponse_WorkspaceAnalytics_": {
+      "additionalProperties": false,
+      "properties": {
+        "success": {
+          "default": true,
+          "title": "Success",
+          "type": "boolean"
+        },
+        "code": {
+          "default": 200,
+          "title": "Code",
+          "type": "integer"
+        },
+        "msg": {
+          "default": "请求成功",
+          "title": "Msg",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/WorkspaceAnalytics"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "title": "PublicResponse[WorkspaceAnalytics]",
+      "type": "object"
+    },
+    "PublicResponse_WorkspaceLayoutValue_": {
+      "additionalProperties": false,
+      "properties": {
+        "success": {
+          "default": true,
+          "title": "Success",
+          "type": "boolean"
+        },
+        "code": {
+          "default": 200,
+          "title": "Code",
+          "type": "integer"
+        },
+        "msg": {
+          "default": "请求成功",
+          "title": "Msg",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/WorkspaceLayoutValue"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "title": "PublicResponse[WorkspaceLayoutValue]",
+      "type": "object"
+    },
     "PublicResponse_WorkspaceSummary_": {
       "additionalProperties": false,
       "properties": {
@@ -450,6 +506,210 @@
         "data"
       ],
       "title": "PublicResponse[WorkspaceSummary]",
+      "type": "object"
+    },
+    "WorkspaceAnalytics": {
+      "additionalProperties": false,
+      "properties": {
+        "days": {
+          "title": "Days",
+          "type": "integer"
+        },
+        "started_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Started At"
+        },
+        "period_start": {
+          "format": "date-time",
+          "title": "Period Start",
+          "type": "string"
+        },
+        "period_end": {
+          "format": "date-time",
+          "title": "Period End",
+          "type": "string"
+        },
+        "total_views": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Total Views"
+        },
+        "period_views": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Period Views"
+        },
+        "daily": {
+          "items": {
+            "$ref": "#/$defs/WorkspaceViewPoint"
+          },
+          "title": "Daily",
+          "type": "array"
+        },
+        "popular": {
+          "items": {
+            "$ref": "#/$defs/WorkspacePopularArticle"
+          },
+          "title": "Popular",
+          "type": "array"
+        },
+        "all_time": {
+          "items": {
+            "$ref": "#/$defs/WorkspacePopularArticle"
+          },
+          "title": "All Time",
+          "type": "array"
+        },
+        "security": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/WorkspaceAudit"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "settings": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/WorkspaceAudit"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "days",
+        "period_start",
+        "period_end"
+      ],
+      "title": "WorkspaceAnalytics",
+      "type": "object"
+    },
+    "WorkspaceAnalyticsQuery": {
+      "additionalProperties": false,
+      "properties": {
+        "days": {
+          "default": 7,
+          "enum": [
+            7,
+            30,
+            90
+          ],
+          "title": "Days",
+          "type": "integer"
+        }
+      },
+      "title": "WorkspaceAnalyticsQuery",
+      "type": "object"
+    },
+    "WorkspaceAudit": {
+      "additionalProperties": false,
+      "properties": {
+        "count": {
+          "title": "Count",
+          "type": "integer"
+        },
+        "items": {
+          "items": {
+            "$ref": "#/$defs/WorkspaceAuditItem"
+          },
+          "title": "Items",
+          "type": "array"
+        }
+      },
+      "required": [
+        "count",
+        "items"
+      ],
+      "title": "WorkspaceAudit",
+      "type": "object"
+    },
+    "WorkspaceAuditItem": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "action": {
+          "title": "Action",
+          "type": "string"
+        },
+        "actor": {
+          "title": "Actor",
+          "type": "string"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "action",
+        "actor",
+        "created_at"
+      ],
+      "title": "WorkspaceAuditItem",
+      "type": "object"
+    },
+    "WorkspaceCardPlacement": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "maxLength": 160,
+          "minLength": 1,
+          "pattern": "^[a-z][a-z0-9_.:-]+$",
+          "title": "Id",
+          "type": "string"
+        },
+        "width": {
+          "default": 3,
+          "enum": [
+            1,
+            2,
+            3,
+            6
+          ],
+          "title": "Width",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "title": "WorkspaceCardPlacement",
       "type": "object"
     },
     "WorkspaceItem": {
@@ -508,9 +768,71 @@
       "title": "WorkspaceItem",
       "type": "object"
     },
+    "WorkspaceLayoutValue": {
+      "additionalProperties": false,
+      "properties": {
+        "revision": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Revision",
+          "type": "integer"
+        },
+        "cards": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/WorkspaceCardPlacement"
+              },
+              "maxItems": 48,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cards"
+        }
+      },
+      "title": "WorkspaceLayoutValue",
+      "type": "object"
+    },
+    "WorkspacePopularArticle": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "href": {
+          "title": "Href",
+          "type": "string"
+        },
+        "views": {
+          "title": "Views",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "href",
+        "views"
+      ],
+      "title": "WorkspacePopularArticle",
+      "type": "object"
+    },
     "WorkspaceSummary": {
       "additionalProperties": false,
       "properties": {
+        "layout": {
+          "$ref": "#/$defs/WorkspaceLayoutValue"
+        },
         "pending_comments": {
           "anyOf": [
             {
@@ -600,6 +922,25 @@
       },
       "title": "WorkspaceSummary",
       "type": "object"
+    },
+    "WorkspaceViewPoint": {
+      "additionalProperties": false,
+      "properties": {
+        "day": {
+          "title": "Day",
+          "type": "string"
+        },
+        "views": {
+          "title": "Views",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "day",
+        "views"
+      ],
+      "title": "WorkspaceViewPoint",
+      "type": "object"
     }
   },
   "additionalProperties": false,
@@ -621,6 +962,18 @@
     },
     "workspace": {
       "$ref": "#/$defs/PublicResponse_WorkspaceSummary_"
+    },
+    "workspace_layout_input": {
+      "$ref": "#/$defs/WorkspaceLayoutValue"
+    },
+    "workspace_layout": {
+      "$ref": "#/$defs/PublicResponse_WorkspaceLayoutValue_"
+    },
+    "workspace_analytics_query": {
+      "$ref": "#/$defs/WorkspaceAnalyticsQuery"
+    },
+    "workspace_analytics": {
+      "$ref": "#/$defs/PublicResponse_WorkspaceAnalytics_"
     }
   },
   "required": [
@@ -629,18 +982,36 @@
     "edit",
     "catalog",
     "result",
-    "workspace"
+    "workspace",
+    "workspace_layout_input",
+    "workspace_layout",
+    "workspace_analytics_query",
+    "workspace_analytics"
   ],
   "title": "OperationsContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "1.2.0",
+  "x-everunfold-contract-version": "1.3.0",
   "x-everunfold-operations": [
     {
       "name": "readWorkspace",
       "path": "/v1/admin/workspace",
       "method": "GET",
       "response": "workspace"
+    },
+    {
+      "name": "queryWorkspaceAnalytics",
+      "path": "/v1/admin/workspace/analytics",
+      "method": "POST",
+      "input": "workspace_analytics_query",
+      "response": "workspace_analytics"
+    },
+    {
+      "name": "saveWorkspaceLayout",
+      "path": "/v1/admin/workspace/layout",
+      "method": "POST",
+      "input": "workspace_layout_input",
+      "response": "workspace_layout"
     },
     {
       "name": "queryComments",

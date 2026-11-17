@@ -92,7 +92,69 @@ class WorkspaceItem(PublicModel):
     error: str | None = None
 
 
+class WorkspaceCardPlacement(PublicModel):
+    id: str = Field(min_length=1, max_length=160, pattern=r"^[a-z][a-z0-9_.:-]+$")
+    width: Literal[1, 2, 3, 6] = 3
+
+
+class WorkspaceLayoutValue(PublicModel):
+    revision: int = Field(default=0, ge=0)
+    cards: list[WorkspaceCardPlacement] | None = Field(default=None, max_length=48)
+
+    @field_validator("cards")
+    @classmethod
+    def unique_cards(
+        cls, value: list[WorkspaceCardPlacement] | None
+    ) -> list[WorkspaceCardPlacement] | None:
+        if value is not None and len({card.id for card in value}) != len(value):
+            raise ValueError("duplicate workspace cards")
+        return value
+
+
+class WorkspaceAnalyticsQuery(PublicModel):
+    days: Literal[7, 30, 90] = 7
+
+
+class WorkspacePopularArticle(PublicModel):
+    id: UUID
+    title: str
+    href: str
+    views: int
+
+
+class WorkspaceViewPoint(PublicModel):
+    day: str
+    views: int
+
+
+class WorkspaceAuditItem(PublicModel):
+    id: UUID
+    action: str
+    actor: str
+    created_at: datetime
+
+
+class WorkspaceAudit(PublicModel):
+    count: int
+    items: list[WorkspaceAuditItem]
+
+
+class WorkspaceAnalytics(PublicModel):
+    days: int
+    started_at: datetime | None = None
+    period_start: datetime
+    period_end: datetime
+    total_views: int | None = None
+    period_views: int | None = None
+    daily: list[WorkspaceViewPoint] = Field(default_factory=list)
+    popular: list[WorkspacePopularArticle] = Field(default_factory=list)
+    all_time: list[WorkspacePopularArticle] = Field(default_factory=list)
+    security: WorkspaceAudit | None = None
+    settings: WorkspaceAudit | None = None
+
+
 class WorkspaceSummary(PublicModel):
+    layout: WorkspaceLayoutValue = Field(default_factory=WorkspaceLayoutValue)
     pending_comments: int | None = None
     drafts: int | None = None
     scheduled: int | None = None
@@ -110,3 +172,7 @@ class OperationsContract(PublicModel):
     catalog: PublicResponse[ModerationCatalog]
     result: PublicResponse[CommentResult]
     workspace: PublicResponse[WorkspaceSummary]
+    workspace_layout_input: WorkspaceLayoutValue
+    workspace_layout: PublicResponse[WorkspaceLayoutValue]
+    workspace_analytics_query: WorkspaceAnalyticsQuery
+    workspace_analytics: PublicResponse[WorkspaceAnalytics]

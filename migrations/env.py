@@ -18,6 +18,7 @@ from app.modules.auth import preset_models as preset_models  # noqa: F401
 from app.modules.auth import recovery_models as recovery_models  # noqa: F401
 from app.modules.auth import registration_models as registration_models  # noqa: F401
 from app.modules.captcha import comments as comments  # noqa: F401
+from app.modules.comments import workspace_models as workspace_models  # noqa: F401
 from app.modules.content import (
     draft_models,  # noqa: F401
     models,  # noqa: F401 - include module metadata

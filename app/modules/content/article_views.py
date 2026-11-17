@@ -5,11 +5,13 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query, Request, Response
 from sqlalchemy import func, select, update
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.auth.repository import AuthRepository
 from app.modules.auth.router import peer
 from app.modules.auth.service import AuthFailure
+from app.modules.comments.workspace_models import ArticleViewDay
 from app.modules.content.models import Content
 from app.modules.content.reader_preview_schema import (
     ArticleMetrics,
@@ -66,6 +68,15 @@ async def record_view(
         .values(view_count=func.least(Content.view_count + 1, (1 << 53) - 1))
         .returning(Content.view_count)
     )
+    if views is not None:
+        await session.execute(
+            insert(ArticleViewDay)
+            .values(content_id=payload.content_id, day=datetime.now(UTC).date(), views=1)
+            .on_conflict_do_update(
+                index_elements=[ArticleViewDay.content_id, ArticleViewDay.day],
+                set_={"views": func.least(ArticleViewDay.views + 1, (1 << 53) - 1)},
+            )
+        )
     await session.commit()
     if views is None:
         raise AuthFailure(404, 40450, "内容不存在")

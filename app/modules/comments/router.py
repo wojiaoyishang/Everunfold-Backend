@@ -11,10 +11,15 @@ from app.modules.comments.schemas import (
     EditComment,
     ModerateComments,
     ModerationCatalog,
+    WorkspaceAnalytics,
+    WorkspaceAnalyticsQuery,
+    WorkspaceLayoutValue,
     WorkspaceSummary,
 )
 from app.modules.comments.service import CommentService
 from app.modules.comments.workspace import workspace
+from app.modules.comments.workspace_analytics import analytics
+from app.modules.comments.workspace_layout import save_layout
 from app.modules.settings.router import Authorized
 
 router = APIRouter(
@@ -59,3 +64,15 @@ async def overview(ctx: Authorized) -> JSONResponseSuccess:
     return JSONResponseSuccess(
         data=await workspace(ctx.service.session, ctx.actor, ctx.service.config)
     )
+
+
+@router.post("/workspace/analytics", response_model=PublicResponse[WorkspaceAnalytics])
+async def workspace_analytics(
+    payload: WorkspaceAnalyticsQuery, ctx: Authorized
+) -> JSONResponseSuccess:
+    return JSONResponseSuccess(data=await analytics(ctx.service.session, ctx.actor, payload.days))
+
+
+@router.post("/workspace/layout", response_model=PublicResponse[WorkspaceLayoutValue])
+async def workspace_layout(payload: WorkspaceLayoutValue, ctx: Authorized) -> JSONResponseSuccess:
+    return JSONResponseSuccess(data=await save_layout(ctx.service.session, ctx.actor, payload))

@@ -15,7 +15,9 @@ from app.modules.settings.node_registry import read_targets
 
 
 async def workspace(session: AsyncSession, actor: Actor, config: Settings) -> WorkspaceSummary:
-    result = WorkspaceSummary()
+    from app.modules.comments.workspace_layout import read_layout
+
+    result = WorkspaceSummary(layout=await read_layout(session, actor))
     if actor.has("comments:read"):
         result.pending_comments = int(
             await session.scalar(

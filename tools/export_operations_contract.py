@@ -10,13 +10,27 @@ from app.modules.comments.schemas import OperationsContract
 def build_schema() -> dict[str, Any]:
     schema = OperationsContract.model_json_schema()
     schema["$schema"] = "http://json-schema.org/draft-07/schema#"
-    schema["x-everunfold-contract-version"] = "1.2.0"
+    schema["x-everunfold-contract-version"] = "1.3.0"
     schema["x-everunfold-operations"] = [
         {
             "name": "readWorkspace",
             "path": "/v1/admin/workspace",
             "method": "GET",
             "response": "workspace",
+        },
+        {
+            "name": "queryWorkspaceAnalytics",
+            "path": "/v1/admin/workspace/analytics",
+            "method": "POST",
+            "input": "workspace_analytics_query",
+            "response": "workspace_analytics",
+        },
+        {
+            "name": "saveWorkspaceLayout",
+            "path": "/v1/admin/workspace/layout",
+            "method": "POST",
+            "input": "workspace_layout_input",
+            "response": "workspace_layout",
         },
         *[
             {
