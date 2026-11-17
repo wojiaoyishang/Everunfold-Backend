@@ -11,13 +11,13 @@ from app.modules.settings.models import FrontendExtensionInventory
 
 async def disabled_page_ids(session: AsyncSession) -> set[str]:
     site = await session.get(SiteSettings, 1)
-    disabled = set(public_settings(site.data if site else {}).extensions.disabled_plugins)
-    if not disabled:
+    preferences = public_settings(site.data if site else {}).extensions
+    if preferences.enabled_plugins is None and not preferences.disabled_plugins:
         return set()
     return {
         page_id
         for row in await session.scalars(select(FrontendExtensionInventory))
         for plugin in ExtensionInventory.model_validate(row.data).plugins
-        if plugin.id in disabled
+        if not preferences.enables(plugin.id)
         for page_id in plugin.page_ids
     }

@@ -108,12 +108,14 @@ async def validate_activation(
     value: ExtensionPreferences,
     before: ExtensionPreferences,
 ) -> None:
+    if (value.enabled_plugins is None) != (before.enabled_plugins is None):
+        raise AuthFailure(422, 42298, "请刷新设置后再修改插件")
     inventories = await catalog(session, config)
     enabled = [node for node in inventories.nodes if node.enabled]
     backend_ids = {item.id for item in inventories.backend_plugins}
     for plugin in inventories.backend_plugins:
-        if plugin.id not in value.disabled_plugins and set(plugin.requires) & set(
-            value.disabled_plugins
+        if value.enables(plugin.id) and any(
+            not value.enables(dependency) for dependency in plugin.requires
         ):
             raise AuthFailure(422, 42298, "请同时启用依赖插件，或先停用依赖它的插件")
     if value.theme and value.theme != before.theme:
@@ -129,7 +131,9 @@ async def validate_activation(
             or len({theme.model_dump_json() for theme in definitions if theme is not None}) != 1
         ):
             raise AuthFailure(422, 42298, "主题尚未在所有启用节点部署，请先完成部署登记")
-    for plugin_id in set(before.disabled_plugins) - set(value.disabled_plugins):
+    for plugin_id in sorted(value.changed_plugins(before)):
+        if not value.enables(plugin_id):
+            continue
         if plugin_id in backend_ids:
             if not inventories.backend_in_sync:
                 raise AuthFailure(422, 42298, "后端插件尚未完成部署登记，请先同步插件目录")

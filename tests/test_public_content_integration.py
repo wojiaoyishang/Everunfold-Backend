@@ -491,6 +491,56 @@ async def test_locked_article_cover_and_unlocked_taxonomies(
         }
 
 
+async def test_public_moment_metrics_include_historical_counts(
+    database_session: AsyncSession, isolated_settings: Settings
+) -> None:
+    session = database_session
+    now = datetime.now(UTC)
+    moment = Content(
+        source="test",
+        kind="shuoshuo",
+        title="Moment with historical engagement",
+        path=f"/test-moment-{uuid.uuid4()}",
+        published_at=now,
+        updated_at=now,
+        author="Author",
+        view_count=120,
+    )
+    session.add(moment)
+    await session.flush()
+    site = await session.get(SiteSettings, 1)
+    assert site is not None
+    site.data = {
+        **site.data,
+        "_wordpress_engagement": {str(moment.id): {"imported_views": 120, "likes": 2}},
+    }
+    await session.flush()
+    origin = "http://127.0.0.1:3000"
+    app = create_app(
+        isolated_settings.model_copy(update={"cors": CORSConfig(allowed_origins=[origin])})
+    )
+    app.dependency_overrides[get_session] = lambda: session
+    async with (
+        app.router.lifespan_context(app),
+        AsyncClient(
+            transport=ASGITransport(app=app),
+            base_url="http://testserver",
+            headers={"Origin": origin},
+        ) as client,
+    ):
+        identity = {"content_id": str(moment.id)}
+        query = {"ids": [str(moment.id)]}
+        first = await client.get("/v1/reader/metrics", params=query)
+        assert first.json()["data"]["items"] == [{**identity, "views": 120, "historical_likes": 2}]
+        recorded = await client.post("/v1/reader/views", json=identity)
+        assert recorded.status_code == 200, recorded.text
+        assert recorded.json()["data"]["views"] == 121
+        moment.captcha_read_required = True
+        await session.flush()
+        hidden = await client.get("/v1/reader/metrics", params=query)
+        assert hidden.json()["data"]["items"] == []
+
+
 async def test_remembered_article_read_is_private_and_bound_to_current_access(
     locked_article: tuple[Content, list[Taxonomy], str, str],
     isolated_settings: Settings,

@@ -16,17 +16,41 @@ ThemeId = r"^[a-z][a-z0-9-]*$"
 class ExtensionPreferences(PublicModel):
     theme: str = Field(default="", pattern=r"^(?:[a-z][a-z0-9-]*)?$")
     disabled_plugins: list[str] = Field(default_factory=list, max_length=100)
+    enabled_plugins: list[str] | None = Field(
+        default=None, max_length=100, exclude_if=lambda value: value is None
+    )
 
     @model_validator(mode="after")
     def unique_plugins(self) -> Self:
         import re
 
-        if len(set(self.disabled_plugins)) != len(self.disabled_plugins) or any(
-            not re.fullmatch(PluginId, item) for item in self.disabled_plugins
-        ):
-            raise ValueError("invalid or duplicate plugin identifiers")
-        self.disabled_plugins = sorted(self.disabled_plugins)
+        for identifiers in (self.disabled_plugins, self.enabled_plugins):
+            if identifiers is None:
+                continue
+            if len(set(identifiers)) != len(identifiers) or any(
+                not re.fullmatch(PluginId, item) for item in identifiers
+            ):
+                raise ValueError("invalid or duplicate plugin identifiers")
+            identifiers.sort()
+        if self.enabled_plugins is not None and self.disabled_plugins:
+            raise ValueError("enabled and disabled plugin lists cannot be combined")
         return self
+
+    def enables(self, plugin_id: str) -> bool:
+        if self.enabled_plugins is not None:
+            return plugin_id in self.enabled_plugins
+        return plugin_id not in self.disabled_plugins
+
+    def changed_plugins(self, before: "ExtensionPreferences") -> set[str]:
+        ids = (
+            set(self.enabled_plugins or ())
+            | set(self.disabled_plugins)
+            | set(before.enabled_plugins or ())
+            | set(before.disabled_plugins)
+        )
+        return {
+            plugin_id for plugin_id in ids if self.enables(plugin_id) != before.enables(plugin_id)
+        }
 
 
 class ThemeAuthor(PublicModel):

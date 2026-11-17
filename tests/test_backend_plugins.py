@@ -152,6 +152,22 @@ def test_persisted_catalog_controls_projection_and_provider_activation() -> None
     assert "core.ai-writing" in {item["info"]["id"] for item in data[CATALOG_KEY]}
 
 
+def test_clean_install_keeps_deployed_plugins_disabled_until_explicitly_enabled() -> None:
+    data: dict[str, Any] = {
+        CATALOG_KEY: plugin_catalog().snapshot(),
+        "extensions": {"enabled_plugins": []},
+    }
+    preferences = public_settings(data).extensions
+    assert preferences.enabled_plugins == []
+    assert not preferences.enables("example.cards")
+    assert not provider_state(data, "google.recaptcha-v2")[0]
+    assert "example:card" not in {item.name for item in public_settings(data).shortcodes}
+
+    data["extensions"]["enabled_plugins"] = ["core.captcha-google"]
+    assert provider_state(data, "google.recaptcha-v2")[0]
+    assert not provider_state(data, "cloudflare.turnstile")[0]
+
+
 def test_frontend_inventory_cannot_override_backend_or_custom_shortcodes() -> None:
     from app.modules.auth.service import AuthFailure
 

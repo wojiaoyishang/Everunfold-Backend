@@ -1218,6 +1218,22 @@
           "maxItems": 100,
           "title": "Disabled Plugins",
           "type": "array"
+        },
+        "enabled_plugins": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "maxItems": 100,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Enabled Plugins"
         }
       },
       "title": "ExtensionPreferences",
@@ -7676,7 +7692,7 @@
   "title": "SettingsContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "1.52.0",
+  "x-everunfold-contract-version": "1.53.0",
   "x-everunfold-language-regions": {
     "zh": "CN",
     "en": "GB",

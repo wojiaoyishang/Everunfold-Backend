@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from app.modules.settings.extensions_schemas import BackendPluginInfo
+from app.modules.settings.extensions_schemas import BackendPluginInfo, ExtensionPreferences
 from app.modules.shortcodes.registry import region_catalog
 from app.modules.shortcodes.schemas import PublicShortcode, ShortcodeItem
 
@@ -13,12 +13,11 @@ def installed_info(data: dict[str, Any]) -> list[BackendPluginInfo]:
     return [BackendPluginInfo.model_validate(item["info"]) for item in data.get(CATALOG_KEY, [])]
 
 
-def enabled_ids(data: dict[str, Any], disabled: list[str] | None = None) -> set[str]:
-    disabled = (
-        disabled if disabled is not None else data.get("extensions", {}).get("disabled_plugins", [])
-    )
+def enabled_ids(data: dict[str, Any], preferences: ExtensionPreferences | None = None) -> set[str]:
+    if preferences is None:
+        preferences = ExtensionPreferences.model_validate(data.get("extensions", {}))
     entries = installed_info(data)
-    enabled = {item.id for item in entries if item.id not in disabled}
+    enabled = {item.id for item in entries if preferences.enables(item.id)}
     while True:
         allowed = {
             item.id for item in entries if item.id in enabled and set(item.requires) <= enabled
@@ -28,8 +27,10 @@ def enabled_ids(data: dict[str, Any], disabled: list[str] | None = None) -> set[
         enabled = allowed
 
 
-def shortcode_items(data: dict[str, Any], disabled: list[str] | None = None) -> list[ShortcodeItem]:
-    active = enabled_ids(data, disabled)
+def shortcode_items(
+    data: dict[str, Any], preferences: ExtensionPreferences | None = None
+) -> list[ShortcodeItem]:
+    active = enabled_ids(data, preferences)
     return [
         *region_catalog(),
         *(
@@ -51,9 +52,9 @@ def cache_event_subscribers(data: dict[str, Any]) -> list[str]:
 
 
 def public_shortcodes(
-    data: dict[str, Any], disabled: list[str] | None = None
+    data: dict[str, Any], preferences: ExtensionPreferences | None = None
 ) -> list[PublicShortcode]:
-    return [item.compiled for item in shortcode_items(data, disabled)]
+    return [item.compiled for item in shortcode_items(data, preferences)]
 
 
 def provider_state(data: dict[str, Any], provider: str) -> tuple[bool, str]:

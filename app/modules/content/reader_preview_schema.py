@@ -44,6 +44,9 @@ class ArticleViewInput(PublicModel):
 class ArticleViewMetric(PublicModel):
     content_id: UUID
     views: int = Field(ge=0, le=(1 << 53) - 1)
+    historical_likes: int | None = Field(
+        default=None, ge=0, le=(1 << 53) - 1, exclude_if=lambda value: value is None
+    )
 
 
 class ArticleMetrics(PublicModel):

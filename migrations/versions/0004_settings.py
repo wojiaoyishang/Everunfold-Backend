@@ -68,6 +68,7 @@ def upgrade() -> None:
                     "hero_title": "Everunfold",
                     "hero_subtitle": "",
                     "notice": "",
+                    "extensions": {"enabled_plugins": []},
                     "navigation": [{"label": "首页", "href": "/", "icon": "home"}],
                 }
             )

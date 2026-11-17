@@ -43742,6 +43742,21 @@
             "type": "array",
             "maxItems": 100,
             "title": "Disabled Plugins"
+          },
+          "enabled_plugins": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array",
+                "maxItems": 100
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enabled Plugins"
           }
         },
         "additionalProperties": false,

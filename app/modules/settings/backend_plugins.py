@@ -41,9 +41,11 @@ async def install_backend_plugins(
         return False
     for row in await session.scalars(select(FrontendExtensionInventory)):
         validate_names(catalog, ExtensionInventory.model_validate(row.data))
-    disabled = set(site.data.get("extensions", {}).get("disabled_plugins", []))
+    preferences = public_settings(site.data).extensions
     for plugin in catalog.plugins:
-        if plugin.info.id not in disabled and set(plugin.info.requires) & disabled:
+        if preferences.enables(plugin.info.id) and any(
+            not preferences.enables(dependency) for dependency in plugin.info.requires
+        ):
             raise AuthFailure(422, 42298, "请同时启用依赖插件，或先停用依赖它的插件")
     before = {item.id: item.build for item in installed_info(site.data)}
     data = {**site.data, CATALOG_KEY: snapshot}

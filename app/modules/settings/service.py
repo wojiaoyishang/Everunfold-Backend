@@ -280,7 +280,7 @@ class SettingsService:
         ]:
             raise AuthFailure(422, 42280, "请在短代码库中应用模板修改")
         payload.value.shortcodes = [
-            *public_shortcodes(record.data, payload.value.extensions.disabled_plugins),
+            *public_shortcodes(record.data, payload.value.extensions),
             *custom,
         ]
         payload.value = await self.resolve(payload.value)

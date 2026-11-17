@@ -9,8 +9,8 @@ from app.modules.content.reader_preview_schema import ReaderPreviewContract
 def main() -> None:
     schema = ReaderPreviewContract.model_json_schema()
     schema["$schema"] = "http://json-schema.org/draft-07/schema#"
-    schema["x-everunfold-contract-version"] = "0.2.0"
-    schema["description"] = "Reader preview and aggregate views for addressable articles."
+    schema["x-everunfold-contract-version"] = "0.3.0"
+    schema["description"] = "Reader preview, content views and imported moment like counts."
     schema["x-everunfold-operations"] = [
         {
             "name": "readPreviewIdentity",
