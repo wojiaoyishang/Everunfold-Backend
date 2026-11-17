@@ -6850,6 +6850,9 @@
         "feed": {
           "$ref": "#/$defs/FeedPreferences"
         },
+        "wheel_scroll": {
+          "$ref": "#/$defs/WheelScrollPreferences"
+        },
         "font_scale_percent": {
           "default": 100,
           "maximum": 150,
@@ -7312,6 +7315,42 @@
       "title": "WatchTask",
       "type": "object"
     },
+    "WheelScrollPreferences": {
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "default": true,
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "inertia_ms": {
+          "default": 70,
+          "maximum": 150,
+          "minimum": 30,
+          "multipleOf": 5,
+          "title": "Inertia Ms",
+          "type": "integer"
+        },
+        "distance_percent": {
+          "default": 100,
+          "maximum": 200,
+          "minimum": 50,
+          "multipleOf": 5,
+          "title": "Distance Percent",
+          "type": "integer"
+        },
+        "acceleration_percent": {
+          "default": 80,
+          "maximum": 100,
+          "minimum": 0,
+          "multipleOf": 5,
+          "title": "Acceleration Percent",
+          "type": "integer"
+        }
+      },
+      "title": "WheelScrollPreferences",
+      "type": "object"
+    },
     "WritingPreferences": {
       "additionalProperties": false,
       "properties": {
@@ -7637,7 +7676,7 @@
   "title": "SettingsContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "1.51.0",
+  "x-everunfold-contract-version": "1.52.0",
   "x-everunfold-language-regions": {
     "zh": "CN",
     "en": "GB",

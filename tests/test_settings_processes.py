@@ -250,6 +250,14 @@ def test_settings_atomic_save_restart_delivery_and_crash_replay(tmp_path: Path) 
             value["site"]["name"] = "Settings transaction"
             value["site"]["notice_title"] = "Delivery notice"
             value["site"]["notice"] = "First line\nSecond line"
+            wheel_scroll = {
+                "enabled": False,
+                "inertia_ms": 95,
+                "distance_percent": 135,
+                "acceleration_percent": 25,
+            }
+            value["theme"]["wheel_scroll"] = wheel_scroll
+            value["theme_options"]["argon"]["wheel_scroll"] = wheel_scroll
             value["theme"]["code"].update(
                 {
                     "light_scheme": "github",
@@ -340,7 +348,10 @@ def test_settings_atomic_save_restart_delivery_and_crash_replay(tmp_path: Path) 
             receiver.terminate()
             receiver.wait(timeout=8)
             restored_receiver = stack.enter_context(background(node_command, node_env, frontend))
-            assert json.loads(applied_file.read_text(encoding="utf-8"))["revision"] == revision
+            applied = json.loads(applied_file.read_text(encoding="utf-8"))
+            assert applied["revision"] == revision
+            assert applied["value"]["theme"]["wheel_scroll"] == wheel_scroll
+            assert applied["value"]["theme_options"]["argon"]["wheel_scroll"] == wheel_scroll
             worker = stack.enter_context(background(worker_command, env, ROOT))
             wait_for(lambda: status() == "applied", timeout=25)
             assert len(list(applied_file.parent.glob(f"public-settings.{revision}.json"))) == 1

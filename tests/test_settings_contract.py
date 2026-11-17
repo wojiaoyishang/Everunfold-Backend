@@ -343,3 +343,28 @@ def test_header_brand_preserves_legacy_logo_and_stores_mode_per_theme() -> None:
     for invalid in ({"header_brand_mode": "hidden"}, {"header_brand_text": "x" * 161}):
         with pytest.raises(ValidationError):
             ThemePreferences.model_validate(invalid)
+
+
+def test_wheel_scroll_preferences_round_trip_and_reject_invalid_values() -> None:
+    legacy = public_settings({})
+    assert legacy.theme.wheel_scroll.inertia_ms == 70
+    assert "wheel_scroll" not in legacy.theme.model_dump()
+    changed = public_settings(
+        {"theme_options": {"argon": {"wheel_scroll": {"enabled": False, "inertia_ms": 95}}}}
+    )
+    restored = public_settings(stored_settings({}, changed))
+    assert restored.theme.wheel_scroll.model_dump() == {
+        "enabled": False,
+        "inertia_ms": 95,
+        "distance_percent": 100,
+        "acceleration_percent": 80,
+    }
+    for invalid in (
+        {"enabled": "off"},
+        {"inertia_ms": 0},
+        {"distance_percent": 201},
+        {"acceleration_percent": -5},
+        {"inertia_ms": 73},
+    ):
+        with pytest.raises(ValidationError):
+            ThemePreferences.model_validate({"wheel_scroll": invalid})

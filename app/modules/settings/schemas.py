@@ -364,6 +364,13 @@ class SidebarNavigationPreferences(SettingsModel):
     menu: list[MenuItem] | None = None
 
 
+class WheelScrollPreferences(SettingsModel):
+    enabled: bool = True
+    inertia_ms: int = Field(default=70, ge=30, le=150, multiple_of=5)
+    distance_percent: int = Field(default=100, ge=50, le=200, multiple_of=5)
+    acceleration_percent: int = Field(default=80, ge=0, le=100, multiple_of=5)
+
+
 class ThemePreferences(SettingsModel):
     author_avatar_media_id: str = Field(default="", pattern=MediaReference)
     author_avatar_url: str | None = Field(default=None, max_length=2048)
@@ -380,6 +387,10 @@ class ThemePreferences(SettingsModel):
     article: ArticleDisplayPreferences = Field(default_factory=ArticleDisplayPreferences)
     code: CodePreferences = Field(default_factory=CodePreferences)
     feed: FeedPreferences = Field(default_factory=FeedPreferences)
+    wheel_scroll: WheelScrollPreferences = Field(
+        default_factory=WheelScrollPreferences,
+        exclude_if=lambda value: value == WheelScrollPreferences(),
+    )
     font_scale_percent: int = Field(
         default=100, ge=75, le=150, strict=True, exclude_if=lambda value: value == 100
     )
