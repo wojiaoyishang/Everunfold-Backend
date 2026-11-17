@@ -180,6 +180,15 @@ def registered(
     if existing_id:
         response = ctx.root.get("/v1/admin/pages/" + existing_id)
     else:
+        settings = ctx.root.get("/v1/admin/settings").json()["data"]
+        value = settings["value"]
+        value["extensions"]["enabled_plugins"] = [identity]
+        enabled = ctx.root.patch(
+            "/v1/admin/settings",
+            json={"expected_revision": settings["revision"], "value": value},
+            headers=headers(ctx.root),
+        )
+        assert enabled.status_code == 200, enabled.text
         response = ctx.root.post(
             "/v1/admin/pages/save",
             json={
@@ -598,7 +607,7 @@ def test_disabled_page_plugin_hides_comments_and_blocks_submission_retries(
                     **site.data,
                     "extensions": {
                         **site.data.get("extensions", {}),
-                        "disabled_plugins": ["test.people"],
+                        "enabled_plugins": [],
                     },
                 }
                 await session.flush()
