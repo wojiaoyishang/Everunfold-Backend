@@ -1,4 +1,4 @@
-"""Site-wide discussion controls. Only the guest admission flag is public."""
+"""Site-wide discussion controls. Moderation settings remain private."""
 
 import unicodedata
 from typing import Annotated
@@ -8,6 +8,7 @@ from pydantic import Field, field_validator
 from app.core.schemas import PublicModel
 
 Keyword = Annotated[str, Field(max_length=100)]
+DISCUSSION_CONFIG_KEY = "_discussion_private"
 
 
 def normalized(value: str) -> str:
@@ -16,6 +17,7 @@ def normalized(value: str) -> str:
 
 class DiscussionPolicy(PublicModel):
     allow_guest_comments: bool
+    comments_disabled: bool = Field(default=False, exclude_if=lambda value: not value)
 
 
 class DiscussionSettings(DiscussionPolicy):

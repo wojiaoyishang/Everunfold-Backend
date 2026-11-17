@@ -614,3 +614,118 @@ def test_disabled_page_plugin_hides_comments_and_blocks_submission_retries(
     assert ctx.root.post("/v1/reader/page-comments", json={"id": row["id"]}).status_code == 404
     assert row["id"] not in snapshot(ctx)["comments"]
     assert all(page["id"] != row["id"] for page in snapshot(ctx)["pages"])
+
+
+def test_global_comment_switch_preserves_history_and_blocks_every_submitter(
+    comments: AccountsTest,
+) -> None:
+    ctx = comments
+    target = custom(ctx)
+    member = create_user(ctx)
+    reader = ctx.client()
+    signed_in(reader, member["username"], TEMPORARY)
+    route = "/v1/reader/comments"
+    config = "/v1/admin/settings/discussion"
+
+    pending = ctx.client().post(
+        route, json=comment(target["id"], body="Keep this comment"), headers={"Origin": ORIGIN}
+    )
+    assert pending.status_code == 200, pending.text
+    approved_id = pending.json()["data"]["id"]
+    approve(ctx, approved_id)
+    before = ctx.root.get("/v1/admin/settings").json()["data"]
+    policy = ctx.root.get(config).json()["data"]
+    closed = ctx.root.patch(
+        config, json={**policy, "comments_disabled": True}, headers=headers(ctx.root)
+    ).json()["data"]
+    assert closed["comments_disabled"] is True
+    current = ctx.root.get("/v1/admin/settings").json()["data"]
+    assert current["revision"] == before["revision"] + 1
+    assert current["value"]["comments_disabled"] is True
+    assert reader.get("/v1/reader/discussion").json()["data"]["comments_disabled"] is True
+    for public, credential in ((ctx.client(), {"Origin": ORIGIN}), (reader, headers(reader))):
+        blocked = public.post(route, json=comment(target["id"]), headers=credential)
+        assert blocked.status_code == 403 and blocked.json()["code"] == 40391
+    assert snapshot(ctx)["comments"][target["id"]][0]["id"] == approved_id
+    reopened = ctx.root.patch(
+        config, json={**closed, "comments_disabled": False}, headers=headers(ctx.root)
+    )
+    assert reopened.status_code == 200, reopened.text
+    assert not ctx.root.get("/v1/admin/settings").json()["data"]["value"].get("comments_disabled")
+    assert (
+        ctx.client().post(route, json=comment(target["id"]), headers={"Origin": ORIGIN}).status_code
+        == 200
+    )
+
+
+def test_page_injection_endpoints_only_allow_admin_edits_and_private_reads(
+    comments: AccountsTest,
+) -> None:
+    from sqlalchemy import select
+
+    from app.modules.settings.page_injection_schemas import PLUGIN_ID
+
+    ctx = comments
+    editor = create_user(ctx)
+
+    async def unlock_test_catalog():
+        database = Database(ctx.settings.database.url.get_secret_value())
+        try:
+            async with database.session_factory() as session:
+                row = await session.get(User, UUID(editor["id"]))
+                assert row is not None
+                row.grants = {"everunfold": {"settings:read": "all", "settings:write": "all"}}
+                row.must_change_password = False
+                site = await session.scalar(select(SiteSettings))
+                assert site is not None
+                site.data = {**site.data, "extensions": {"enabled_plugins": [PLUGIN_ID]}}
+                await session.commit()
+        finally:
+            await database.close()
+
+    asyncio.run(unlock_test_catalog())
+    member = ctx.client()
+    signed_in(member, editor["username"], TEMPORARY)
+    configure = "/v1/admin/settings/page-injections"
+    runtime = "/v1/admin/page-injections"
+    rules = [
+        {
+            "id": "front",
+            "name": "Public",
+            "enabled": True,
+            "scope": "public",
+            "css": "body { color: red; }",
+        },
+        {
+            "id": "private",
+            "name": "Private",
+            "enabled": True,
+            "scope": "admin",
+            "javascript": "private-test-sentinel",
+        },
+    ]
+    payload = {"expected_revision": 0, "rules": rules}
+    assert ctx.client().get(runtime).status_code == 401
+    assert member.get(configure).status_code == 403
+    assert member.patch(configure, json=payload, headers=headers(member)).status_code == 403
+    result = ctx.root.patch(configure, json=payload, headers=headers(ctx.root))
+    assert result.status_code == 200, result.text
+    assert ctx.root.patch(configure, json=payload, headers=headers(ctx.root)).status_code == 409
+    private = member.get(runtime)
+    assert private.status_code == 200, private.text
+    assert private.headers["cache-control"] == "private, no-store"
+    assert [item["id"] for item in private.json()["data"]["rules"]] == ["private"]
+    assert not member.get(runtime + "/account").json()["data"]["rules"]
+    projected = member.get("/v1/admin/settings").json()["data"]
+    assert [item["id"] for item in projected["value"]["page_injections"]] == ["front"]
+    value = projected["value"]
+    value["page_injections"] = [{**rules[0], "javascript": "unapproved-source"}]
+    value["comments_disabled"] = True
+    general = member.patch(
+        "/v1/admin/settings",
+        json={"expected_revision": projected["revision"], "value": value},
+        headers=headers(member),
+    )
+    assert general.status_code == 200, general.text
+    assert "unapproved-source" not in general.text and "private-test-sentinel" not in general.text
+    assert not general.json()["data"]["value"].get("comments_disabled")

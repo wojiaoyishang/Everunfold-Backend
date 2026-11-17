@@ -1093,6 +1093,11 @@
           "title": "Allow Guest Comments",
           "type": "boolean"
         },
+        "comments_disabled": {
+          "default": false,
+          "title": "Comments Disabled",
+          "type": "boolean"
+        },
         "revision": {
           "minimum": 1,
           "title": "Revision",
@@ -4840,6 +4845,11 @@
         "translations": {
           "$ref": "#/$defs/TranslationOverrides"
         },
+        "comments_disabled": {
+          "default": false,
+          "title": "Comments Disabled",
+          "type": "boolean"
+        },
         "page_injections": {
           "items": {
             "$ref": "#/$defs/PageInjection"
@@ -7919,7 +7929,7 @@
   "title": "SettingsContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "1.54.0",
+  "x-everunfold-contract-version": "1.55.0",
   "x-everunfold-language-regions": {
     "zh": "CN",
     "en": "GB",

@@ -171,8 +171,13 @@ async def comment_account(session: AsyncSession, request: Request) -> User | Non
     )
 
 
-async def discussion_settings(session: AsyncSession) -> DiscussionSettings:
-    site = await session.get(SiteSettings, 1)
+async def discussion_settings(session: AsyncSession, *, locked: bool = False) -> DiscussionSettings:
+    site = await session.get(
+        SiteSettings,
+        1,
+        with_for_update={"read": True} if locked else None,
+        populate_existing=locked,
+    )
     if site is None:
         raise AuthFailure(503, 50320, "站点设置尚未初始化，请先执行数据库初始化")
     return settings_from_data(site.data)
@@ -183,7 +188,10 @@ async def read_discussion(request: Request) -> JSONResponseSuccess:
     async with auth_runtime(request).database.session_factory() as session:
         policy = await discussion_settings(session)
     return JSONResponseSuccess(
-        data=DiscussionPolicy(allow_guest_comments=policy.allow_guest_comments)
+        data=DiscussionPolicy(
+            allow_guest_comments=policy.allow_guest_comments,
+            comments_disabled=policy.comments_disabled,
+        )
     )
 
 
@@ -291,7 +299,7 @@ async def submit_comment(payload: SubmitComment, request: Request) -> JSONRespon
         if (account.id if account else None) != account_id:
             raise AuthFailure(409, 40987, "登录状态已更新，请重新检查后重试")
         await guard(session, permit, publishing=account is not None)
-        discussion = await discussion_settings(session)
+        discussion = await discussion_settings(session, locked=True)
         require_comment_account(discussion, account)
         item = await admit_target(session, request, payload, permit)
         author = (account.display_name or account.username) if account else payload.author.strip()

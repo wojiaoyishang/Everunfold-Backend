@@ -461,6 +461,7 @@ class PublicSettings(SettingsModel):
     icon_urls: dict[str, str] = Field(default_factory=dict)
     shortcodes: list[PublicShortcode] = Field(default_factory=list, max_length=100)
     translations: TranslationOverrides = Field(default_factory=TranslationOverrides)
+    comments_disabled: bool = Field(default=False, exclude_if=lambda value: not value)
     page_injections: list[PageInjection] = Field(
         default_factory=list, max_length=32, exclude_if=lambda value: not value
     )

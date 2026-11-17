@@ -267,6 +267,7 @@ class SettingsService:
         payload.value.page_injections = public_page_injections(
             record.data, payload.value.extensions
         )
+        payload.value.comments_disabled = before.comments_disabled
         payload.value = await self.resolve(payload.value)
         from app.core.plugins.state import public_shortcodes
 
@@ -383,6 +384,23 @@ class SettingsService:
                 )
         await self.session.commit()
         return await self.state(record)
+
+    async def publish_site_projection(self, record: SiteSettings) -> None:
+        """Stage a projection of private settings while holding the site write lock."""
+        value = await self.resolve(public_settings(record.data))
+        record.generation += 1
+        await stage_cache_events(
+            self.session,
+            record,
+            "public-settings",
+            record.generation,
+            (CacheChange("settings_changed"),),
+        )
+        for node, target in (await read_targets(self.session, self.config)).items():
+            if target.enabled and target.settings_receiver_url:
+                await self.enqueue(
+                    node, record.source_epoch, "public-settings", record.generation, value
+                )
 
     async def policy(self, node: str) -> PolicyState:
         directory = await read_directory(self.session, self.config)

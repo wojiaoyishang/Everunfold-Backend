@@ -5,12 +5,9 @@ from typing import Any
 from app.modules.auth.permissions import Actor
 from app.modules.auth.service import AuthFailure
 from app.modules.media.locking import lock_references
-from app.modules.settings.cache_event_schema import CacheChange
-from app.modules.settings.cache_events import stage_cache_events
 from app.modules.settings.defaults import public_settings
 from app.modules.settings.extensions_schemas import ExtensionPreferences
 from app.modules.settings.models import SettingsAudit
-from app.modules.settings.node_registry import read_targets
 from app.modules.settings.page_injection_schemas import (
     PLUGIN_ID,
     STORE_KEY,
@@ -60,20 +57,7 @@ async def save_rules(
     record.data = {**record.data, STORE_KEY: saved.model_dump(mode="json")}
     resolved = public_settings(record.data)
     if resolved.page_injections != before_public:
-        resolved = await service.resolve(resolved)
-        record.generation += 1
-        await stage_cache_events(
-            session,
-            record,
-            "public-settings",
-            record.generation,
-            (CacheChange("settings_changed"),),
-        )
-        for node, target in (await read_targets(session, service.config)).items():
-            if target.enabled and target.settings_receiver_url:
-                await service.enqueue(
-                    node, record.source_epoch, "public-settings", record.generation, resolved
-                )
+        await service.publish_site_projection(record)
     session.add(
         SettingsAudit(
             user_id=actor.id,

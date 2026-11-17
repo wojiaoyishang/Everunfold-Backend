@@ -3,6 +3,7 @@
 from typing import Any
 
 from app.core.plugins.state import public_shortcodes
+from app.modules.comments.discussion_schema import DISCUSSION_CONFIG_KEY
 from app.modules.settings.extensions_schemas import ExtensionPreferences
 from app.modules.settings.page_injection_schemas import (
     PLUGIN_ID,
@@ -60,6 +61,7 @@ def public_settings(data: dict[str, Any]) -> PublicSettings:
         theme_options=profiles,
         shortcodes=[*public_shortcodes(data), *data.get("shortcodes", [])],
         extensions=extensions,
+        comments_disabled=(data.get(DISCUSSION_CONFIG_KEY) or {}).get("comments_disabled") is True,
         page_injections=public_page_injections(data, extensions),
     )
 
