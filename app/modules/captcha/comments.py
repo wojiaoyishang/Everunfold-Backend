@@ -79,6 +79,9 @@ class CommentSubmissionContract(PublicModel):
     response: PublicResponse[CommentReceipt]
 
 
+READ_RECEIPT_TTL = 1800
+
+
 def receipt_key(request: Request, value: str) -> str:
     return redis_key(
         auth_runtime(request).settings,
@@ -105,7 +108,7 @@ async def issue_read_receipt(request: Request, policy: CaptchaContext) -> str:
         await runtime.redis.set(
             receipt_key(request, value),
             json.dumps(receipt_data(request, policy)),
-            ex=1800,
+            ex=READ_RECEIPT_TTL,
         )
     except RedisError:
         raise AuthFailure(503, 50386, "验证码服务暂不可用，请重试") from None

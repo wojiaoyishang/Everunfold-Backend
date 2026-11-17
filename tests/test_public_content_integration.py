@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import CORSConfig, ReaderPreviewConfig, Settings, load_settings
 from app.core.database import Database
+from app.core.redis_keys import redis_key
 from app.entrypoints.api import create_app
 from app.modules.auth.models import AuthRateLimit
 from app.modules.auth.security import hash_password
@@ -488,6 +489,76 @@ async def test_locked_article_cover_and_unlocked_taxonomies(
         assert not {term.slug for term in terms} & {
             term["slug"] for term in taxonomies.json()["data"]["items"]
         }
+
+
+async def test_remembered_article_read_is_private_and_bound_to_current_access(
+    locked_article: tuple[Content, list[Taxonomy], str, str],
+    isolated_settings: Settings,
+) -> None:
+    article, _, password, peer = locked_article
+    origin = "http://127.0.0.1:3000"
+    config = isolated_settings.model_copy(update={"cors": CORSConfig(allowed_origins=[origin])})
+    app = create_app(config)
+    target = {"id": str(article.id)}
+    excerpt_path = "/v1/reader/access/excerpt"
+    resume_path = "/v1/reader/access/resume"
+
+    async with (
+        app.router.lifespan_context(app),
+        AsyncClient(
+            transport=ASGITransport(app=app, client=(peer, 50000)),
+            base_url="http://testserver",
+            headers={"Origin": origin},
+        ) as client,
+    ):
+        for path in (excerpt_path, resume_path):
+            assert (await client.post(path, json=target)).status_code == 403
+        unlocked = await client.post("/v1/reader/access", json={**target, "password": password})
+        assert unlocked.status_code == 200, unlocked.text
+        receipt = unlocked.json()["data"]["read_receipt"]
+        headers = {"X-Everunfold-Read-Receipt": receipt}
+        excerpt = await client.post(excerpt_path, json=target, headers=headers)
+        assert excerpt.status_code == 200, excerpt.text
+        assert excerpt.json()["data"] == {**target, "excerpt": article.excerpt}
+        assert excerpt.headers["cache-control"] == "private, no-store"
+        resumed = await client.post(resume_path, json=target, headers=headers)
+        assert resumed.status_code == 200, resumed.text
+        assert resumed.json()["data"]["content"] == article.content
+        assert resumed.json()["data"]["read_receipt"] == receipt
+        assert resumed.headers["cache-control"] == "private, no-store"
+
+        async with AsyncClient(
+            transport=ASGITransport(app=app, client=(f"{peer}-other", 50000)),
+            base_url="http://testserver",
+        ) as other:
+            denied = await other.post(
+                excerpt_path, json=target, headers={**headers, "Origin": origin}
+            )
+            assert denied.status_code == 403
+
+        public = await client.get("/v1/contents/resolve", params={"path": article.path})
+        assert public.status_code == 200 and public.json()["data"]["excerpt"] == ""
+        runtime = app.state.runtime
+        async with runtime.database.session_factory.begin() as session:
+            item = await session.get(Content, article.id)
+            assert item is not None
+            item.access_password_hash = hash_password("New fixture password")
+            item.editor_settings = {"hide_card_excerpt": True}
+            item.public_generation += 1
+        for path in (excerpt_path, resume_path):
+            assert (await client.post(path, json=target, headers=headers)).status_code == 403
+        renewed = await client.post(
+            "/v1/reader/access", json={**target, "password": "New fixture password"}
+        )
+        assert renewed.status_code == 200, renewed.text
+        receipt = renewed.json()["data"]["read_receipt"]
+        headers = {"X-Everunfold-Read-Receipt": receipt}
+        hidden = await client.post(excerpt_path, json=target, headers=headers)
+        assert hidden.status_code == 200 and hidden.json()["data"] == {**target, "excerpt": ""}
+        key = redis_key(config, "captcha", "read", sha256(receipt.encode()).hexdigest())
+        await runtime.redis.expire(key, 0)
+        for path in (excerpt_path, resume_path):
+            assert (await client.post(path, json=target, headers=headers)).status_code == 403
 
 
 async def test_locked_excerpt_only_publishes_manually_written_opt_in_text(

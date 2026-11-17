@@ -596,6 +596,21 @@
       "title": "ContentDetail",
       "type": "object"
     },
+    "ContentReadTarget": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "title": "ContentReadTarget",
+      "type": "object"
+    },
     "ContentTranslation": {
       "additionalProperties": false,
       "properties": {
@@ -820,6 +835,34 @@
       "title": "PublicResponse[ContentDetail]",
       "type": "object"
     },
+    "PublicResponse_UnlockedArticleExcerpt_": {
+      "additionalProperties": false,
+      "properties": {
+        "success": {
+          "default": true,
+          "title": "Success",
+          "type": "boolean"
+        },
+        "code": {
+          "default": 200,
+          "title": "Code",
+          "type": "integer"
+        },
+        "msg": {
+          "default": "请求成功",
+          "title": "Msg",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/UnlockedArticleExcerpt"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "title": "PublicResponse[UnlockedArticleExcerpt]",
+      "type": "object"
+    },
     "TaxonomyDTO": {
       "additionalProperties": false,
       "properties": {
@@ -858,6 +901,26 @@
       ],
       "title": "TaxonomyDTO",
       "type": "object"
+    },
+    "UnlockedArticleExcerpt": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "excerpt": {
+          "title": "Excerpt",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "excerpt"
+      ],
+      "title": "UnlockedArticleExcerpt",
+      "type": "object"
     }
   },
   "additionalProperties": false,
@@ -867,21 +930,33 @@
     },
     "response": {
       "$ref": "#/$defs/PublicResponse_ContentDetail_"
+    },
+    "read_target": {
+      "$ref": "#/$defs/ContentReadTarget"
+    },
+    "excerpt_response": {
+      "$ref": "#/$defs/PublicResponse_UnlockedArticleExcerpt_"
     }
   },
   "required": [
     "request",
-    "response"
+    "response",
+    "read_target",
+    "excerpt_response"
   ],
   "title": "ContentAccessContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "1.11.0",
+  "x-everunfold-contract-version": "1.12.0",
   "x-everunfold-reader-authorization": {
     "optional_api_key": true,
     "audience": "everunfold",
     "bypass_permission": "captcha:read_bypass",
     "password_bypass": false
+  },
+  "x-everunfold-read-receipt": {
+    "header": "X-Everunfold-Read-Receipt",
+    "expires_in": 1800
   },
   "x-everunfold-operations": [
     {
@@ -890,6 +965,24 @@
       "method": "POST",
       "input": "request",
       "response": "response",
+      "csrf": false,
+      "credentials": "omit"
+    },
+    {
+      "name": "resumeProtectedArticle",
+      "path": "/v1/reader/access/resume",
+      "method": "POST",
+      "input": "read_target",
+      "response": "response",
+      "csrf": false,
+      "credentials": "omit"
+    },
+    {
+      "name": "readProtectedArticleExcerpt",
+      "path": "/v1/reader/access/excerpt",
+      "method": "POST",
+      "input": "read_target",
+      "response": "excerpt_response",
       "csrf": false,
       "credentials": "omit"
     }

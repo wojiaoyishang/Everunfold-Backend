@@ -80,9 +80,13 @@ async def context(session: AsyncSession, action: str, content_id: UUID | None) -
     policy: dict[str, object] = {}
     kind = ""
     if content_id is not None:
-        item = await session.scalar(
-            select(Content).where(Content.id == content_id, *presentation_conditions())
-        )
+        item = (
+            await session.execute(
+                select(Content.kind, Content.editor_settings, Content.public_generation).where(
+                    Content.id == content_id, *presentation_conditions()
+                )
+            )
+        ).one_or_none()
         if item:
             kind, policy, generation = item.kind, item.editor_settings or {}, item.public_generation
         else:

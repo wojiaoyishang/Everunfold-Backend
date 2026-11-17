@@ -1,4 +1,4 @@
-"""In-memory reader grants also authorize reactions, bound to target, peer and policy."""
+"""Reader grants are bound to a target, peer and current policy."""
 
 import json
 from uuid import UUID
@@ -12,9 +12,11 @@ from app.modules.auth.service import AuthFailure
 from app.modules.captcha.comments import receipt_data, receipt_key
 from app.modules.captcha.service import CaptchaContext, CaptchaService, guard
 
+READ_RECEIPT_HEADER = "X-Everunfold-Read-Receipt"
+
 
 async def read_grant_target(request: Request, session: AsyncSession) -> UUID | None:
-    receipt = request.headers.get("X-Everunfold-Read-Receipt", "")
+    receipt = request.headers.get(READ_RECEIPT_HEADER, "")
     target = request.headers.get("X-Everunfold-Read-Target", "")
     if not receipt and not target:
         return None
