@@ -18,10 +18,10 @@
 | operations-v1.schema.json | 1.2.0 | 评论查询、审核与评论格式 |
 | pages-v1.schema.json | 1.16.0 | 页面与模板版本历史、恢复草稿、模板应用影响确认、隐藏页面标题 |
 | presentation-v0.2.schema.json | 0.2.0-preview.10 | 内容展示（草案），含文章卡片摘要设置 |
-| public-openapi-v0.1.json | 0.1.3 | 当前 HTTP 业务路由和统一错误响应；仅离线导出 |
+| public-openapi-v0.1.json | 0.1.4 | 当前 HTTP 业务路由和统一错误响应；仅离线导出 |
 | public-v0.1.schema.json | 0.21.0 | 公开快照，含文章卡片摘要设置 |
 | reader-preview-v0.1.schema.json | 0.1.0-preview.1 | 阅读演示指标（预览） |
-| settings-v1.schema.json | 1.45.0 | 站点、主题、系统、节点与讨论设置 |
+| settings-v1.schema.json | 1.51.0 | 站点、主题、系统、节点与讨论设置，含页脚 HTML、默认字体缩放及媒体查询置顶 |
 
 权威导出入口为`tools/export_*_contract.py`；例如`uv run --locked python -m tools.export_accounts_contract`。协议Schema与独立Node参考对应，见[接入指南](../docs/development/api-key-applications.md)。`presentation-v0.2.schema.json`和`reader-preview-v0.1.schema.json`仍分别标记preview，不把展示草案当作正式写接口。`public-openapi-v0.1.json`由现有FastAPI公开业务路由导出，完整应用另含诊断路由。运行服务的 `/docs`、`/redoc`、`/openapi.json` 已关闭；离线导出不依赖这些 HTTP 入口。
 

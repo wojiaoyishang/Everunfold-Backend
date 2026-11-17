@@ -1503,6 +1503,12 @@
           "maxItems": 8,
           "title": "Links",
           "type": "array"
+        },
+        "html": {
+          "default": "",
+          "maxLength": 8000,
+          "title": "Html",
+          "type": "string"
         }
       },
       "title": "FooterPreferences",
@@ -2586,6 +2592,15 @@
           "default": false,
           "title": "Trash",
           "type": "boolean"
+        },
+        "pinned_ids": {
+          "items": {
+            "pattern": "^media:[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$",
+            "type": "string"
+          },
+          "maxItems": 60,
+          "title": "Pinned Ids",
+          "type": "array"
         }
       },
       "title": "MediaQuery",
@@ -6835,6 +6850,13 @@
         "feed": {
           "$ref": "#/$defs/FeedPreferences"
         },
+        "font_scale_percent": {
+          "default": 100,
+          "maximum": 150,
+          "minimum": 75,
+          "title": "Font Scale Percent",
+          "type": "integer"
+        },
         "font_media_id": {
           "default": "",
           "pattern": "^(?:|media:[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})$",
@@ -7615,7 +7637,7 @@
   "title": "SettingsContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "1.50.0",
+  "x-everunfold-contract-version": "1.51.0",
   "x-everunfold-language-regions": {
     "zh": "CN",
     "en": "GB",

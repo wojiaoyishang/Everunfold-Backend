@@ -64,20 +64,21 @@ class MediaCatalog(PublicModel):
     page_size: int = 60
 
 
+MediaReference = Annotated[
+    str, Field(pattern=r"^media:[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$")
+]
+
+
 class MediaQuery(IconQuery):
     kind: Literal["all", "image", "video", "file"] = "all"
     trash: bool = False
+    pinned_ids: list[MediaReference] = Field(default_factory=list, max_length=60)
 
 
 class MediaUpload(PublicModel):
     purpose: Literal["library", "icon", "font"] = "library"
     filename: str = Field(min_length=1, max_length=160)
     upload_id: str = Field(pattern=r"^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$")
-
-
-MediaReference = Annotated[
-    str, Field(pattern=r"^media:[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$")
-]
 
 
 class MediaLookup(PublicModel):

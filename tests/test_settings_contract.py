@@ -191,8 +191,13 @@ def test_footer_links_and_glossary_settings_validate() -> None:
     footer = FooterPreferences(
         copyright="Copyright",
         links=[FooterLink(id="beian", label="备案", href="https://example.com")],
+        html="<p>Footer</p>",
     )
     assert footer.links[0].href == "https://example.com"
+    assert footer.model_dump()["html"] == "<p>Footer</p>"
+    assert "html" not in FooterPreferences().model_dump()
+    with pytest.raises(ValidationError):
+        FooterPreferences(html="a" * 8001)
     with pytest.raises(ValidationError):
         FooterPreferences(
             links=[
@@ -200,6 +205,16 @@ def test_footer_links_and_glossary_settings_validate() -> None:
                 FooterLink(id="same", label="B", href="/b"),
             ]
         )
+
+
+def test_site_font_scale_default_and_saved_value() -> None:
+    assert ThemePreferences().font_scale_percent == 100
+    assert "font_scale_percent" not in ThemePreferences().model_dump()
+    preferences = ThemePreferences(font_scale_percent=125)
+    assert preferences.model_dump()["font_scale_percent"] == 125
+    for value in (74, 151, 90.5, "120"):
+        with pytest.raises(ValidationError):
+            ThemePreferences.model_validate({"font_scale_percent": value})
 
 
 def test_duplicate_navigation_ids_and_missing_title_placeholder_rejected() -> None:

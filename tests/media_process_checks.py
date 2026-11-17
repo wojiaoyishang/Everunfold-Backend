@@ -67,6 +67,43 @@ def check_media_management(
         "/v1/admin/media/query", json={"query": current["metadata"]["title"]}, headers=csrf
     ).json()["data"]
     assert [entry["id"] for entry in found["items"]] == [item["id"]]
+    prefix = f"pin-proof-{uuid4()}"
+    copies = [uuid4() for _ in range(61)]
+    asyncio.run(
+        sql(
+            """
+            INSERT INTO media_assets (
+                id, uploader_id, purpose, filename, mime, size, sha256, storage_id,
+                object_key, status, created_at
+            )
+            SELECT c.id, m.uploader_id, 'library', $1 || '-' || c.rank, m.mime, m.size, m.sha256,
+                   m.storage_id, $1 || '-' || c.rank, 'ready',
+                   m.created_at + c.rank * interval '1 second'
+            FROM media_assets m, unnest($2::uuid[]) WITH ORDINALITY AS c(id, rank)
+            WHERE m.id = $3
+            """,
+            prefix,
+            copies,
+            item["id"][6:],
+        )
+    )
+    try:
+        query = {"query": prefix}
+        pins = [f"media:{copy}" for copy in copies[:2]]
+        first = client.post("/v1/admin/media/query", json=query, headers=csrf).json()["data"]
+        assert pins[0] not in [entry["id"] for entry in first["items"]]
+        query["pinned_ids"] = pins + pins[:1]
+        pages = [
+            client.post("/v1/admin/media/query", json={**query, "page": page}, headers=csrf).json()[
+                "data"
+            ]
+            for page in (1, 2)
+        ]
+        ordered = [entry["id"] for page in pages for entry in page["items"]]
+        assert ordered[:2] == pins
+        assert len(ordered) == len(set(ordered)) == pages[0]["total"] == 61
+    finally:
+        asyncio.run(sql("DELETE FROM media_assets WHERE id = ANY($1::uuid[])", copies))
     assert (
         client.post(
             "/v1/admin/media/update", json={**update, "metadata": current["metadata"]}, headers=csrf

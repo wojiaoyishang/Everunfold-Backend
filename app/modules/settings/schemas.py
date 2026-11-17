@@ -182,6 +182,7 @@ class FooterLink(SettingsModel):
 class FooterPreferences(SettingsModel):
     copyright: str = Field(default="", max_length=300)
     links: list[FooterLink] = Field(default_factory=list, max_length=8)
+    html: str = Field(default="", max_length=8000, exclude_if=lambda text: not text)
 
     @model_validator(mode="after")
     def unique_ids(self) -> Self:
@@ -379,6 +380,9 @@ class ThemePreferences(SettingsModel):
     article: ArticleDisplayPreferences = Field(default_factory=ArticleDisplayPreferences)
     code: CodePreferences = Field(default_factory=CodePreferences)
     feed: FeedPreferences = Field(default_factory=FeedPreferences)
+    font_scale_percent: int = Field(
+        default=100, ge=75, le=150, strict=True, exclude_if=lambda value: value == 100
+    )
     font_media_id: str = Field(default="", pattern=MediaReference)
     font_url: str = Field(default="", max_length=2048)
     font_info: FontInfo | None = None

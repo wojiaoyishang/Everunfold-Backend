@@ -4,7 +4,7 @@ import asyncio
 import uuid
 from typing import Any
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import case, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
@@ -150,10 +150,17 @@ class MediaService:
             await self.session.scalar(select(func.count()).select_from(MediaAsset).where(*where))
             or 0
         )
+        order = [MediaAsset.created_at.desc(), MediaAsset.id.desc()]
+        pinned = {
+            uuid.UUID(reference.removeprefix("media:")): index
+            for index, reference in enumerate(dict.fromkeys(query.pinned_ids))
+        }
+        if pinned:
+            order.insert(0, case(pinned, value=MediaAsset.id, else_=len(pinned)).asc())
         assets = await self.session.scalars(
             select(MediaAsset)
             .where(*where)
-            .order_by(MediaAsset.created_at.desc(), MediaAsset.id.desc())
+            .order_by(*order)
             .offset((query.page - 1) * 60)
             .limit(60)
         )
