@@ -104,6 +104,7 @@ def paths() -> None:
         peers,
         "EVERUNFOLD_INTERNAL_PEER_NETWORKS=" + peer_networks,
         "EVERUNFOLD_TLS_PROXY_NETWORK=" + proxy_network,
+        "1" if context.env.get("WORKER_AUTOSCALE") else "0",
     )
     if any(
         any(char in str(value) for char in ("\n", "\r", ","))

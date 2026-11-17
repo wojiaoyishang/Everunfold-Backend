@@ -29,6 +29,7 @@ from config_validation import (
 )
 from container_fields import add_container_fields
 from node_console_fields import add_node_console_fields
+from worker_capacity import add_capacity_fields, capacity_environment, capacity_errors
 
 DOCKER = Path(__file__).resolve().parents[1] / "docker"
 TOKEN_NAMES = ("NEXTJS_TO_FASTAPI_WEB_MAIN_TOKEN", "FASTAPI_TO_NEXTJS_WEB_MAIN_TOKEN")
@@ -238,21 +239,7 @@ def configure(native: bool = False) -> Configuration:
         group="进程",
     )
     add("workers", "API worker 数量", env.get("API_WORKERS", "1"), valid=positive, group="进程")
-    add(
-        "pool",
-        "Celery worker 池",
-        env.get("WORKER_POOL", "solo"),
-        valid=lambda v: v in ("solo", "prefork"),
-        group="进程",
-    )
-    add(
-        "concurrency",
-        "Celery worker 并发数",
-        env.get("WORKER_CONCURRENCY", "1"),
-        valid=positive,
-        active=lambda: value("pool") == "prefork",
-        group="进程",
-    )
+    add_capacity_fields(add, value, env)
     log_levels = {
         "API_LOG_LEVEL": ("API 日志等级", "INFO"),
         "WORKER_LOG_LEVEL": ("Celery Worker 日志等级", "WARNING"),
@@ -305,8 +292,6 @@ def configure(native: bool = False) -> Configuration:
                     by_key[name].value = ""
                     by_key[name].generate = None
             generated.clear()
-        if key == "pool" and value("pool") == "solo":
-            by_key["concurrency"].value = "1"
         if key == "node":
             node_values[selected_node] = (value("inbound"), value("outbound"))
             selected_node = value("node")
@@ -320,8 +305,10 @@ def configure(native: bool = False) -> Configuration:
             by_key["inbound"].value, by_key["outbound"].value = incoming, outgoing
 
     def check() -> list[str]:
-        return container_errors() + (
-            ["两个方向的节点令牌必须不同。"] if value("inbound") == value("outbound") else []
+        return (
+            container_errors()
+            + capacity_errors(value)
+            + (["两个方向的节点令牌必须不同。"] if value("inbound") == value("outbound") else [])
         )
 
     def broker() -> str:
@@ -359,8 +346,7 @@ def configure(native: bool = False) -> Configuration:
             "REDIS_URL": value("redis"),
             "CELERY_BROKER_URL": broker(),
             "API_WORKERS": value("workers"),
-            "WORKER_POOL": value("pool"),
-            "WORKER_CONCURRENCY": value("concurrency") if value("pool") == "prefork" else "1",
+            **capacity_environment(value),
             master: value(master),
             totp: value(totp),
             node_names[0]: value("inbound"),

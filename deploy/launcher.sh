@@ -84,7 +84,7 @@ read_paths() {
   local result
   result="$(docker run --rm --network none "${base[@]}" "${mount_args[@]}" "$setup_image" python "$deploy_dir/bootstrap.py" paths)"
   mapfile -t locations <<< "$result"
-  if (( ${#locations[@]} != 22 )); then echo "无法确定容器设置。" >&2; exit 1; fi
+  if (( ${#locations[@]} != 23 )); then echo "无法确定容器设置。" >&2; exit 1; fi
   network=${locations[0]}; data_dir=${locations[1]}; env_parent=${locations[2]}
   output_dir=${locations[3]}; source_dir=${locations[4]}; profile_parent=${locations[5]}
   container_name=${locations[6]}; image_name=${locations[8]}; bind_host=${locations[9]}
@@ -94,6 +94,11 @@ read_paths() {
   network_alias=${locations[17]}; host_gateway=${locations[18]}; allow_network_peers=${locations[19]}
   internal_peer_networks=${locations[20]#EVERUNFOLD_INTERNAL_PEER_NETWORKS=}
   tls_proxy_network=${locations[21]#EVERUNFOLD_TLS_PROXY_NETWORK=}
+  worker_autoscale_on=${locations[22]}
+  if [[ -v WORKER_AUTOSCALE ]]; then
+    worker_autoscale_on=0
+    if [[ -n "$WORKER_AUTOSCALE" ]]; then worker_autoscale_on=1; fi
+  fi
   host_args=()
   if [[ "$host_gateway" == 1 ]]; then host_args+=(--add-host host.docker.internal:host-gateway); fi
   IFS=',' read -ra extra_networks <<< "${locations[7]}"
@@ -300,6 +305,9 @@ if [[ "$role" == backend ]]; then
                  --mount "type=bind,source=$(dirname -- "$runtime_config"),target=/config,readonly"
                  -e "CONFIG_FILE=/config/$(basename -- "$runtime_config")" -e EVERUNFOLD_DATA_DIR=/data
                  -e "API_HOST=$listen_host" -e "API_PORT=$listen_port")
+  for name in WORKER_POOL WORKER_CONCURRENCY WORKER_AUTOSCALE; do
+    if [[ -v "$name" ]]; then runtime_args+=(-e "$name=${!name}"); fi
+  done
 else
   workspace_dir="$artifact_dir"
   [[ -s "$artifact_dir/.next/BUILD_ID" ]] || { echo "前端产物未构建，请先执行 build。" >&2; exit 1; }
@@ -359,6 +367,10 @@ case "$action" in
   check) check_runtime ;;
   start)
     if [[ "$role" == backend ]]; then
+      if [[ "$worker_autoscale_on" == 1 ]] && ! run_runtime worker-check; then
+        echo "Celery 自动伸缩检查失败。请检查上方错误；若运行镜像尚未更新，请选择「构建并启动」。" >&2
+        exit 1
+      fi
       echo "启动准备：检查依赖，并按配置初始化空数据库。"
       if "$initialize_then_start"; then
         run_runtime python deploy/runtime_check.py --initialize

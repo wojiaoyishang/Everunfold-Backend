@@ -22,7 +22,7 @@ from config_files import Files, env_values, update_env
 from config_model import Check
 from config_ui import Confirm, DatabaseForm, Editor, HistoryInput, SetupApp
 from connection_bundle import decode_bundle, encode_bundle
-from textual.widgets import Button, DataTable, Input, RichLog
+from textual.widgets import Button, DataTable, Input, OptionList, RichLog
 
 BACKEND = hasattr(configure, "node_token_names")
 DOCKER = Path(__file__).resolve().parent
@@ -629,6 +629,31 @@ class ModelTests(Fixtures, unittest.TestCase):
 
 
 class TerminalTests(Fixtures, unittest.IsolatedAsyncioTestCase):
+    @unittest.skipUnless(BACKEND, "backend Celery configuration")
+    async def test_celery_pool_and_strategy_use_selection_lists(self):
+        config = self.complete()
+        app = SetupApp(config)
+        async with app.run_test(size=(86, 28)) as pilot:
+            table = app.query_one(DataTable)
+            for key in ("pool", "worker_strategy"):
+                table.move_cursor(
+                    row=next(i for i, item in enumerate(config.fields) if item.key == key)
+                )
+                app.action_edit()
+                await pilot.pause()
+                self.assertEqual(app.screen.query_one(OptionList).highlighted, 0)
+                self.assertFalse(app.screen.query(Input))
+                await pilot.press("down", "enter")
+                await pilot.pause()
+            self.assertEqual(config.get("pool"), "prefork")
+            self.assertEqual(config.get("worker_strategy"), "auto")
+            self.edit(config, "worker_min", "5")
+            self.assertIn("Celery 最小并发不能超过最大并发。", config.errors())
+            self.edit(config, "worker_min", "2")
+            self.assertEqual(config.errors(), [])
+            config.save()
+            self.assertEqual(self.materialize().document["environment"]["WORKER_AUTOSCALE"], "4,2")
+
     async def test_node_console_switch_and_password_can_be_edited_and_generated(self):
         model = self.complete()
         app = SetupApp(model)

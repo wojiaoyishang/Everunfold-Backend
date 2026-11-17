@@ -213,6 +213,18 @@ class LauncherTests(unittest.TestCase):
         self.assertNotIn("3210", (self.repo / "config.yaml").read_text())
         self.assertIn(str(selected), result.stdout)
 
+    @unittest.skipUnless(BACKEND, "backend Celery autoscale check")
+    def test_autoscale_is_checked_before_replacing_existing_container(self):
+        selected = self.repo / "config.yaml"
+        document = yaml.safe_load(selected.read_text())
+        document["environment"].update(WORKER_POOL="prefork", WORKER_AUTOSCALE="4,1")
+        selected.write_text(yaml.safe_dump(document))
+        result, calls = self.run_action("start", failure="worker-check", old="matching")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Celery 自动伸缩检查失败", result.stderr)
+        self.assertTrue(any(call[-1] == "worker-check" for call in calls))
+        self.assertFalse(any("custom-everunfold" in call for call in calls))
+
     def test_build_then_start_without_rebuilding(self):
         result, calls = self.run_action("build")
         self.assertEqual(result.returncode, 0, result.stderr)

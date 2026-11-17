@@ -25,7 +25,7 @@ start_api() {
 
 start_worker() {
   exec celery -A app.entrypoints.worker:celery_app worker \
-    --pool "$worker_pool" --concurrency "$worker_concurrency" \
+    "${worker_capacity[@]}" \
     --prefetch-multiplier "$worker_prefetch" --loglevel "${WORKER_LOG_LEVEL:-WARNING}" \
     --without-mingle --without-gossip
 }
@@ -35,15 +35,15 @@ start_scheduler() {
 }
 
 configure_worker() {
-  worker_pool=${WORKER_POOL:-solo}
-  worker_concurrency=${WORKER_CONCURRENCY:-1}
+  local capacity
   worker_prefetch=${WORKER_PREFETCH_MULTIPLIER:-1}
-  if [[ "$worker_pool" != solo && "$worker_pool" != prefork ]] ||
-     [[ ! "$worker_concurrency" =~ ^[1-9][0-9]*$ || ! "$worker_prefetch" =~ ^[1-9][0-9]*$ ]] ||
-     [[ "$worker_pool" == solo && "$worker_concurrency" != 1 ]]; then
-    echo 'Use solo with concurrency 1, or prefork with positive concurrency; prefetch must be positive.' >&2
+  if [[ ! "$worker_prefetch" =~ ^[1-9][0-9]*$ ]]; then
+    echo 'WORKER_PREFETCH_MULTIPLIER must be a positive integer.' >&2
     exit 2
   fi
+  # The parser only prints fixed option names and validated numbers/pool names.
+  capacity=$(python /workspace/deploy/worker_capacity.py) || exit 2
+  read -r -a worker_capacity <<< "$capacity"
 }
 
 stop_services() {
@@ -67,6 +67,7 @@ case "${1:-serve}" in
     exit "$((status == 0 ? 1 : status))"
     ;;
   api) start_api ;;
+  worker-check) configure_worker ;;
   worker) configure_worker; start_worker ;;
   scheduler) start_scheduler ;;
   *) exec "$@" ;;

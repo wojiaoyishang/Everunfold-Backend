@@ -297,3 +297,7 @@ API worker 数量、Celery 池及并发数从 YAML 的 `environment` 读取，�
 内部调用使用所选网络的实际 CIDR 与手填来源，保留 IP **且** Token 校验。HTTPS 节点控制台用所选宿主网桥的网关或手填代理 IP 校验直连代理。
 
 setup 的“日志”分组提供 `API_LOG_LEVEL`、`WORKER_LOG_LEVEL`、`SCHEDULER_LOG_LEVEL`，支持 `DEBUG`、`INFO`、`WARNING`、`ERROR`、`CRITICAL`。新配置默认分别为 `INFO`、`WARNING`、`INFO`；已有值保留，原 Worker 为 `INFO` 时请手动改为 `WARNING`。保存并启动后生效。Scheduler 只记录状态转变，不逐次输出心跳；相同访问拒绝日志节流 30 秒。降低 API 日志等级会相应隐藏诊断信息。
+
+在“进程”分组中，使用 ↑/↓ 和 Enter 选择 Celery 执行池。选择「多进程（prefork）」后，可以选择「固定并发」或「按任务量自动伸缩」。自动模式默认最小 1、最大 4；由 Celery 在任务积压时扩容，任务完成并空闲一段时间后缩回，执行中的任务不会因为缩容被中断。单进程（solo）始终逐个执行任务，已有配置继续使用固定并发。
+
+配置保存在根 YAML 的 `environment`。自动模式对应 `WORKER_POOL: "prefork"` 和 `WORKER_AUTOSCALE: "4,1"`（最大在前）。固定模式把 `WORKER_AUTOSCALE` 留空，并使用 `WORKER_CONCURRENCY`。Docker 首次启用此功能要更新后端源码并选择「构建并启动」以更新入口脚本；此后调整范围只需保存并重新创建容器。原生方式保存后重新启动。

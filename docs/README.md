@@ -1,5 +1,7 @@
 # Everunfold 文档入口
 
+[Celery 任务进程自动伸缩](decisions/0185-celery-worker-autoscale.md)说明固定、自动模式和 Web 服务的伸缩评估。
+
 [内容编辑器的缓存维护](decisions/0184-content-cache-maintenance.md)说明按内容比较节点回执、重建缓存和重发公开副本的方式。
 
 [页面代码与菜单项样式](decisions/0182-page-code-and-menu-styles.md)记录规则权限、同步与导航样式。

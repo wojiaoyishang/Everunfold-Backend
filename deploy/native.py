@@ -8,6 +8,7 @@ import subprocess
 from pathlib import Path
 
 from config_context import Context
+from worker_capacity import capacity_arguments
 
 DOCKER = Path(__file__).resolve().parents[1] / "docker"
 ROOT = DOCKER.parent
@@ -168,6 +169,9 @@ def main() -> None:
     if action == "check":
         check()
         return
+    worker_capacity = (
+        capacity_arguments(environment) if BACKEND and action in {"start", "worker"} else []
+    )
     if action == "start":
         if BACKEND:
             execute(
@@ -204,10 +208,7 @@ def main() -> None:
                 "-A",
                 "app.entrypoints.worker:celery_app",
                 "worker",
-                "--pool",
-                environment.get("WORKER_POOL", "solo"),
-                "--concurrency",
-                environment.get("WORKER_CONCURRENCY", "1"),
+                *worker_capacity,
                 "--loglevel",
                 environment.get("WORKER_LOG_LEVEL", "WARNING").upper(),
             ],
