@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Literal
 
 if TYPE_CHECKING:
+    from app.core.monitor_metrics import PluginMetric
     from app.core.plugins.registry import PluginRegistry
     from app.core.runtime import Runtime
 
@@ -36,6 +37,10 @@ class Plugin:
 
     async def shutdown(self, context: PluginRuntime) -> None:
         """Release process resources, including after a partially failed startup."""
+
+    async def metrics(self, context: PluginRuntime) -> tuple["PluginMetric", ...]:
+        """Return bounded metric snapshots for an enabled plugin, without exposing a route."""
+        return ()
 
 
 class _FunctionPlugin(Plugin):

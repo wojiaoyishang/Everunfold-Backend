@@ -1,5 +1,7 @@
 # Everunfold 后端部署教程
 
+setup 的「监控」分组包含 Prometheus 开关、采集令牌、指标来源和 Loki 查询及写入白名单。保存后生成 `var/monitoring/loki-access.conf`，在监控服务器的 Loki 独立反代站点加载。采集模板见 [Everunfold Deploy 的监控指南](https://github.com/wojiaoyishang/Everunfold-Deploy/tree/main/monitoring)。
+
 选择下面一条路径，从准备环境一直做到启动验收。**所有命令都在后端仓库根目录执行**。前端教程见[配套仓库](https://github.com/wojiaoyishang/Everunfold-Frontend/blob/main/deploy/README.md)。
 
 配置助手先展示全部配置，支持鼠标、顺序配置和按项编辑。新站点密钥自动生成，可查看和修改；已有站点保留原密钥。PostgreSQL 可分项填写，也可编辑完整 URL。连接检测不会初始化或升级数据库。

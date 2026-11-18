@@ -2,6 +2,8 @@ name: everunfold-backend
 
 services:
   backend:
+    labels:
+      org.everunfold.component: backend
     image: ${BACKEND_IMAGE:-everunfold-backend:python312}
     build:
       context: ${BACKEND_SOURCE_DIR:-..}

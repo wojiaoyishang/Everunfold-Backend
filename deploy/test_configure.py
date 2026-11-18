@@ -91,6 +91,17 @@ class Fixtures:
 
 
 class ModelTests(Fixtures, unittest.TestCase):
+    def test_loki_query_and_push_allowlists_are_independent(self):
+        model = self.complete()
+        self.edit(model, "loki_query", "192.0.2.50")
+        self.edit(model, "loki_push", "198.51.100.10")
+        model.save()
+        include = (self.root / "var/monitoring/loki-access.conf").read_text()
+        push, query = include.split("location ~", 1)
+        self.assertIn("allow 198.51.100.10/32;", push)
+        self.assertNotIn("192.0.2.50", push)
+        self.assertIn("allow 192.0.2.50/32;", query)
+
     def test_base64_is_bounded_and_checks_all_credentials_without_echoing_input(self):
         import base64
         import copy

@@ -189,7 +189,7 @@ def main() -> None:
             "api": [
                 python,
                 "-m",
-                "uvicorn",
+                "app.entrypoints.serve_api",
                 "app.entrypoints.api:app",
                 "--host",
                 environment.get("API_HOST", "127.0.0.1"),

@@ -1,5 +1,10 @@
 # 后端交接状态
 
+## Prometheus 与日志
+
+- 私有 /metrics 使用直连 IP/CIDR 和独立令牌，聚合 FastAPI 多进程、Node 内部指标、Broker 优先级队列、Scheduler 私有遥测、节点同步和可选 Celery exporter。插件可实现 metrics(context)。
+- API、Celery、Scheduler 输出一行 JSON，保留人可读消息。单端 setup 的「监控」分组可配置 Loki 查询与 Alloy 写入白名单，并生成反代配置。
+
 ## Celery 自动伸缩
 
 - 独立部署的 Docker 和原生模式都支持 `WORKER_AUTOSCALE=最大,最小`。向导列表选择执行池、固定并发或自动伸缩。默认固定；自动模式使用 Celery 原生 `prefork`，区间默认 1–4。第一次启用前须更新 Docker 镜像，不需要迁移。

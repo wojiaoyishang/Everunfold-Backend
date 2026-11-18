@@ -30,11 +30,24 @@ def execute_registered_task(identity: str) -> None:
     asyncio.run(execute(identity))
 
 
-from celery.signals import worker_ready, worker_shutdown  # type: ignore[import-untyped] # noqa: E402
+from celery.signals import (  # type: ignore[import-untyped] # noqa: E402
+    setup_logging,
+    worker_ready,
+    worker_shutdown,
+)
 
 from app.core.jobs.telemetry import Reporter  # noqa: E402
+from app.core.process_logging import configure_process_logging  # noqa: E402
 
 _reporter: Reporter | None = None
+
+
+@setup_logging.connect(weak=False)  # type: ignore[untyped-decorator]
+def log_worker(loglevel: int | None = None, **kwargs: object) -> None:
+    import logging
+
+    level = logging.getLevelName(loglevel) if loglevel is not None else "WARNING"
+    configure_process_logging("Worker", "WORKER_LOG_LEVEL", str(level), force=True)
 
 
 @worker_ready.connect(weak=False)  # type: ignore[untyped-decorator]

@@ -20,6 +20,7 @@ class Reporter:
             config.redis.url.get_secret_value(), socket_timeout=2, socket_connect_timeout=2
         )
         self.key = config.redis_prefix + "runtime:instance:" + uuid.uuid4().hex
+        self.metrics_key = self.key.replace("runtime:instance:", "runtime:metrics:", 1)
         self.data: dict[str, Any] = {
             "id": self.key.rsplit(":", 1)[-1],
             "role": role,
@@ -45,6 +46,11 @@ class Reporter:
         self.pulse(state="online")
         self.thread = threading.Thread(target=loop, daemon=True)
         self.thread.start()
+
+    def sample(self, **fields: Any) -> None:
+        """Keep Prometheus-only state out of the management API schema."""
+        with suppress(Exception):
+            self.client.set(self.metrics_key, json.dumps(fields), ex=120)
 
     def close(self) -> None:
         self.stop.set()

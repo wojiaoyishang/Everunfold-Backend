@@ -17,7 +17,7 @@ printf 'Everunfold Backend | runtime image %s | source /workspace | data /data\n
 
 start_api() {
   local level=${API_LOG_LEVEL:-INFO}
-  exec python -m uvicorn app.entrypoints.api:app \
+  exec python -m app.entrypoints.serve_api app.entrypoints.api:app \
     --host "${API_HOST:-0.0.0.0}" --port "${API_PORT:-8001}" \
     --workers "${API_WORKERS:-1}" --log-level "${level,,}" --no-proxy-headers --no-access-log \
     --timeout-graceful-shutdown "${API_SHUTDOWN_TIMEOUT:-30}"

@@ -11,7 +11,7 @@ from datetime import timedelta
 from typing import Any
 
 from redis import Redis
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from app.core.database import Database
 from app.core.jobs.definitions import definitions
@@ -19,6 +19,7 @@ from app.core.jobs.execution import resident_entry
 from app.core.jobs.models import TaskRun
 from app.core.jobs.service import now, reconcile
 from app.core.jobs.telemetry import Reporter
+from app.core.monitor_config import monitoring_config
 from app.core.process_logging import configure_process_logging
 from app.core.task_queue import celery_app, settings
 
@@ -40,6 +41,11 @@ async def run() -> None:
         loop.add_signal_handler(sig, stopping.set)
     acquired = False
     last_error: str | None = None
+    monitoring = bool(monitoring_config())
+    next_sample = 0.0
+    successful_dispatches = failed_dispatches = 0
+    oldest_due: float | None = None
+    last_successful_scan: float | None = None
     try:
         acquired = bool(await asyncio.to_thread(client.set, key, token, nx=True, px=30000))
         if not acquired:
@@ -56,9 +62,21 @@ async def run() -> None:
             )
             if not renewed:
                 raise RuntimeError("Scheduler lease lost")
+            sampled = False
             try:
                 async with db.session_factory() as session:
                     await reconcile(session)
+                    if monitoring and loop.time() >= next_sample:
+                        oldest = await session.scalar(
+                            select(func.min(TaskRun.planned_at)).where(
+                                TaskRun.status == "queued",
+                                TaskRun.sent_at.is_(None),
+                                TaskRun.planned_at <= now(),
+                            )
+                        )
+                        oldest_due = oldest.timestamp() if oldest else None
+                        next_sample = loop.time() + 10
+                        sampled = True
                     pending = list(
                         await session.scalars(
                             select(TaskRun)
@@ -114,12 +132,16 @@ async def run() -> None:
                             )
                         except Exception:
                             broker_failed = True
+                            failed_dispatches += 1
                             break
+                        successful_dispatches += 1
                         async with db.session_factory() as session:
                             current = await session.get(TaskRun, row.id)
                             if current:
                                 current.sent_at = now()
                                 await session.commit()
+                if not broker_failed:
+                    last_successful_scan = now().timestamp()
                 reporter.pulse(
                     state="degraded" if broker_failed else "online",
                     error="broker_unavailable" if broker_failed else None,
@@ -127,6 +149,13 @@ async def run() -> None:
                     residents=len(children),
                     pending=len(pending),
                 )
+                if sampled:
+                    reporter.sample(
+                        last_successful_scan=last_successful_scan,
+                        oldest_due_at=oldest_due,
+                        dispatch_success=successful_dispatches,
+                        dispatch_failure=failed_dispatches,
+                    )
                 error = "broker_unavailable" if broker_failed else None
             except Exception as exc:
                 error = type(exc).__name__

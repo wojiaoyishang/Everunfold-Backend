@@ -5,8 +5,10 @@ from typing import Any
 from celery import Celery  # type: ignore[import-untyped]
 
 from app.core.config import load_settings
+from app.core.monitor_config import monitoring_config
 
 settings = load_settings()
+monitor = monitoring_config()
 celery_app: Any = Celery("everunfold", broker=settings.celery.broker_url.get_secret_value())
 celery_app.conf.update(
     task_serializer="json",
@@ -25,4 +27,5 @@ celery_app.conf.update(
     broker_connection_retry_on_startup=True,
     broker_connection_timeout=2,
     task_publish_retry=False,
+    worker_send_task_events=bool(monitor and monitor.celery_exporter),
 )

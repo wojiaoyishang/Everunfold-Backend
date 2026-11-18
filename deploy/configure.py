@@ -28,6 +28,12 @@ from config_validation import (
     valid_port,
 )
 from container_fields import add_container_fields
+from monitoring_setup import (
+    add_monitoring_fields,
+    loki_proxy_include,
+    monitor_environment,
+    monitor_errors,
+)
 from node_console_fields import add_node_console_fields
 from worker_capacity import add_capacity_fields, capacity_environment, capacity_errors
 
@@ -240,6 +246,9 @@ def configure(native: bool = False) -> Configuration:
     )
     add("workers", "API worker 数量", env.get("API_WORKERS", "1"), valid=positive, group="进程")
     add_capacity_fields(add, value, env)
+    add_monitoring_fields(add, value, env)
+    acl_file = ctx.root_path.parent / "var/monitoring/loki-access.conf"
+    ctx.files.read(acl_file)
     log_levels = {
         "API_LOG_LEVEL": ("API 日志等级", "INFO"),
         "WORKER_LOG_LEVEL": ("Celery Worker 日志等级", "WARNING"),
@@ -308,6 +317,7 @@ def configure(native: bool = False) -> Configuration:
         return (
             container_errors()
             + capacity_errors(value)
+            + monitor_errors(value)
             + (["两个方向的节点令牌必须不同。"] if value("inbound") == value("outbound") else [])
         )
 
@@ -347,6 +357,7 @@ def configure(native: bool = False) -> Configuration:
             "CELERY_BROKER_URL": broker(),
             "API_WORKERS": value("workers"),
             **capacity_environment(value),
+            **monitor_environment(value),
             master: value(master),
             totp: value(totp),
             node_names[0]: value("inbound"),
@@ -389,7 +400,8 @@ def configure(native: bool = False) -> Configuration:
                     indent=2,
                 )
                 + "\n",
-            }
+            },
+            artifacts={acl_file: loki_proxy_include(environment)},
         )
 
     return Configuration(

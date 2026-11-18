@@ -24,6 +24,8 @@ from app.core.modules import (
     register_settings_module,
     register_shortcodes_module,
 )
+from app.core.monitor_config import monitoring_config
+from app.core.monitor_metrics import Monitoring
 from app.core.plugins.definition import PluginRuntime
 from app.core.plugins.loader import plugin_catalog
 from app.core.plugins.route_runtime import mount_plugin_routes
@@ -41,6 +43,8 @@ logger = logging.getLogger(__name__)
 
 def create_app(settings: Settings | None = None) -> FastAPI:
     plugins = plugin_catalog()
+    options = monitoring_config()
+    monitoring = Monitoring(options, plugins) if options else None
     i18n.load()
     resolved = settings
     if resolved is None:
@@ -75,7 +79,17 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             refresh_task = asyncio.create_task(refresh_translations())
         try:
             async with plugins.lifespan(PluginRuntime(role="api", runtime=runtime)):
-                yield
+                collection = (
+                    asyncio.create_task(monitoring.refresh(runtime))
+                    if monitoring and runtime is not None
+                    else None
+                )
+                try:
+                    yield
+                finally:
+                    if collection is not None:
+                        collection.cancel()
+                        await asyncio.gather(collection, return_exceptions=True)
         finally:
             if refresh_task is not None:
                 refresh_task.cancel()
@@ -127,6 +141,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     register_maintenance_module(application)
     mount_plugin_routes(application, plugins)
     mount_nodes_monitor(application, resolved)
+    if monitoring:
+        monitoring.install(application)
 
     @application.exception_handler(AuthFailure)
     async def handle_auth_error(request: Request, exc: AuthFailure) -> JSONResponseFail:
