@@ -27,10 +27,10 @@ from config_validation import (
     token,
     valid_port,
 )
-from container_fields import add_container_fields
+from container_fields import add_container_fields, setup_network_subnets
+from monitoring_access import loki_proxy_include
 from monitoring_setup import (
     add_monitoring_fields,
-    loki_proxy_include,
     monitor_environment,
     monitor_errors,
 )
@@ -246,7 +246,7 @@ def configure(native: bool = False) -> Configuration:
     )
     add("workers", "API worker 数量", env.get("API_WORKERS", "1"), valid=positive, group="进程")
     add_capacity_fields(add, value, env)
-    add_monitoring_fields(add, value, env)
+    add_monitoring_fields(add, value, env, lookup=None if native else setup_network_subnets)
     acl_file = ctx.root_path.parent / "var/monitoring/loki-access.conf"
     ctx.files.read(acl_file)
     log_levels = {

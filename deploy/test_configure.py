@@ -93,14 +93,26 @@ class Fixtures:
 class ModelTests(Fixtures, unittest.TestCase):
     def test_loki_query_and_push_allowlists_are_independent(self):
         model = self.complete()
-        self.edit(model, "loki_query", "192.0.2.50")
+        with patch.dict(
+            os.environ, {"EVERUNFOLD_SETUP_NETWORK_SUBNETS": "monitor=192.0.2.0/24,fd00::/64"}
+        ):
+            self.edit(model, "metrics_enabled", "1")
+            self.edit(model, "metrics_peers", "127.0.0.1,monitor")
+            self.edit(model, "loki_query", "192.0.2.50,monitor")
         self.edit(model, "loki_push", "198.51.100.10")
+        with self.assertRaises(ValueError):
+            self.edit(model, "loki_push", "0.0.0.0/0")
         model.save()
+        env = self.materialize().env
+        self.assertEqual(
+            env["EVERUNFOLD_METRICS_ALLOWED_PEERS"], "127.0.0.1/32,192.0.2.0/24,fd00::/64"
+        )
         include = (self.root / "var/monitoring/loki-access.conf").read_text()
         push, query = include.split("location ~", 1)
         self.assertIn("allow 198.51.100.10/32;", push)
         self.assertNotIn("192.0.2.50", push)
         self.assertIn("allow 192.0.2.50/32;", query)
+        self.assertIn("allow fd00::/64;", query)
 
     def test_base64_is_bounded_and_checks_all_credentials_without_echoing_input(self):
         import base64
@@ -354,7 +366,8 @@ class ModelTests(Fixtures, unittest.TestCase):
         model = self.complete(native=True)
         self.assertFalse((self.root / "var").exists())
         model.save()
-        self.assertFalse((self.root / "var").exists())
+        self.assertFalse((self.root / "var/instance").exists())
+        self.assertTrue((self.root / "var/monitoring/loki-access.conf").is_file())
         self.assertTrue((self.root / "config.yaml").is_file())
         self.materialize(native=True)
         instance = self.root / "var/instance"
