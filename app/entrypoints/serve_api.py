@@ -25,7 +25,8 @@ def main() -> None:
         filename = Path(path) / "logging.json"
         filename.write_text(json.dumps(config), encoding="utf-8")
         uvicorn(
-            standalone_mode=True, default_map={"log_config": str(filename), "proxy_headers": False}
+            standalone_mode=True,
+            default_map={"log_config": str(filename), "proxy_headers": False, "access_log": False},
         )
 
 

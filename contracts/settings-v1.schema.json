@@ -4583,6 +4583,34 @@
       "title": "PublicResponse[QueryCacheReport]",
       "type": "object"
     },
+    "PublicResponse_RequestIPDiagnostic_": {
+      "additionalProperties": false,
+      "properties": {
+        "success": {
+          "default": true,
+          "title": "Success",
+          "type": "boolean"
+        },
+        "code": {
+          "default": 200,
+          "title": "Code",
+          "type": "integer"
+        },
+        "msg": {
+          "default": "请求成功",
+          "title": "Msg",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/RequestIPDiagnostic"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "title": "PublicResponse[RequestIPDiagnostic]",
+      "type": "object"
+    },
     "PublicResponse_RuntimeOverview_": {
       "additionalProperties": false,
       "properties": {
@@ -4609,6 +4637,34 @@
         "data"
       ],
       "title": "PublicResponse[RuntimeOverview]",
+      "type": "object"
+    },
+    "PublicResponse_SavedRequestIPPolicy_": {
+      "additionalProperties": false,
+      "properties": {
+        "success": {
+          "default": true,
+          "title": "Success",
+          "type": "boolean"
+        },
+        "code": {
+          "default": 200,
+          "title": "Code",
+          "type": "integer"
+        },
+        "msg": {
+          "default": "请求成功",
+          "title": "Msg",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/SavedRequestIPPolicy"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "title": "PublicResponse[SavedRequestIPPolicy]",
       "type": "object"
     },
     "PublicResponse_SettingsState_": {
@@ -5502,6 +5558,197 @@
       "title": "ReceiverStatus",
       "type": "object"
     },
+    "RequestIPDiagnostic": {
+      "properties": {
+        "fastapi": {
+          "$ref": "#/$defs/RequestIPObservation"
+        },
+        "node_ticket": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Node Ticket"
+        }
+      },
+      "required": [
+        "fastapi",
+        "node_ticket"
+      ],
+      "title": "RequestIPDiagnostic",
+      "type": "object"
+    },
+    "RequestIPDiagnosticQuery": {
+      "properties": {
+        "node_id": {
+          "title": "Node Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "node_id"
+      ],
+      "title": "RequestIPDiagnosticQuery",
+      "type": "object"
+    },
+    "RequestIPObservation": {
+      "properties": {
+        "peer_ip": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Peer Ip"
+        },
+        "client_ip": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Client Ip"
+        },
+        "client_ip_source": {
+          "anyOf": [
+            {
+              "enum": [
+                "x-real-ip",
+                "x-forwarded-for",
+                "forwarded",
+                "cf-connecting-ip",
+                "true-client-ip"
+              ],
+              "type": "string"
+            },
+            {
+              "const": "peer",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Client Ip Source"
+        },
+        "trusted_proxy": {
+          "title": "Trusted Proxy",
+          "type": "boolean"
+        },
+        "ip_policy_revision": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Ip Policy Revision"
+        },
+        "x_real_ip": {
+          "items": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "title": "X Real Ip",
+          "type": "array"
+        },
+        "x_forwarded_for": {
+          "items": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "title": "X Forwarded For",
+          "type": "array"
+        },
+        "forwarded": {
+          "items": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "title": "Forwarded",
+          "type": "array"
+        },
+        "cf_connecting_ip": {
+          "items": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "title": "Cf Connecting Ip",
+          "type": "array"
+        },
+        "true_client_ip": {
+          "items": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "title": "True Client Ip",
+          "type": "array"
+        },
+        "x_forwarded_proto": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "X Forwarded Proto"
+        }
+      },
+      "required": [
+        "peer_ip",
+        "client_ip",
+        "client_ip_source",
+        "trusted_proxy",
+        "ip_policy_revision",
+        "x_forwarded_proto"
+      ],
+      "title": "RequestIPObservation",
+      "type": "object"
+    },
     "RestoreShortcode": {
       "additionalProperties": false,
       "properties": {
@@ -5946,6 +6193,72 @@
       "title": "SavePolicy",
       "type": "object"
     },
+    "SaveRequestIPPolicy": {
+      "additionalProperties": false,
+      "properties": {
+        "source": {
+          "anyOf": [
+            {
+              "enum": [
+                "x-real-ip",
+                "x-forwarded-for",
+                "forwarded",
+                "cf-connecting-ip",
+                "true-client-ip"
+              ],
+              "type": "string"
+            },
+            {
+              "const": "peer",
+              "type": "string"
+            }
+          ],
+          "default": "peer",
+          "title": "Source"
+        },
+        "fallback": {
+          "anyOf": [
+            {
+              "enum": [
+                "x-real-ip",
+                "x-forwarded-for",
+                "forwarded",
+                "cf-connecting-ip",
+                "true-client-ip"
+              ],
+              "type": "string"
+            },
+            {
+              "enum": [
+                "peer",
+                "none"
+              ],
+              "type": "string"
+            }
+          ],
+          "default": "peer",
+          "title": "Fallback"
+        },
+        "trusted_proxies": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 64,
+          "title": "Trusted Proxies",
+          "type": "array"
+        },
+        "expected_revision": {
+          "minimum": 0,
+          "title": "Expected Revision",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "expected_revision"
+      ],
+      "title": "SaveRequestIPPolicy",
+      "type": "object"
+    },
     "SaveSettings": {
       "additionalProperties": false,
       "properties": {
@@ -6018,6 +6331,70 @@
         "changes"
       ],
       "title": "SaveTranslations",
+      "type": "object"
+    },
+    "SavedRequestIPPolicy": {
+      "additionalProperties": false,
+      "properties": {
+        "source": {
+          "anyOf": [
+            {
+              "enum": [
+                "x-real-ip",
+                "x-forwarded-for",
+                "forwarded",
+                "cf-connecting-ip",
+                "true-client-ip"
+              ],
+              "type": "string"
+            },
+            {
+              "const": "peer",
+              "type": "string"
+            }
+          ],
+          "default": "peer",
+          "title": "Source"
+        },
+        "fallback": {
+          "anyOf": [
+            {
+              "enum": [
+                "x-real-ip",
+                "x-forwarded-for",
+                "forwarded",
+                "cf-connecting-ip",
+                "true-client-ip"
+              ],
+              "type": "string"
+            },
+            {
+              "enum": [
+                "peer",
+                "none"
+              ],
+              "type": "string"
+            }
+          ],
+          "default": "peer",
+          "title": "Fallback"
+        },
+        "trusted_proxies": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 64,
+          "title": "Trusted Proxies",
+          "type": "array"
+        },
+        "revision": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Revision",
+          "type": "integer"
+        }
+      },
+      "title": "SavedRequestIPPolicy",
       "type": "object"
     },
     "SearchDiscovery": {
@@ -7782,6 +8159,18 @@
     "save_discussion_settings": {
       "$ref": "#/$defs/DiscussionSettings"
     },
+    "request_ip_policy": {
+      "$ref": "#/$defs/PublicResponse_SavedRequestIPPolicy_"
+    },
+    "save_request_ip_policy": {
+      "$ref": "#/$defs/SaveRequestIPPolicy"
+    },
+    "request_ip_diagnostic": {
+      "$ref": "#/$defs/PublicResponse_RequestIPDiagnostic_"
+    },
+    "request_ip_diagnostic_query": {
+      "$ref": "#/$defs/RequestIPDiagnosticQuery"
+    },
     "policy": {
       "$ref": "#/$defs/PublicResponse_PolicyState_"
     },
@@ -7901,6 +8290,10 @@
     "save_page_injections",
     "discussion_settings",
     "save_discussion_settings",
+    "request_ip_policy",
+    "save_request_ip_policy",
+    "request_ip_diagnostic",
+    "request_ip_diagnostic_query",
     "policy",
     "save_policy",
     "nodes",
@@ -7929,7 +8322,7 @@
   "title": "SettingsContract",
   "type": "object",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "x-everunfold-contract-version": "1.55.0",
+  "x-everunfold-contract-version": "1.56.0",
   "x-everunfold-language-regions": {
     "zh": "CN",
     "en": "GB",
@@ -7965,6 +8358,26 @@
     "sw": "TZ"
   },
   "x-everunfold-operations": [
+    {
+      "name": "readRequestIPPolicy",
+      "path": "/v1/admin/settings/real-ip",
+      "method": "GET",
+      "response": "request_ip_policy"
+    },
+    {
+      "name": "saveRequestIPPolicy",
+      "path": "/v1/admin/settings/real-ip",
+      "method": "PATCH",
+      "input": "save_request_ip_policy",
+      "response": "request_ip_policy"
+    },
+    {
+      "name": "readRequestIPDiagnostic",
+      "path": "/v1/admin/settings/real-ip/diagnostics",
+      "method": "GET",
+      "input": "request_ip_diagnostic_query",
+      "response": "request_ip_diagnostic"
+    },
     {
       "name": "readPageInjectionSettings",
       "path": "/v1/admin/settings/page-injections",

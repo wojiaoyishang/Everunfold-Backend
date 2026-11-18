@@ -11,9 +11,29 @@ from app.modules.settings.schemas import SettingsContract
 def build_schema() -> dict[str, Any]:
     schema = SettingsContract.model_json_schema()
     schema["$schema"] = "http://json-schema.org/draft-07/schema#"
-    schema["x-everunfold-contract-version"] = "1.55.0"
+    schema["x-everunfold-contract-version"] = "1.56.0"
     schema["x-everunfold-language-regions"] = LANGUAGE_REGIONS
     schema["x-everunfold-operations"] = [
+        {
+            "name": "readRequestIPPolicy",
+            "path": "/v1/admin/settings/real-ip",
+            "method": "GET",
+            "response": "request_ip_policy",
+        },
+        {
+            "name": "saveRequestIPPolicy",
+            "path": "/v1/admin/settings/real-ip",
+            "method": "PATCH",
+            "input": "save_request_ip_policy",
+            "response": "request_ip_policy",
+        },
+        {
+            "name": "readRequestIPDiagnostic",
+            "path": "/v1/admin/settings/real-ip/diagnostics",
+            "method": "GET",
+            "input": "request_ip_diagnostic_query",
+            "response": "request_ip_diagnostic",
+        },
         {
             "name": "readPageInjectionSettings",
             "path": "/v1/admin/settings/page-injections",

@@ -157,6 +157,8 @@ def route_permission(path: str, method: str, body: dict[str, object]) -> tuple[s
     if path in {
         "/v1/admin/content/cache",
         "/v1/admin/settings/discussion",
+        "/v1/admin/settings/real-ip",
+        "/v1/admin/settings/real-ip/diagnostics",
         "/v1/admin/captcha",
         "/v1/admin/settings",
         "/v1/admin/settings/translations",

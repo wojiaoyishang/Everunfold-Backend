@@ -17,7 +17,10 @@ class JsonLogFormatter(logging.Formatter):
         message = record.getMessage()
         event = "log"
         fields: dict[str, object] = {}
-        if record.name == "uvicorn.access" and isinstance(record.args, tuple):
+        if isinstance(http_access := getattr(record, "http_access", None), dict):
+            event = "http_access"
+            fields = http_access
+        elif record.name == "uvicorn.access" and isinstance(record.args, tuple):
             if len(record.args) == 5:
                 _, method, _, _, status = record.args
                 event, message = "http_access", f"{method} → {status}"
@@ -30,7 +33,23 @@ class JsonLogFormatter(logging.Formatter):
                     message = str(data.get("reason") or data.get("code") or event)
                     fields = {
                         key: data[key]
-                        for key in ("boundary", "code", "peer_ip", "status", "node_id")
+                        for key in (
+                            "boundary",
+                            "code",
+                            "peer_ip",
+                            "status",
+                            "node_id",
+                            "client_ip",
+                            "client_ip_source",
+                            "trusted_proxy",
+                            "ip_policy_revision",
+                            "x_real_ip",
+                            "x_forwarded_for",
+                            "forwarded",
+                            "cf_connecting_ip",
+                            "true_client_ip",
+                            "x_forwarded_proto",
+                        )
                         if key in data
                     }
             except ValueError:

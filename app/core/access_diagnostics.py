@@ -11,9 +11,16 @@ from typing import Literal
 
 from fastapi import Request
 
+from app.core.request_ip import RequestIPCache, SavedRequestIPPolicy, ip_report
+
 # Inherit the ASGI server's stderr handler and INFO level, including with access logs off.
 logger = logging.getLogger("uvicorn.error.everunfold.access")
-SyncBoundary = Literal["internal_extensions", "internal_node_sync", "internal_node_recovery"]
+SyncBoundary = Literal[
+    "internal_extensions",
+    "internal_node_sync",
+    "internal_node_recovery",
+    "internal_request_ip_policy",
+]
 AccessBoundary = Literal["nodes_monitor", SyncBoundary]
 _recent: OrderedDict[str, float] = OrderedDict()
 _reasons = {
@@ -90,14 +97,24 @@ def log_access(
                 if forwarded
                 else "missing"
             )
-    message = json.dumps(value, ensure_ascii=False, separators=(",", ":"))
     if request is not None:
+        signature = json.dumps(value, ensure_ascii=False, separators=(",", ":"))
         now = time.monotonic()
-        if (last := _recent.get(message)) is not None and now - last < 30:
+        if (last := _recent.get(signature)) is not None and now - last < 30:
             return
-        _recent[message] = now
-        _recent.move_to_end(message)
+        _recent[signature] = now
+        _recent.move_to_end(signature)
         if len(_recent) > 256:
             _recent.popitem(last=False)
+        app = request.scope.get("app")
+        cache = getattr(getattr(app, "state", None), "ip_policy", None)
+        policy = (
+            cache.current()
+            if isinstance(cache, RequestIPCache)
+            else (SavedRequestIPPolicy(), False)
+        )
+        value.update(ip_report(request.scope, *policy))
+        value["peer_ip"] = peer_ip(request)
+    message = json.dumps(value, ensure_ascii=False, separators=(",", ":"))
     level = logging.INFO if code in {"monitor_configured", "monitor_disabled"} else logging.WARNING
     logger.log(level, "[Everunfold access] %s", message)

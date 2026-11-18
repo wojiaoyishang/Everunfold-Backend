@@ -30,18 +30,21 @@ from app.core.plugins.definition import PluginRuntime
 from app.core.plugins.loader import plugin_catalog
 from app.core.plugins.route_runtime import mount_plugin_routes
 from app.core.process_logging import configure_process_logging
+from app.core.request_ip import HTTPAccessMiddleware, RequestIPCache
 from app.core.responses import JSONResponseError, JSONResponseFail, JSONResponseSuccess
 from app.core.runtime import Runtime
 from app.core.schemas import ErrorResponse
 from app.modules.auth.middleware import AuthBoundaryMiddleware, BusinessCORSMiddleware
 from app.modules.auth.service import AuthFailure
 from app.modules.settings.browser_origins import ManagedBrowserOrigins
+from app.modules.settings.request_ip import refresh_ip_policy
 from app.plugins.nodes_monitor.plugin import mount_nodes_monitor
 
 logger = logging.getLogger(__name__)
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
+    ip_policy = RequestIPCache()
     plugins = plugin_catalog()
     options = monitoring_config()
     monitoring = Monitoring(options, plugins) if options else None
@@ -59,6 +62,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         runtime = Runtime.create(resolved) if resolved is not None else None
         application.state.runtime = runtime
         refresh_task: asyncio.Task[None] | None = None
+        ip_task: asyncio.Task[None] | None = None
 
         async def refresh_translations() -> None:
             if runtime is None:
@@ -77,6 +81,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
         if runtime is not None:
             refresh_task = asyncio.create_task(refresh_translations())
+            ip_task = asyncio.create_task(refresh_ip_policy(runtime, ip_policy))
         try:
             async with plugins.lifespan(PluginRuntime(role="api", runtime=runtime)):
                 collection = (
@@ -94,6 +99,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             if refresh_task is not None:
                 refresh_task.cancel()
                 await asyncio.gather(refresh_task, return_exceptions=True)
+            if ip_task is not None:
+                ip_task.cancel()
+                await asyncio.gather(ip_task, return_exceptions=True)
             if runtime is not None:
                 await runtime.close()
 
@@ -143,6 +151,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     mount_nodes_monitor(application, resolved)
     if monitoring:
         monitoring.install(application)
+    application.state.ip_policy = ip_policy
+    application.add_middleware(HTTPAccessMiddleware, policy=ip_policy)
 
     @application.exception_handler(AuthFailure)
     async def handle_auth_error(request: Request, exc: AuthFailure) -> JSONResponseFail:

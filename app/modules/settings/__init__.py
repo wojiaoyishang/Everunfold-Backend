@@ -10,6 +10,7 @@ def router_init(ctx: object) -> dict[str, Any]:
     from app.modules.settings.extensions_router import router as extensions_router
     from app.modules.settings.mail_router import router as mail_router
     from app.modules.settings.progress_router import router as progress_router
+    from app.modules.settings.request_ip import router as request_ip_router
     from app.modules.settings.router import router as settings_router
     from app.modules.settings.runtime_router import router as runtime_router
     from app.modules.settings.translation_router import router as translation_router
@@ -20,6 +21,7 @@ def router_init(ctx: object) -> dict[str, Any]:
     router.include_router(runtime_router)
     router.include_router(translation_router)
     router.include_router(settings_router)
+    router.include_router(request_ip_router)
     router.include_router(cache_router)
     router.include_router(extensions_router)
 

@@ -26,6 +26,7 @@ from app.modules.settings.extensions_schemas import (
 from app.modules.settings.extensions_service import catalog, install_inventory
 from app.modules.settings.manual_sync import stage_node_recovery, stage_node_sync
 from app.modules.settings.node_registry import NodeId, NodeRegistration, read_targets
+from app.modules.settings.request_ip import read_ip_policy
 from app.modules.settings.router import Authorized
 from app.modules.settings.sync_access import SyncVisit, observe_sync, token_check
 
@@ -114,6 +115,21 @@ async def authorize_node(
         raise denied("token_mismatch")
     visit.token_check = "matched"
     return node
+
+
+@router.get("/internal/frontend-nodes/{node_id}/real-ip", include_in_schema=False)
+async def read_node_ip_policy(node_id: NodeId, request: Request) -> JSONResponseSuccess:
+    runtime = auth_runtime(request)
+    visit = SyncVisit(
+        operation="internal_request_ip_policy",
+        node_id=node_id,
+        peer_ip="",
+        token_check="unchecked",
+    )
+    async with runtime.database.session_factory() as session:
+        await authorize_node(node_id, request, session, runtime.settings, visit)
+        policy = await read_ip_policy(session)
+    return JSONResponseSuccess(data=policy, headers={"Cache-Control": "private, no-store"})
 
 
 @router.post("/internal/frontend-nodes/{node_id}/sync", include_in_schema=False)

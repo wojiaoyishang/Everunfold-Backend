@@ -10,6 +10,12 @@ from pydantic import ConfigDict, Field, field_validator, model_validator
 from app.core.jobs.progress_schemas import TaskProgress, WatchTask
 from app.core.jobs.schemas import RuntimeCommand, RuntimeOverview
 from app.core.query_cache_schemas import QueryCacheReport, QueryCacheReportRequest
+from app.core.request_ip import (
+    RequestIPDiagnostic,
+    RequestIPDiagnosticQuery,
+    SavedRequestIPPolicy,
+    SaveRequestIPPolicy,
+)
 from app.core.schemas import PublicModel, PublicResponse
 from app.modules.comments.discussion_schema import DiscussionSettings
 from app.modules.media.fonts import FontCatalog
@@ -601,6 +607,10 @@ class SettingsContract(PublicModel):
     save_page_injections: SavePageInjections
     discussion_settings: PublicResponse[DiscussionSettings]
     save_discussion_settings: DiscussionSettings
+    request_ip_policy: PublicResponse[SavedRequestIPPolicy]
+    save_request_ip_policy: SaveRequestIPPolicy
+    request_ip_diagnostic: PublicResponse[RequestIPDiagnostic]
+    request_ip_diagnostic_query: RequestIPDiagnosticQuery
     policy: PublicResponse[PolicyState]
     save_policy: SavePolicy
     nodes: PublicResponse[NodeList]

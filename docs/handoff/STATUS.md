@@ -1,5 +1,10 @@
 # 后端交接状态
 
+## 请求来源日志
+
+- 设置契约 1.56.0 新增站点管理员的「真实 IP 来源配置」，支持可信代理 IP/CIDR、首选请求头、回退和结果诊断。规则经私有接口给已启用的前端读取；访问日志记录直连地址和判定结果。现有数据库无需迁移，访问控制沿用各自的直连来源验证。
+- Ruff、Mypy 和常规测试通过（400 项成功、99 项按条件跳过）。定向检查覆盖伪造头、IPv6 多级代理、回退策略和日志凭据过滤。见 [ADR 0186](../decisions/0186-request-ip-policy.md)。
+
 ## Prometheus 与日志
 
 - 私有 /metrics 使用直连 IP/CIDR 和独立令牌，聚合 FastAPI 多进程、Node 内部指标、Broker 优先级队列、Scheduler 私有遥测、节点同步和可选 Celery exporter。插件可实现 metrics(context)。
