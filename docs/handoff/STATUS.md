@@ -2,6 +2,8 @@
 
 ## 请求与 Worker 日志、用户管理
 
+- API 部署及开发入口显式关闭 Uvicorn 原生访问日志。应用摘要包含路径。双 Uvicorn worker 实测单次请求只生成一条应用访问记录。单独开启的 Uvicorn 原生格式也经过真实 HTTP 验证，保留过滤后的路径与 HTTP 版本。
+
 - FastAPI 访问日志增加请求 ID、URL 路径、路由模板、User-Agent、HTTP 版本、耗时和结果。Celery 原生任务记录增加任务 ID、状态、链路与投递上下文，业务 logger 支持 `extra={"symbol": "..."}`。
 - 隔离 PostgreSQL、Redis 和两个真实 API 进程验证强制改密和会话撤销。只有一位启用管理员时返回 40963，两位同时降级时只成功一个。prefork Worker 实测了成功、失败、重试和业务标记，并验证任务结果及异常正文未写入结构化日志。
 

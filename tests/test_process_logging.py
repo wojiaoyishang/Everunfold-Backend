@@ -105,3 +105,34 @@ def test_celery_success_keeps_timing_without_task_payload(monkeypatch: pytest.Mo
     assert event["task_state"] == "SUCCESS"
     assert event["duration_ms"] == 12.5
     assert event["symbol"] == "文章.publish"
+
+
+@pytest.mark.parametrize(
+    ("target", "path", "message"),
+    [
+        (
+            "/v1/account/profile?token=private-query#private-fragment",
+            "/v1/account/profile",
+            "GET /v1/account/profile → 200",
+        ),
+        ("http://user:private-password@example.test/profile", None, "GET → 200"),
+    ],
+)
+def test_uvicorn_access_uses_safe_request_fields(monkeypatch, target, path, message) -> None:
+    monkeypatch.delenv("EVERUNFOLD_LOG_FORMAT", raising=False)
+    record = logging.LogRecord(
+        "uvicorn.access",
+        logging.INFO,
+        __file__,
+        1,
+        '%s - "%s %s HTTP/%s" %d',
+        ("127.0.0.1:50000", "GET", target, "1.1", 200),
+        None,
+    )
+    line = RuntimeLogFormatter().format(record)
+    event = json.loads(line)
+    assert event["event"] == "http_access"
+    assert event["request_url"] == path
+    assert event["message"] == message
+    assert (event["method"], event["http_version"], event["status"]) == ("GET", "1.1", 200)
+    assert "private-" not in line

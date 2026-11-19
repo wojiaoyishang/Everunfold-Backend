@@ -87,6 +87,7 @@ def test_http_error_log_fields_omit_credentials(caplog, monkeypatch) -> None:
         ["192.0.2.7"],
     )
     assert event["request_url"] == "/missing"
+    assert event["message"] == "GET /missing → 404"
     assert event["route"] is None
     assert event["user_agent"] == "Everunfold-Log-Test/1.0"
     assert event["outcome"] == "completed" and event["duration_ms"] >= 0
@@ -95,6 +96,7 @@ def test_http_error_log_fields_omit_credentials(caplog, monkeypatch) -> None:
     monkeypatch.setenv("EVERUNFOLD_LOG_FORMAT", "text")
     plain = RuntimeLogFormatter().format(records[0])
     assert "[fastapi] http_access" in plain
+    assert "GET /missing → 404" in plain
     assert '"client_ip": "203.0.113.10"' in plain
     assert "querysecret" not in plain and "bodysecret" not in plain
     assert "\n" not in plain

@@ -12,6 +12,8 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from starlette.datastructures import Headers
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
+from app.core.process_logging import request_log_message, request_log_path
+
 Header = Literal["x-real-ip", "x-forwarded-for", "forwarded", "cf-connecting-ip", "true-client-ip"]
 HEADERS: tuple[Header, ...] = (
     "x-real-ip",
@@ -249,16 +251,15 @@ class HTTPAccessMiddleware:
         finally:
             method = scope["method"]
             # ASGI keeps the query string separate from the path.
-            path = scope.get("raw_path", b"").decode("latin-1") or scope["path"]
+            target = (scope.get("raw_path") or b"").decode("latin-1") or scope["path"]
+            path = request_log_path(target)
             user_agent = Headers(scope=scope).get("user-agent", "")
             logger.info(
-                "%s → %s",
-                method,
-                status if status is not None else outcome,
+                request_log_message(method, path, status if status is not None else outcome),
                 extra={
                     "http_access": {
                         "request_id": request_id,
-                        "request_url": path.partition("?")[0].partition("#")[0][:2048],
+                        "request_url": path,
                         "route": getattr(scope.get("route"), "path", None),
                         "http_version": scope.get("http_version"),
                         "user_agent": re.sub(r"[\x00-\x1f\x7f-\x9f]", " ", user_agent[:512]).strip()

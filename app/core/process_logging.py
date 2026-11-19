@@ -10,6 +10,17 @@ from datetime import UTC, datetime
 from celery import current_task  # type: ignore[import-untyped]
 
 
+def request_log_path(target: str) -> str | None:
+    if not target.startswith("/") or target.startswith("//"):
+        return None
+    return target.partition("?")[0].partition("#")[0][:2048]
+
+
+def request_log_message(method: str, path: str | None, result: int | str) -> str:
+    request = f"{method} {path}" if path else method
+    return f"{request} → {result}"
+
+
 def celery_context(task_id: str | None = None) -> dict[str, object]:
     task = current_task
     if not task:
@@ -69,20 +80,26 @@ class RuntimeLogFormatter(logging.Formatter):
 
     def format(self, record: logging.LogRecord) -> str:
         task = celery_event(record) if self.component == "celery" else None
-        message = "" if task else record.getMessage()
+        message = ""
         event = "log"
         fields: dict[str, object] = {}
         if task:
             event, message, fields = task
         elif isinstance(http_access := getattr(record, "http_access", None), dict):
             event = "http_access"
+            message = record.getMessage()
             fields = dict(http_access)
-        elif record.name == "uvicorn.access" and isinstance(record.args, tuple):
-            if len(record.args) == 5:
-                _, method, _, _, status = record.args
-                event, message = "http_access", f"{method} → {status}"
-                fields.update(method=method, status=status)
-        elif message.startswith("[Everunfold access] "):
+        elif record.name == "uvicorn.access":
+            event, message = "http_access", "HTTP access"
+            if isinstance(record.args, tuple) and len(record.args) == 5:
+                _, method, target, version, status = record.args
+                if isinstance(method, str) and isinstance(status, int):
+                    path = request_log_path(target) if isinstance(target, str) else None
+                    message = request_log_message(method, path, status)
+                    fields.update(
+                        method=method, request_url=path, http_version=version, status=status
+                    )
+        elif (message := record.getMessage()).startswith("[Everunfold access] "):
             try:
                 data = json.loads(message.removeprefix("[Everunfold access] "))
                 if isinstance(data, dict):

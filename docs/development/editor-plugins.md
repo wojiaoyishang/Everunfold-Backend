@@ -9,7 +9,7 @@
 代码块窗口复用单栏 CodeMirror、按需语言和共享查找替换；Markdown/HTML共用片段参数、阅读框及theme.code默认值。四个整篇操作按钮按紧凑尺寸显示，详情见[代码块指南](code-blocks.md)和[ADR0052](../decisions/0052-shared-code-frames-and-source-options.md)。
 
 1. 后端执行 uv sync --locked，再显式 uv run python init.database.py --config config.toml。迁移 head 为 0017_draft_versions，启动服务不会自动迁移。
-2. 本地后端：uv run uvicorn app.entrypoints.api:create_app --factory --host 127.0.0.1 --port 8001 --no-proxy-headers --ws-max-size 1500000。部署需支持 WS 升级并配置实际前端 Origin；不使用查询参数 Token。
+2. 本地后端：uv run python -m app.entrypoints.serve_api app.entrypoints.api:create_app --factory --host 127.0.0.1 --port 8001 --no-proxy-headers --no-access-log --ws-max-size 1500000。部署需支持 WS 升级并配置实际前端 Origin；不使用查询参数 Token。
 3. 前端 npm ci --ignore-scripts、npm run dev，保留 3000。动态加载两种编辑器；新建内容先保存一次取得稳定 ID，再进入共享草稿。
 4. 本轮新增库/协议后，旧开发标签页手动刷新一次。系统没有添加循环刷新或自动硬跳转。
 5. 同一文章打开两页，分别输入Markdown/HTML，检查实时保存、远端光标/选区和本人撤销。点击成员定位不改变正文。

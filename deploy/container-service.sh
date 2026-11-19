@@ -33,7 +33,7 @@ case "${1:-}" in
   api)
     cd -- "$backend_root"
     export EVERUNFOLD_QUERY_CACHE_DEFAULT_URL='redis://127.0.0.1:6381/0'
-    exec .venv/bin/python -m uvicorn app.entrypoints.api:app \
+    exec .venv/bin/python -m app.entrypoints.serve_api app.entrypoints.api:app \
       --host 0.0.0.0 --port 8001 --reload --no-proxy-headers --no-access-log
     ;;
   worker)

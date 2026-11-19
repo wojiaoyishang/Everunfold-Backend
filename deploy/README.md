@@ -300,6 +300,8 @@ API worker 数量、Celery 池及并发数从 YAML 的 `environment` 读取，�
 
 setup 的「日志 → 结构化日志」默认开启。FastAPI、Celery 和 Scheduler 每行输出一个 JSON 对象，供外部日志采集器读取。关闭后为可读文本，保存为 `environment.EVERUNFOLD_LOG_FORMAT: text`。已有部署首次使用此选项时先构建新版，之后保存并重启即可切换。
 
+手动启动 API 时使用 `uv run --locked python -m app.entrypoints.serve_api app.entrypoints.api:app --no-access-log`。FastAPI 的请求中间件输出一次 `http_access`，摘要包含方法、URL 路径与状态。直接运行 Uvicorn 时，`--no-access-log` 也会关闭其原生访问日志。
+
 setup 的“日志”分组提供 `API_LOG_LEVEL`、`WORKER_LOG_LEVEL`、`SCHEDULER_LOG_LEVEL`，支持 `DEBUG`、`INFO`、`WARNING`、`ERROR`、`CRITICAL`。新配置默认分别为 `INFO`、`WARNING`、`INFO`；已有值保留，原 Worker 为 `INFO` 时请手动改为 `WARNING`。保存并启动后生效。Scheduler 只记录状态转变，不逐次输出心跳；相同访问拒绝日志节流 30 秒。降低 API 日志等级会相应隐藏诊断信息。
 
 在“进程”分组中，使用 ↑/↓ 和 Enter 选择 Celery 执行池。选择「多进程（prefork）」后，可以选择「固定并发」或「按任务量自动伸缩」。自动模式默认最小 1、最大 4；由 Celery 在任务积压时扩容，任务完成并空闲一段时间后缩回，执行中的任务不会因为缩容被中断。单进程（solo）始终逐个执行任务，已有配置继续使用固定并发。

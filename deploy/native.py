@@ -200,6 +200,7 @@ def main() -> None:
                 "--log-level",
                 environment.get("API_LOG_LEVEL", "INFO").lower(),
                 "--no-proxy-headers",
+                "--no-access-log",
             ],
             "worker": [
                 python,

@@ -47,7 +47,7 @@
 ```powershell
 uv sync --frozen
 uv run python init.database.py --no-create-database
-uv run uvicorn app.entrypoints.api:app --host 127.0.0.1 --port 8001 --no-proxy-headers
+uv run python -m app.entrypoints.serve_api app.entrypoints.api:app --host 127.0.0.1 --port 8001 --no-proxy-headers --no-access-log
 ```
 
 另开终端运行辅助命令，同时启动前端与投递进程：

@@ -25,7 +25,7 @@
 ```powershell
 Set-Location -LiteralPath 'E:\Programming\Python\Everunfold-Backend'
 uv sync --locked
-uv run --locked python -m uvicorn app.entrypoints.api:app --host 127.0.0.1 --port 8001 --reload --no-proxy-headers
+uv run --locked python -m app.entrypoints.serve_api app.entrypoints.api:app --host 127.0.0.1 --port 8001 --reload --no-proxy-headers --no-access-log
 ```
 
 终端二，前端：
