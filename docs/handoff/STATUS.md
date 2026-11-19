@@ -7,9 +7,9 @@
 
 ## Prometheus 与日志
 
-- 「监控」的指标、Loki 查询与 Alloy 写入分别接受 IPv4/IPv6 CIDR。单端 Docker 向导从宿主读取已连接网络的子网，编辑后保存为 CIDR，聚合接口沿用原配置。
-- 私有 /metrics 使用直连 IP/CIDR 和独立令牌，聚合 FastAPI 多进程、Node 内部指标、Broker 优先级队列、Scheduler 私有遥测、节点同步和可选 Celery exporter。插件可实现 metrics(context)。
-- API、Celery、Scheduler 输出一行 JSON，保留人可读消息。单端 setup 的「监控」分组可配置 Loki 查询与 Alloy 写入白名单，并生成反代配置。
+- 私有 `/metrics` 使用直连 IP/CIDR 和独立令牌，聚合 FastAPI 多进程、Node 内部指标、Broker 优先级队列、Scheduler 私有遥测、节点同步和可选 Celery Exporter。插件可实现 `metrics(context)`。Docker 向导将已连接的监控网络名换算为 IPv4/IPv6 CIDR。
+- 单端 setup 的「日志 → 结构化日志」控制 FastAPI、Celery、Scheduler 应用日志。默认 JSON，关闭后输出可读文本。Loki 和 Alloy 的采集配置由独立监控系统管理，旧网络字段在保存时清理。
+- 双 Uvicorn worker 实测了两种日志格式，回归测试验证了访问日志字段和凭据过滤。部署向导测试通过。当前环境没有 Docker，镜像未实测。
 
 ## Celery 自动伸缩
 

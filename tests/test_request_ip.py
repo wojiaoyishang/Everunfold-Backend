@@ -4,7 +4,7 @@ import logging
 from fastapi.testclient import TestClient
 from starlette.requests import Request
 
-from app.core.process_logging import JsonLogFormatter
+from app.core.process_logging import RuntimeLogFormatter
 from app.core.request_ip import SavedRequestIPPolicy, ip_report
 from app.entrypoints.api import create_app
 
@@ -61,7 +61,8 @@ def test_forwarding_chain_and_fallback() -> None:
     assert report("10.0.0.1", "x-forwarded-for", "none")["client_ip"] is None
 
 
-def test_http_error_log_fields_omit_credentials(caplog) -> None:
+def test_http_error_log_fields_omit_credentials(caplog, monkeypatch) -> None:
+    monkeypatch.delenv("EVERUNFOLD_LOG_FORMAT", raising=False)
     app = create_app()
     caplog.set_level(logging.INFO, logger="uvicorn.error.everunfold.http")
     with TestClient(app, client=("203.0.113.10", 1234)) as client:
@@ -72,7 +73,7 @@ def test_http_error_log_fields_omit_credentials(caplog) -> None:
     assert response.status_code == 404
     records = [record for record in caplog.records if hasattr(record, "http_access")]
     assert len(records) == 1
-    encoded = JsonLogFormatter().format(records[0])
+    encoded = RuntimeLogFormatter().format(records[0])
     assert "querysecret" not in encoded and "bodysecret" not in encoded
     event = json.loads(encoded)
     assert (event["event"], event["status"], event["client_ip"], event["x_real_ip"]) == (
@@ -81,3 +82,10 @@ def test_http_error_log_fields_omit_credentials(caplog) -> None:
         "203.0.113.10",
         ["192.0.2.7"],
     )
+
+    monkeypatch.setenv("EVERUNFOLD_LOG_FORMAT", "text")
+    plain = RuntimeLogFormatter().format(records[0])
+    assert "[fastapi] http_access" in plain
+    assert '"client_ip": "203.0.113.10"' in plain
+    assert "querysecret" not in plain and "bodysecret" not in plain
+    assert "\n" not in plain

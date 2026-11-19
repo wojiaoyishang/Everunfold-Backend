@@ -1,8 +1,6 @@
 # Everunfold 后端部署教程
 
-setup 的「监控」分组包含 Prometheus 开关、采集令牌、指标来源和 Loki 查询及写入白名单。保存后生成 `var/monitoring/loki-access.conf`，在监控服务器的 Loki 独立反代站点加载。采集模板见 [Everunfold Deploy 的监控指南](https://github.com/wojiaoyishang/Everunfold-Deploy/tree/main/monitoring)。
-
-三个白名单分别填写访问者实际使用的 IP 或 CIDR；Docker 下也可填已连接的网络名，例如 `1panel-network`。向导会把网络名换算成当前 IPv4/IPv6 网段并保存，重建网络变更子网时重新填写网络名。后端 `/metrics` 的聚合方式和采集令牌沿用现有设置。
+setup 的「监控」分组提供 Prometheus 开关、采集令牌和指标来源白名单。Docker 模式可填写已连接的网络名来换算当前 IPv4/IPv6 网段。采集说明见 [Everunfold Deploy 的监控指南](https://github.com/wojiaoyishang/Everunfold-Deploy/tree/main/monitoring)。
 
 选择下面一条路径，从准备环境一直做到启动验收。**所有命令都在后端仓库根目录执行**。前端教程见[配套仓库](https://github.com/wojiaoyishang/Everunfold-Frontend/blob/main/deploy/README.md)。
 
@@ -299,6 +297,8 @@ API worker 数量、Celery 池及并发数从 YAML 的 `environment` 读取，�
 - `node_not_registered` / `node_disabled`：节点未加入运行清单或未启用。在后端 `/_nodes` 选择相应的配对，登记并启用；令牌也须匹配，不需要补填前端公开地址。
 
 内部调用使用所选网络的实际 CIDR 与手填来源，保留 IP **且** Token 校验。HTTPS 节点控制台用所选宿主网桥的网关或手填代理 IP 校验直连代理。
+
+setup 的「日志 → 结构化日志」默认开启。FastAPI、Celery 和 Scheduler 每行输出一个 JSON 对象，供外部日志采集器读取。关闭后为可读文本，保存为 `environment.EVERUNFOLD_LOG_FORMAT: text`。已有部署首次使用此选项时先构建新版，之后保存并重启即可切换。
 
 setup 的“日志”分组提供 `API_LOG_LEVEL`、`WORKER_LOG_LEVEL`、`SCHEDULER_LOG_LEVEL`，支持 `DEBUG`、`INFO`、`WARNING`、`ERROR`、`CRITICAL`。新配置默认分别为 `INFO`、`WARNING`、`INFO`；已有值保留，原 Worker 为 `INFO` 时请手动改为 `WARNING`。保存并启动后生效。Scheduler 只记录状态转变，不逐次输出心跳；相同访问拒绝日志节流 30 秒。降低 API 日志等级会相应隐藏诊断信息。
 

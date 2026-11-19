@@ -28,7 +28,6 @@ from config_validation import (
     valid_port,
 )
 from container_fields import add_container_fields, setup_network_subnets
-from monitoring_access import loki_proxy_include
 from monitoring_setup import (
     add_monitoring_fields,
     monitor_environment,
@@ -247,8 +246,14 @@ def configure(native: bool = False) -> Configuration:
     add("workers", "API worker 数量", env.get("API_WORKERS", "1"), valid=positive, group="进程")
     add_capacity_fields(add, value, env)
     add_monitoring_fields(add, value, env, lookup=None if native else setup_network_subnets)
-    acl_file = ctx.root_path.parent / "var/monitoring/loki-access.conf"
-    ctx.files.read(acl_file)
+    add(
+        "log_format",
+        "结构化日志",
+        env.get("EVERUNFOLD_LOG_FORMAT", "json"),
+        choices=(("json", "开启（JSON）"), ("text", "关闭（纯文本）")),
+        group="日志",
+        hint="默认每行输出一个 JSON 对象，便于外部采集。重新启动后生效。",
+    )
     log_levels = {
         "API_LOG_LEVEL": ("API 日志等级", "INFO"),
         "WORKER_LOG_LEVEL": ("Celery Worker 日志等级", "WARNING"),
@@ -356,6 +361,7 @@ def configure(native: bool = False) -> Configuration:
             "REDIS_URL": value("redis"),
             "CELERY_BROKER_URL": broker(),
             "API_WORKERS": value("workers"),
+            "EVERUNFOLD_LOG_FORMAT": value("log_format"),
             **capacity_environment(value),
             **monitor_environment(value),
             master: value(master),
@@ -401,7 +407,6 @@ def configure(native: bool = False) -> Configuration:
                 )
                 + "\n",
             },
-            artifacts={acl_file: loki_proxy_include(environment)},
         )
 
     return Configuration(

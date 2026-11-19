@@ -19,7 +19,7 @@ def main() -> None:
         config = copy.deepcopy(LOGGING_CONFIG)
         for kind in ("default", "access"):
             config["formatters"][kind] = {
-                "()": "app.core.process_logging.JsonLogFormatter",
+                "()": "app.core.process_logging.RuntimeLogFormatter",
                 "component": "fastapi",
             }
         filename = Path(path) / "logging.json"

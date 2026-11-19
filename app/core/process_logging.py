@@ -1,4 +1,4 @@
-"""Independent application logging for API and Scheduler processes."""
+"""Application logging for the API, Celery worker, and scheduler."""
 
 import json
 import logging
@@ -8,10 +8,11 @@ import traceback
 from datetime import UTC, datetime
 
 
-class JsonLogFormatter(logging.Formatter):
+class RuntimeLogFormatter(logging.Formatter):
     def __init__(self, component: str = "fastapi") -> None:
         super().__init__()
         self.component = component
+        self.text = os.environ.get("EVERUNFOLD_LOG_FORMAT") == "text"
 
     def format(self, record: logging.LogRecord) -> str:
         message = record.getMessage()
@@ -69,14 +70,23 @@ class JsonLogFormatter(logging.Formatter):
             ]
             if record.name.startswith("celery."):
                 message = f"Celery task or worker failed ({fields['error_type']})"
+        timestamp = datetime.fromtimestamp(record.created, UTC).isoformat()
+        level = record.levelname.lower()
+        message = message[:16000]
+        if self.text:
+            message = message.replace("\r", "\\r").replace("\n", "\\n")
+            line = f"{timestamp} {level} [{self.component}] {event} {record.name}: {message}"
+            if fields:
+                line += " " + json.dumps(fields, ensure_ascii=False)
+            return line
         return json.dumps(
             {
-                "time": datetime.fromtimestamp(record.created, UTC).isoformat(),
+                "time": timestamp,
                 "component": self.component,
-                "level": record.levelname.lower(),
+                "level": level,
                 "event": event,
                 "logger": record.name,
-                "message": message[:16000],
+                "message": message,
                 **fields,
             },
             ensure_ascii=False,
@@ -90,7 +100,6 @@ def configure_process_logging(
     if level not in {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}:
         raise ValueError(f"{variable} must be DEBUG, INFO, WARNING, ERROR or CRITICAL")
     handler = logging.StreamHandler()
-    handler.setFormatter(
-        JsonLogFormatter({"API": "fastapi", "Worker": "celery"}.get(component, component.lower()))
-    )
+    name = {"API": "fastapi", "Worker": "celery"}.get(component, component.lower())
+    handler.setFormatter(RuntimeLogFormatter(name))
     logging.basicConfig(level=level, handlers=[handler], force=force)
