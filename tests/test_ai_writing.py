@@ -13,6 +13,7 @@ from pydantic import ValidationError
 from app.core.config import load_settings
 from app.core.database import Database
 from app.modules.auth.service import AuthFailure
+from app.modules.content.models import SiteSettings
 from app.modules.settings.backend_plugins import install_backend_plugins
 from app.plugins.ai_writing import transport, worker
 from app.plugins.ai_writing.safety import cipher, reviewed_text
@@ -124,7 +125,11 @@ def test_generation_and_connection_use_the_selected_saved_provider(
         database = Database(config.database.url.get_secret_value())
         try:
             async with database.session() as session:
-                await install_backend_plugins(session, config)
+                await install_backend_plugins(session, config, commit=False)
+                site = await session.get(SiteSettings, 1)
+                assert site is not None
+                site.data = {**site.data, "extensions": {"enabled_plugins": ["core.ai-writing"]}}
+                await session.commit()
         finally:
             await database.close()
 

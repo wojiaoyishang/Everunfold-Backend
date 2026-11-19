@@ -9,7 +9,7 @@ import pytest
 from app.core.database import Database
 from app.modules.auth.security import hash_password
 from app.modules.content.editor_schema import EditorSettings
-from app.modules.content.models import Content
+from app.modules.content.models import Content, SiteSettings
 from app.modules.pages.schemas import PageValue
 from app.modules.settings.backend_plugins import install_backend_plugins
 from app.modules.settings.schemas import GlossaryPreferences
@@ -199,7 +199,13 @@ def test_glossary_admin_and_article_scoped_public_matching(
         database = Database(ctx.settings.database.url.get_secret_value())
         try:
             async with database.session_factory() as session:
-                await install_backend_plugins(session, ctx.settings)
+                await install_backend_plugins(session, ctx.settings, commit=False)
+                site = await session.get(SiteSettings, 1)
+                assert site is not None
+                site.data = {
+                    **site.data,
+                    "extensions": {"enabled_plugins": ["everunfold.glossary"]},
+                }
                 now = datetime.now(UTC)
                 matched = Content(
                     id=uuid4(),
