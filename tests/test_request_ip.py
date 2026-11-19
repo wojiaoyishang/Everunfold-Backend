@@ -68,7 +68,11 @@ def test_http_error_log_fields_omit_credentials(caplog, monkeypatch) -> None:
     with TestClient(app, client=("203.0.113.10", 1234)) as client:
         response = client.get(
             "/missing?token=querysecret",
-            headers={"X-Real-IP": "192.0.2.7", "Authorization": "Bearer bodysecret"},
+            headers={
+                "X-Real-IP": "192.0.2.7",
+                "Authorization": "Bearer bodysecret",
+                "User-Agent": "Everunfold-Log-Test/1.0",
+            },
         )
     assert response.status_code == 404
     records = [record for record in caplog.records if hasattr(record, "http_access")]
@@ -82,6 +86,11 @@ def test_http_error_log_fields_omit_credentials(caplog, monkeypatch) -> None:
         "203.0.113.10",
         ["192.0.2.7"],
     )
+    assert event["request_url"] == "/missing"
+    assert event["route"] is None
+    assert event["user_agent"] == "Everunfold-Log-Test/1.0"
+    assert event["outcome"] == "completed" and event["duration_ms"] >= 0
+    assert len(event["request_id"]) == 32
 
     monkeypatch.setenv("EVERUNFOLD_LOG_FORMAT", "text")
     plain = RuntimeLogFormatter().format(records[0])

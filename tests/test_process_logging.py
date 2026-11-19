@@ -1,12 +1,15 @@
 """Configured levels must reach the real process entry points and stderr."""
 
 import json
+import logging
 import os
 import subprocess
 import sys
 from pathlib import Path
 
 import pytest
+
+from app.core.process_logging import RuntimeLogFormatter
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -73,3 +76,32 @@ def test_docker_entrypoint_passes_independent_api_and_worker_levels(tmp_path: Pa
         arguments = json.loads(result.stdout.splitlines()[-1])
         index = arguments.index(expected[0])
         assert arguments[index : index + 2] == expected
+
+
+def test_celery_success_keeps_timing_without_task_payload(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("EVERUNFOLD_LOG_FORMAT", raising=False)
+    context = {
+        "id": "sample-id",
+        "name": "test.publish",
+        "runtime": 0.0125,
+        "args": "private-task-arguments",
+        "return_value": "private-task-result",
+    }
+    record = logging.getLogger("celery.app.trace").makeRecord(
+        "celery.app.trace",
+        logging.INFO,
+        __file__,
+        1,
+        "Task %(name)s succeeded: %(return_value)s",
+        (context,),
+        None,
+        extra={"data": context, "symbol": "文章.publish"},
+    )
+    line = RuntimeLogFormatter("celery").format(record)
+    assert "private-task-" not in line
+    event = json.loads(line)
+    assert event["event"] == "task_finished"
+    assert event["task_id"] == "sample-id"
+    assert event["task_state"] == "SUCCESS"
+    assert event["duration_ms"] == 12.5
+    assert event["symbol"] == "文章.publish"

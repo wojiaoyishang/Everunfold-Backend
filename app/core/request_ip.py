@@ -4,8 +4,9 @@ import ipaddress
 import logging
 import re
 from functools import lru_cache
-from time import monotonic
+from time import monotonic, perf_counter
 from typing import Literal
+from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from starlette.datastructures import Headers
@@ -223,32 +224,50 @@ class HTTPAccessMiddleware:
         if scope["type"] != "http" or not logger.isEnabledFor(logging.INFO):
             await self.app(scope, receive, send)
             return
+        started = perf_counter()
+        request_id = uuid4().hex
         status: int | None = None
+        outcome = "aborted"
 
         async def observe(message: Message) -> None:
-            nonlocal status
+            nonlocal status, outcome
             if message["type"] == "http.response.start":
                 status = message["status"]
             await send(message)
+            if message["type"] in {"http.response.body", "http.response.pathsend"} and not (
+                message.get("more_body", False)
+            ):
+                outcome = "completed"
 
         try:
             await self.app(scope, receive, observe)
         except Exception:
+            outcome = "error"
             if status is None:
                 status = 500
             raise
         finally:
-            if status is not None:
-                method = scope["method"]
-                logger.info(
-                    "%s → %s",
-                    method,
-                    status,
-                    extra={
-                        "http_access": {
-                            "method": method,
-                            "status": status,
-                            **ip_report(scope, *self.policy.current()),
-                        }
-                    },
-                )
+            method = scope["method"]
+            # ASGI keeps the query string separate from the path.
+            path = scope.get("raw_path", b"").decode("latin-1") or scope["path"]
+            user_agent = Headers(scope=scope).get("user-agent", "")
+            logger.info(
+                "%s → %s",
+                method,
+                status if status is not None else outcome,
+                extra={
+                    "http_access": {
+                        "request_id": request_id,
+                        "request_url": path.partition("?")[0].partition("#")[0][:2048],
+                        "route": getattr(scope.get("route"), "path", None),
+                        "http_version": scope.get("http_version"),
+                        "user_agent": re.sub(r"[\x00-\x1f\x7f-\x9f]", " ", user_agent[:512]).strip()
+                        or None,
+                        "method": method,
+                        "status": status,
+                        "outcome": outcome,
+                        "duration_ms": round((perf_counter() - started) * 1000, 3),
+                        **ip_report(scope, *self.policy.current()),
+                    }
+                },
+            )
