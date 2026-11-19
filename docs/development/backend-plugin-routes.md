@@ -1,10 +1,27 @@
 # 后端插件 HTTP 路由
 
-版本：backend-plugin-routes-1，2026-11-10。决定见[ADR0098](../decisions/0098-backend-plugin-http-routes.md)，插件入口见[总指南](backend-plugins.md)，检查见[验收](../handoff/backend-plugin-routes-verification.md)。
+插件入口见[总指南](backend-plugins.md)。原有托管路由的鉴权与事务设计见 [ADR0098](../decisions/0098-backend-plugin-http-routes.md)。
 
 ## 最小实现
 
-继续只要求 `app/plugins/<目录>/plugin.py` 导出一个插件对象，其余文件自由命名。用原生 FastAPI APIRouter 声明 HTTP 路由，在同步 setup 中登记，不修改主项目的路由表。
+在 `app/plugins/<目录>/plugin.py` 的同步 `setup` 中使用 `registry.router`，可以直接添加 FastAPI 路由，或通过 `include_router` 合并子路由。插件自行选择完整路径，推荐将新接口放在 `/v1/<业务名>/` 下，例如 `/v1/greeting/hello`。需要对接旧客户端时也可以声明其他路径。
+
+```python
+from app.plugin_sdk import PluginRegistry, define_plugin
+
+
+def setup(registry: PluginRegistry) -> None:
+    @registry.router.get("/v1/greeting/hello")
+    async def hello() -> dict[str, str]:
+        return {"message": "你好"}
+
+
+plugin = define_plugin(id="example.greeting", title="问候", setup=setup)
+```
+
+`registry.router` 按 FastAPI 原生规则挂载，宿主路由先匹配。该入口的鉴权、依赖和资源生命周期由插件声明，宿主的全局中间件照常执行。需要宿主提供插件启停检查、请求身份和事务时，使用下方的 `registry.routes.register`。
+
+## 由宿主管理的 HTTP 路由
 
 ```python
 from fastapi import APIRouter
@@ -32,15 +49,15 @@ async def hello(ctx: PluginRequest) -> JSONResponseSuccess:
 
 
 def setup(registry: PluginRegistry) -> None:
-    registry.routes.register(api)  # 默认要求登录 Session。
+    registry.routes.register(api, prefix="/v1/greeting")  # 默认要求登录 Session。
 
 
 plugin = define_plugin(id="example.greeting", title="问候", setup=setup)
 ```
 
-最终地址为 `/v1/plugins/example.greeting/hello`。`prefix="/tools"` 会放在插件命名空间之后，变为 `/v1/plugins/example.greeting/tools/hello`。APIRouter 自身的 prefix 和嵌套 include_router 同样保留。类形式在 Plugin.setup 内执行相同登记。
+最终地址为 `/v1/greeting/hello`。最终路径由 `prefix`、`APIRouter` 前缀及路由路径拼接，宿主不添加插件 ID。类形式也可在 `Plugin.setup` 中登记。
 
-项目示例 `app/plugins/route_example/plugin.py` 从自由命名的 api.py 导入三个 Router，提供公开问候/回显、登录身份/回显和 settings:read 权限查询；不创建内容或修改用户资料。地址前缀是 `/v1/plugins/example.routes`，启用与目录同步规则与其他插件相同。
+项目示例 `app/plugins/route_example/plugin.py` 从 `api.py` 导入三个 Router，提供公开问候、登录身份及 `settings:read` 权限查询。示例显式声明 `/v1/plugins/example.routes` 前缀。
 
 ## 登记与保护
 
@@ -76,7 +93,7 @@ JSON请使用SDK导出的PublicModel/PublicResponse与JSONResponseSuccess/JSONRe
 
 - 只有显式登记、插件及其依赖启用、当前API代码摘要与应用目录一致时才执行。未登记或停用返回404，代码/依赖摘要不一致返回503；数据库不可用也不放行。
 - 启停、登记的排他锁会等待已有处理结束。已经获准的请求可以完成，停用提交后新请求不再进入处理函数；不会强杀正在执行的Python逻辑。
-- 路径统一受插件命名空间约束，不能覆盖核心路由。拒绝路径穿越、编码路径、重复斜线、模糊的同形参数路径/方法、重复operation_id、TRACE/CONNECT、WebSocket和Mount。静态地址应放在可匹配它的参数地址之前，沿原生匹配顺序。
+- 托管注册校验路径和方法，并检查同一插件内重复的路径和 operation ID。WebSocket、子应用等由 `registry.router` 按 FastAPI 原生方式声明。宿主路由优先匹配，插件作者应为业务选择独立路径。
 - setup结束后注册器封闭，保存登记时的路由快照；后续在原APIRouter增加路由不会悄悄进入API。路由身份、方法和访问声明进入插件构建摘要。插件源码及依赖仍是可信代码，不是安全沙箱。
 - Router只贡献HTTP声明；API启动资源使用Plugin.startup/shutdown。不要使用Router事件或lifespan代替插件生命周期，嵌套Router也遵循此规则。Worker/Scheduler可以发现声明，但不会装配API路由或执行API生命周期。
 
@@ -90,7 +107,7 @@ uv run --locked python -m tools.register_backend_plugins --config config.toml --
 
 ## 插件自己的接口契约
 
-路由包含在离线导出的 OpenAPI 中；运行服务的 `/docs`、`/redoc`、`/openapi.json` 已关闭。operation_id自动加插件命名空间，多方法定义拆成唯一操作，保留原生模型/依赖及插件标签。自动准入错误使用项目ErrorResponse模型。
+原生路由和托管 HTTP 路由都可离线导出 OpenAPI。运行服务的 `/docs`、`/redoc`、`/openapi.json` 已关闭。托管路由的 operation ID 带插件命名空间，自动准入错误使用项目 `ErrorResponse` 模型。
 
 使用 CLI 离线导出该插件自己的完整 OpenAPI，无需连接数据库或启用插件：
 

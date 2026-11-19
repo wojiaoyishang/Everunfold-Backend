@@ -3,10 +3,11 @@
 import asyncio
 
 import pytest
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Request, WebSocket
 from fastapi.testclient import TestClient
 from sqlalchemy import func, select
 
+from app.core.config import Settings
 from app.core.database import Database
 from app.core.plugins.definition import define_plugin
 from app.core.plugins.loader import collect_plugins
@@ -41,7 +42,7 @@ def test_routes_are_frozen_namespaced_and_keep_native_nested_dependencies() -> N
     catalog = collect_plugins([(plugin, "0" * 64)])
     routes = catalog.plugins[0].routes[0].routes
     assert len(routes) == 2
-    assert {x.path for x in routes} == {"/v1/plugins/test.routes/api/nested/items/{identity:int}"}
+    assert {x.path for x in routes} == {"/api/nested/items/{identity:int}"}
     assert {x.operation_id for x in routes} == {"test.routes.item.get", "test.routes.item.put"}
     assert all(len(x.dependencies) == 1 for x in routes)
     route.add_api_route("/late", lambda: {})
@@ -107,6 +108,47 @@ def test_route_availability_requires_current_owner_and_dependency_builds() -> No
     assert disabled.value.status == 404
 
 
+def test_native_router_preserves_fastapi_routes_and_host_precedence(
+    monkeypatch: pytest.MonkeyPatch, test_settings: Settings
+) -> None:
+    def setup(registry: PluginRegistry) -> None:
+        nested = APIRouter(prefix="/v1/example")
+
+        @nested.get("/items/{item_id}")
+        async def item(item_id: int) -> dict[str, int]:
+            return {"id": item_id}
+
+        @nested.websocket("/ws")
+        async def socket(websocket: WebSocket) -> None:
+            await websocket.accept()
+            await websocket.send_text("ready")
+            await websocket.close()
+
+        @registry.router.get("/health/live")
+        async def conflicting() -> dict[str, bool]:
+            return {"plugin": True}
+
+        registry.router.include_router(nested)
+        managed = APIRouter()
+        managed.add_api_route("/v1/auth/login", conflicting, methods=["POST"])
+        registry.routes.register(managed, access="public")
+
+    plugin = define_plugin(id="test.native", title="Native", setup=setup)
+    catalog = collect_plugins([(plugin, "0" * 64)])
+    monkeypatch.setattr("app.entrypoints.api.plugin_catalog", lambda: catalog)
+    client = TestClient(create_app(test_settings))
+    assert client.get("/v1/example/items/12").json() == {"id": 12}
+    assert client.get("/health/live").json()["data"]["status"] == "alive"
+    assert client.post("/v1/auth/login", json={}).status_code == 403
+    with client.websocket_connect("/v1/example/ws") as socket:
+        assert socket.receive_text() == "ready"
+
+    from tools.export_plugin_routes import build_schema
+
+    monkeypatch.setattr("tools.export_plugin_routes.plugin_catalog", lambda: catalog)
+    assert "/v1/example/items/{item_id}" in build_schema("test.native")["paths"]
+
+
 def test_plugin_native_http_admission_and_transaction_rollback(
     request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -142,8 +184,8 @@ def test_plugin_native_http_admission_and_transaction_rollback(
         return JSONResponseSuccess(data={"body": (await request.body()).decode()})
 
     def setup(registry: PluginRegistry) -> None:
-        registry.routes.register(router)
-        registry.routes.register(public, access="public")
+        registry.routes.register(router, prefix="/v1/test-http")
+        registry.routes.register(public, prefix="/test-http", access="public")
 
     catalog = collect_plugins(
         [(define_plugin(id="test.http", title="HTTP", setup=setup), "0" * 64)]
@@ -155,7 +197,12 @@ def test_plugin_native_http_admission_and_transaction_rollback(
         try:
             async with db.session_factory() as session:
                 site = await session.get(SiteSettings, 1)
-                site.data = {**site.data, "_backend_plugins": catalog.snapshot()}
+                assert site is not None
+                site.data = {
+                    **site.data,
+                    "_backend_plugins": catalog.snapshot(),
+                    "extensions": {"enabled_plugins": ["test.http"]},
+                }
                 await session.commit()
         finally:
             await db.close()
@@ -164,11 +211,11 @@ def test_plugin_native_http_admission_and_transaction_rollback(
     with TestClient(
         create_app(ctx.settings), client=(ctx.peer, 50002), raise_server_exceptions=False
     ) as client:
-        base = "/v1/plugins/test.http"
-        assert (
-            client.post(base + "/callback", content=b"raw signed payload").json()["data"]["body"]
-            == "raw signed payload"
-        )
+        base = "/v1/test-http"
+        callback_path = "/test-http/callback"
+        callback_response = client.post(callback_path, content=b"raw signed payload")
+        assert callback_response.status_code == 200, callback_response.text
+        assert callback_response.json()["data"]["body"] == "raw signed payload"
         assert client.post(base + "/tx/200", headers={"Origin": ORIGIN}).status_code == 401
         assert calls == []  # Host admission precedes native/plugin dependencies.
         client.cookies.update(ctx.root.cookies)
@@ -181,11 +228,8 @@ def test_plugin_native_http_admission_and_transaction_rollback(
         assert client.post(base + "/tx/409", headers=headers(ctx.root)).status_code == 409
         assert client.post(base + "/tx/500", headers=headers(ctx.root)).status_code == 500
         assert client.get(base + "/tx/200").status_code == 405
-        assert client.post(base + "/callback", content=b"x" * 65537).status_code == 413
-        assert (
-            client.post(base + "/callback", headers={"Origin": "http://evil.test"}).status_code
-            == 403
-        )
+        assert client.post(callback_path, content=b"x" * 65537).status_code == 413
+        assert client.post(callback_path, headers={"Origin": "http://evil.test"}).status_code == 403
         cors = client.options(
             base + "/tx/200",
             headers={
@@ -281,11 +325,11 @@ def test_plugin_disable_serializes_with_an_active_request(
 
     asyncio.run(change(False))
     with TestClient(create_app(ctx.settings)) as client, ThreadPoolExecutor(2) as pool:
-        running = pool.submit(client.get, "/v1/plugins/test.hold/hold")
+        running = pool.submit(client.get, "/hold")
         assert entered.wait(3)
         disabling = pool.submit(asyncio.run, change(True))
         time.sleep(0.08)
         assert not disabling.done()
         assert running.result(5).status_code == 200
         disabling.result(5)
-        assert client.get("/v1/plugins/test.hold/hold").status_code == 404
+        assert client.get("/hold").status_code == 404

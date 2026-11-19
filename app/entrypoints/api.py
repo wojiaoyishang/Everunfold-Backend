@@ -29,6 +29,7 @@ from app.core.monitor_metrics import Monitoring
 from app.core.plugins.definition import PluginRuntime
 from app.core.plugins.loader import plugin_catalog
 from app.core.plugins.route_runtime import mount_plugin_routes
+from app.core.plugins.routes import plugin_route_policy
 from app.core.process_logging import configure_process_logging
 from app.core.request_ip import HTTPAccessMiddleware, RequestIPCache
 from app.core.responses import JSONResponseError, JSONResponseFail, JSONResponseSuccess
@@ -147,7 +148,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     register_pages_module(application)
     register_media_module(application)
     register_maintenance_module(application)
-    mount_plugin_routes(application, plugins)
     mount_nodes_monitor(application, resolved)
     if monitoring:
         monitoring.install(application)
@@ -178,7 +178,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         logger.error("Unhandled request error: %s", type(exc).__name__)
         headers = (
             {"Cache-Control": "private, no-store", "Pragma": "no-cache"}
-            if request.url.path.startswith(
+            if plugin_route_policy(request.scope, request.method) is not None
+            or request.url.path.startswith(
                 (
                     "/v1/auth/",
                     "/v1/admin/",
@@ -252,6 +253,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             status_code=503, msg="服务暂不可用", data={"status": "unavailable", "checks": checks}
         )
 
+    # Give the host's routes their normal matching priority over plugin registrations.
+    mount_plugin_routes(application, plugins)
     return application
 
 

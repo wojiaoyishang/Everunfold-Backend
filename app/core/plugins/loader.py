@@ -13,6 +13,8 @@ from pathlib import Path
 from types import MappingProxyType
 from typing import Any, cast
 
+from fastapi import APIRouter
+
 from app.core.jobs.definitions import TaskDefinition
 from app.core.plugins.artwork import PluginArtwork, read_artwork
 from app.core.plugins.definition import Plugin, PluginRuntime
@@ -29,6 +31,7 @@ from app.modules.shortcodes.schemas import ShortcodeItem
 @dataclass(frozen=True)
 class LoadedPlugin:
     routes: tuple[RouteContribution, ...]
+    router: APIRouter
     tasks: tuple[TaskDefinition, ...]
     definition: Plugin
     info: BackendPluginInfo
@@ -192,6 +195,7 @@ def collect_plugins(
             completed.append(
                 LoadedPlugin(
                     tuple(registry.routes.items),
+                    registry.router,
                     tuple(registry.tasks.items),
                     plugin,
                     info,

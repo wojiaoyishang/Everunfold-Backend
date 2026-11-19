@@ -7,7 +7,7 @@ from .schemas import PLUGIN_ID, TASK_ID
 
 
 def setup(registry: PluginRegistry) -> None:
-    registry.routes.register(router, access="session")
+    registry.routes.register(router, prefix=f"/v1/plugins/{PLUGIN_ID}", access="session")
     registry.tasks.register(
         TaskDefinition(
             TASK_ID,

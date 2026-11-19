@@ -4,10 +4,17 @@ from .api import public, read_admin, write_admin
 
 
 def setup(registry: PluginRegistry) -> None:
-    registry.routes.register(public, access="public")
-    registry.routes.register(read_admin, access="permission", permission="content:read")
+    prefix = "/v1/plugins/everunfold.glossary"
+    registry.routes.register(public, prefix=prefix, access="public")
     registry.routes.register(
-        write_admin, access="permission", permission="content:write", media_references=True
+        read_admin, prefix=prefix, access="permission", permission="content:read"
+    )
+    registry.routes.register(
+        write_admin,
+        prefix=prefix,
+        access="permission",
+        permission="content:write",
+        media_references=True,
     )
 
 

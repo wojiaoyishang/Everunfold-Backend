@@ -5,6 +5,8 @@ import re
 from collections.abc import Mapping
 from uuid import NAMESPACE_URL, UUID, uuid5
 
+from fastapi import APIRouter
+
 from app.core.jobs.definitions import TaskDefinition
 from app.core.plugins.routes import RouteRegistry
 from app.modules.captcha.providers import CaptchaProvider
@@ -174,6 +176,7 @@ class PluginRegistry:
         self.captcha = CaptchaRegistry(self)
         self.locales = LocaleRegistry(self)
         self.tasks = TaskRegistry(self)
+        self.router = APIRouter()
         self.routes = RouteRegistry(self)
         self.notifications = NotificationRegistry(self)
         self.cache_events = CacheEventRegistry(self)

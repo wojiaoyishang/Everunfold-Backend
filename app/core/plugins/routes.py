@@ -1,13 +1,15 @@
-"""Frozen native FastAPI routes, scoped to one plugin's HTTP namespace."""
+"""FastAPI routes with optional Everunfold-managed request policies."""
 
 import re
-from collections.abc import Mapping
 from dataclasses import dataclass
 from hashlib import sha256
 from typing import TYPE_CHECKING, Any, Literal
 
 from fastapi import APIRouter
 from fastapi.routing import APIRoute, RouteContext, iter_route_contexts
+from starlette._utils import get_route_path
+from starlette.routing import Match
+from starlette.types import Scope
 
 from app.modules.auth.permissions import CAPABILITIES, ResourceScope
 
@@ -151,7 +153,7 @@ class RouteRegistry:
             methods = context.methods or set()
             if not methods or not methods <= METHODS:
                 raise ValueError("Unsupported plugin HTTP method")
-            path = f"/v1/plugins/{self.owner.id}{prefix}{context.path or ''}"
+            path = f"{prefix}{context.path or ''}"
             normalized = PARAMETER.sub("{}", path)
             keys = {(method, normalized) for method in methods}
             if keys & paths:
@@ -190,11 +192,21 @@ class RouteRegistry:
         self._paths, self._operations = paths, operations
 
 
-def public_plugin_request(scope: Mapping[str, Any]) -> bool:
+def plugin_route_policy(scope: Scope, method: str) -> RoutePolicy | None:
+    path = get_route_path(scope)
     app = scope.get("app")
-    for route, policy in getattr(getattr(app, "state", None), "plugin_http_routes", ()):
-        if scope.get("method") in route.methods and route.path_regex.fullmatch(
-            scope.get("path", "")
-        ):
-            return bool(policy.access == "public")
-    return False
+    state = getattr(app, "state", None)
+    declarations: tuple[tuple[APIRoute, RoutePolicy], ...] = getattr(
+        state, "plugin_http_routes", ()
+    )
+    for route, policy in declarations:
+        if route.methods and method in route.methods and route.path_regex.fullmatch(path):
+            # CORS preflight checks the requested method against the same route order.
+            match_scope = {**scope, "method": method}
+            if any(
+                core.matches(match_scope)[0] is Match.FULL
+                for core in getattr(state, "plugin_base_routes", ())
+            ):
+                return None
+            return policy
+    return None

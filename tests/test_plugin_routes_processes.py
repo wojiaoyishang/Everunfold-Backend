@@ -37,6 +37,10 @@ def test_plugin_routes_two_api_replicas_permissions_activation_and_deployment(
         try:
             async with db.session_factory() as session:
                 await install_backend_plugins(session, ctx.settings)
+                site = await session.get(SiteSettings, 1, with_for_update=True)
+                assert site is not None
+                site.data = {**site.data, "extensions": {"enabled_plugins": ["example.routes"]}}
+                await session.commit()
         finally:
             await db.close()
 
@@ -142,7 +146,7 @@ def test_plugin_routes_two_api_replicas_permissions_activation_and_deployment(
         def toggle(disabled: bool) -> None:
             state = ctx.root.get("/v1/admin/settings").json()["data"]
             value = state["value"]
-            value["extensions"]["disabled_plugins"] = ["example.routes"] if disabled else []
+            value["extensions"]["enabled_plugins"] = [] if disabled else ["example.routes"]
             result = ctx.root.patch(
                 "/v1/admin/settings",
                 headers=headers(ctx.root),

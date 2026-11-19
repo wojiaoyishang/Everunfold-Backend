@@ -13,7 +13,7 @@ from app.core.plugins.route_runtime import mount_plugin_routes
 
 def build_schema(identity: str) -> dict[str, Any]:
     plugin = next((item for item in plugin_catalog().plugins if item.info.id == identity), None)
-    if plugin is None or not plugin.routes:
+    if plugin is None or not (plugin.routes or plugin.router.routes):
         raise ValueError("Plugin is missing or contributes no HTTP routes")
     application = FastAPI(title=plugin.info.title, version=plugin.info.version)
     mount_plugin_routes(application, PluginCatalog((plugin,)))

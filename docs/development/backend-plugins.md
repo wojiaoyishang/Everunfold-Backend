@@ -38,7 +38,8 @@ plugin = MyPlugin()
 | --- | --- |
 | registry.shortcodes.register(source, identity=None, revision=1) | ShortcodeSource模型；编译HTML和作用域CSS，可显式保留旧UUID，否则按插件ID和调用名生成稳定UUID |
 | registry.captcha.register(provider) | CaptchaProvider(id,title,widget,verify)，verify为真实异步服务端校验 |
-| registry.routes.register(router, prefix="", access="session", permission=None, scope="all") | 原生HTTP Router、插件命名空间、实时启停/鉴权及请求事务；详见[路由指南](backend-plugin-routes.md) |
+| `registry.router` | 原生 FastAPI `APIRouter`，插件声明完整路径与路由依赖 |
+| `registry.routes.register(router, prefix="", access="session", permission=None, scope="all")` | 按插件声明的路径注册 HTTP 路由，并提供宿主管理的启停、鉴权和事务。详见[路由指南](backend-plugin-routes.md) |
 | registry.locales.register(locale, messages) | 任意来源的字典；key自动加插件ID前缀，不规定语言文件位置 |
 | registry.notifications.register_event(definition) | 声明插件命名空间内的通知事件、可用变量和接收对象模式；通过 SDK 在业务事务中发布 |
 | registry.notifications.register(platform) | 注册可选通知投递平台；事件和平台可以独立扩展，详见[通知指南](notifications.md) |

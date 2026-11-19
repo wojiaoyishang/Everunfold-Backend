@@ -1,5 +1,7 @@
 # ADR 0098：后端插件的原生 HTTP 路由
 
+当前 SDK 的路径和注册方式请以[路由指南](../development/backend-plugin-routes.md)为准。托管路由已改为由插件显式声明路径，同时增加了 `registry.router` 原生入口。
+
 版本：ADR0098-1，2026-11-10。状态：已实现，运行结果另见[验收](../handoff/backend-plugin-routes-verification.md)。用户要求检查后端插件注册自定义路由，检查发现原SDK尚未交付该能力，本次补齐，不改变单一plugin.py入口。
 
 ## 决策

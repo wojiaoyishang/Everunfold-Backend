@@ -38,7 +38,8 @@ def main() -> None:
         print(
             f"{plugin.info.id} {plugin.info.version}: "
             f"{len(plugin.shortcodes)} shortcodes, {len(plugin.captcha)} CAPTCHA providers, "
-            f"{sum(len(item.routes) for item in plugin.routes)} HTTP routes"
+            f"{sum(len(item.routes) for item in plugin.routes)} managed HTTP routes, "
+            f"{len(plugin.router.routes)} native router entries"
         )
     if args.apply:
         asyncio.run(apply(args.config))

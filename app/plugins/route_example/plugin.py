@@ -4,9 +4,12 @@ from .api import account, protected, public
 
 
 def setup(registry: PluginRegistry) -> None:
-    registry.routes.register(public, access="public")
-    registry.routes.register(account)
-    registry.routes.register(protected, access="permission", permission="settings:read")
+    prefix = "/v1/plugins/example.routes"
+    registry.routes.register(public, prefix=prefix, access="public")
+    registry.routes.register(account, prefix=prefix)
+    registry.routes.register(
+        protected, prefix=prefix, access="permission", permission="settings:read"
+    )
 
 
 plugin = define_plugin(

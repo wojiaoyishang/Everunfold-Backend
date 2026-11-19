@@ -7,6 +7,7 @@ from starlette.middleware.cors import CORSMiddleware
 from starlette.responses import Response
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
+from app.core.plugins.routes import plugin_route_policy
 from app.core.responses import JSONResponseFail, JSONResponseSuccess
 from app.modules.maintenance.schemas import MAX_BUNDLE_BYTES
 from app.modules.settings.browser_origins import managed_origin
@@ -77,9 +78,16 @@ class BusinessCORSMiddleware:
         )
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        method = scope.get("method", "")
+        if method == "OPTIONS":
+            method = Headers(scope=scope).get("access-control-request-method", method)
         target = (
             self.plugins
-            if str(scope.get("path", "")).startswith("/v1/plugins/")
+            if scope["type"] == "http"
+            and (
+                plugin_route_policy(scope, method) is not None
+                or str(scope.get("path", "")).startswith("/v1/plugins/")
+            )
             else self.private
             if str(scope.get("path", "")).startswith(
                 ("/v1/auth/", "/v1/admin/", "/v1/account/", "/v1/reader/")
@@ -106,8 +114,13 @@ class AuthBoundaryMiddleware:
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         path = str(scope.get("path", ""))
-        if scope["type"] != "http" or not path.startswith(
-            ("/v1/auth/", "/v1/admin/", "/v1/account/", "/v1/reader/", "/v1/plugins/")
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        policy = plugin_route_policy(scope, scope["method"])
+        is_plugin = policy is not None or path.startswith("/v1/plugins/")
+        if not is_plugin and not path.startswith(
+            ("/v1/auth/", "/v1/admin/", "/v1/account/", "/v1/reader/")
         ):
             await self.app(scope, receive, send)
             return
@@ -126,7 +139,8 @@ class AuthBoundaryMiddleware:
         write = scope["method"] not in {"GET", "HEAD", "OPTIONS"}
         machine = path == "/v1/auth/api-keys/introspect" or (
             (
-                path.startswith(("/v1/admin/", "/v1/plugins/"))
+                is_plugin
+                or path.startswith("/v1/admin/")
                 or path
                 in {
                     "/v1/reader/access",
@@ -137,10 +151,8 @@ class AuthBoundaryMiddleware:
             )
             and headers.get("authorization", "").lower().startswith("bearer efk_")
         )
-        if path.startswith("/v1/plugins/"):
-            from app.core.plugins.routes import public_plugin_request
-
-            machine = machine or public_plugin_request(scope)
+        if policy is not None and policy.access == "public":
+            machine = True
         allowed = origin in self.allowed_origins or (
             origin is not None and origin == managed_origin(scope)
         )
@@ -194,7 +206,7 @@ class AuthBoundaryMiddleware:
                     else 1500000
                     if path == "/v1/admin/icons/upload"
                     else 65536
-                    if path.startswith(("/v1/admin/", "/v1/plugins/"))
+                    if is_plugin or path.startswith("/v1/admin/")
                     else 16384
                 ):
                     await JSONResponseFail(status_code=413, msg="请求内容过大")(

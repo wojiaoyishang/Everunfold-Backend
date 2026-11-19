@@ -122,6 +122,10 @@ def mount_plugin_routes(application: FastAPI, catalog: "PluginCatalog") -> None:
                     },
                 )
                 declarations.append((route, contribution.policy))
+    application.state.plugin_base_routes = tuple(application.routes)
     application.state.plugin_http_routes = tuple(declarations)
     if declarations:
         application.include_router(assembled)
+    for owner in catalog.plugins:
+        if owner.router.routes:
+            application.include_router(owner.router)
