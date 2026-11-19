@@ -350,7 +350,7 @@ class AccountsService:
                 .where(User.active.is_(True), User.role == "admin", User.id != user.id)
             )
             if not remaining:
-                raise AuthFailure(409, 40963, "必须保留至少一个有效管理员")
+                raise AuthFailure(409, 40963, "必须保留至少一位已启用的超级管理员")
         await self.assign_profile(user, payload.value)
         if auth_changed:
             user.auth_version += 1
