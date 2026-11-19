@@ -1,5 +1,7 @@
 # Everunfold 文档入口
 
+[业务事件日志](decisions/0189-business-observability-hooks.md)说明 FastAPI 与 Worker 的插件钩子、投递结果与统计口径。
+
 [请求日志的客户端 IP](decisions/0186-request-ip-policy.md)说明两端共用的来源规则、可信代理和后台诊断。
 
 [Celery 任务进程自动伸缩](decisions/0185-celery-worker-autoscale.md)说明固定、自动模式和 Web 服务的伸缩评估。

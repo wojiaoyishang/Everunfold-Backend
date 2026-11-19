@@ -10,6 +10,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
+from app.core.plugins.business_events import BusinessEvent, dispatch, subscribers
 from app.core.plugins.loader import plugin_catalog
 from app.core.plugins.state import enabled_ids, installed_info
 from app.modules.auth.models import User
@@ -45,6 +46,7 @@ from app.modules.notifications.models import (
     NotificationRoute,
     NotificationTemplate,
 )
+from app.modules.notifications.observability import delivery_event
 from app.modules.notifications.render import (
     TOKEN,
     header_value,
@@ -621,6 +623,8 @@ class NotificationService:
         site = await self.session.get(SiteSettings, 1)
         mail_data = site.data if site else {}
         registry = event_registry(mail_data)
+        handlers = subscribers(mail_data) if events else ()
+        business_events: list[BusinessEvent] = []
         mail_revision, _ = stored_mail_profiles(mail_data)
         brand_variables = None
         for event in events:
@@ -755,9 +759,15 @@ class NotificationService:
                         .on_conflict_do_nothing(),
                     )
                     delivery.status, delivery.finished_at = "sent", now
+                    if handlers:
+                        business_events.append(
+                            delivery_event("sent", IN_APP, delivery.id, kind=event.event_type)
+                        )
                 created += 1
             event.dispatched_at = now
         await self.session.commit()
+        for business_event in business_events:
+            dispatch(handlers, business_event)
         return created
 
     async def inbox(self, user_id: UUID, limit: int = 50) -> InboxState:

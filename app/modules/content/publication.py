@@ -43,6 +43,12 @@ def cache_path(item: Content | None) -> str | None:
     return None
 
 
+def publish_state(draft: ContentDraft) -> str:
+    if draft.published_revision is not None:
+        return "update"
+    return "republish" if draft.published_at is not None else "first"
+
+
 class ContentPublication:
     def __init__(self, session: AsyncSession, config: Settings) -> None:
         self.session, self.config = session, config

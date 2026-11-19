@@ -17,6 +17,7 @@ from fastapi import APIRouter
 
 from app.core.jobs.definitions import TaskDefinition
 from app.core.plugins.artwork import PluginArtwork, read_artwork
+from app.core.plugins.business_events import BusinessHandler
 from app.core.plugins.definition import Plugin, PluginRuntime
 from app.core.plugins.registry import PluginRegistry
 from app.core.plugins.routes import RouteContribution
@@ -42,6 +43,7 @@ class LoadedPlugin:
     cache_event_handler: CacheEventHandler | None = None
     notification_events: tuple[NotificationEventDefinition, ...] = ()
     artwork: PluginArtwork | None = None
+    business_handler: BusinessHandler | None = None
 
 
 @dataclass(frozen=True)
@@ -185,6 +187,8 @@ def collect_plugins(
                 fingerprint["routes"] = [item.manifest() for item in registry.routes.items]
             if registry.cache_events.handler is not None:
                 fingerprint["cache_events"] = "cache-event-1"
+            if registry.business_events.handler is not None:
+                fingerprint["business_events"] = "business-event-1"
             if registry.notifications.events:
                 fingerprint["notification_events"] = [
                     asdict(event) for event in registry.notifications.events
@@ -211,6 +215,7 @@ def collect_plugins(
                     cache_event_handler=registry.cache_events.handler,
                     notification_events=tuple(registry.notifications.events),
                     artwork=previews.get(key),
+                    business_handler=registry.business_events.handler,
                 )
             )
     return PluginCatalog(tuple(completed))

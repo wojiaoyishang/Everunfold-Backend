@@ -11,6 +11,8 @@ from uuid import UUID
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.plugins.business_events import BusinessEvent
+from app.core.plugins.business_http import mark_committed
 from app.modules.auth.accounts_schemas import (
     AccountProfile,
     EmailVerificationConfirm,
@@ -232,6 +234,7 @@ class EmailVerificationService:
         )
         await publish_account_security(self.session, EMAIL_VERIFIED, user, row.id)
         await self.session.commit()
+        mark_committed(BusinessEvent("email_verification", "success", stage="confirm"))
         return profile(user)
 
 

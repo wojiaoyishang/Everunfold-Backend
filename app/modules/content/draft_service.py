@@ -12,6 +12,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
+from app.core.plugins.business_events import BusinessAction, BusinessEvent
+from app.core.plugins.business_http import mark_attempt, mark_committed
 from app.modules.auth.permissions import AuthSubject
 from app.modules.auth.security import hash_password
 from app.modules.auth.service import AuthFailure
@@ -36,7 +38,7 @@ from app.modules.content.draft_schemas import (
 from app.modules.content.editor_schema import EditorSettings
 from app.modules.content.editor_service import editor_media
 from app.modules.content.models import Content, SiteSettings, Taxonomy
-from app.modules.content.publication import ContentPublication
+from app.modules.content.publication import ContentPublication, publish_state
 from app.modules.content.type_registry import ContentTypeDefinition, content_types
 from app.modules.media.locking import lock_references
 from app.modules.media.models import MediaAsset
@@ -113,6 +115,11 @@ class DraftService:
         commit: bool = True,
         component_editor: bool = False,
     ) -> DraftDetail:
+        event_action: BusinessAction | None = None
+        if action in ("publish", "withdraw", "schedule"):
+            event_action = action
+        elif action == "cancel_schedule":
+            event_action = "schedule_cancel"
         serialized = payload.model_dump(mode="json")
         if isinstance(payload, DraftCreate | DraftSave) and payload.fields.access_password:
             password = payload.fields.access_password
@@ -177,6 +184,8 @@ class DraftService:
             if existing is None:
                 raise AuthFailure(404, 40450, "找不到这份草稿")
             row = existing
+            if event_action:
+                mark_attempt(event_action, resource_kind=row.type_id)
             from app.modules.content.merge_lock import require_unlocked
 
             await require_unlocked(self.session, row.id)
@@ -184,6 +193,8 @@ class DraftService:
                 raise AuthFailure(409, 40951, "内容已在其他地方修改，请保留输入并重新读取后再保存")
             row.revision += 1
             row.updated_at = now
+        publish_outcome = publish_state(row)
+        was_scheduled = row.scheduled_for is not None
         definition = require_type(row.type_id)
         if isinstance(payload, DraftCreate | DraftSave) and action != "cancel_schedule":
             if row.deleted_at:
@@ -349,6 +360,21 @@ class DraftService:
                 row.editor_settings = live_settings.model_dump(mode="json")
             if commit:
                 await self.session.commit()
+                if (
+                    event_action is not None
+                    and (event_action != "withdraw" or publish_outcome == "update")
+                    and (event_action != "schedule_cancel" or was_scheduled)
+                ):
+                    mark_committed(
+                        BusinessEvent(
+                            event_action,
+                            "success",
+                            stage="manual",
+                            resource_kind=row.type_id,
+                            resource_id=row.id,
+                            state=publish_outcome if action == "publish" else "",
+                        )
+                    )
             else:
                 await self.session.flush()
         except Exception:

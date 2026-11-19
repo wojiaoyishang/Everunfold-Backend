@@ -12,6 +12,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from starlette.datastructures import Headers
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
+from app.core.plugins.business_http import BusinessHTTP
 from app.core.process_logging import request_log_message, request_log_path
 
 Header = Literal["x-real-ip", "x-forwarded-for", "forwarded", "cf-connecting-ip", "true-client-ip"]
@@ -218,12 +219,20 @@ def ip_report(
 
 
 class HTTPAccessMiddleware:
-    def __init__(self, app: ASGIApp, policy: RequestIPCache) -> None:
+    def __init__(
+        self, app: ASGIApp, policy: RequestIPCache, business: BusinessHTTP | None = None
+    ) -> None:
         self.app = app
         self.policy = policy
+        self.business = business
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        if scope["type"] != "http" or not logger.isEnabledFor(logging.INFO):
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        log_access = logger.isEnabledFor(logging.INFO)
+        business_token = self.business.begin(scope) if self.business is not None else None
+        if not log_access and business_token is None:
             await self.app(scope, receive, send)
             return
         started = perf_counter()
@@ -249,26 +258,31 @@ class HTTPAccessMiddleware:
                 status = 500
             raise
         finally:
-            method = scope["method"]
-            # ASGI keeps the query string separate from the path.
-            target = (scope.get("raw_path") or b"").decode("latin-1") or scope["path"]
-            path = request_log_path(target)
-            user_agent = Headers(scope=scope).get("user-agent", "")
-            logger.info(
-                request_log_message(method, path, status if status is not None else outcome),
-                extra={
-                    "http_access": {
-                        "request_id": request_id,
-                        "request_url": path,
-                        "route": getattr(scope.get("route"), "path", None),
-                        "http_version": scope.get("http_version"),
-                        "user_agent": re.sub(r"[\x00-\x1f\x7f-\x9f]", " ", user_agent[:512]).strip()
-                        or None,
-                        "method": method,
-                        "status": status,
-                        "outcome": outcome,
-                        "duration_ms": round((perf_counter() - started) * 1000, 3),
-                        **ip_report(scope, *self.policy.current()),
-                    }
-                },
-            )
+            if self.business is not None and business_token is not None:
+                self.business.finish(business_token, request_id, status)
+            if log_access:
+                method = scope["method"]
+                # ASGI keeps the query string separate from the path.
+                target = (scope.get("raw_path") or b"").decode("latin-1") or scope["path"]
+                path = request_log_path(target)
+                user_agent = Headers(scope=scope).get("user-agent", "")
+                logger.info(
+                    request_log_message(method, path, status if status is not None else outcome),
+                    extra={
+                        "http_access": {
+                            "request_id": request_id,
+                            "request_url": path,
+                            "route": getattr(scope.get("route"), "path", None),
+                            "http_version": scope.get("http_version"),
+                            "user_agent": re.sub(
+                                r"[\x00-\x1f\x7f-\x9f]", " ", user_agent[:512]
+                            ).strip()
+                            or None,
+                            "method": method,
+                            "status": status,
+                            "outcome": outcome,
+                            "duration_ms": round((perf_counter() - started) * 1000, 3),
+                            **ip_report(scope, *self.policy.current()),
+                        }
+                    },
+                )

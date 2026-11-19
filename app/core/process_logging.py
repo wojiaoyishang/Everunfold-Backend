@@ -9,6 +9,8 @@ from datetime import UTC, datetime
 
 from celery import current_task  # type: ignore[import-untyped]
 
+BUSINESS_LOGGER = "everunfold.business"
+
 
 def request_log_path(target: str) -> str | None:
     if not target.startswith("/") or target.startswith("//"):
@@ -89,6 +91,10 @@ class RuntimeLogFormatter(logging.Formatter):
             event = "http_access"
             message = record.getMessage()
             fields = dict(http_access)
+        elif isinstance(business_event := getattr(record, "business_event", None), dict):
+            event = "business_event"
+            message = record.getMessage()
+            fields = dict(business_event)
         elif record.name == "uvicorn.access":
             event, message = "http_access", "HTTP access"
             if isinstance(record.args, tuple) and len(record.args) == 5:
@@ -186,3 +192,5 @@ def configure_process_logging(
     name = {"API": "fastapi", "Worker": "celery"}.get(component, component.lower())
     handler.setFormatter(RuntimeLogFormatter(name))
     logging.basicConfig(level=level, handlers=[handler], force=force)
+    # The opt-in plugin needs positive and negative samples even at the default Worker level.
+    logging.getLogger(BUSINESS_LOGGER).setLevel(logging.INFO)

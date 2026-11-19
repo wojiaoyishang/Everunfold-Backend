@@ -9,6 +9,8 @@ from anyio import to_thread
 from sqlalchemy import delete, func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.plugins.business_events import BusinessEvent
+from app.core.plugins.business_http import mark_committed
 from app.modules.auth.accounts_schemas import (
     AccountProfile,
     AccountUserList,
@@ -338,6 +340,14 @@ class AccountsService:
         ):
             stamp = None
         await self.validate_grants(actor, grants, payload.role)
+        active_changed = user.active != payload.active
+        role_changed = user.role != payload.role
+        if active_changed:
+            access_state = "enabled" if payload.active else "disabled"
+        elif role_changed:
+            access_state = "role_changed"
+        else:
+            access_state = "permissions_changed"
         auth_changed = (user.role, user.active, user.grants) != (
             payload.role,
             payload.active,
@@ -382,6 +392,16 @@ class AccountsService:
             sensitive=False,
         )
         await self.session.commit()
+        if auth_changed:
+            mark_committed(
+                BusinessEvent(
+                    "account_access",
+                    "success",
+                    state=access_state,
+                    role_changed=True if role_changed else None,
+                    account_enabled=payload.active if active_changed else None,
+                )
+            )
         return result
 
     async def sessions(self, actor: User, current_token: str) -> SessionList:
@@ -463,6 +483,7 @@ class AccountsService:
             sensitive=True,
         )
         await self.session.commit()
+        mark_committed(BusinessEvent("password_change", "success"))
         return result
 
     async def reset_password(
@@ -502,4 +523,5 @@ class AccountsService:
             sensitive=True,
         )
         await self.session.commit()
+        mark_committed(BusinessEvent("admin_password_reset", "success"))
         return result

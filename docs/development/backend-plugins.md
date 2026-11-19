@@ -44,6 +44,7 @@ plugin = MyPlugin()
 | registry.notifications.register_event(definition) | 声明插件命名空间内的通知事件、可用变量和接收对象模式；通过 SDK 在业务事务中发布 |
 | registry.notifications.register(platform) | 注册可选通知投递平台；事件和平台可以独立扩展，详见[通知指南](notifications.md) |
 | registry.cache_events.register(handler) | 每插件一个异步函数，接收已提交公开版本的缓存事件 |
+| registry.business_events.register(handler) | 每插件一个同步函数，接收业务完成或失败事件 |
 
 当前宿主界面提供zh-CN/en语言包；插件可登记其他字典，但不会自行扩展宿主界面语言列表。文案通过i18n.t("插件ID.key", locale=...)读取。任务通过registry.tasks.register(TaskDefinition)登记，包含Worker有限任务及Scheduler所属常驻子进程，见[任务指南](runtime-tasks.md)。HTTP路由已按[ADR0098](../decisions/0098-backend-plugin-http-routes.md)交付，通用插件资源/配置接口仍未交付。
 
@@ -66,6 +67,21 @@ plugin = MyPlugin()
 事件包含 ID、来源 epoch、资源、版本、原因及时间，可能带节点 ID、公开内容 ID 和受影响路径。变更路径时可能同时带旧路径和新路径。某些站点范围事件没有路径，应根据资源和原因处理。事件不包含草稿或正文，也不表示某个接收器已经落盘。
 
 成功返回即确认。异常或超过 10 秒会重试，达到重试上限后标为失败。进程可能在执行回调后、确认前停止，因此用 `event.id` 去重。事件可能乱序，用 `(source_epoch, resource, node_id, revision)` 判断版本；批量路径清理仍需处理各事件包含的路径。回调不使用 API 的生命周期资源，也不在发布事务中执行。新订阅只接收登记且启用后的版本事件，旧记录不补发。
+
+## 业务事件
+
+从 `app.plugin_sdk` 导入不可变的 `BusinessEvent`。在 `setup` 中调用
+`registry.business_events.register(handler)`。处理函数接收一个事件，适合记录日志或更新本进程计数。
+FastAPI 记录登录、评论、账号和手动发布的结果，Worker 记录定时执行与通知投递。
+成功事件以业务事务提交为准。HTTP 拒绝事件附带状态码，部分业务拒绝还带稳定的业务错误码。
+
+回调与调用者同进程运行，应立即返回。宿主会隔离回调异常。事件用于监控，属于尽力投递，
+需要持久处理的扩展沿用通知或缓存事件机制。回调没有请求对象、数据库会话或通知正文。
+API 每 5 秒刷新已同步且启用的插件。Worker 按批次读取启用状态。安装与启停沿用插件目录同步和后台设置。
+
+内置 `core.business-observability` 将事件输出到 `everunfold.business` logger。
+业务级别由插件启停控制，普通 Worker 日志等级为 WARNING 时仍会记录成功事件。
+`symbol` 采用 `business.<action>.<result>`，例如 `business.notification.failure`。
 
 ## 生命周期与发布
 

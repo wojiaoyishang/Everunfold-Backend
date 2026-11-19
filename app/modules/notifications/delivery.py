@@ -8,6 +8,7 @@ from sqlalchemy import or_, select
 
 from app.core.config import Settings
 from app.core.database import Database
+from app.core.plugins.business_events import dispatch, subscribers
 from app.core.plugins.loader import plugin_catalog
 from app.core.plugins.state import enabled_ids, installed_info
 from app.modules.auth.models import User
@@ -20,6 +21,7 @@ from app.modules.notifications.events import (
     subject_address_current,
 )
 from app.modules.notifications.models import NotificationDelivery, NotificationEvent
+from app.modules.notifications.observability import delivery_event
 from app.modules.notifications.platforms import NotificationDeliveryRequest
 from app.modules.notifications.routing import EMAIL
 from app.modules.notifications.service import NotificationService
@@ -34,6 +36,8 @@ async def deliver_notifications(config: Settings) -> dict[str, int]:
     dispatched = delivered = 0
     try:
         async with database.session_factory() as session:
+            site = await session.get(SiteSettings, 1)
+            handlers = subscribers(site.data if site else {})
             now = datetime.now(UTC)
             expired = (
                 await session.scalars(
@@ -55,6 +59,17 @@ async def deliver_notifications(config: Settings) -> dict[str, int]:
                 expired_row.lease_id = None
                 expired_row.lease_until = None
             await session.commit()
+            for expired_row in expired:
+                dispatch(
+                    handlers,
+                    delivery_event(
+                        "unknown",
+                        expired_row.platform_id,
+                        expired_row.id,
+                        reason="execution_lease_expired",
+                        attempt=expired_row.attempts,
+                    ),
+                )
         async with database.session_factory() as session:
             service = NotificationService(session, config)
             dispatched = await service.dispatch_events()
@@ -104,7 +119,28 @@ async def deliver_notifications(config: Settings) -> dict[str, int]:
                     )
                 else:
                     claimed.finished_at = datetime.now(UTC)
+                kind = ""
+                if handlers:
+                    kind = (
+                        await session.scalar(
+                            select(NotificationEvent.event_type).where(
+                                NotificationEvent.id == claimed.event_id
+                            )
+                        )
+                        or ""
+                    )
                 await session.commit()
+                dispatch(
+                    handlers,
+                    delivery_event(
+                        status,
+                        claimed.platform_id,
+                        claimed.id,
+                        kind=kind,
+                        reason=error,
+                        attempt=claimed.attempts,
+                    ),
+                )
             delivered += 1
         return {"dispatched": dispatched, "delivered": delivered}
     finally:

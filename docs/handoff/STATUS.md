@@ -1,5 +1,14 @@
 # 后端交接状态
 
+## 业务事件日志插件
+
+- 插件 `core.business-observability` 通过 SDK 的 `registry.business_events` 订阅结果。包含登录与二次验证、评论提交与审核、账号安全变更、文章/说说发布与排期、页面状态，以及站内、邮件和插件渠道通知。
+- 成功事件在业务提交后登记，幂等重放不重复计入。Worker 记录实际投递结果，SMTP 接受、失败、跳过及未知分列。日志只保留稳定动作、结果、原因和请求或资源关联 ID。
+- 通过现有部署流程同步后端插件目录，重启 API 和 Worker。Grafana Loki JSON 由统一部署仓库交付。插件 SDK 说明见[后端插件开发](../development/backend-plugins.md#业务事件)。
+
+
+- Ruff、Mypy 与 68 项定向测试通过。隔离 PostgreSQL、Redis 与 SMTP 覆盖了评论重放、手动及定时发布、站内入箱和 SMTP 接受、拒收及结果未知。
+
 ## 请求与 Worker 日志、用户管理
 
 - API 部署及开发入口显式关闭 Uvicorn 原生访问日志。应用摘要包含路径。双 Uvicorn worker 实测单次请求只生成一条应用访问记录。单独开启的 Uvicorn 原生格式也经过真实 HTTP 验证，保留过滤后的路径与 HTTP 版本。

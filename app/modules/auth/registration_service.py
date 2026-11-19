@@ -11,6 +11,8 @@ from anyio import to_thread
 from sqlalchemy import delete, func, or_, select
 from sqlalchemy.exc import IntegrityError
 
+from app.core.plugins.business_events import BusinessEvent
+from app.core.plugins.business_http import mark_committed
 from app.modules.auth.email_verification_service import CODE_TTL, SEND_COOLDOWN, code_digest
 from app.modules.auth.models import AuthAuditEvent, User
 from app.modules.auth.registration_models import PendingRegistration, RegistrationInvite
@@ -250,6 +252,7 @@ class RegistrationService:
         active, session_token = self.auth._new(now, user)
         result = SessionResult(self.auth._state(active, session_token, user), session_token)
         await self.session.commit()
+        mark_committed(BusinessEvent("registration", "success", stage="confirm"))
         return result
 
     async def invitations(self) -> InvitationList:

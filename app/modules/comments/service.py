@@ -10,6 +10,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 
 from app.core.config import Settings
+from app.core.plugins.business_events import BusinessEvent
+from app.core.plugins.business_http import mark_attempt, mark_committed
 from app.modules.auth.operations import AccountOperations
 from app.modules.auth.permissions import Actor
 from app.modules.auth.service import AuthFailure
@@ -139,6 +141,8 @@ class CommentService:
     async def mutate(
         self, actor: Actor, kind: str, payload: ModerateComments | EditComment
     ) -> CommentResult:
+        if isinstance(payload, ModerateComments):
+            mark_attempt("comment_moderate", stage=payload.action)
         await lock_references(self.session)
         await SettingsService(self.session, self.config).site(locked=True)
         remembered = await self.operations.read(
@@ -260,4 +264,10 @@ class CommentService:
             result.model_dump(mode="json"),
         )
         await self.session.commit()
+        if kind == "moderate" and isinstance(payload, ModerateComments) and changed:
+            mark_committed(
+                BusinessEvent(
+                    "comment_moderate", "success", stage=payload.action, affected_count=len(changed)
+                )
+            )
         return result

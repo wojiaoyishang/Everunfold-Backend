@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
 from app.core.database import Database
+from app.core.plugins.business_events import BusinessEvent, dispatch, subscribers
 from app.modules.auth.credentials_models import ApiKey
 from app.modules.auth.key_service import identity_by_digest
 from app.modules.auth.models import User
@@ -18,7 +19,8 @@ from app.modules.content.draft_models import ContentDraft
 from app.modules.content.draft_repository import detail
 from app.modules.content.draft_schemas import DraftDetail, DraftSchedule
 from app.modules.content.merge_lock import active_merge
-from app.modules.content.publication import ContentPublication
+from app.modules.content.models import SiteSettings
+from app.modules.content.publication import ContentPublication, publish_state
 from app.modules.media.locking import lock_references
 from app.modules.notifications.events import publish_event
 from app.modules.settings.models import SettingsAudit
@@ -91,6 +93,9 @@ async def publish_scheduled(session: AsyncSession, config: Settings, draft_id: U
         return 0
     assert row.scheduled_payload is not None and row.scheduled_for is not None
     payload, planned_at, revision = row.scheduled_payload, row.scheduled_for, row.scheduled_revision
+    publish_outcome = publish_state(row)
+    site = await session.get(SiteSettings, 1)
+    handlers = subscribers(site.data if site else {})
     error = None
     try:
         # A failed public projection must not leave partially changed Content/Search/Outbox rows.
@@ -164,6 +169,18 @@ async def publish_scheduled(session: AsyncSession, config: Settings, draft_id: U
         },
     )
     await session.commit()
+    dispatch(
+        handlers,
+        BusinessEvent(
+            "publish",
+            "failure" if error else "success",
+            stage="scheduled",
+            resource_kind=row.type_id,
+            resource_id=row.id,
+            reason=error or "",
+            state="" if error else publish_outcome,
+        ),
+    )
     return int(error is None)
 
 

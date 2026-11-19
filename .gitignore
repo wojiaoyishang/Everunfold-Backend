@@ -47,6 +47,7 @@ Thumbs.db
 !/app/plugins/__init__.py
 !/app/plugins/ai_writing/
 !/app/plugins/basic_shortcodes/
+!/app/plugins/business_observability/
 !/app/plugins/captcha_google/
 !/app/plugins/captcha_turnstile/
 !/app/plugins/example_cards/

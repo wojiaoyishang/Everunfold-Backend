@@ -17,6 +17,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
+from app.core.plugins.business_events import BusinessEvent
+from app.core.plugins.business_http import mark_committed
 from app.core.redis_keys import redis_key
 from app.core.responses import JSONResponseSuccess
 from app.core.schemas import PublicModel, PublicResponse
@@ -372,4 +374,13 @@ async def submit_comment(payload: SubmitComment, request: Request) -> JSONRespon
             )
         )
         await session.commit()
+    mark_committed(
+        BusinessEvent(
+            "comment_submit",
+            "success",
+            state=status,
+            resource_id=comment.id,
+            resource_kind=item.kind if item else "page",
+        )
+    )
     return JSONResponseSuccess(data=result)

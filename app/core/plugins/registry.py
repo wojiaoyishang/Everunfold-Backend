@@ -8,6 +8,7 @@ from uuid import NAMESPACE_URL, UUID, uuid5
 from fastapi import APIRouter
 
 from app.core.jobs.definitions import TaskDefinition
+from app.core.plugins.business_events import BusinessHandler
 from app.core.plugins.routes import RouteRegistry
 from app.modules.captcha.providers import CaptchaProvider
 from app.modules.notifications.definitions import NotificationEventDefinition
@@ -168,6 +169,23 @@ class CacheEventRegistry:
         self.handler = handler
 
 
+class BusinessEventRegistry:
+    def __init__(self, owner: "PluginRegistry") -> None:
+        self.owner = owner
+        self.handler: BusinessHandler | None = None
+
+    def register(self, handler: BusinessHandler) -> None:
+        self.owner.check_open()
+        if (
+            self.handler is not None
+            or not callable(handler)
+            or inspect.iscoroutinefunction(handler)
+            or inspect.iscoroutinefunction(type(handler).__call__)
+        ):
+            raise ValueError("Register one synchronous business event handler per plugin")
+        self.handler = handler
+
+
 class PluginRegistry:
     def __init__(self, identity: str) -> None:
         self.id = identity
@@ -180,6 +198,7 @@ class PluginRegistry:
         self.routes = RouteRegistry(self)
         self.notifications = NotificationRegistry(self)
         self.cache_events = CacheEventRegistry(self)
+        self.business_events = BusinessEventRegistry(self)
 
     def check_open(self) -> None:
         if not self._open:

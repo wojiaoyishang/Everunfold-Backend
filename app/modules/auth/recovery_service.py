@@ -8,6 +8,8 @@ from uuid import uuid4
 from anyio import to_thread
 from sqlalchemy import delete, select
 
+from app.core.plugins.business_events import BusinessEvent
+from app.core.plugins.business_http import mark_committed
 from app.modules.auth.callback_events import invalidate_user_keys
 from app.modules.auth.models import AuthAuditEvent, BrowserSession, User
 from app.modules.auth.recovery_models import PasswordRecovery
@@ -176,3 +178,4 @@ class RecoveryService:
         row.auth_version = user.auth_version
         row.expires_at = now + timedelta(hours=1)
         await self.session.commit()
+        mark_committed(BusinessEvent("password_recovery", "success", stage="confirm"))

@@ -8,6 +8,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
+from app.core.plugins.business_events import BusinessEvent
+from app.core.plugins.business_http import mark_attempt, mark_committed
 from app.modules.auth.accounts_service import AccountsService
 from app.modules.auth.models import User
 from app.modules.auth.permissions import user_permissions
@@ -184,6 +186,8 @@ class PagesService:
             raise AuthFailure(409, 40997, "该地址已被其他内容或页面使用")
 
     async def save(self, actor: User, payload: SaveManagedPage) -> ManagedPageItem:
+        if payload.apply:
+            mark_attempt("page_visibility", stage="apply", resource_kind="page")
         await lock_references(self.session)
         await SettingsService(self.session, self.config).site(locked=True)
         fingerprint = payload.model_dump(
@@ -208,6 +212,7 @@ class PagesService:
         template = None
         new_group = None
         creating = row is None
+        was_public = row is not None and row.published is not None
         if row is None:
             if payload.expected_revision:
                 raise AuthFailure(404, 40496, "页面不存在")
@@ -348,6 +353,18 @@ class PagesService:
             sensitive=True,
         )
         await self.session.commit()
+        if payload.apply and (was_public or row.published is not None):
+            state = "disabled" if row.published is None else "update" if was_public else "enabled"
+            mark_committed(
+                BusinessEvent(
+                    "page_visibility",
+                    "success",
+                    stage="apply",
+                    resource_kind="page",
+                    resource_id=row.id,
+                    state=state,
+                )
+            )
         return result
 
     async def restore_version(
@@ -465,6 +482,11 @@ class PagesService:
         ).model_dump(mode="json")
 
     async def set_enabled(self, actor: User, payload: SetPageEnabled) -> ManagedPageItem:
+        mark_attempt(
+            "page_visibility",
+            stage="enable" if payload.enabled else "disable",
+            resource_kind="page",
+        )
         await lock_references(self.session)
         await SettingsService(self.session, self.config).site(locked=True)
         cached = await self.accounts.operations.read(
@@ -488,6 +510,7 @@ class PagesService:
             if row.source == "registered" and not available:
                 raise AuthFailure(409, 40998, "前端页面注册缺失或节点版本不一致")
             await self.validate_path(value.path, row.id)
+        was_public = row.published is not None
         row.revision += 1
         row.updated_at = datetime.now(UTC)
         row.data = {**row.data, "enabled": payload.enabled}
@@ -522,6 +545,17 @@ class PagesService:
             sensitive=True,
         )
         await self.session.commit()
+        if was_public != (row.published is not None):
+            mark_committed(
+                BusinessEvent(
+                    "page_visibility",
+                    "success",
+                    stage="enable" if payload.enabled else "disable",
+                    resource_kind="page",
+                    resource_id=row.id,
+                    state="enabled" if payload.enabled else "disabled",
+                )
+            )
         return result
 
     async def remove(self, actor: User, payload: RemoveManagedPage) -> ManagedPageItem:

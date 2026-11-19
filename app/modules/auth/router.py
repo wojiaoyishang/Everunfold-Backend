@@ -6,6 +6,8 @@ from typing import Annotated, cast
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
+from app.core.plugins.business_events import BusinessEvent
+from app.core.plugins.business_http import mark_committed
 from app.core.responses import JSONResponseSuccess
 from app.core.runtime import Runtime
 from app.core.schemas import ErrorResponse, PublicResponse
@@ -88,6 +90,10 @@ async def login(payload: LoginInput, request: Request, service: Service) -> JSON
         payload.password,
         peer(request),
     )
+    if result.state.mfa_required:
+        mark_committed(BusinessEvent("login", "challenge", stage="password"))
+    elif result.state.authenticated:
+        mark_committed(BusinessEvent("login", "success", stage="password"))
     return cookie_response(result, request)
 
 
@@ -107,6 +113,8 @@ async def complete_second_factor(
     result = await TwoFactorService(service).complete_login(
         cookie(request), request.headers.get("X-CSRF-Token"), payload.code
     )
+    if result.state.authenticated:
+        mark_committed(BusinessEvent("login", "success", stage="second_factor"))
     return cookie_response(result, request)
 
 

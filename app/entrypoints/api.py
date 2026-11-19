@@ -26,6 +26,7 @@ from app.core.modules import (
 )
 from app.core.monitor_config import monitoring_config
 from app.core.monitor_metrics import Monitoring
+from app.core.plugins.business_http import BusinessHTTP, mark_error_code
 from app.core.plugins.definition import PluginRuntime
 from app.core.plugins.loader import plugin_catalog
 from app.core.plugins.route_runtime import mount_plugin_routes
@@ -47,6 +48,7 @@ logger = logging.getLogger(__name__)
 def create_app(settings: Settings | None = None) -> FastAPI:
     ip_policy = RequestIPCache()
     plugins = plugin_catalog()
+    business = BusinessHTTP(plugins)
     options = monitoring_config()
     monitoring = Monitoring(options, plugins) if options else None
     i18n.load()
@@ -84,7 +86,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             refresh_task = asyncio.create_task(refresh_translations())
             ip_task = asyncio.create_task(refresh_ip_policy(runtime, ip_policy))
         try:
-            async with plugins.lifespan(PluginRuntime(role="api", runtime=runtime)):
+            async with (
+                plugins.lifespan(PluginRuntime(role="api", runtime=runtime)),
+                business.lifespan(runtime),
+            ):
                 collection = (
                     asyncio.create_task(monitoring.refresh(runtime))
                     if monitoring and runtime is not None
@@ -152,10 +157,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     if monitoring:
         monitoring.install(application)
     application.state.ip_policy = ip_policy
-    application.add_middleware(HTTPAccessMiddleware, policy=ip_policy)
+    application.add_middleware(HTTPAccessMiddleware, policy=ip_policy, business=business)
 
     @application.exception_handler(AuthFailure)
     async def handle_auth_error(request: Request, exc: AuthFailure) -> JSONResponseFail:
+        mark_error_code(exc.code)
         headers = {"Retry-After": str(exc.retry_after)} if exc.retry_after is not None else None
         return JSONResponseFail(
             status_code=exc.status, code=exc.code, msg=exc.message, headers=headers

@@ -3,6 +3,7 @@
 from app.core.jobs.definitions import TaskDefinition
 from app.core.jobs.execution import ResidentContext
 from app.core.jobs.progress import task_progress
+from app.core.plugins.business_events import BusinessEvent
 from app.core.plugins.definition import Plugin, PluginRuntime, define_plugin
 from app.core.plugins.registry import PluginRegistry
 from app.core.plugins.route_runtime import PluginRequest, PluginRequestContext
@@ -36,6 +37,7 @@ __all__ = [
     "NotificationPlatform",
     "publish_notification_event",
     "CacheEvent",
+    "BusinessEvent",
     "CaptchaProvider",
     "Plugin",
     "PluginRegistry",
