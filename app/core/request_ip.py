@@ -3,15 +3,17 @@
 import ipaddress
 import logging
 import re
+from dataclasses import asdict
 from functools import lru_cache
 from time import monotonic, perf_counter
-from typing import Literal
+from typing import Literal, TypedDict
 from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from starlette.datastructures import Headers
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
+from app.core.plugins.business_events import BusinessRequest
 from app.core.plugins.business_http import BusinessHTTP
 from app.core.process_logging import request_log_message, request_log_path
 
@@ -57,6 +59,20 @@ class SavedRequestIPPolicy(RequestIPPolicy):
 
 class SaveRequestIPPolicy(RequestIPPolicy):
     expected_revision: int = Field(ge=0)
+
+
+class IPReport(TypedDict):
+    peer_ip: str | None
+    client_ip: str | None
+    client_ip_source: Header | Literal["peer"] | None
+    trusted_proxy: bool
+    ip_policy_revision: int | None
+    x_real_ip: list[str | None]
+    x_forwarded_for: list[str | None]
+    forwarded: list[str | None]
+    cf_connecting_ip: list[str | None]
+    true_client_ip: list[str | None]
+    x_forwarded_proto: str | None
 
 
 class RequestIPObservation(BaseModel):
@@ -168,9 +184,7 @@ def trusted_networks(
     return tuple(ipaddress.ip_network(value) for value in values)
 
 
-def ip_report(
-    scope: Scope, policy: SavedRequestIPPolicy, policy_available: bool
-) -> dict[str, object]:
+def ip_report(scope: Scope, policy: SavedRequestIPPolicy, policy_available: bool) -> IPReport:
     headers = Headers(scope=scope)
     peer = normalized_ip(scope["client"][0]) if scope.get("client") else None
     reported = {name: header_ips(headers, name) for name in HEADERS}
@@ -199,7 +213,7 @@ def ip_report(
     sources = (policy.source, policy.fallback)
     selected, selected_source = None, None
     for source in sources:
-        if address := resolve(source):
+        if source != "none" and (address := resolve(source)):
             selected, selected_source = address, source
             break
     forwarded_proto = headers.getlist("x-forwarded-proto")
@@ -209,7 +223,11 @@ def ip_report(
         "client_ip_source": selected_source,
         "trusted_proxy": trusted,
         "ip_policy_revision": policy.revision if policy_available else None,
-        **{name.replace("-", "_"): value for name, value in reported.items()},
+        "x_real_ip": reported["x-real-ip"],
+        "x_forwarded_for": reported["x-forwarded-for"],
+        "forwarded": reported["forwarded"],
+        "cf_connecting_ip": reported["cf-connecting-ip"],
+        "true_client_ip": reported["true-client-ip"],
         "x_forwarded_proto": (
             forwarded_proto[0]
             if len(forwarded_proto) == 1 and forwarded_proto[0] in ("http", "https")
@@ -258,31 +276,39 @@ class HTTPAccessMiddleware:
                 status = 500
             raise
         finally:
+            origin = ip_report(scope, *self.policy.current())
+            # ASGI keeps the query string separate from the path.
+            target = (scope.get("raw_path") or b"").decode("latin-1") or scope["path"]
+            user_agent = Headers(scope=scope).get("user-agent", "")
+            request = BusinessRequest(
+                method=scope["method"],
+                request_url=request_log_path(target),
+                route=getattr(scope.get("route"), "path", None),
+                user_agent=re.sub(r"[\x00-\x1f\x7f-\x9f]", " ", user_agent[:512]).strip() or None,
+                duration_ms=round((perf_counter() - started) * 1000, 3),
+                client_ip=origin["client_ip"],
+                client_ip_source=origin["client_ip_source"],
+                peer_ip=origin["peer_ip"],
+                trusted_proxy=origin["trusted_proxy"],
+                ip_policy_revision=origin["ip_policy_revision"],
+            )
             if self.business is not None and business_token is not None:
-                self.business.finish(business_token, request_id, status)
+                self.business.finish(business_token, request_id, status, request)
             if log_access:
-                method = scope["method"]
-                # ASGI keeps the query string separate from the path.
-                target = (scope.get("raw_path") or b"").decode("latin-1") or scope["path"]
-                path = request_log_path(target)
-                user_agent = Headers(scope=scope).get("user-agent", "")
                 logger.info(
-                    request_log_message(method, path, status if status is not None else outcome),
+                    request_log_message(
+                        request.method,
+                        request.request_url,
+                        status if status is not None else outcome,
+                    ),
                     extra={
                         "http_access": {
+                            **asdict(request),
+                            **origin,
                             "request_id": request_id,
-                            "request_url": path,
-                            "route": getattr(scope.get("route"), "path", None),
                             "http_version": scope.get("http_version"),
-                            "user_agent": re.sub(
-                                r"[\x00-\x1f\x7f-\x9f]", " ", user_agent[:512]
-                            ).strip()
-                            or None,
-                            "method": method,
                             "status": status,
                             "outcome": outcome,
-                            "duration_ms": round((perf_counter() - started) * 1000, 3),
-                            **ip_report(scope, *self.policy.current()),
                         }
                     },
                 )

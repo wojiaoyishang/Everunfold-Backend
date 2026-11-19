@@ -7,6 +7,7 @@ from datetime import UTC, datetime, timedelta
 from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 
 import pytest
+from fastapi.testclient import TestClient
 from sqlalchemy import update
 
 from app.core.database import Database
@@ -14,6 +15,7 @@ from app.core.plugins.business_events import BusinessEvent, dispatch, subscriber
 from app.core.plugins.loader import collect_plugins, plugin_catalog
 from app.core.plugins.state import CATALOG_KEY
 from app.core.process_logging import BUSINESS_LOGGER, RuntimeLogFormatter
+from app.entrypoints.api import create_app
 from app.modules.auth.email_verification_delivery import deliver as deliver_verification
 from app.modules.auth.email_verification_models import EmailVerification
 from app.modules.auth.models import User
@@ -114,7 +116,7 @@ def test_real_http_business_events_are_committed_once(
     bad = visitor.post(
         "/v1/auth/login",
         json={
-            "username": ctx.name,
+            "username": "  Fixture.Login  ",
             "password": "sentinel-login-password",
         },
         headers=headers(visitor),
@@ -194,6 +196,7 @@ def test_real_http_business_events_are_committed_once(
     ]
     denied = next(row for row in rows if row["symbol"] == "business.login.failure")
     assert (denied["status"], denied["business_error_code"]) == (401, 40110)
+    assert denied["business_attempted_username"] == "fixture.login"
     assert any(
         getattr(record, "http_access", {}).get("request_id") == denied["request_id"]
         for record in caplog.records
@@ -201,6 +204,103 @@ def test_real_http_business_events_are_committed_once(
     serialized = json.dumps(rows)
     assert "sentinel-" not in serialized
     assert ctx.name not in serialized
+
+
+def test_business_http_uses_the_configured_request_origin(
+    business_database: AccountsTest,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    ctx = business_database
+
+    async def prepare() -> None:
+        database = Database(ctx.settings.database.url.get_secret_value())
+        try:
+            await install(database, ctx)
+        finally:
+            await database.close()
+
+    asyncio.run(prepare())
+    caplog.set_level(logging.INFO, logger=BUSINESS_LOGGER)
+    caplog.set_level(logging.INFO, logger="uvicorn.error.everunfold.http")
+    trusted = create_app(ctx.settings)
+    with TestClient(trusted, client=("192.0.2.17", 50000)) as client:
+        signed_in(client, ctx.name)
+        configured = client.patch(
+            "/v1/admin/settings/real-ip",
+            json={
+                "source": "x-forwarded-for",
+                "fallback": "none",
+                "trusted_proxies": ["192.0.2.0/24"],
+                "expected_revision": 0,
+            },
+            headers=headers(client),
+        )
+        assert configured.status_code == 200, configured.text
+        assert client.post("/v1/auth/logout", headers=headers(client)).status_code == 200
+        browser = {
+            **headers(client),
+            "User-Agent": "Everunfold Fixture Browser",
+            "X-Forwarded-For": "198.51.100.12, 192.0.2.4",
+        }
+        failure = client.post(
+            "/v1/auth/login?ignored=fixture",
+            json={"username": "  Other.User  ", "password": "sentinel-http-secret"},
+            headers=browser,
+        )
+        assert failure.status_code == 401
+        invalid = client.post(
+            "/v1/auth/login",
+            json={"username": "private-local@Example.Test"},
+            headers=browser,
+        )
+        assert invalid.status_code == 422
+    untrusted = create_app(ctx.settings)
+    with TestClient(untrusted, client=("203.0.113.9", 50000)) as client:
+        response = client.post(
+            "/v1/auth/login",
+            json={"username": "untrusted.fixture"},
+            headers={
+                **headers(client),
+                "User-Agent": "Other Browser",
+                "X-Forwarded-For": "198.51.100.12",
+            },
+        )
+        assert response.status_code == 422
+
+    rows = {row.get("business_attempted_username"): row for row in business_rows(caplog, "fastapi")}
+    denied = rows["other.user"]
+    assert denied["client_ip"] == "198.51.100.12"
+    assert denied["peer_ip"] == "192.0.2.17"
+    assert denied["client_ip_source"] == "x-forwarded-for"
+    assert denied["trusted_proxy"] is True
+    assert denied["ip_policy_revision"] == 1
+    assert denied["user_agent"] == "Everunfold Fixture Browser"
+    assert denied["request_url"] == denied["route"] == "/v1/auth/login"
+    access = next(
+        record.http_access
+        for record in caplog.records
+        if getattr(record, "http_access", {}).get("request_id") == denied["request_id"]
+    )
+    for key in (
+        "client_ip",
+        "client_ip_source",
+        "peer_ip",
+        "trusted_proxy",
+        "ip_policy_revision",
+        "user_agent",
+        "request_url",
+        "route",
+        "duration_ms",
+        "method",
+        "status",
+    ):
+        assert access[key] == denied[key]
+    assert rows["***@example.test"]["status"] == 422
+    assert rows["untrusted.fixture"]["peer_ip"] == "203.0.113.9"
+    assert rows["untrusted.fixture"]["client_ip"] is None
+    assert rows["untrusted.fixture"]["trusted_proxy"] is False
+    assert "private-local" not in json.dumps(rows)
+    assert "sentinel-http-secret" not in json.dumps(rows)
 
 
 def test_notifications_record_outcomes_from_smtp_and_inbox(
@@ -330,6 +430,14 @@ def test_notifications_record_outcomes_from_smtp_and_inbox(
         == 2
     )
     assert any(row.get("business_notification_type") == EMAIL_VERIFICATION for row in rows)
+    smtp_rows = [row for row in rows if row.get("business_channel") == EMAIL]
+    assert all(row.get("business_recipient_domain") == "example.test" for row in smtp_rows)
+    assert all(row.get("business_mail_profile_id") == str(mail_id) for row in smtp_rows)
+    assert all(
+        isinstance(row.get("business_delivery_duration_ms"), (int, float)) for row in smtp_rows
+    )
+    assert all(row.get("business_attempt") == 1 for row in smtp_rows)
+    assert all("client_ip" not in row and "user_agent" not in row for row in smtp_rows)
     assert any(
         row.get("business_reason") == "recipient_rejected" and row["business_result"] == "failure"
         for row in rows

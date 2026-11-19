@@ -1,6 +1,7 @@
 """Render and send security mail without recording codes or recipient data in task logs."""
 
 import asyncio
+from time import perf_counter
 from typing import Any
 from uuid import UUID
 
@@ -77,14 +78,16 @@ async def verification_message(
 
 async def send_security_mail(
     profile: MailProfile, recipient: str, identity: UUID, message: tuple[str, str, str]
-) -> tuple[str, str | None]:
+) -> tuple[str, str | None, float]:
     budget = min(120, max(15, profile.value.timeout_seconds * 4)) + 5
+    started = perf_counter()
     try:
-        return await asyncio.wait_for(
+        status, error = await asyncio.wait_for(
             asyncio.to_thread(
                 send_notification, profile.value, profile.password, recipient, identity, *message
             ),
             timeout=budget,
         )
     except TimeoutError:
-        return "unknown", "delivery_unknown"
+        status, error = "unknown", "delivery_unknown"
+    return status, error, round((perf_counter() - started) * 1000, 3)

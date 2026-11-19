@@ -7,7 +7,7 @@ from typing import Annotated, cast
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from app.core.plugins.business_events import BusinessEvent
-from app.core.plugins.business_http import mark_committed
+from app.core.plugins.business_http import mark_committed, mark_login_identifier
 from app.core.responses import JSONResponseSuccess
 from app.core.runtime import Runtime
 from app.core.schemas import ErrorResponse, PublicResponse
@@ -79,6 +79,7 @@ async def read_session(request: Request, service: Service) -> JSONResponseSucces
 async def login(payload: LoginInput, request: Request, service: Service) -> JSONResponseSuccess:
     from app.modules.captcha.service import CaptchaService, guard
 
+    mark_login_identifier(payload.username)
     permit = await CaptchaService(auth_runtime(request), peer(request)).enforce(
         "login", None, payload.captcha
     )

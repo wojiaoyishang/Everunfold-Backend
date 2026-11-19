@@ -2,6 +2,7 @@
 
 import asyncio
 from datetime import UTC, datetime, timedelta
+from time import perf_counter
 from uuid import UUID, uuid4
 
 from sqlalchemy import or_, select
@@ -68,6 +69,8 @@ async def deliver_notifications(config: Settings) -> dict[str, int]:
                         expired_row.id,
                         reason="execution_lease_expired",
                         attempt=expired_row.attempts,
+                        recipient=expired_row.destination,
+                        mail_profile_id=expired_row.mail_profile_id,
                     ),
                 )
         async with database.session_factory() as session:
@@ -102,7 +105,9 @@ async def deliver_notifications(config: Settings) -> dict[str, int]:
                 candidate.attempts += 1
                 await session.commit()
 
+            started = perf_counter()
             status, error = await _deliver_one(config, identity, lease)
+            duration_ms = round((perf_counter() - started) * 1000, 3)
             async with database.session_factory() as session:
                 claimed = await session.get(NotificationDelivery, identity, with_for_update=True)
                 if claimed is None or claimed.lease_id != lease:
@@ -139,6 +144,9 @@ async def deliver_notifications(config: Settings) -> dict[str, int]:
                         kind=kind,
                         reason=error,
                         attempt=claimed.attempts,
+                        recipient=claimed.destination,
+                        mail_profile_id=claimed.mail_profile_id,
+                        duration_ms=duration_ms,
                     ),
                 )
             delivered += 1

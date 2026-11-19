@@ -14,10 +14,12 @@ from starlette.types import Scope
 from app.core.plugins.business_events import (
     BusinessAction,
     BusinessEvent,
+    BusinessRequest,
     BusinessSubscribers,
     dispatch,
     subscribers,
 )
+from app.core.plugins.business_identity import login_identifier
 
 if TYPE_CHECKING:
     from app.core.plugins.loader import PluginCatalog
@@ -60,6 +62,14 @@ def mark_attempt(action: BusinessAction, *, stage: str = "", resource_kind: str 
             stage=stage or operation.event.stage,
             resource_kind=resource_kind,
         )
+
+
+def mark_login_identifier(value: object, *, password_only: bool = False) -> None:
+    if not (operation := current.get()) or operation.event.action != "login":
+        return
+    if password_only and operation.event.stage != "password":
+        return
+    operation.event = replace(operation.event, attempted_username=login_identifier(value))
 
 
 def mark_committed(event: BusinessEvent) -> None:
@@ -131,14 +141,21 @@ class BusinessHTTP:
         action, stage = target
         return current.set(Operation(BusinessEvent(action, "failure", stage=stage)))
 
-    def finish(self, token: Token[Operation | None], request_id: str, status: int | None) -> None:
+    def finish(
+        self,
+        token: Token[Operation | None],
+        request_id: str,
+        status: int | None,
+        request: BusinessRequest,
+    ) -> None:
         operation = current.get()
         current.reset(token)
         if operation is None:
             return
         if operation.committed is not None:
             dispatch(
-                self.handlers, replace(operation.committed, request_id=request_id, status=status)
+                self.handlers,
+                replace(operation.committed, request_id=request_id, status=status, request=request),
             )
         elif status is not None and status >= 400 and operation.event.stage != "draft":
             dispatch(
@@ -147,6 +164,7 @@ class BusinessHTTP:
                     operation.event,
                     request_id=request_id,
                     status=status,
+                    request=request,
                     error_code=operation.error_code,
                 ),
             )

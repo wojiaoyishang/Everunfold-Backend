@@ -3,6 +3,7 @@
 from uuid import UUID
 
 from app.core.plugins.business_events import BusinessEvent, BusinessResult
+from app.core.plugins.business_identity import email_domain
 
 RESULTS: dict[str, BusinessResult] = {
     "sent": "success",
@@ -41,6 +42,15 @@ REASONS = {
 }
 
 
+def mail_profile_identifier(value: str | UUID | None) -> str:
+    if value is None:
+        return ""
+    try:
+        return str(UUID(str(value)))
+    except ValueError:
+        return ""
+
+
 def delivery_event(
     status: str,
     channel: str,
@@ -50,6 +60,9 @@ def delivery_event(
     reason: str | None = None,
     attempt: int | None = None,
     stage: str = "delivery",
+    recipient: str = "",
+    mail_profile_id: str | UUID | None = None,
+    duration_ms: float | None = None,
 ) -> BusinessEvent:
     result = RESULTS[status]
     if reason not in REASONS:
@@ -71,4 +84,7 @@ def delivery_event(
         notification_type=kind,
         reason=reason or "",
         attempt=attempt,
+        recipient_domain=email_domain(recipient) if channel == "email" else "",
+        mail_profile_id=mail_profile_identifier(mail_profile_id) if channel == "email" else "",
+        delivery_duration_ms=duration_ms,
     )

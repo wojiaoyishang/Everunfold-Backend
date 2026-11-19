@@ -25,9 +25,9 @@ def log_event(event: BusinessEvent) -> None:
         reason = HTTP_REASONS.get(
             event.status, "server_error" if event.status >= 500 else "rejected"
         )
-    fields = {
-        key: value for key, value in asdict(event).items() if value is not None and value != ""
-    }
+    values = asdict(event)
+    request = values.pop("request") or {}
+    fields = {key: value for key, value in values.items() if value is not None and value != ""}
     if reason:
         fields["reason"] = reason
     if event.resource_id is not None:
@@ -46,8 +46,13 @@ def log_event(event: BusinessEvent) -> None:
         event.result,
         extra={
             "business_event": {
-                key if key in {"request_id", "status", "resource_id"} else "business_" + key: value
-                for key, value in fields.items()
+                **request,
+                **{
+                    key
+                    if key in {"request_id", "status", "resource_id"}
+                    else "business_" + key: value
+                    for key, value in fields.items()
+                },
             },
             "symbol": f"business.{event.action}.{event.result}",
         },

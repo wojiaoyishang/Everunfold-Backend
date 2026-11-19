@@ -93,6 +93,8 @@ async def deliver(config: Settings) -> dict[str, int]:
                         row.id,
                         kind=kind,
                         stage="security_mail",
+                        recipient=row.email,
+                        mail_profile_id=row.mail_profile_id,
                         reason="request_unavailable"
                         if mail_available or notice_disabled
                         else "email_not_configured",
@@ -120,7 +122,7 @@ async def deliver(config: Settings) -> dict[str, int]:
         message_id = (
             uuid5(NAMESPACE_URL, f"password-reset-notice:{identity}") if notice else identity
         )
-        result, error = await send_security_mail(mail, recipient, message_id, message)
+        result, error, duration_ms = await send_security_mail(mail, recipient, message_id, message)
         async with database.session_factory() as session:
             updated = await session.scalar(
                 update(PasswordRecovery)
@@ -142,6 +144,10 @@ async def deliver(config: Settings) -> dict[str, int]:
                     kind=kind,
                     reason=error,
                     stage="security_mail",
+                    recipient=recipient,
+                    mail_profile_id=mail.id,
+                    duration_ms=duration_ms,
+                    attempt=1,
                 ),
             )
         return {"processed": 1}

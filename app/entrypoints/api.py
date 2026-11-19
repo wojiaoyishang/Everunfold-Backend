@@ -26,7 +26,7 @@ from app.core.modules import (
 )
 from app.core.monitor_config import monitoring_config
 from app.core.monitor_metrics import Monitoring
-from app.core.plugins.business_http import BusinessHTTP, mark_error_code
+from app.core.plugins.business_http import BusinessHTTP, mark_error_code, mark_login_identifier
 from app.core.plugins.definition import PluginRuntime
 from app.core.plugins.loader import plugin_catalog
 from app.core.plugins.route_runtime import mount_plugin_routes
@@ -175,6 +175,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def handle_validation_error(
         request: Request, exc: RequestValidationError
     ) -> JSONResponseFail:
+        if isinstance(exc.body, dict):
+            mark_login_identifier(exc.body.get("username"), password_only=True)
         return JSONResponseFail(msg="请求参数无效", status_code=422)
 
     @application.exception_handler(Exception)

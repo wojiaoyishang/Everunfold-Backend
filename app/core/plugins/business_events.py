@@ -27,6 +27,20 @@ BusinessResult = Literal["success", "failure", "challenge", "suppressed", "unkno
 
 
 @dataclass(frozen=True)
+class BusinessRequest:
+    method: str
+    request_url: str | None
+    route: str | None
+    user_agent: str | None
+    duration_ms: float
+    client_ip: str | None
+    client_ip_source: str | None
+    peer_ip: str | None
+    trusted_proxy: bool
+    ip_policy_revision: int | None
+
+
+@dataclass(frozen=True)
 class BusinessEvent:
     action: BusinessAction
     result: BusinessResult
@@ -44,6 +58,11 @@ class BusinessEvent:
     affected_count: int | None = None
     role_changed: bool | None = None
     account_enabled: bool | None = None
+    request: BusinessRequest | None = None
+    attempted_username: str = ""
+    recipient_domain: str = ""
+    mail_profile_id: str = ""
+    delivery_duration_ms: float | None = None
 
 
 BusinessHandler = Callable[[BusinessEvent], None]

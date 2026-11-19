@@ -16,6 +16,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import AuthConfig
+from app.core.plugins.business_http import mark_login_identifier
 from app.modules.auth.accounts_service import AccountsService
 from app.modules.auth.models import (
     AuthAuditEvent,
@@ -234,6 +235,8 @@ class TwoFactorService:
         user = await self.session.scalar(
             select(User).where(User.id == row.user_id).with_for_update()
         )
+        if user is not None:
+            mark_login_identifier(user.username)
         credential = await self.credential(row.user_id, lock=True)
         if (
             not user

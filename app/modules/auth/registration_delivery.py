@@ -74,6 +74,8 @@ async def deliver(config: Settings) -> dict[str, Any]:
                         row.id,
                         kind=REGISTRATION_VERIFICATION,
                         stage="security_mail",
+                        recipient=row.email,
+                        mail_profile_id=row.mail_profile_id,
                         reason="request_unavailable" if mail_available else "email_not_configured",
                     ),
                 )
@@ -96,7 +98,7 @@ async def deliver(config: Settings) -> dict[str, Any]:
             await session.commit()
 
         await task_progress(stage="registration", message="Sending registration verification email")
-        status, error = await send_security_mail(mail, recipient, identity, message)
+        status, error, duration_ms = await send_security_mail(mail, recipient, identity, message)
         async with database.session_factory() as session:
             updated = await session.scalar(
                 update(PendingRegistration)
@@ -119,6 +121,10 @@ async def deliver(config: Settings) -> dict[str, Any]:
                     kind=REGISTRATION_VERIFICATION,
                     reason=error,
                     stage="security_mail",
+                    recipient=recipient,
+                    mail_profile_id=mail.id,
+                    duration_ms=duration_ms,
+                    attempt=1,
                 ),
             )
         return {"processed": 1}
