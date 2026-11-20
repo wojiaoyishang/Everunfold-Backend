@@ -83,7 +83,7 @@
     .query-table th, .query-table td { padding: .45rem .6rem; border-bottom: 1px solid var(--line); text-align: right; }
     .query-table th:first-child { text-align: left; }
     .query-table thead th { color: var(--muted); font-weight: 500; }
-    dialog { width: min(100% - 2rem, 28rem); padding: 1.2rem; color: var(--text); }
+    dialog { width: min(100% - 2rem, 32rem); max-height: calc(100dvh - 2rem); overflow-y: auto; padding: 1.2rem; color: var(--text); }
     dialog::backdrop { background: #10182680; }
     dialog form, dialog .fields { display: grid; gap: .8rem; }
     dialog .fields { border: 0; padding: 0; margin: 0; min-width: 0; }
@@ -162,14 +162,13 @@
       <form id="node-form">
         <h2 id="editor-title"></h2>
         <fieldset class="fields" id="fields">
-          <label>节点 ID<input id="node-id" required maxlength="64" pattern="[A-Za-z0-9][A-Za-z0-9_\\-]{0,63}"></label>
+          <label>节点 ID<input id="node-id" required maxlength="64" pattern="[A-Za-z0-9][A-Za-z0-9_\-]{0,63}"></label>
           <label>此节点的内部接收器 URL<input id="node-url" type="url" maxlength="512" placeholder="http://everunfold-frontend:3000"></label>
           <label class="check"><input id="node-private-http" type="checkbox"> 允许私有网络 HTTP 接收</label>
-          <dl>
-            <dt>前端 → 后端令牌</dt><dd id="node-inbound"></dd>
-            <dt>后端 → 前端令牌</dt><dd id="node-outbound"></dd>
-          </dl>
-          <label>前端内部调用后端的来源 IP/CIDR<input id="node-peers" readonly></label>
+          <label>前端 → 后端令牌<input id="node-inbound" type="password" autocomplete="new-password" minlength="32" maxlength="4096"></label>
+          <label>后端 → 前端令牌<input id="node-outbound" type="password" autocomplete="new-password" minlength="32" maxlength="4096"></label>
+          <label class="check"><input id="node-inherit-peers" type="checkbox"> 继承后端的全局来源规则</label>
+          <label>此节点允许的来源 IP/CIDR<input id="node-peers" maxlength="2600" spellcheck="false" placeholder="例如 192.0.2.12, 10.0.0.0/24"></label>
           <label class="check"><input id="node-enabled" type="checkbox"> 启用</label>
         </fieldset>
         <p id="action-description" class="muted"></p>
@@ -231,6 +230,7 @@
         delivery_unavailable: "无法连接接收器",
         invalid_receipt: "接收回执不匹配",
         source_epoch_changed: "数据来源已变更",
+        node_connection_changed: "节点连接已更新",
         receiver_http_409: "接收器拒绝应用",
         delivery_failed: "投递失败",
       }));
@@ -476,9 +476,8 @@
         if (node.enabled && node.receiver_configured && revision !== null) {
           actions.append(operationButton("重新同步", "sync"));
         }
-        if (revision > 0) {
-          actions.append(operationButton("配置", "edit"), operationButton("删除", "delete"));
-        }
+        if (revision !== null) actions.append(operationButton("配置", "edit"));
+        if (revision > 0) actions.append(operationButton("删除", "delete"));
         heading.append(el("h2", node.id), actions);
         const connection = el("div", undefined, "connection");
         const report = el("div");
@@ -511,21 +510,22 @@
         const id = byId("node-id");
         const url = byId("node-url");
         id.required = editable;
-        url.required = editable && Boolean(binding);
-        url.disabled = !binding;
+        url.required = editable && Boolean(binding?.settings_receiver_url);
         id.readOnly = !editable || operation === "edit" || paired;
         id.value = node?.id ?? "";
         url.value = binding?.settings_receiver_url ?? "";
         byId("node-private-http").checked = binding?.allow_private_http ?? false;
-        byId("node-private-http").disabled = !binding;
-        byId("node-inbound").textContent = binding?.inbound_configured ? "已配置（沿用 setup）" : "未配置";
-        byId("node-outbound").textContent = binding?.outbound_configured ? "已配置（沿用 setup）" : "未配置";
-        byId("node-peers").value = allowedPeerIps.join(", ");
+        for (const direction of ["inbound", "outbound"]) {
+          const field = byId("node-" + direction);
+          field.value = "";
+          field.placeholder = binding?.[direction + "_configured"] ? "已配置，留空沿用" : "填写至少 32 个字符";
+        }
+        byId("node-inherit-peers").checked = binding?.allowed_peer_ips == null;
+        inheritedPeers(binding?.allowed_peer_ips ?? []);
         byId("node-enabled").checked = node?.enabled ?? false;
-        byId("node-enabled").disabled = !binding;
         byId("action-description").textContent = {
-          add: paired ? "令牌和来源规则沿用 setup。前端发布 URL 由前端自行上报。" : "先在 setup 保存该节点的配对；未配对时只能保存为停用。",
-          edit: "令牌和来源规则在 setup 修改。更换内部接收器前请先停用节点。",
+          add: paired ? "留空沿用已保存的令牌。前端发布 URL 由前端上报。" : "手动配对需填写内部接收器和两个方向的令牌。",
+          edit: "已启用的节点可以直接保存。更换令牌后，请在对应前端填入同样的新值。",
           delete: "删除 " + node?.id + " 后会停止向它投递，并拒绝后续上报。保留历史记录与前端副本。",
           sync: "向 " + node?.id + " 重发当前站点设置、缓存策略和公开内容。",
         }[operation];
@@ -534,10 +534,21 @@
         editor.showModal();
         (editable ? id.readOnly ? url : id : byId("cancel")).focus();
       }
+      function inheritedPeers(values) {
+        const field = byId("node-peers");
+        const inherit = byId("node-inherit-peers").checked;
+        field.disabled = inherit;
+        field.required = !inherit;
+        field.value = (inherit ? allowedPeerIps : values).join(", ");
+      }
+      byId("node-inherit-peers").addEventListener("change", () => {
+        inheritedPeers(pairings[action?.id]?.allowed_peer_ips ?? []);
+      });
       byId("add").addEventListener("click", () => openEditor("add", null, byId("add")));
       byId("cancel").addEventListener("click", () => editor.close());
       editor.addEventListener("cancel", (event) => { if (mutating) event.preventDefault(); });
       editor.addEventListener("close", () => {
+        byId("node-inbound").value = byId("node-outbound").value = "";
         if (returnFocus?.isConnected) returnFocus.focus();
         else byId("refresh").focus();
         action = null;
@@ -547,13 +558,23 @@
         if (!action || mutating) return;
         const { operation, revision: expected, id } = action;
         const payload = { action: operation, expected_revision: expected, node_id: id ?? byId("node-id").value.trim() };
-        if (operation === "add" || operation === "edit") payload.registration = {
-          enabled: byId("node-enabled").checked,
-        };
-        if ((operation === "add" || operation === "edit") && !byId("node-url").disabled) payload.connection = {
-          settings_receiver_url: byId("node-url").value.trim(),
-          allow_private_http: byId("node-private-http").checked,
-        };
+        if (operation === "add" || operation === "edit") {
+          payload.registration = { enabled: byId("node-enabled").checked };
+          const inbound = byId("node-inbound").value;
+          const outbound = byId("node-outbound").value;
+          if (inbound || outbound) {
+            payload.credentials = {};
+            if (inbound) payload.credentials.inbound = inbound;
+            if (outbound) payload.credentials.outbound = outbound;
+          }
+          const receiver = byId("node-url").value.trim();
+          if (receiver) payload.connection = {
+            settings_receiver_url: receiver,
+            allow_private_http: byId("node-private-http").checked,
+          };
+          payload.allowed_peer_ips = byId("node-inherit-peers").checked ? null :
+            byId("node-peers").value.trim().split(/[\s,，]+/).filter(Boolean);
+        }
         mutating = true;
         byId("submit").disabled = byId("cancel").disabled = true;
         byId("action-error").textContent = "";
@@ -596,7 +617,7 @@
           pendingPairings = new Set(value.pending_pairings ?? []);
           pairings = value.pairings ?? {};
           allowedPeerIps = value.allowed_peer_ips ?? [];
-          byId("add").hidden = !(revision > 0);
+          byId("add").hidden = revision === null;
           byId("sample").textContent = "更新时间 " + stamp(value.sampled_at);
           byId("notice").textContent = revision === null ?
             "无法读取运行清单，以下为部署文件中的参考节点。" :
@@ -620,11 +641,6 @@
               (item) => item.dataset.node === focused.node && item.dataset.action === focused.action
             ) ?? buttons.find((item) => item.dataset.node === focused.node && item.dataset.action === "edit");
             (target ?? (byId("add").hidden ? byId("refresh") : byId("add"))).focus();
-          }
-          if (revision === 0 && !pendingPairings.size) {
-            byId("notice").textContent = value.nodes.length
-              ? "当前使用部署文件。导入节点清单后可在此增删和配置。"
-              : "在 setup 保存前端配对并重启后端。";
           }
         } catch {
           byId("notice").textContent = "状态更新失败。页面保留上次读取的数据。";

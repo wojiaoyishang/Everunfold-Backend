@@ -2,14 +2,13 @@
 
 import hmac
 import ipaddress
-import os
 from urllib.parse import urlsplit
 
 from fastapi import APIRouter, HTTPException, Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.access_diagnostics import SyncBoundary, log_access
-from app.core.config import FrontendConfig, Settings, is_loopback_host
+from app.core.config import Settings, is_loopback_host
 from app.core.plugins.loader import plugin_catalog
 from app.core.responses import JSONResponseSuccess
 from app.core.schemas import ErrorResponse, PublicResponse
@@ -25,7 +24,7 @@ from app.modules.settings.extensions_schemas import (
 )
 from app.modules.settings.extensions_service import catalog, install_inventory
 from app.modules.settings.manual_sync import stage_node_recovery, stage_node_sync
-from app.modules.settings.node_registry import NodeId, NodeRegistration, read_targets
+from app.modules.settings.node_registry import NodeBinding, NodeId, NodeRegistration, read_targets
 from app.modules.settings.request_ip import read_ip_policy
 from app.modules.settings.router import Authorized
 from app.modules.settings.sync_access import SyncVisit, observe_sync, token_check
@@ -76,7 +75,14 @@ async def authorize_node(
     session: AsyncSession,
     config: Settings,
     visit: SyncVisit,
-) -> FrontendConfig:
+) -> NodeBinding:
+    node = (await read_targets(session, config)).get(node_id)
+    peers = (
+        node.allowed_peer_ips
+        if node is not None and node.allowed_peer_ips is not None
+        else config.internal_auth.allowed_peer_ips
+    )
+
     def denied(code: str) -> AuthFailure:
         visit.reason_code = code
         log_access(
@@ -84,16 +90,13 @@ async def authorize_node(
             code,
             request=request,
             node_id=node_id,
-            allowed_peer_ips=config.internal_auth.allowed_peer_ips,
+            allowed_peer_ips=peers,
         )
         return AuthFailure(403, 40320, "内部请求未通过验证")
 
     try:
         address = ipaddress.ip_address(request.client.host if request.client else "")
-        allowed = any(
-            address in ipaddress.ip_network(network, strict=False)
-            for network in config.internal_auth.allowed_peer_ips
-        )
+        allowed = any(address in ipaddress.ip_network(network, strict=False) for network in peers)
     except ValueError:
         allowed = False
     supplied = request.headers.get("authorization", "")
@@ -102,12 +105,11 @@ async def authorize_node(
         raise denied("peer_not_allowed")
     if visit.token_check != "unchecked":
         raise denied("token_missing")
-    node = (await read_targets(session, config)).get(node_id)
     if not node:
         raise denied("node_not_registered")
     if not node.enabled:
         raise denied("node_disabled")
-    token = os.environ.get(node.nextjs_to_fastapi_token_env, "")
+    token = node.token(config, node_id, "inbound")
     if not token:
         raise denied("token_unconfigured")
     if not hmac.compare_digest(supplied.encode(), ("Bearer " + token).encode()):

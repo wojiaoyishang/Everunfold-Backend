@@ -2,7 +2,6 @@
 
 import hashlib
 import json
-import os
 import uuid
 from datetime import UTC, datetime, timedelta
 
@@ -89,7 +88,7 @@ async def deliver_batch(config: Settings) -> int:
                 )
             if active_lease != lease:
                 continue
-            secret = os.environ.get(target.fastapi_to_nextjs_token_env, "") if target else ""
+            secret = target.token(config, node_id, "outbound") if target else ""
             if (
                 not target
                 or not target.enabled

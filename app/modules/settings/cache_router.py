@@ -1,7 +1,6 @@
 """Admin access to a node's real disk state and cache maintenance."""
 
 import asyncio
-import os
 from datetime import UTC, datetime
 from typing import Annotated, Literal
 
@@ -9,7 +8,6 @@ import httpx2 as httpx
 from fastapi import APIRouter, Query, Request
 from pydantic import ValidationError
 
-from app.core.config import FrontendConfig
 from app.core.query_cache_schemas import QueryCacheReport, QueryCacheReportRequest
 from app.core.responses import JSONResponseSuccess
 from app.core.runtime import Runtime
@@ -29,7 +27,7 @@ from app.modules.settings.cache_schemas import (
     CacheReceiverTarget,
 )
 from app.modules.settings.models import SettingsAudit
-from app.modules.settings.node_registry import NodeId, read_directory
+from app.modules.settings.node_registry import NodeBinding, NodeId, read_directory
 from app.modules.settings.nodes_schemas import NodeStatus, ReceiverProbe
 from app.modules.settings.router import Authorized
 from app.modules.settings.sync_status import read_history
@@ -59,7 +57,7 @@ class ReceiverFailure(Exception):
 
 async def receiver_request[Result: PublicModel](
     runtime: Runtime,
-    target: FrontendConfig | None,
+    target: NodeBinding | None,
     identity: CacheReceiverTarget,
     response_type: type[Result],
     *,
@@ -69,7 +67,7 @@ async def receiver_request[Result: PublicModel](
         raise ReceiverFailure("not_configured")
     if not target.enabled:
         raise ReceiverFailure("disabled")
-    secret = os.environ.get(target.fastapi_to_nextjs_token_env, "")
+    secret = target.token(runtime.settings, identity.node_id, "outbound")
     if len(secret) < 32:
         raise ReceiverFailure("credential_missing")
     url = target.settings_receiver_url + f"/internal/cache/v1/{operation}"
@@ -115,7 +113,7 @@ async def receiver_request[Result: PublicModel](
     return report
 
 
-async def cache_node(node_id: str, ctx: Authorized) -> tuple[NodeStatus, FrontendConfig | None]:
+async def cache_node(node_id: str, ctx: Authorized) -> tuple[NodeStatus, NodeBinding | None]:
     directory = await read_directory(ctx.service.session, ctx.service.config)
     entry = directory.entries.get(node_id)
     if entry is None:
@@ -262,6 +260,7 @@ async def delete_cache(
             and current_target.enabled
             and current_target.settings_receiver_url == target.settings_receiver_url
             and current_target.fastapi_to_nextjs_token_env == target.fastapi_to_nextjs_token_env
+            and current_target.encrypted_outbound == target.encrypted_outbound
         )
         if same_receiver:
             await ContentPublication(service.session, service.config).stage_retry(

@@ -23,6 +23,7 @@ def display_error(error: str | None) -> str | None:
         return None
     if error in {
         "node_not_configured",
+        "node_connection_changed",
         "invalid_receipt",
         "source_epoch_changed",
         "delivery_unavailable",

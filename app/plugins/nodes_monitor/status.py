@@ -1,7 +1,6 @@
 """Read-only status assembled from delivery history, telemetry and node probes."""
 
 import asyncio
-import os
 import time
 from datetime import UTC, datetime
 from uuid import UUID
@@ -9,10 +8,11 @@ from uuid import UUID
 import httpx2 as httpx
 from pydantic import ValidationError
 
-from app.core.config import FrontendConfig
+from app.core.config import Settings
 from app.core.jobs.schemas import RuntimeInstance
 from app.core.runtime import Runtime
 from app.modules.settings.node_registry import (
+    NodeBinding,
     NodeDirectory,
     deployment_directory,
     read_directory,
@@ -72,14 +72,15 @@ async def read_processes(runtime: Runtime) -> tuple[str, str]:
 async def probe_receiver(
     client: httpx.AsyncClient,
     node_id: str,
-    target: FrontendConfig,
+    target: NodeBinding,
     epoch: UUID | None,
+    settings: Settings,
 ) -> ReceiverProbe:
     if not target.enabled:
         return ReceiverProbe(state="disabled")
     if not target.settings_receiver_url:
         return ReceiverProbe(state="not_configured")
-    token = os.environ.get(target.fastapi_to_nextjs_token_env, "")
+    token = target.token(settings, node_id, "outbound")
     if len(token) < 32:
         return ReceiverProbe(state="credential_missing")
     checked = datetime.now(UTC)
@@ -202,7 +203,7 @@ async def read_status(runtime: Runtime, *, include_pairings: bool = False) -> Mo
                 return
             try:
                 node.receiver = await asyncio.wait_for(
-                    probe_receiver(client, node.id, target, epoch),
+                    probe_receiver(client, node.id, target, epoch, runtime.settings),
                     timeout,
                 )
             except TimeoutError:
@@ -223,15 +224,16 @@ async def read_status(runtime: Runtime, *, include_pairings: bool = False) -> Mo
         return status
     pending = (
         sorted(registration_bindings(directory, runtime.settings).keys() - targets.keys())
-        if revision is not None and (revision > 0 or not directory.entries)
+        if revision is not None
         else []
     )
     pairings = {
         node: PairingStatus(
             settings_receiver_url=binding.settings_receiver_url,
             allow_private_http=binding.allow_private_http,
-            inbound_configured=bool(os.environ.get(binding.nextjs_to_fastapi_token_env)),
-            outbound_configured=bool(os.environ.get(binding.fastapi_to_nextjs_token_env)),
+            inbound_configured=bool(binding.token(runtime.settings, node, "inbound")),
+            outbound_configured=bool(binding.token(runtime.settings, node, "outbound")),
+            allowed_peer_ips=binding.allowed_peer_ips,
         )
         for node, binding in registration_bindings(directory, runtime.settings).items()
     }

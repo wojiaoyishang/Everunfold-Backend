@@ -239,7 +239,7 @@ def monitor_router(access: MonitorAccess | None) -> APIRouter:
         try:
             async with asyncio.timeout(5):
                 async for chunk in request.stream():
-                    if len(body) + len(chunk) > 4096:
+                    if len(body) + len(chunk) > 32768:
                         return JSONResponseFail(msg="请求过大", status_code=413, headers=headers)
                     body.extend(chunk)
             command = DeploymentNodeChange.model_validate_json(body)
@@ -247,7 +247,7 @@ def monitor_router(access: MonitorAccess | None) -> APIRouter:
                 result = await manage_node(session, runtime.settings, command)
         except (ValidationError, ClientDisconnect, TimeoutError):
             return JSONResponseFail(
-                msg="节点 ID、内部接收器 URL 或请求无效", status_code=422, headers=headers
+                msg="节点 ID、接收器 URL、IP/CIDR 或令牌格式无效", status_code=422, headers=headers
             )
         except AuthFailure as exc:
             return JSONResponseFail(

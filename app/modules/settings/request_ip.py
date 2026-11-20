@@ -3,7 +3,6 @@
 import asyncio
 import hashlib
 import hmac
-import os
 import time
 
 from fastapi import APIRouter, Request
@@ -92,9 +91,7 @@ async def diagnostics(request: Request, ctx: Authorized, node_id: str = "") -> J
     ticket = None
     if node_id:
         node = (await read_targets(ctx.service.session, ctx.service.config)).get(node_id)
-        token = (
-            os.environ.get(node.fastapi_to_nextjs_token_env, "") if node and node.enabled else ""
-        )
+        token = node.token(ctx.service.config, node_id, "outbound") if node and node.enabled else ""
         if len(token) >= 32:
             expires = int(time.time()) + 60
             signature = hmac.new(

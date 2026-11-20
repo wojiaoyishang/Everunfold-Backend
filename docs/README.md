@@ -1,5 +1,7 @@
 # Everunfold 文档入口
 
+[节点连接在线配置](decisions/0190-live-node-connection-settings.md)说明多前端环境的在线密钥、来源规则和部署配置。
+
 [业务事件日志](decisions/0189-business-observability-hooks.md)说明 FastAPI 与 Worker 的插件钩子、投递结果与统计口径。
 
 [请求日志的客户端 IP](decisions/0186-request-ip-policy.md)说明两端共用的来源规则、可信代理和后台诊断。

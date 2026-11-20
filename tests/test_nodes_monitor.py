@@ -224,3 +224,43 @@ def test_private_pairing_form_needs_no_public_url_and_validates_transport() -> N
     ]:
         with pytest.raises(ValidationError):
             DeploymentNodeChange.model_validate({**body, "connection": connection})
+
+
+def test_live_credential_override_is_node_scoped_and_keeps_other_direction(
+    test_settings: Settings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from app.modules.settings.node_registry import NodeBinding
+    from app.plugins.nodes_monitor.deployment_schemas import DeploymentNodeChange
+    from app.plugins.nodes_monitor.management import edit_binding
+
+    master = token_urlsafe(32)
+    incoming, outgoing, updated = (token_urlsafe(32) for _ in range(3))
+    monkeypatch.setenv(test_settings.auth.application_master_key_env, master)
+    monkeypatch.setenv("NODE_TEST_IN", incoming)
+    monkeypatch.setenv("NODE_TEST_OUT", outgoing)
+    previous = NodeBinding(
+        settings_receiver_url="https://old-receiver.example.test",
+        nextjs_to_fastapi_token_env="NODE_TEST_IN",
+        fastapi_to_nextjs_token_env="NODE_TEST_OUT",
+    )
+    command = DeploymentNodeChange.model_validate(
+        {
+            "action": "edit",
+            "node_id": "web-east",
+            "expected_revision": 2,
+            "registration": {"enabled": True},
+            "connection": {"settings_receiver_url": "https://new-receiver.example.test"},
+            "credentials": {"inbound": updated},
+            "allowed_peer_ips": ["192.0.2.10"],
+        }
+    )
+    binding = edit_binding(test_settings, command, {"web-east": previous})
+    assert binding is not None
+    assert updated not in binding.model_dump_json()
+    assert binding.allowed_peer_ips == ["192.0.2.10"]
+    assert binding.settings_receiver_url == "https://new-receiver.example.test"
+    assert binding.token(test_settings, "web-east", "inbound") == updated
+    assert binding.token(test_settings, "web-east", "outbound") == outgoing
+    assert binding.token(test_settings, "web-west", "inbound") == ""
+    monkeypatch.setenv(test_settings.auth.application_master_key_env, token_urlsafe(32))
+    assert binding.token(test_settings, "web-east", "inbound") == ""

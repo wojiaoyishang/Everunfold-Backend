@@ -10,10 +10,11 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from app.core import access_diagnostics
-from app.core.config import FrontendConfig, InternalAuthConfig, Settings
+from app.core.config import InternalAuthConfig, Settings
 from app.entrypoints.api import create_app
 from app.modules.auth.security import hash_password
 from app.modules.settings import extensions_router, sync_access
+from app.modules.settings.node_registry import NodeBinding
 from app.plugins.nodes_monitor.plugin import mount_nodes_monitor
 
 
@@ -93,7 +94,7 @@ def test_inventory_rejections_distinguish_node_state_ip_and_tokens(
     supplied: str,
 ) -> None:
     access_diagnostics._recent.clear()
-    target = FrontendConfig(
+    target = NodeBinding(
         base_url="https://web.example.test",
         enabled=enabled,
         nextjs_to_fastapi_token_env="DIAGNOSTIC_TEST_TOKEN",

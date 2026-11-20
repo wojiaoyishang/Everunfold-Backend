@@ -2,7 +2,6 @@
 
 import hashlib
 import hmac
-import os
 import time
 
 from fastapi import APIRouter, Request
@@ -39,7 +38,7 @@ async def local_proof(
     target = (await read_targets(service.session, config)).get(payload.node_id)
     if target is None or not target.enabled:
         raise AuthFailure(404, 40420, "此节点尚未在后端启用")
-    token = os.environ.get(target.fastapi_to_nextjs_token_env, "")
+    token = target.token(config, payload.node_id, "outbound")
     if len(token) < 32:
         raise AuthFailure(503, 50326, "此节点的运维授权尚未配置")
     source = (await SettingsService(service.session, config).site()).source_epoch

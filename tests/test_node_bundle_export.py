@@ -12,6 +12,7 @@ import pytest
 
 from app.core.config import FrontendConfig
 from app.modules.settings.models import FrontendNodeRegistry
+from app.modules.settings.node_registry import deployed_binding
 
 
 def test_export_returns_portable_credentials_without_writing_connection_file(
@@ -81,9 +82,7 @@ def test_export_returns_portable_credentials_without_writing_connection_file(
     assert decoded["tokens"]["outbound"]["value"] == environment["TEST_NODE_OUT"]
     assert decoded["backend_public_url"] == "https://api.example.test"
     assert set(decoded) == {"format", "node_id", "tokens", "source_epoch", "backend_public_url"}
-    register.assert_awaited_once()
-    assert register.await_args and register.await_args.args[0] is True
-    assert register.await_args.args[1][1] == existing
+    register.assert_not_awaited()
     database.close.assert_awaited_once()
     assert list(tmp_path.iterdir()) == [path]
     register.reset_mock()
@@ -91,7 +90,9 @@ def test_export_returns_portable_credentials_without_writing_connection_file(
     assert remote_bundle["node_id"] == "web-remote"
     assert remote_bundle["tokens"]["inbound"]["value"] == environment["TEST_REMOTE_IN"]
     assert remote_bundle["tokens"]["outbound"]["value"] == environment["TEST_REMOTE_OUT"]
-    register.assert_awaited_once_with(True, ("web-remote", remote))
+    register.assert_awaited_once_with(
+        True, ("web-remote", deployed_binding(remote)), preserve_binding=False
+    )
     assert document["assistant"]["node"] == "web-main"
     # Invalid credentials are rejected before contacting the database.
     document["environment"]["TEST_NODE_OUT"] = environment["TEST_NODE_IN"]

@@ -37,12 +37,12 @@ _reasons = {
     "monitor_https_required": "未收到可信 HTTPS 请求；检查反向代理 X-Forwarded-Proto",
     "monitor_loopback_required": "HTTP 控制台仅允许本机回环访问；公网请配置 HTTPS 发布 URL",
     "peer_not_allowed": (
-        "前端真实来源 IP 未获允许；核对内部连接 URL、所选 Docker 网络和 internal_auth 来源列表"
+        "前端真实来源 IP 未获允许；核对节点的来源 IP/CIDR、内部连接 URL 和 Docker 网络"
     ),
     "token_missing": "缺少 Bearer 令牌；检查前端到后端令牌及反向代理 Authorization",
     "node_not_registered": ("节点尚未登记；请在 /_nodes 选择已保存的前端配对，登记并启用"),
     "node_disabled": "节点已登记但未启用；请在 /_nodes 启用该节点",
-    "token_unconfigured": "后端进程未加载该节点的前端到后端令牌；保存后重新创建容器",
+    "token_unconfigured": "后端无法读取此节点的入站令牌；检查节点配对或部署配置",
     "token_mismatch": "前端到后端令牌不匹配；核对同一节点、同一方向的令牌并重新导入 Base64",
 }
 

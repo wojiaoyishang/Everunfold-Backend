@@ -30,6 +30,7 @@ async def run(
     binding: tuple[str, FrontendConfig] | None = None,
     *,
     preserve_binding: bool = False,
+    attach_unbound: bool = False,
 ) -> None:
     config = load_settings()
     seed = deployment_directory(config)
@@ -42,7 +43,9 @@ async def run(
             await SettingsService(session, config).site(locked=True)
             current = await registry_record(session, lock=True)
             targets = seed.bindings if binding is None else dict([binding])
-            bindings = {node: target.model_dump() for node, target in targets.items()}
+            bindings = {
+                node: target.model_dump(exclude_none=True) for node, target in targets.items()
+            }
             if current is None and not update_bindings:
                 current = FrontendNodeRegistry(
                     id=1,
@@ -76,9 +79,20 @@ async def run(
                             == previous.fastapi_to_nextjs_token_env
                         ):
                             continue
-                        if previous or node in directory.entries:
+                        if previous or (node in directory.entries and not attach_unbound):
                             raise BindingConflict
-                    if node in directory.entries and directory.entries[node].enabled:
+                    if previous:
+                        # File imports supply deployment defaults. Keep online credentials and
+                        # explicit source rules even when replacing a deployment reference.
+                        bindings[node] = bindings[node] | previous.model_dump(
+                            include={"encrypted_inbound", "encrypted_outbound", "allowed_peer_ips"},
+                            exclude_none=True,
+                        )
+                    if (
+                        node in directory.entries
+                        and directory.entries[node].enabled
+                        and (previous is not None or not attach_unbound)
+                    ):
                         raise SystemExit(f"请先在节点控制台停用 {node} 再更换连接")
                     changed.append(node)
                 if not changed:
