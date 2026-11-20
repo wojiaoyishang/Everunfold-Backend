@@ -21,7 +21,16 @@ from app.modules.settings.node_registry import (
 from app.modules.settings.service import SettingsService
 
 
-async def run(update_bindings: bool, binding: tuple[str, FrontendConfig] | None = None) -> None:
+class BindingConflict(ValueError):
+    """The requested pairing would replace a node's saved credentials."""
+
+
+async def run(
+    update_bindings: bool,
+    binding: tuple[str, FrontendConfig] | None = None,
+    *,
+    preserve_binding: bool = False,
+) -> None:
     config = load_settings()
     seed = deployment_directory(config)
     if len(seed.entries) > MAX_NODES:
@@ -59,6 +68,16 @@ async def run(update_bindings: bool, binding: tuple[str, FrontendConfig] | None 
                         include=fields
                     ):
                         continue
+                    if preserve_binding:
+                        if previous and (
+                            target.nextjs_to_fastapi_token_env
+                            == previous.nextjs_to_fastapi_token_env
+                            and target.fastapi_to_nextjs_token_env
+                            == previous.fastapi_to_nextjs_token_env
+                        ):
+                            continue
+                        if previous or node in directory.entries:
+                            raise BindingConflict
                     if node in directory.entries and directory.entries[node].enabled:
                         raise SystemExit(f"请先在节点控制台停用 {node} 再更换连接")
                     changed.append(node)

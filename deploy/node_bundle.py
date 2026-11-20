@@ -19,10 +19,11 @@ from app.core.config import configuration_path, load_settings, setup_frontend_bi
 from app.core.database import Database  # noqa: E402
 from app.core.deployment_config import read_deployment  # noqa: E402
 from app.modules.settings.node_registry import registry_directory, registry_record  # noqa: E402
+from tools.import_frontend_nodes import BindingConflict  # noqa: E402
 from tools.import_frontend_nodes import run as import_nodes  # noqa: E402
 
 
-async def export(node_id: str | None = None) -> str:
+async def export(node_id: str | None = None, *, preserve_binding: bool = False) -> str:
     config_path = configuration_path()
     environment = dict(os.environ)
     if config_path.suffix.lower() in {".yaml", ".yml"}:
@@ -53,6 +54,16 @@ async def export(node_id: str | None = None) -> str:
     inbound, outbound = environment[inbound_name], environment[outbound_name]
     if config is None:
         config = load_settings()
+    if (
+        preserve_binding
+        and (declared_binding := config.frontends.get(node))
+        and (inbound_name, outbound_name)
+        != (
+            declared_binding.nextjs_to_fastapi_token_env,
+            declared_binding.fastapi_to_nextjs_token_env,
+        )
+    ):
+        raise BindingConflict
     database = Database(config.database.url.get_secret_value())
     try:
         async with database.session() as session:
@@ -71,7 +82,10 @@ async def export(node_id: str | None = None) -> str:
                 target = existing
         if needs_seed:
             await import_nodes(False)
-        await import_nodes(True, (node, target))
+        if preserve_binding:
+            await import_nodes(True, (node, target), preserve_binding=True)
+        else:
+            await import_nodes(True, (node, target))
     finally:
         await database.close()
     document = {
@@ -90,10 +104,13 @@ async def export(node_id: str | None = None) -> str:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--node", help="Export a node declared in application.frontends.")
+    parser.add_argument("--preserve-binding", action="store_true")
     args = parser.parse_args()
     try:
-        result = asyncio.run(export(args.node))
+        result = asyncio.run(export(args.node, preserve_binding=args.preserve_binding))
         print(MARKER + result)
         print("请在 /_nodes 登记并启用已保存的前端配对。前端发布 URL 由前端自行上报。")
+    except BindingConflict:
+        raise SystemExit("EVERUNFOLD_NODE_BINDING_CONFLICT") from None
     except Exception:
         raise SystemExit("无法导出节点连接 Base64，请检查配置、数据库迁移和节点状态。") from None
