@@ -159,6 +159,9 @@ class Context:
         sources = resolve_sources(self.compose, self.role) if not self.native else {}
         # Process ports have one source: root environment. Compose names are derived.
         mapping = self.compose | sources
+        resolved_host = os.environ.get("EVERUNFOLD_SETUP_PUBLISH_HOST")
+        if not self.native and resolved_host:
+            mapping[self.role.upper() + "_BIND_ADDRESS"] = resolved_host
         mapping["EVERUNFOLD_CONFIG_DIR"] = str(self.root_path.parent)
         mapping["EVERUNFOLD_CONFIG_NAME"] = self.root_path.name
         port_names = (
@@ -237,6 +240,12 @@ class Context:
                 document["docker"].pop(name, None)
             for name in ("receiver_host", "receiver_port"):
                 document["application"].get("settings", {}).pop(name, None)
+        if document["docker"].get("EVERUNFOLD_NETWORK_INPUT_VERSION"):
+            for old in (
+                "EVERUNFOLD_ALLOW_NETWORK_PEERS", "EVERUNFOLD_INTERNAL_PEER_NETWORKS",
+                "EVERUNFOLD_TLS_PROXY_NETWORK",
+            ):
+                document["docker"].pop(old, None)
         for derived in ("BACKEND_API_PORT", "FRONTEND_WEB_PORT"):
             variable = {
                 "BACKEND_API_PORT": "API_PORT",

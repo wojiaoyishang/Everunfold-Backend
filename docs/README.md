@@ -105,6 +105,8 @@
 
 [前端节点监控](development/nodes-monitor.md)说明节点清单、独立密码及状态含义。实现见 [ADR0129](decisions/0129-frontend-nodes-monitor.md) 和 [ADR0130](decisions/0130-independent-node-consoles.md)。
 
+[ADR0191](decisions/0191-docker-network-and-contract-inputs.md)记录部署地址的 Docker 网络名解析、前端节点控制台来源校验以及锁定契约的构建方式。
+
 [顶栏标识](decisions/0128-header-branding.md)说明展示模式、默认值和兼容行为。
 
 [侧栏导航与搜索](decisions/0127-sidebar-navigation-and-search.md)说明侧栏文案、菜单继承、搜索和预览。

@@ -67,7 +67,7 @@ def add_node_console_fields(ctx: Context, add, value):
         group="节点控制台",
         valid=lambda v: not v or all(ip_address(address.strip()) for address in v.split(",")),
         empty="未手动指定",
-        hint="可填逗号分隔的直连 IP。Docker 宿主机反代也可在容器设置中按网络选择。",
+        hint="可填逗号分隔的直连 IP。Docker 网桥名称会解析为该网桥的网关。",
     )
 
     def save(environment: dict[str, str]) -> None:

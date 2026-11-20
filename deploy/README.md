@@ -75,7 +75,7 @@ docker compose version
 
 后端发布 URL 单独填写，例如 `https://api.example.com`。以上设置对应宿主 `3434 → 容器 8001`；若只允许宿主反向代理访问，宿主映射绑定 IP 填 `127.0.0.1`。也可填宿主具体的 IPv4 或 IPv6 地址。保存后用 `./setup.sh --docker start` 重新创建容器。
 
-助手自动执行“创建容器 → 接入额外网络 → 启动”，不要使用 `--network bridge --network 1panel-network`。配置工具和启动前检查也会接入这些网络。修改网络后，如需在界面检测连接，先“仅保存”并重新打开助手；“构建并启动”会直接用新网络进行启动前检查。所选 Docker 网络 CIDR 可自动允许，额外代理或跨主机来源在手动列表填写。
+助手自动执行“创建容器 → 接入额外网络 → 启动”，不要使用 `--network bridge --network 1panel-network`。配置工具和启动前检查也会接入这些网络。修改网络后，如需在界面检测连接，先“仅保存”并重新打开助手；“构建并启动”会直接用新网络进行启动前检查。来源列表可填写实际 IP、CIDR 或已连接的 Docker 网络名。
 
 | 配置                       | 怎么填                                                                  |
 | -------------------------- | ----------------------------------------------------------------------- |
@@ -92,7 +92,7 @@ docker compose version
 
 点击“检测连接”，分别查看 PostgreSQL、运行 Redis、Broker 和迁移结果。“连接通过、数据库尚未初始化”是新库的正常状态。检测有超时，失败会显示认证、解析、TLS、连接拒绝等原因；修改配置后旧结果失效。
 
-内部来源默认允许回环；启动时按开关追加所选 Docker 网络的子网，仍须匹配节点令牌；手动列表保留。跨主机部署需填写真实来源或受控代理地址。URL、进程绑定和宿主端口是独立配置。
+内部来源默认允许回环。指定网络名时启动会展开子网，仍须匹配节点令牌。跨主机部署需填写真实来源或受控代理地址。URL、进程绑定和宿主端口是独立配置。
 
 
 ### 容器互通：推荐共享网络和别名
@@ -104,21 +104,23 @@ docker compose version
 | 网络别名 | `everunfold-backend` | `everunfold-frontend` |
 | 容器进程绑定 | `0.0.0.0:8001` | `0.0.0.0:3000` |
 | 内部调用地址 | 配对接收器填 `http://everunfold-frontend:3000` | 后端内部连接填 `http://everunfold-backend:8001` |
-| 允许内部调用的 Docker 网络 | `1panel-network` | `1panel-network` |
+| 内部通信允许来源 IP/CIDR | `1panel-network` | `1panel-network` |
 
 容器别名使用**容器内部端口**：宿主映射 `3434 → 8001` 时，这里仍填 `8001`。别名只登记到应用容器的自定义网络，不登记到临时配置或检查容器；默认 `bridge` 没有别名解析。多个前端节点请使用不同别名。
 
 后端配对中的“允许私有网络 HTTP 接收”在 Docker 助手默认开启（已有设置保留），仅允许单段容器别名、RFC1918/ULA 私有 IP 和 `host.docker.internal`；原生默认关闭。通过公网传输继续使用 HTTPS。公开发布 URL、绑定地址和内部连接地址分别配置，浏览器仍使用 HTTPS 发布地址。
 
-在两端“容器设置 → 允许内部调用的 Docker 网络”填写 `1panel-network`，也可用逗号列出多个已连接的网络。后端以这些子网核对前端请求的真实来源，前端接收器以这些子网核对后端同步请求的真实来源。指定网络优先于旧的自动允许开关，手填 IP/CIDR 额外生效，内部接口继续验证节点令牌。留空沿用旧开关：`1` 追加全部已连接网络的范围，`0` 只用手填来源。
+在两端各自的内部通信来源字段中填写 `1panel-network`。来源列表支持混填 IP、CIDR 和多个网络名，以逗号分隔。后端以这些子网核对前端请求的真实来源，前端接收器以这些子网核对后端同步请求的真实来源。内部接口继续验证节点令牌。
 
-如果宿主机 Nginx 经该网桥访问容器，设置“容器设置 → 宿主机反代所在的 Docker 网络”为 `1panel-network`。向导启动时将该网桥的网关 IP 加入节点控制台的可信代理列表，宿主反代须保留公开 Host 并发送 `X-Forwarded-Proto: https`。按启动日志的网关与拒绝日志的 `peer_ip`（前端日志为 `peer`）核对来源。若代理在另一个容器或其他主机，按实际来源填写“HTTPS 反向代理的直接来源 IP”。
+如果宿主机 Nginx 经该网桥访问容器，在各端的“HTTPS 反向代理的直接来源 IP”中填写 `1panel-network`。向导启动时将该网桥的网关 IP 加入节点控制台的可信代理列表，宿主反代须保留公开 Host 并发送 `X-Forwarded-Proto: https`。按启动日志的网关与拒绝日志的 `peer_ip`（前端日志为 `peer`）核对来源。若代理在另一个容器或其他主机，按实际来源填写“HTTPS 反向代理的直接来源 IP”。
 
 网络名称保存在根配置的 `docker` 小节。重建网络后运行 `./setup.sh --docker start`，助手会读取新的 IP 和子网。
 
 另一种方式是在两端开启 **“映射 host.docker.internal”**（默认 `0`）。脚本添加 `--add-host host.docker.internal:host-gateway`，配置工具、启动前检查和运行容器使用相同映射。这是主机名映射，无需新增文件挂载。前端内部地址此时填 `http://host.docker.internal:3434`，使用**宿主映射端口**。后端接收 URL 同理填写前端的宿主映射端口。宿主端口若只绑定 `127.0.0.1`，容器不能通过网关访问，应使用可达的宿主绑定地址，或改用推荐的共享网络别名。
 
-沿用全部网络自动允许且开启宿主网关时，还会允许默认 bridge 的网关 IP，以兼容宿主端口转发来源。使用按名称指定的网络时，额外宿主调用来源可手填。原生模式不自动加入 Docker 网络来源。网络及网关配置修改后，在助手中检测前先保存并重新打开；构建/启动操作会直接使用新设置。
+Docker 模式的宿主映射绑定 IP 可填写网桥网络名，解析为宿主网桥网关。进程监听地址也可填写已连接的网络名，进程使用自己在该网络上的 IP。使用指定网卡监听时，调用方应通过该网络访问容器。需要同时通过多块网卡和宿主端口访问时，可用 `0.0.0.0` 监听并配置来源白名单。原生模式使用 IP/CIDR。
+
+升级后的 setup 自动迁移旧网络配置。网络名保留在根 `config.yaml` 的 `docker` 段。每次执行 `./setup.sh --docker start` 时重新读取当前网络；网络重建后请用此入口重新创建容器并刷新配置。
 
 依据：[Docker 自定义网络 DNS](https://docs.docker.com/engine/network/)、[网络别名](https://docs.docker.com/reference/cli/docker/network/connect/)、[host-gateway](https://docs.docker.com/reference/cli/dockerd/#configure-host-gateway-ip)。
 
@@ -160,7 +162,7 @@ docker logs --tail=100 everunfold-backend
 
 ### 4. 配置 HTTPS 入口并导出前端连接
 
-准备 API 的 HTTPS 反向代理，将 `https://api.example.com` 转发到宿主 `127.0.0.1:8001`。代理保留公开 Host 并覆盖 `X-Forwarded-Proto: https`。在助手中选择宿主机反代所在的 Docker 网络，或填写后端实际看到的代理 IP。
+准备 API 的 HTTPS 反向代理，将 `https://api.example.com` 转发到宿主 `127.0.0.1:8001`。代理保留公开 Host 并覆盖 `X-Forwarded-Proto: https`。在“HTTPS 反向代理的直接来源 IP”中填写网桥网络名或后端实际看到的代理 IP。
 
 节点控制台在**后端发布 URL** 的 `/_nodes`，例如 `https://api.example.com/_nodes`，与容器绑定地址无关。发布 URL 优先于旧配置残留的 `nodes_monitor.origin`，不会再被旧 `127.0.0.1:8001` 覆盖。助手保存时清除这个重复地址。
 
@@ -316,7 +318,7 @@ API worker 数量、Celery 池及并发数从 YAML 的 `environment` 读取，�
 
 - `monitor_disabled`：该实例未启用控制台，路由返回 404。
 - `monitor_host_mismatch`：请求 Host 与发布 URL 不符；`monitor_https_required`：缺少正确的 HTTPS 协议。
-- `monitor_proxy_untrusted`：实际直连 TLS 代理 IP 未获信任。核对“宿主机反代所在的 Docker 网络”推导的网关，或填写日志中的实际代理 IP。
+- `monitor_proxy_untrusted`：实际直连 TLS 代理 IP 未获信任。核对 HTTPS 代理来源字段中的网络名解析出的网关，或填写日志中的实际代理 IP。
 - `peer_not_allowed`、`token_missing`、`token_mismatch`：内部上报的真实来源或令牌未通过。日志含来源 IP、节点 ID及有效允许列表，不含密码、令牌、正文或查询参数。
 - `node_not_registered` / `node_disabled`：节点未加入运行清单或未启用。在后端 `/_nodes` 选择相应的配对，登记并启用；令牌也须匹配，不需要补填前端公开地址。
 

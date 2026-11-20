@@ -1728,3 +1728,9 @@ accounts1.2增加当前用户可授予的外部应用权限目录，避免用户
 4. 正式写入在身份/权限/审核设计明确后落实业务、审计、Outbox 同事务，再逐项实现可靠任务、缓存与协同并验收相应 P0。
 
 前端项目 E:\Programming\Node\Everunfold-Frontend。app/core 为基础设施，app/modules/content 为业务，contracts 为权威契约，migrations 显式迁移，tools 显式操作，docs 为跨上下文交接。公共说明/ADR 与原始基线哈希已核对两仓库同步；仓库 STATUS 各自维护。实际配置、SQL、备份、用户数据、.venv 不提交。仅本地提交，没有推送或部署。
+
+## 2026-11-20 部署地址配置
+
+后端网络来源白名单由对应输入字段设置，独立容器监听可以绑定自身在指定网络的地址。 每次 setup 启动重新解析，首次启动会迁移旧网络设置。
+
+后端部署测试 53 项通过，Ruff 检查通过。 Docker 启动参数和网络重解析通过模拟 Docker CLI 验证，当前环境没有 Docker daemon，未执行真实容器部署。

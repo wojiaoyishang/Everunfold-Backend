@@ -28,12 +28,13 @@ from config_validation import (
     token,
     valid_port,
 )
-from container_fields import add_container_fields, setup_network_subnets
+from container_fields import add_container_fields
 from monitoring_setup import (
     add_monitoring_fields,
     monitor_environment,
     monitor_errors,
 )
+from network_inputs import ADDRESS_FIELDS, MIGRATED, edit_fields, entries, migrate_standalone
 from node_console_fields import add_node_console_fields
 from worker_capacity import add_capacity_fields, capacity_environment, capacity_errors
 
@@ -231,10 +232,10 @@ def configure(native: bool = False) -> Configuration:
         valid=peer_list,
         group="前端配对",
         empty="关闭内部调用",
-        hint="逗号分隔，默认本机回环。容器设置可自动追加所选网络 CIDR；仍须正确令牌。",
+        hint="逗号分隔，默认本机回环。Docker 模式可填网络名；仍须正确令牌。",
     )
 
-    save_console = add_node_console_fields(ctx, add, value)
+    save_console = add_node_console_fields(ctx, add, lambda key: literal(key))
 
     add(
         "host",
@@ -252,7 +253,7 @@ def configure(native: bool = False) -> Configuration:
     )
     add("workers", "API worker 数量", env.get("API_WORKERS", "1"), valid=positive, group="进程")
     add_capacity_fields(add, value, env)
-    add_monitoring_fields(add, value, env, lookup=None if native else setup_network_subnets)
+    add_monitoring_fields(add, value, env)
     add(
         "log_format",
         "结构化日志",
@@ -342,6 +343,14 @@ def configure(native: bool = False) -> Configuration:
         source = (DOCKER / compose.get("BACKEND_SOURCE_DIR", "..")).resolve()
         return await backend_checks(value("database"), value("redis"), broker(), source)
 
+    if not native and not ctx.document and compose:
+        attached = [value("network"), *entries(value("extra_networks"))]
+        migrated = migrate_standalone(compose, attached)
+        if migrated:
+            compose.update(migrated)
+    address_fields = {key: kind for key, kind in ADDRESS_FIELDS.items() if key in by_key}
+    literal, address_mapping = edit_fields(by_key, compose, address_fields, lambda: not native)
+
     def save() -> None:
         config["BACKEND_BASE_URL"] = value("api")
         config.setdefault("project", {})["key"] = value("project")
@@ -349,7 +358,7 @@ def configure(native: bool = False) -> Configuration:
         config.setdefault("redis", {})["namespace_scope"] = value("namespace")
         config.setdefault("cors", {}).setdefault("use_frontend_registry", True)
         config.setdefault("internal_auth", {})["allowed_peer_ips"] = [
-            item.strip() for item in value("peers").split(",") if item.strip()
+            item.strip() for item in literal("peers").split(",") if item.strip()
         ]
         config.setdefault("media", {}).setdefault("uploads_path", ctx.runtime_path("uploads"))
         for section, item, text in (
@@ -361,7 +370,7 @@ def configure(native: bool = False) -> Configuration:
                 config[section][item] = text
         node_names = node_token_names(value("node"))
         environment = {
-            "API_HOST": value("host"),
+            "API_HOST": literal("host") or "0.0.0.0",
             "API_PORT": value("port"),
             "DATABASE_URL": value("database"),
             "EVERUNFOLD_AUTO_INIT_EMPTY_DB": value("auto_init_empty_db"),
@@ -370,7 +379,7 @@ def configure(native: bool = False) -> Configuration:
             "API_WORKERS": value("workers"),
             "EVERUNFOLD_LOG_FORMAT": value("log_format"),
             **capacity_environment(value),
-            **monitor_environment(value),
+            **monitor_environment(literal),
             master: value(master),
             totp: value(totp),
             node_names[0]: value("inbound"),
@@ -382,7 +391,7 @@ def configure(native: bool = False) -> Configuration:
         if value("EVERUNFOLD_ADMIN_PASSWORD"):
             environment["EVERUNFOLD_ADMIN_PASSWORD"] = value("EVERUNFOLD_ADMIN_PASSWORD")
         save_console(environment)
-        host = value("publish_host")
+        host = literal("publish_host") or "127.0.0.1"
         mapping = (
             {}
             if native
@@ -396,7 +405,12 @@ def configure(native: bool = False) -> Configuration:
         if not native:
             mapping.setdefault("EVERUNFOLD_UID", compose.get("EVERUNFOLD_UID", str(os.getuid())))
             mapping.setdefault("EVERUNFOLD_GID", compose.get("EVERUNFOLD_GID", str(os.getgid())))
-        mapping.update(container_mapping() | mirror_mapping())
+        mapping.update(
+            container_mapping()
+            | mirror_mapping()
+            | address_mapping()
+            | ({MIGRATED: "1"} if not native else {})
+        )
         ctx.write(
             {
                 ctx.config_path: toml_text(config),
