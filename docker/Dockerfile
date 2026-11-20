@@ -1,6 +1,8 @@
-# syntax=docker/dockerfile:1
-FROM ghcr.io/astral-sh/uv:0.9.0 AS uv
-FROM python:3.12-slim-bookworm AS everunfold-backend-runtime
+ARG EVERUNFOLD_PYTHON_IMAGE=python:3.12-slim-bookworm
+ARG EVERUNFOLD_UV_IMAGE=ghcr.io/astral-sh/uv:0.9.0
+
+FROM ${EVERUNFOLD_UV_IMAGE} AS uv
+FROM ${EVERUNFOLD_PYTHON_IMAGE} AS everunfold-backend-runtime
 
 ARG BUILD_REVISION=unknown
 ARG BUILD_CREATED=unknown
@@ -23,8 +25,10 @@ ENV UV_PROJECT_ENVIRONMENT=/opt/everunfold/venv \
 
 WORKDIR /opt/everunfold
 COPY pyproject.toml uv.lock ./
+ARG EVERUNFOLD_PYPI_INDEX
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --locked --no-dev
+    --mount=type=bind,source=docker/uv-sync.sh,target=/tmp/uv-sync.sh \
+    sh /tmp/uv-sync.sh
 COPY --chmod=755 docker/entrypoint.sh /usr/local/bin/everunfold-backend
 
 WORKDIR /workspace

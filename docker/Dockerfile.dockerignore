@@ -3,3 +3,4 @@
 !uv.lock
 !docker/
 !docker/entrypoint.sh
+!docker/uv-sync.sh

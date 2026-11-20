@@ -222,6 +222,26 @@ Docker 模式在本项目运行中的后端容器执行。原生模式由部署�
 
 保留已有根 `config.yaml` 和媒体目录，更新代码后运行 `./setup.sh --docker`，确认挂载、端口和网络，再选“构建并启动”。本次后端镜像新增 YAML 读取依赖，**需要重建镜像**；仅重启旧镜像无法应用新入口。如果之前只有旧 TOML / env，请先让助手导入原配置，不要重新生成已有站点的主密钥。旧 `/data/config.toml` 不再是运行依赖，也不会被自动删除。
 
+## 容器软件源
+
+在 Docker 向导的「容器软件源 → 镜像源方案」选择官方源（默认）、清华 TUNA、中科大 USTC 或自定义。
+
+后端运行镜像和配置助手使用所选 PyPI 索引安装 Python 依赖。
+
+清华和中科大方案使用各自的 PyPI 镜像。自定义方案可按项填入 HTTP/HTTPS 源地址。PyPI 地址须指向 Simple API，留空使用该工具的官方源。安装继续按仓库锁文件校验版本与哈希。
+
+可单独填写 Python 和 uv 基础镜像引用，例如 `registry.example.com/mirror/python:3.12-slim-bookworm`。使用私有仓库时先用 Docker 登录，并选择与默认镜像同版本、同发行版的副本。
+
+保存后运行 `./setup.sh --docker build`，再运行 `./setup.sh --docker start` 应用新产物。
+
+第一次打开向导时可用环境变量给配置助手选择下载源，也可提前准备 Python 和 uv 的仓库副本。
+
+```bash
+EVERUNFOLD_MIRROR_PROFILE=tuna ./setup.sh --docker
+```
+
+预设值为 `official`、`tuna`、`ustc`、`custom`。自定义启动索引可用 `EVERUNFOLD_PYPI_INDEX` 指定，基础镜像分别用 `EVERUNFOLD_PYTHON_IMAGE` 和 `EVERUNFOLD_UV_IMAGE` 指定。首次保存并渲染配置后，后续启动自动读取为当前 `CONFIG_FILE` 派生的镜像设置。
+
 ## 二、不使用 Docker
 
 ### 1. 准备依赖和数据库

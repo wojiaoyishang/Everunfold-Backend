@@ -13,6 +13,7 @@ from urllib.parse import urlsplit
 from config_actions import export_node
 from config_context import Context
 from config_files import toml_text, update_env
+from config_mirrors import PROFILE, add_mirror_fields, source_keys
 from config_model import Configuration, Field
 from config_probes import backend_checks
 from config_validation import (
@@ -100,6 +101,12 @@ def configure(native: bool = False) -> Configuration:
         )
 
     container_mapping, container_errors, pending_network = add_container_fields(ctx, add, value)
+    # Environment values can preselect sources when opening the Docker wizard on a new host.
+    mirrors = {
+        **{key: os.environ[key] for key in (PROFILE, *source_keys("backend")) if key in os.environ},
+        **compose,
+    }
+    mirror_mapping = add_mirror_fields(add, value, mirrors, "backend", lambda: not native)
 
     add(
         "mode",
@@ -389,7 +396,7 @@ def configure(native: bool = False) -> Configuration:
         if not native:
             mapping.setdefault("EVERUNFOLD_UID", compose.get("EVERUNFOLD_UID", str(os.getuid())))
             mapping.setdefault("EVERUNFOLD_GID", compose.get("EVERUNFOLD_GID", str(os.getgid())))
-        mapping.update(container_mapping())
+        mapping.update(container_mapping() | mirror_mapping())
         ctx.write(
             {
                 ctx.config_path: toml_text(config),
